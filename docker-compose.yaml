@@ -1,0 +1,66 @@
+services:
+    nodered:
+        build:
+            context: ./nodered
+            dockerfile: Dockerfile
+        container_name: nodered-zemfyre
+        restart: always
+        ports:
+            - "1882:1880"
+        volumes:
+            - ./nodered/data:/data
+            - ./nodered/nodes:/data/nodes
+            - /data/node_modules
+
+    influx:
+        container_name: influxdb
+        image: influxdb:alpine
+        restart: unless-stopped
+        environment:
+            - INFLUXDB_INIT_ORG=Zemfyre
+            - INFLUXDB_INIT_BUCKET=ZUS80LP
+            - INFLUXDB_LOG_LEVEL=debug
+        healthcheck:
+            test: "curl -f http://influx:8086/ping"
+            interval: 5s
+            timeout: 10s
+            retries: 5
+        ports:
+            - "8086:8086"
+        volumes:
+            - ./influx/data:/var/lib/influxdb2
+            - ./influx/config:/etc/influxdb2
+
+    mosquitto:
+       container_name: mosquitto
+       image: eclipse-mosquitto
+       restart: always
+       ports:
+         - 1883:1883
+         - 9001:9001
+
+       volumes:
+         - ./mosquitto/config:/mosquitto/config/
+
+    grafana:
+        depends_on:
+            - influx
+        container_name: grafana
+        restart: always
+        build:
+          context: ./grafana
+          dockerfile: Dockerfile
+        environment:
+            - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME:-admin}
+            - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+            - GF_INSTALL_PLUGINS=natel-plotly-panel
+
+        volumes:
+            - ./grafana/data/grafana.db:/var/lib/grafana/grafana.db
+            - ./grafana/config/grafana.ini:/etc/grafana/grafana.ini
+            - ./grafana/provisioning:/etc/grafana/provisioning
+
+        ports:
+            - 3000:3000
+
+

@@ -1,0 +1,30 @@
+{
+    "name": "node-red-project",
+    "description": "A Node-RED Project",
+    "version": "0.0.1",
+    "private": true,
+    "dependencies": {
+        "@flowfuse/node-red-dashboard": "~1.16.0",
+        "@mschaeffler/node-red-lora": "~3.2.3",
+        "@node-red-contrib-themes/theme-collection": "^4.0.11",
+        "@prescient-devices-oss/node-red-contrib-downloadfile": "~1.1.1",
+        "node-red-contrib-file-manager": "~2.0.8",
+        "node-red-contrib-filesystem": "~1.0.0",
+        "node-red-contrib-influxdb": "~0.7.0",
+        "node-red-contrib-iotflows": "~1.4.3",
+        "node-red-contrib-machine-learning-v2": "~1.0.9",
+        "node-red-contrib-modbus": "~5.43.0",
+        "node-red-contrib-opcua": "~0.2.331",
+        "node-red-contrib-os": "~0.2.1",
+        "node-red-dashboard": "3.6.5",
+        "node-red-node-base64": "~0.3.0",
+        "node-red-node-data-generator": "~1.0.2",
+        "node-red-node-serialport": "~2.0.3",
+        "node-red-node-ui-table": "~0.4.4"
+    },
+    "node-red": {
+        "nodes": {
+            "deploy-listener": "./nodes/deploy-listener.js"
+        }
+    }
+}

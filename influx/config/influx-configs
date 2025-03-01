@@ -1,0 +1,20 @@
+[default]
+  url = "http://localhost:8086"
+  token = "YOUR9voUVQgpG5gjtVk-SND-ONZrBzfqabKhO_BHTWTDxYf6WsE706m-LO5VknDbeXXsWCT22xZEe8iC1zQ3YodTSA=="
+  org = "Zemfyre"
+  active = true
+# 
+# [eu-central]
+#   url = "https://eu-central-1-1.aws.cloud2.influxdata.com"
+#   token = "XXX"
+#   org = ""
+# 
+# [us-central]
+#   url = "https://us-central1-1.gcp.cloud2.influxdata.com"
+#   token = "XXX"
+#   org = ""
+# 
+# [us-west]
+#   url = "https://us-west-2-1.aws.cloud2.influxdata.com"
+#   token = "XXX"
+#   org = ""
