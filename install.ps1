@@ -1,6 +1,6 @@
 # Define GitHub repository URL and local folder
-$repoUrl = "https://github.com/your-username/your-repo.git"
-$localFolder = "C:\path\to\your\local\folder"
+$repoUrl = "https://github.com/dsamborschi/zemfyre-sensor.git"
+$localFolder = "C:\"
 
 # Check if the folder exists, create if it doesn't
 if (-not (Test-Path -Path $localFolder)) {
@@ -14,7 +14,7 @@ Set-Location -Path $localFolder
 git clone $repoUrl
 
 # Navigate to the cloned repository folder
-$repoName = "your-repo"  # Replace with your repository name
+$repoName = "zemfyre-sensor"  # Replace with your repository name
 Set-Location -Path "$localFolder\$repoName"
 
 # Check if Docker Compose is installed
