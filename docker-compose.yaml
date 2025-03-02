@@ -11,6 +11,8 @@ services:
             - ./nodered/data:/data
             - ./nodered/nodes:/data/nodes
             - /data/node_modules
+        networks:
+            - iotistic
 
     influx:
         container_name: influxdb
@@ -30,17 +32,8 @@ services:
         volumes:
             - ./influx/data:/var/lib/influxdb2
             - ./influx/config:/etc/influxdb2
-
-    mosquitto:
-       container_name: mosquitto
-       image: eclipse-mosquitto
-       restart: always
-       ports:
-         - 1883:1883
-         - 9001:9001
-
-       volumes:
-         - ./mosquitto/config:/mosquitto/config/
+        networks:
+            - iotistic
 
     grafana:
         depends_on:
@@ -62,5 +55,11 @@ services:
 
         ports:
             - 3000:3000
+        networks:
+            - iotistic
+networks:
+  iotistic: 
+   external: true  
+
 
 

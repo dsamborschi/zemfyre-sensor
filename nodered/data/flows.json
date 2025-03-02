@@ -5687,6 +5687,7 @@
         "id": "8174a648d0ec199c",
         "type": "mqtt out",
         "z": "a1592475ef5a5656",
+        "d": true,
         "name": "publish  to MQTT",
         "topic": "device/metrics",
         "qos": "0",
@@ -6311,8 +6312,7 @@
         "y": 360,
         "wires": [
             [
-                "a8b2def19846c3a8",
-                "a8021d64068d65e3"
+                "a8b2def19846c3a8"
             ]
         ]
     },
@@ -6400,7 +6400,7 @@
         "id": "536c8823231354e6",
         "type": "debug",
         "z": "29e4b09308b4f781",
-        "name": "show magnitute",
+        "name": "show combined",
         "active": true,
         "tosidebar": true,
         "console": false,
@@ -6409,8 +6409,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1060,
-        "y": 160,
+        "x": 1100,
+        "y": 240,
         "wires": []
     },
     {
@@ -6418,7 +6418,7 @@
         "type": "function",
         "z": "29e4b09308b4f781",
         "name": "combine",
-        "func": "let deviceName = msg.payload.metrics.device;\nlet metrics = msg.payload.metrics;\nlet iaq= msg.payload.iaq;\nlet xyz = msg.payload.xyz;\n\nfunction roundToFour(num) {\n    return parseFloat(num.toFixed(4));\n}\n\nfunction roundToTwo(num) {\n    return parseFloat(num.toFixed(2));\n}\n\nfunction round(num) {\n    return parseFloat(num.toFixed(2));\n}\n\n// Construct InfluxDB JSON format\nmsg.payload = [\n    {\n        temperature: metrics.temperature,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light,\n        humidity_score: parseFloat(iaq.humidity_score),\n        gas_score: parseFloat(iaq.gas_score),\n        air_quality_score: parseFloat(iaq.air_quality_score),\n        IAQScore: iaq.IAQScore,\n        magnitude: xyz.magnitude,\n        tilt: Math.round(xyz.tilt),\n        pitch: Math.round(xyz.pitch),\n        roll: Math.round(xyz.roll)\n    },\n    {\n        device: deviceName\n     \n    }\n];\nreturn msg;",
+        "func": "let deviceName = msg.payload.metrics.device;\nlet metrics = msg.payload.metrics;\nlet iaq= msg.payload.iaq;\nlet xyz = msg.payload.xyz;\n\nfunction roundToFour(num) {\n    return parseFloat(num.toFixed(4));\n}\n\nfunction roundToTwo(num) {\n    return parseFloat(num.toFixed(2));\n}\n\nfunction round(num) {\n    return parseFloat(num.toFixed(2));\n}\n\n// Construct InfluxDB JSON format\nmsg.payload = [\n    {\n        temperature: metrics.temperature,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light,\n        humidity_score: parseFloat(iaq.humidity_score),\n        gas_score: parseFloat(iaq.gas_score),\n        air_quality_score: parseFloat(iaq.air_quality_score),\n        IAQScore: iaq.IAQScore,\n        magnitude: xyz.magnitude,\n        tilt: Math.round(xyz.tilt),\n        pitch: Math.round(xyz.pitch),\n        roll: Math.round(xyz.roll)\n    },\n    {\n        device: metrics.device\n     \n    }\n];\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -6429,8 +6429,8 @@
         "y": 340,
         "wires": [
             [
-                "536c8823231354e6",
-                "7dbb1bbe86fcf8b5"
+                "7dbb1bbe86fcf8b5",
+                "536c8823231354e6"
             ]
         ]
     },
@@ -6439,7 +6439,7 @@
         "type": "function",
         "z": "29e4b09308b4f781",
         "name": "metrics",
-        "func": "\n// Extract the sensor data\nlet payload = msg.payload;\n\n\n// Check if the expected format exists\nif (!payload.device || !payload.device.metrics) {\n    node.error(\"Invalid data format\", msg);\n    return null;\n}\n\n// Extract details\nlet deviceName = payload.device.name;\nlet macAddress = payload.device.mac;\nlet metrics = payload.device.metrics;\n\nmsg.payload.device = deviceName;\n\n// Construct InfluxDB JSON format\nmsg.payload.metrics = \n    {\n        device: deviceName,\n        temperature: metrics.temp,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light\n    };\n\nreturn msg;\n",
+        "func": "\n// Extract the sensor data\nlet payload = msg.payload;\n\n\n// Check if the expected format exists\nif (!payload.device || !payload.device.metrics) {\n    node.error(\"Invalid data format\", msg);\n    return null;\n}\n\n// Extract details\nlet deviceName = payload.device.name;\nlet macAddress = payload.device.mac;\nlet metrics = payload.device.metrics;\n\n\n// Construct InfluxDB JSON format\nmsg.payload.metrics = \n    {\n        device: deviceName,\n        temperature: metrics.temp,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light\n    };\n\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -6467,9 +6467,9 @@
         "joiner": "\\n",
         "joinerType": "str",
         "useparts": false,
-        "accumulate": true,
+        "accumulate": false,
         "timeout": "",
-        "count": "3",
+        "count": "4",
         "reduceRight": false,
         "reduceExp": "",
         "reduceInit": "",
@@ -6482,23 +6482,5 @@
                 "22b069973bd6910b"
             ]
         ]
-    },
-    {
-        "id": "a8021d64068d65e3",
-        "type": "debug",
-        "z": "29e4b09308b4f781",
-        "d": true,
-        "name": "row",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 430,
-        "y": 240,
-        "wires": []
     }
 ]
