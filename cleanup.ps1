@@ -1,5 +1,5 @@
 
-$composeFolder = "C:\Users\Dan\zemfyre-sensor"  
+$composeFolder = "C:\zemfyre-sensor"  
 Set-Location -Path $composeFolder
 
 docker-compose down --volumes --rmi all
