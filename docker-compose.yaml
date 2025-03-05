@@ -8,8 +8,8 @@ services:
           - 9001:9001
         volumes:
           - ./mosquitto/config:/mosquitto/config/
-        networks:
-         - iotistic
+        # networks:
+        #  - iotistic
     nodered:
         build:
             context: ./nodered
@@ -22,8 +22,8 @@ services:
             - ./nodered/data:/data
             - ./nodered/nodes:/data/nodes
             - /data/node_modules
-        networks:
-            - iotistic
+        # networks:
+        #     - iotistic
 
     influx:
         container_name: influxdb
@@ -43,8 +43,8 @@ services:
         volumes:
             - ./influx/data:/var/lib/influxdb2
             - ./influx/config:/etc/influxdb2
-        networks:
-            - iotistic
+        # networks:
+        #     - iotistic
 
     grafana:
         depends_on:
@@ -66,11 +66,11 @@ services:
 
         ports:
             - 3000:3000
-        networks:
-            - iotistic
-networks:
-  iotistic: 
-   external: true  
+        # networks:
+        #     - iotistic
+# networks:
+#   iotistic: 
+#    external: true  
 
 
 
