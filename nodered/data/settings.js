@@ -334,9 +334,9 @@ module.exports = {
              */
             level: "debug",
             /** Whether or not to include metric events in the log output */
-            metrics: true,
+            metrics: false,
             /** Whether or not to include audit events in the log output */
-            audit: true
+            audit: false
         },
 
 
@@ -528,11 +528,14 @@ module.exports = {
     /** The following property can be used to set predefined values in Global Context.
      * This allows extra node modules to be made available with in Function node.
      * For example, the following:
-     *    functionGlobalContext: { os:require('os') }
+       functionGlobalContext: { os:require('os') }
      * will allow the `os` module to be accessed in a Function node using:
      *    global.get("os")
      */
-    
+    functionGlobalContext: { 
+        fft: require('fft-js').fft, 
+        fftUtil: require('fft-js').util
+    },
 
     /** The maximum number of messages nodes will buffer internally as part of their
      * operation. This applies across a range of nodes that operate on message sequences.

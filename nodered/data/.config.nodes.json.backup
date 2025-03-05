@@ -773,25 +773,6 @@
             }
         }
     },
-    "ncd-red-comm": {
-        "name": "ncd-red-comm",
-        "version": "2.0.3",
-        "local": true,
-        "user": false,
-        "nodes": {
-            "ncd-comm": {
-                "name": "ncd-comm",
-                "types": [
-                    "ncd-comm"
-                ],
-                "enabled": true,
-                "local": true,
-                "user": false,
-                "module": "ncd-red-comm",
-                "file": "/data/node_modules/ncd-red-comm/ncd-comm.js"
-            }
-        }
-    },
     "node-red-contrib-influxdb": {
         "name": "node-red-contrib-influxdb",
         "version": "0.7.0",
@@ -1665,41 +1646,24 @@
             }
         }
     },
-    "node-red-node-rbe": {
-        "name": "node-red-node-rbe",
-        "version": "0.5.0",
+    "@ncd-io/node-red-enterprise-sensors": {
+        "name": "@ncd-io/node-red-enterprise-sensors",
+        "version": "1.1.5",
         "local": true,
-        "user": false,
+        "user": true,
         "nodes": {
-            "rbe": {
-                "name": "rbe",
+            "ncd-wireless": {
+                "name": "ncd-wireless",
                 "types": [
-                    "rbe"
+                    "ncd-gateway-node",
+                    "ncd-wireless-node",
+                    "ncd-gateway-config"
                 ],
                 "enabled": true,
                 "local": true,
                 "user": false,
-                "module": "node-red-node-rbe",
-                "file": "/data/node_modules/node-red-node-rbe/rbe.js"
-            }
-        }
-    },
-    "node-red-node-tail": {
-        "name": "node-red-node-tail",
-        "version": "0.3.2",
-        "local": true,
-        "user": false,
-        "nodes": {
-            "tail": {
-                "name": "tail",
-                "types": [
-                    "tail"
-                ],
-                "enabled": true,
-                "local": true,
-                "user": false,
-                "module": "node-red-node-tail",
-                "file": "/data/node_modules/node-red-node-tail/28-tail.js"
+                "module": "@ncd-io/node-red-enterprise-sensors",
+                "file": "/data/node_modules/@ncd-io/node-red-enterprise-sensors/wireless.js"
             }
         }
     }

@@ -25,7 +25,13 @@
         "menu-deploymenu-item-flow": false,
         "menu-deploymenu-item-full": false,
         "debug": {
-            "filter": "filterAll"
+            "filter": "filterSelected",
+            "filteredNodes": [
+                "a0c32c410bc49564",
+                "988cdf7dfd4dc194",
+                "70c1a26f4b655f70",
+                "3281439a7ee7f90a"
+            ]
         },
         "menu-menu-item-sidebar": true,
         "menu-deploymenu-item-node": true
