@@ -7,7 +7,6 @@ COPY data/package.json /data
 COPY data/package-lock.json /data
 COPY data/settings.js /data/settings.js
 COPY data/flows.json /data/flows.json
-COPY data/.config.users.json /data/.config.users.json
 
 # Set working directory
 WORKDIR /data
@@ -21,7 +20,7 @@ RUN npm ci
 WORKDIR /usr/src/node-red
 
 
-# # Switch back to node-red userdoc
+# Switch back to node-red userdoc
 # USER node-red
 
 

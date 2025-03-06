@@ -6,61 +6,12 @@
                 "view-store-position": false,
                 "view-show-grid": true,
                 "view-snap-grid": true,
-                "view-grid-size": "20",
+                "view-grid-size": 20,
                 "view-node-status": true,
                 "view-node-show-label": true,
                 "view-show-tips": true,
                 "view-show-welcome-tours": true
-            },
-            "tours": {
-                "welcome": "4.0.8"
-            },
-            "dialog": {
-                "export": {
-                    "pretty": true,
-                    "json-view": true
-                }
             }
-        },
-        "menu-deploymenu-item-flow": false,
-        "menu-deploymenu-item-full": false,
-        "debug": {
-            "filter": "filterSelected",
-            "filteredNodes": [
-                "a0c32c410bc49564",
-                "988cdf7dfd4dc194",
-                "70c1a26f4b655f70",
-                "3281439a7ee7f90a"
-            ]
-        },
-        "menu-menu-item-sidebar": true,
-        "menu-deploymenu-item-node": true
-    },
-    "admin": {
-        "editor": {
-            "view": {
-                "view-store-zoom": false,
-                "view-store-position": false,
-                "view-show-grid": true,
-                "view-snap-grid": true,
-                "view-grid-size": "20",
-                "view-node-status": true,
-                "view-node-show-label": true,
-                "view-show-tips": true,
-                "view-show-welcome-tours": true
-            },
-            "dialog": {
-                "export": {
-                    "pretty": true,
-                    "json-view": true
-                }
-            }
-        },
-        "debug": {
-            "filter": "filterAll"
-        },
-        "menu-deploymenu-item-node": false,
-        "menu-deploymenu-item-full": false,
-        "menu-deploymenu-item-flow": true
+        }
     }
 }

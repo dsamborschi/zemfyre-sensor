@@ -1,20 +1,18 @@
 services:
     mosquitto:
-        container_name: mosquitto-zemfyre
+        container_name: mosquitto
         image: eclipse-mosquitto
         restart: always
         ports:
           - 1883:1883
-          - 900:9001
+          - 9001:9001
         volumes:
           - ./mosquitto/config:/mosquitto/config/
-        # networks:
-        #  - iotistic
     nodered:
         build:
             context: ./nodered
             dockerfile: Dockerfile
-        container_name: nodered-zemfyre
+        container_name: nodered
         restart: always
         ports:
             - "1880:1880"
@@ -22,8 +20,6 @@ services:
             - ./nodered/data:/data
             - ./nodered/nodes:/data/nodes
             - /data/node_modules
-        # networks:
-        #     - iotistic
 
     influx:
         container_name: influxdb
@@ -33,18 +29,12 @@ services:
             - INFLUXDB_INIT_ORG=Zemfyre
             - INFLUXDB_INIT_BUCKET=ZUS80LP
             - INFLUXDB_LOG_LEVEL=debug
-        healthcheck:
-            test: "curl -f http://influx:8086/ping"
-            interval: 5s
-            timeout: 10s
-            retries: 5
         ports:
             - "8086:8086"
         volumes:
             - ./influx/data:/var/lib/influxdb2
             - ./influx/config:/etc/influxdb2
-        # networks:
-        #     - iotistic
+    
 
     grafana:
         depends_on:
@@ -63,14 +53,9 @@ services:
             - ./grafana/data/grafana.db:/var/lib/grafana/grafana.db
             - ./grafana/config/grafana.ini:/etc/grafana/grafana.ini
             - ./grafana/provisioning:/etc/grafana/provisioning
-
         ports:
             - 3000:3000
-        # networks:
-        #     - iotistic
-# networks:
-#   iotistic: 
-#    external: true  
+
 
 
 
