@@ -1,11 +1,11 @@
 services:
     mosquitto:
-        container_name: mosquitto
+        container_name: mosquitto-zemfyre
         image: eclipse-mosquitto
         restart: always
         ports:
           - 1883:1883
-          - 9001:9001
+          - 900:9001
         volumes:
           - ./mosquitto/config:/mosquitto/config/
         # networks:
@@ -17,7 +17,7 @@ services:
         container_name: nodered-zemfyre
         restart: always
         ports:
-            - "1882:1880"
+            - "1880:1880"
         volumes:
             - ./nodered/data:/data
             - ./nodered/nodes:/data/nodes
