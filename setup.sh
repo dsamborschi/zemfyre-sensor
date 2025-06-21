@@ -39,3 +39,52 @@ fi
 
 # Run docker-compose
 sudo docker-compose up -d
+
+# Health checks for all services
+echo "\nWaiting for services to become healthy..."
+
+# Mosquitto health check (TCP port)
+MOSQUITTO_PORT=${MOSQUITTO_PORT_EXT:-51883}
+for i in {1..20}; do
+    if nc -z localhost "$MOSQUITTO_PORT"; then
+        echo "Mosquitto is healthy on port $MOSQUITTO_PORT."
+        break
+    fi
+    echo "Waiting for Mosquitto... ($i)"
+    sleep 2
+done
+
+# Node-RED health check (HTTP)
+NODERED_PORT=${NODERED_PORT_EXT:-51880}
+for i in {1..20}; do
+    if curl -sSf "http://localhost:$NODERED_PORT" > /dev/null; then
+        echo "Node-RED is healthy on port $NODERED_PORT."
+        break
+    fi
+    echo "Waiting for Node-RED... ($i)"
+    sleep 2
+done
+
+# InfluxDB health check (HTTP)
+INFLUXDB_PORT=${INFLUXDB_PORT_EXT:-58086}
+for i in {1..20}; do
+    if curl -sSf "http://localhost:$INFLUXDB_PORT/health" | grep -q '"status":"pass"'; then
+        echo "InfluxDB is healthy on port $INFLUXDB_PORT."
+        break
+    fi
+    echo "Waiting for InfluxDB... ($i)"
+    sleep 2
+done
+
+# Grafana health check (HTTP)
+GRAFANA_PORT=${GRAFANA_PORT_EXT:-53000}
+for i in {1..20}; do
+    if curl -sSf "http://localhost:$GRAFANA_PORT/login" | grep -q '<title>Grafana'; then
+        echo "Grafana is healthy on port $GRAFANA_PORT."
+        break
+    fi
+    echo "Waiting for Grafana... ($i)"
+    sleep 2
+done
+
+echo "All health checks completed."
