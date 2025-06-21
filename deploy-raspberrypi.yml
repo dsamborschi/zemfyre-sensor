@@ -1,0 +1,42 @@
+---
+- name: Deploy zemfyre-sensor to Raspberry Pi
+  hosts: raspberrypi
+  become: yes
+  vars:
+    repo_url: "https://github.com/your-username/your-repo.git"
+    repo_dir: "zemfyre-sensor"
+    setup_script: "setup.sh"
+  tasks:
+    - name: Ensure git is installed
+      apt:
+        name: git
+        state: present
+      become: yes
+
+    - name: Ensure curl is installed
+      apt:
+        name: curl
+        state: present
+      become: yes
+
+    - name: Download or update zemfyre-sensor repo
+      git:
+        repo: "{{ repo_url }}"
+        dest: "{{ repo_dir }}"
+        update: yes
+
+    - name: Ensure setup.sh is executable
+      file:
+        path: "{{ repo_dir }}/{{ setup_script }}"
+        mode: '0755'
+
+    - name: Run setup.sh
+      command: ./{{ setup_script }}
+      args:
+        chdir: "{{ repo_dir }}"
+      environment:
+        MOSQUITTO_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_PORT_EXT') | default('51883') }}"
+        MOSQUITTO_WS_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_WS_PORT_EXT') | default('59001') }}"
+        NODERED_PORT_EXT: "{{ lookup('env', 'NODERED_PORT_EXT') | default('51880') }}"
+        INFLUXDB_PORT_EXT: "{{ lookup('env', 'INFLUXDB_PORT_EXT') | default('58086') }}"
+        GRAFANA_PORT_EXT: "{{ lookup('env', 'GRAFANA_PORT_EXT') | default('53000') }}"
