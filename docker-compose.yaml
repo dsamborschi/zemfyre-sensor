@@ -1,25 +1,27 @@
 services:
     mosquitto:
-        container_name: mosquitto
         image: eclipse-mosquitto
         restart: always
         ports:
-          - 1883:1883
-          - 9001:9001
+          - 51883:1883
+          - 59001:9001
         volumes:
           - ./mosquitto/config:/mosquitto/config/
+        networks:
+          - zemfyre
     nodered:
         build:
             context: ./nodered
             dockerfile: Dockerfile
-        container_name: nodered
         restart: always
         ports:
-            - "1880:1880"
+            - "51880:1880"
         volumes:
             - ./nodered/data:/data
             - ./nodered/nodes:/data/nodes
             - /data/node_modules
+        networks:
+          - zemfyre
 
     influx:
         container_name: influxdb
@@ -30,11 +32,12 @@ services:
             - INFLUXDB_INIT_BUCKET=ZUS80LP
             - INFLUXDB_LOG_LEVEL=debug
         ports:
-            - "8086:8086"
+            - "58086:8086"
         volumes:
             - ./influx/data:/var/lib/influxdb2
             - ./influx/config:/etc/influxdb2
-    
+        networks:
+          - zemfyre
 
     grafana:
         depends_on:
@@ -54,7 +57,13 @@ services:
             - ./grafana/config/grafana.ini:/etc/grafana/grafana.ini
             - ./grafana/provisioning:/etc/grafana/provisioning
         ports:
-            - 3000:3000
+            - 53000:3000
+        networks:
+          - zemfyre
+
+networks:
+  zemfyre:
+    driver: bridge
 
 
 

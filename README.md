@@ -173,7 +173,7 @@ Look for the line with xserver-command=X, and modify it to disable screen blanki
 
   INFLUX
 
-  rbFJlMmKXhg23cw1Ns9FF63i4MR2k8P9FmgEjX3ZhpnPlthhf85vkIuG0urN-O-CNEN5GdWQsL2V1yEae1Nk9A==
+  3e0ieOHkbgjzh1JCwBuqQBlftOwAFn2SOnn_XGPKmCTFZewHAWns2bwXqF-4RBFY8YBgS1fGUY978Sl8G2dTPg==
 
   curl --request GET "http://influxdb:8086/api/v2/buckets" \
 --header "Authorization: Token rbFJlMmKXhg23cw1Ns9FF63i4MR2k8P9FmgEjX3ZhpnPlthhf85vkIuG0urN-O-CNEN5GdWQsL2V1yEae1Nk9A=="
