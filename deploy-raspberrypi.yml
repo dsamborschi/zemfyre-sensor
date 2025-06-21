@@ -3,7 +3,7 @@
   hosts: raspberrypi
   become: yes
   vars:
-    repo_url: "https://github.com/your-username/your-repo.git"
+    repo_url: "https://github.com/dsamborschi/zemfyre-sensor.git"
     repo_dir: "zemfyre-sensor"
     setup_script: "setup.sh"
   tasks:

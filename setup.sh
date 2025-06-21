@@ -1,16 +1,19 @@
 #!/bin/bash
 
-# Script to clone repo, check/install Docker, and run docker-compose
+# Script to clone or update repo, check/install Docker, and run docker-compose
 
-REPO_URL="https://github.com/your-username/your-repo.git"
+REPO_URL="https://github.com/dsamborschi/zemfyre-sensor.git"
 REPO_DIR="zemfyre-sensor"
 
-# Clone the repository if not already present
-if [ ! -d "$REPO_DIR" ]; then
+# Clone or update the repository
+if [ ! -d "$REPO_DIR/.git" ]; then
     echo "Cloning repository..."
     git clone "$REPO_URL"
 else
-    echo "Repository already exists."
+    echo "Repository already exists. Pulling latest changes..."
+    cd "$REPO_DIR" || exit 1
+    git pull
+    cd ..
 fi
 
 cd "$REPO_DIR" || exit 1
