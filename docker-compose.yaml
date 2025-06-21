@@ -3,8 +3,8 @@ services:
         image: eclipse-mosquitto
         restart: always
         ports:
-          - 51883:1883
-          - 59001:9001
+          - "${MOSQUITTO_PORT_EXT:-51883}:1883"
+          - "${MOSQUITTO_WS_PORT_EXT:-59001}:9001"
         volumes:
           - ./mosquitto/config:/mosquitto/config/
         networks:
@@ -15,7 +15,7 @@ services:
             dockerfile: Dockerfile
         restart: always
         ports:
-            - "51880:1880"
+            - "${NODERED_PORT_EXT:-51880}:1880"
         volumes:
             - ./nodered/data:/data
             - ./nodered/nodes:/data/nodes
@@ -32,7 +32,7 @@ services:
             - INFLUXDB_INIT_BUCKET=ZUS80LP
             - INFLUXDB_LOG_LEVEL=debug
         ports:
-            - "58086:8086"
+            - "${INFLUXDB_PORT_EXT:-58086}:8086"
         volumes:
             - ./influx/data:/var/lib/influxdb2
             - ./influx/config:/etc/influxdb2
@@ -57,7 +57,7 @@ services:
             - ./grafana/config/grafana.ini:/etc/grafana/grafana.ini
             - ./grafana/provisioning:/etc/grafana/provisioning
         ports:
-            - 53000:3000
+            - "${GRAFANA_PORT_EXT:-53000}:3000"
         networks:
           - zemfyre
 
