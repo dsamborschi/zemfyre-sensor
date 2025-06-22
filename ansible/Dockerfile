@@ -1,5 +1,5 @@
 # Ansible Dockerfile for Raspberry Pi deployment
-FROM python:3.13-slim
+FROM python:3.14-slim
 
 # Install Ansible, sshpass, SSH client, and Git
 RUN apt-get update && apt-get install -y \
