@@ -24,6 +24,7 @@
         repo: "{{ repo_url }}"
         dest: "{{ repo_dir }}"
         update: yes
+        force: yes
 
     - name: Ensure setup.sh is executable
       file:
@@ -31,9 +32,7 @@
         mode: '0755'
 
     - name: Run setup.sh
-      command: ./{{ setup_script }}
-      args:
-        chdir: "{{ repo_dir }}"
+      script: "{{ repo_dir }}/{{ setup_script }}"
       environment:
         MOSQUITTO_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_PORT_EXT') | default('51883') }}"
         MOSQUITTO_WS_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_WS_PORT_EXT') | default('59001') }}"
