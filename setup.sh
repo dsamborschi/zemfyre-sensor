@@ -32,16 +32,14 @@ else
 fi
 
 # Check if docker-compose is installed
-if ! command -v docker-compose &> /dev/null; then
-    echo "docker-compose not found. Installing docker-compose..."
-    sudo apt-get update
-    sudo apt-get install -y docker-compose
+if ! docker compose version &> /dev/null; then
+    echo "Docker Compose plugin not found. You may need to install it manually or check Docker installation."
 else
-    echo "docker-compose is already installed."
+    echo "Docker Compose plugin is available."
 fi
 
 # Run docker-compose
-sudo docker-compose up -d
+sudo docker compose up -d
 
 # Health checks for all services
 echo "\nWaiting for services to become healthy..."
