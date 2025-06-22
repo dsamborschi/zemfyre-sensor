@@ -1,5 +1,10 @@
 # SETUP.md
 
+## 0. SSH Credentials for Raspberry Pi
+- **Host:** `10.0.0.97`
+- **Username:** `admin`
+- **Password:** `password123`
+
 ## 1. Prerequisites
 - Python 3 and pip installed on your local machine
 - Ansible installed (`pip install ansible`)
@@ -30,7 +35,7 @@ cd zemfyre-sensor
 Edit the `hosts.ini` file and set your Raspberry Pi's IP address and SSH credentials:
 ```ini
 [raspberrypi]
-pi@192.168.1.100 ansible_ssh_pass=raspberry
+admin@192.168.1.100 ansible_ssh_pass=password123
 ```
 
 ## 4. Review and Edit Environment Variables (Optional)

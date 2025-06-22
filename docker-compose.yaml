@@ -60,7 +60,6 @@ services:
             - "${GRAFANA_PORT_EXT:-53000}:3000"
         networks:
           - zemfyre
-
 networks:
   zemfyre:
     driver: bridge
