@@ -16,6 +16,12 @@ REPO_DIR="zemfyre-sensor"
 #     cd ..
 # fi
 
+# Ensure the repo directory exists
+if [ ! -d "$REPO_DIR" ]; then
+    echo "Creating $REPO_DIR directory..."
+    mkdir -p "$REPO_DIR"
+fi
+
 cd "$REPO_DIR" || exit 1
 
 # Check if Docker is installed
