@@ -32,10 +32,19 @@
         mode: '0755'
 
     - name: Run setup.sh
-      script: "{{ repo_dir }}/{{ setup_script }}"
+      command: ./{{ setup_script }}
+      args:
+        chdir: "{{ repo_dir }}"
+      become: yes
+      register: setup_output
       environment:
         MOSQUITTO_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_PORT_EXT') | default('51883') }}"
         MOSQUITTO_WS_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_WS_PORT_EXT') | default('59001') }}"
         NODERED_PORT_EXT: "{{ lookup('env', 'NODERED_PORT_EXT') | default('51880') }}"
         INFLUXDB_PORT_EXT: "{{ lookup('env', 'INFLUXDB_PORT_EXT') | default('58086') }}"
         GRAFANA_PORT_EXT: "{{ lookup('env', 'GRAFANA_PORT_EXT') | default('53000') }}"
+        
+    - name: Print setup.sh stdout
+      debug:
+       msg: "{{ setup_output.stdout_lines }}"
+      when: setup_output is defined
