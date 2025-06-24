@@ -50,7 +50,6 @@ services:
         environment:
             - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME:-admin}
             - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
-            - GF_INSTALL_PLUGINS=natel-plotly-panel
             - GF_AUTH_ANONYMOUS_ENABLED=true
             - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
             - GF_AUTH_BASIC_ENABLED=false
