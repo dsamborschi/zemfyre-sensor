@@ -6287,8 +6287,7 @@
         "y": 240,
         "wires": [
             [
-                "71e796841444f251",
-                "a8b2def19846c3a8"
+                "71e796841444f251"
             ]
         ]
     },
@@ -6296,13 +6295,12 @@
         "id": "71e796841444f251",
         "type": "delay",
         "z": "29e4b09308b4f781",
-        "d": true,
         "name": "",
         "pauseType": "rate",
         "timeout": "5",
         "timeoutUnits": "seconds",
         "rate": "1",
-        "nbRateUnits": "1",
+        "nbRateUnits": "5",
         "rateUnits": "second",
         "randomFirst": "1",
         "randomLast": "5",
@@ -6310,7 +6308,7 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 270,
+        "x": 280,
         "y": 360,
         "wires": [
             [
