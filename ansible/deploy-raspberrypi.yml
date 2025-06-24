@@ -88,11 +88,11 @@
         INFLUXDB_PORT_EXT: "{{ lookup('env', 'INFLUXDB_PORT_EXT') | default('58086') }}"
         GRAFANA_PORT_EXT: "{{ lookup('env', 'GRAFANA_PORT_EXT') | default('53000') }}"
     
-    - name: Reboot to activate kiosk mode
-      reboot:
-        msg: "Rebooting into kiosk mode"
-        pre_reboot_delay: 5
-      when: reboot_required is not defined
+    # - name: Reboot to activate kiosk mode
+    #   reboot:
+    #     msg: "Rebooting into kiosk mode"
+    #     pre_reboot_delay: 5
+    #   when: reboot_required is not defined
 
     - name: Print setup.sh stdout
       debug:
