@@ -6,7 +6,7 @@
     repo_url: "https://github.com/dsamborschi/zemfyre-sensor.git"
     repo_dir: "zemfyre-sensor"
     setup_script: "setup.sh"
-    kiosk_url: "http://localhost:53000/d/ddwxbtmmr6nlsa/zus80lp?orgId=1&refresh=1s&kiosk"
+    kiosk_url: "http://localhost:53000/d/ddwxbtmmr6nlsa/zus80lp?orgId=1&refresh=1s&from=now-5m&to=now&kiosk"
     autostart_file: "/etc/xdg/lxsession/LXDE-pi/autostart"
 
   tasks:
@@ -59,9 +59,9 @@
         owner: root
         group: root
         mode: '0644'
-      when: >
-        not autostart_file_stat.stat.exists or
-        (autostart_file_content.content | b64decode).find(kiosk_url) == -1
+      # when: >
+      #   not autostart_file_stat.stat.exists or
+      #   (autostart_file_content.content | b64decode).find(kiosk_url) == -1
 
     - name: Download or update zemfyre-sensor repo
       git:
