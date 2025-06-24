@@ -51,7 +51,7 @@ sudo docker compose up -d
 echo "\nWaiting for services to become healthy..."
 
 # Mosquitto health check (TCP port)
-MOSQUITTO_PORT=${MOSQUITTO_PORT_EXT:-51883}
+MOSQUITTO_PORT=${MOSQUITTO_PORT_EXT:-1883}
 for i in {1..20}; do
     if nc -z localhost "$MOSQUITTO_PORT"; then
         echo "Mosquitto is healthy on port $MOSQUITTO_PORT."

@@ -5,6 +5,14 @@ sudo apt upgrade -y
 
 sudo reboot
 
+## Wi-Fi Setup (if needed)
+
+To connect your Raspberry Pi to a Wi-Fi network from the command line, use:
+
+sudo nmcli dev wifi connect "SSID_NAME" password "PASSWORD"
+
+Replace `SSID_NAME` and `PASSWORD` with your Wi-Fi network's name and password.
+
 ## Docker setup
 
 Installing Docker on a Raspberry Pi is straightforward. There is a simple script to run, that will detect your system and architecture, and install everything for you.
@@ -136,6 +144,12 @@ sudo systemctl start ngrok
 sudo systemctl status ngrok
 
 # Setup eth 
+
+To set a static IP for your Ethernet interface using NetworkManager (nmcli):
+
+sudo nmcli connection add type ethernet ifname eth0 con-name static-eth0 ipv4.method manual ipv4.addresses 192.168.1.xxx/24 gw4 192.168.1.1 ipv4.dns 8.8.8.8
+
+# Or, using the legacy interfaces file:
 
 1) sudo nano /etc/network/interfaces.d
 

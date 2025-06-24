@@ -3,7 +3,7 @@ services:
         image: eclipse-mosquitto
         restart: always
         ports:
-          - "${MOSQUITTO_PORT_EXT:-51883}:1883"
+          - "${MOSQUITTO_PORT_EXT:-1883}:1883"
           - "${MOSQUITTO_WS_PORT_EXT:-59001}:9001"
         volumes:
           - ./mosquitto/config:/mosquitto/config/

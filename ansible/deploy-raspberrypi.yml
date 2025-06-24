@@ -38,7 +38,7 @@
       become: yes
       register: setup_output
       environment:
-        MOSQUITTO_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_PORT_EXT') | default('51883') }}"
+        MOSQUITTO_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_PORT_EXT') | default('1883') }}"
         MOSQUITTO_WS_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_WS_PORT_EXT') | default('59001') }}"
         NODERED_PORT_EXT: "{{ lookup('env', 'NODERED_PORT_EXT') | default('51880') }}"
         INFLUXDB_PORT_EXT: "{{ lookup('env', 'INFLUXDB_PORT_EXT') | default('58086') }}"
