@@ -51,7 +51,7 @@ services:
             - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME:-admin}
             - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
             - GF_AUTH_ANONYMOUS_ENABLED=true
-            - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+            - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
             - GF_AUTH_BASIC_ENABLED=false
             - GF_AUTH_DISABLE_LOGIN_FORM=true
 
