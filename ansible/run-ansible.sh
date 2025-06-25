@@ -13,7 +13,7 @@ docker build -t $IMAGE_NAME "$SCRIPT_DIR"
 # Run the playbook inside the container, mounting the project root
 # Pass any extra args to ansible-playbook (e.g., -i hosts.ini)
 docker run --rm -it \
-  --env-file .env \
+#   --env-file .env \
   -e ANSIBLE_HOST_KEY_CHECKING=False \
   -v "$PROJECT_ROOT:/workspace" \
   $IMAGE_NAME \
