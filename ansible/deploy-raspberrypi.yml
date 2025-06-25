@@ -42,11 +42,19 @@
       register: autostart_file_content
       when: autostart_file_stat.stat.exists
 
+    - name: Suppress Chromium crash recovery popup
+      blockinfile:
+        path: "{{ autostart_file }}"
+        block: |
+          @bash -c 'sed -i "s/\\"exited_cleanly\\": false/\\"exited_cleanly\\": true/" /home/pi/.config/chromium/Default/Preferences && \
+                    sed -i "s/\\"exit_type\\": \\"Crashed\\"/\\"exit_type\\": \\"Normal\\"/" /home/pi/.config/chromium/Default/Preferences'
+        marker: "# {mark} ANSIBLE MANAGED BLOCK - Suppress Chromium crash recovery"
+
 
     - name: Create kiosk autostart file only if kiosk_url is not set
-      copy:
-        dest: "{{ autostart_file }}"
-        content: |
+      blockinfile:
+        path: "{{ autostart_file }}"
+        block: |
           @lxpanel --profile LXDE-pi
           @pcmanfm --desktop --profile LXDE-pi
           @xscreensaver -no-splash
@@ -55,13 +63,14 @@
           @xset -dpms
           @xset s noblank
           @unclutter -idle 0.1 -root
-          @chromium-browser --noerrdialogs --disable-infobars --kiosk {{ kiosk_url }}
+          @bash -c 'sed -i "s/\\"exited_cleanly\\": false/\\"exited_cleanly\\": true/" /home/pi/.config/chromium/Default/Preferences && \
+                    sed -i "s/\\"exit_type\\": \\"Crashed\\"/\\"exit_type\\": \\"Normal\\"/" /home/pi/.config/chromium/Default/Preferences && \
+                    chromium-browser --noerrdialogs --disable-infobars --disable-session-crashed-bubble --no-first-run --disable-features=TranslateUI --disable-component-update --disable-pinch --overscroll-history-navigation=0 --kiosk {{ kiosk_url }}'
+        create: yes
         owner: root
         group: root
         mode: '0644'
-      # when: >
-      #   not autostart_file_stat.stat.exists or
-      #   (autostart_file_content.content | b64decode).find(kiosk_url) == -1
+
 
     - name: Download or update zemfyre-sensor repo
       git:
@@ -88,13 +97,15 @@
         INFLUXDB_PORT_EXT: "{{ lookup('env', 'INFLUXDB_PORT_EXT') | default('58086') }}"
         GRAFANA_PORT_EXT: "{{ lookup('env', 'GRAFANA_PORT_EXT') | default('53000') }}"
     
-    # - name: Reboot to activate kiosk mode
-    #   reboot:
-    #     msg: "Rebooting into kiosk mode"
-    #     pre_reboot_delay: 5
-    #   when: reboot_required is not defined
-
     - name: Print setup.sh stdout
       debug:
        msg: "{{ setup_output.stdout_lines }}"
       when: setup_output is defined
+
+    - name: Reboot Raspberry Pi to apply kiosk mode
+      reboot:
+        msg: "Reboot initiated by Ansible to start kiosk mode with updated Chromium settings."
+        connect_timeout: 5
+        reboot_timeout: 120
+        pre_reboot_delay: 5
+        post_reboot_delay: 10
