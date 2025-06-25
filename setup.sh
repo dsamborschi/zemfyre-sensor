@@ -86,12 +86,13 @@ done
 # Grafana health check (HTTP)
 GRAFANA_PORT=${GRAFANA_PORT_EXT:-53000}
 for i in {1..20}; do
-    if curl -sSf "http://localhost:$GRAFANA_PORT/login" | grep -q '<title>Grafana'; then
+    if curl -sSf "http://localhost:$GRAFANA_PORT/api/health" | grep -q '"database":"ok"'; then
         echo "Grafana is healthy on port $GRAFANA_PORT."
         break
     fi
     echo "Waiting for Grafana... ($i)"
     sleep 2
 done
+
 
 echo "All health checks completed."

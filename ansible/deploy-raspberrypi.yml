@@ -75,6 +75,7 @@
           @unclutter -idle 0.1 -root
           @bash -c 'sed -i "s/\\"exited_cleanly\\": false/\\"exited_cleanly\\": true/" /home/pi/.config/chromium/Default/Preferences && \
                     sed -i "s/\\"exit_type\\": \\"Crashed\\"/\\"exit_type\\": \\"Normal\\"/" /home/pi/.config/chromium/Default/Preferences && \
+                    sleep 5 && \
                     chromium-browser --noerrdialogs --disable-infobars --disable-session-crashed-bubble --no-first-run --disable-features=TranslateUI --disable-component-update --disable-pinch --overscroll-history-navigation=0 --kiosk {{ kiosk_url }}'
         create: yes
         owner: root
