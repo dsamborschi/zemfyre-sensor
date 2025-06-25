@@ -6,7 +6,7 @@
     repo_url: "https://github.com/dsamborschi/zemfyre-sensor.git"
     repo_dir: "zemfyre-sensor"
     setup_script: "setup.sh"
-    kiosk_url: "http://localhost:53000/d/ddwxbtmmr6nlsa/zus80lp?orgId=1&refresh=5s&from=now-5m&to=now&kiosk"
+    kiosk_url: "http://localhost:{{lookup('env', 'GRAFANA_PORT_EXT')}}/d/ddwxbtmmr6nlsa/zus80lp?orgId=1&refresh=5s&from=now-5m&to=now&kiosk"
     autostart_file: "/etc/xdg/lxsession/LXDE-pi/autostart"
 
   tasks:
@@ -30,6 +30,16 @@
           - xdotool
         state: present
         update_cache: yes
+    
+    - name: Check if ngrok is running as a systemd service
+      shell: systemctl is-active ngrok.service
+      register: ngrok_status
+      changed_when: false
+      failed_when: false
+
+    - name: Print ngrok service status
+      debug:
+        msg: "ngrok is {{ 'running' if ngrok_status.stdout == 'active' else 'not running or not installed' }}"
 
     - name: Check if autostart file exists
       stat:
@@ -92,17 +102,17 @@
       register: setup_output
       environment:
         MOSQUITTO_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_PORT_EXT') | default('1883') }}"
-        MOSQUITTO_WS_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_WS_PORT_EXT') | default('59001') }}"
-        NODERED_PORT_EXT: "{{ lookup('env', 'NODERED_PORT_EXT') | default('51880') }}"
-        INFLUXDB_PORT_EXT: "{{ lookup('env', 'INFLUXDB_PORT_EXT') | default('58086') }}"
-        GRAFANA_PORT_EXT: "{{ lookup('env', 'GRAFANA_PORT_EXT') | default('53000') }}"
+        MOSQUITTO_WS_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_WS_PORT_EXT') | default('9001') }}"
+        NODERED_PORT_EXT: "{{ lookup('env', 'NODERED_PORT_EXT') | default('1880') }}"
+        INFLUXDB_PORT_EXT: "{{ lookup('env', 'INFLUXDB_PORT_EXT') | default('8086') }}"
+        GRAFANA_PORT_EXT: "{{ lookup('env', 'GRAFANA_PORT_EXT') | default('3000') }}"
     
     - name: Print setup.sh stdout
       debug:
        msg: "{{ setup_output.stdout_lines }}"
       when: setup_output is defined
 
-    - name: Reboot Raspberry Pi to apply kiosk mode
+    - name: Reboot Raspberry Pi to apply chnages and start kiosk mode
       reboot:
         msg: "Reboot initiated by Ansible to start kiosk mode with updated Chromium settings."
         connect_timeout: 5
