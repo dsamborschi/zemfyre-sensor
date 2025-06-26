@@ -41,31 +41,11 @@
       debug:
         msg: "ngrok is {{ 'running' if ngrok_status.stdout == 'active' else 'not running or not installed' }}"
 
-    - name: Check if autostart file exists
-      stat:
-        path: "{{ autostart_file }}"
-      register: autostart_file_stat
-    
-    - name: Read current kiosk autostart content (if exists)
-      slurp:
-        path: "{{ autostart_file }}"
-      register: autostart_file_content
-      when: autostart_file_stat.stat.exists
-
-    - name: Suppress Chromium crash recovery popup
-      blockinfile:
-        path: "{{ autostart_file }}"
-        block: |
-          @bash -c 'sed -i "s/\\"exited_cleanly\\": false/\\"exited_cleanly\\": true/" /home/pi/.config/chromium/Default/Preferences && \
-                    sed -i "s/\\"exit_type\\": \\"Crashed\\"/\\"exit_type\\": \\"Normal\\"/" /home/pi/.config/chromium/Default/Preferences'
-        marker: "# {mark} ANSIBLE MANAGED BLOCK - Suppress Chromium crash recovery"
-
-
-    - name: Create kiosk autostart file only if kiosk_url is not set
-      blockinfile:
-        path: "{{ autostart_file }}"
-        block: |
-          @lxpanel --profile LXDE-pi
+    - name: Overwrite LXDE autostart file with kiosk setup
+      copy:
+        dest: "{{ autostart_file }}"
+        content: |
+          @lxpanel --profile LXDE-piAdd commentMore actions
           @pcmanfm --desktop --profile LXDE-pi
           @xscreensaver -no-splash
 
@@ -73,15 +53,10 @@
           @xset -dpms
           @xset s noblank
           @unclutter -idle 0.1 -root
-          @bash -c 'sed -i "s/\\"exited_cleanly\\": false/\\"exited_cleanly\\": true/" /home/pi/.config/chromium/Default/Preferences && \
-                    sed -i "s/\\"exit_type\\": \\"Crashed\\"/\\"exit_type\\": \\"Normal\\"/" /home/pi/.config/chromium/Default/Preferences && \
-                    sleep 5 && \
-                    chromium-browser --noerrdialogs --disable-infobars --disable-session-crashed-bubble --no-first-run --disable-features=TranslateUI --disable-component-update --disable-pinch --overscroll-history-navigation=0 --kiosk {{ kiosk_url }}'
-        create: yes
+          @chromium-browser --noerrdialogs --disable-infobars --kiosk {{ kiosk_url }}
         owner: root
         group: root
         mode: '0644'
-
 
     - name: Download or update zemfyre-sensor repo
       git:
