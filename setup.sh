@@ -46,6 +46,6 @@ else
 fi
 
 # Run docker-compose
-sudo docker compose up -d
+sudo docker compose up -d --build
 
 
