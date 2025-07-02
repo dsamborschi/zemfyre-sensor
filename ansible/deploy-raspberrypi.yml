@@ -69,10 +69,23 @@
       file:
         path: "{{ repo_dir }}/{{ setup_script }}"
         mode: '0755'
-    
+        
     - name: Load environment variables from .env file
       set_fact:
-        env_vars: "{{ lookup('ini', lookup('file', playbook_dir + '/.env'), delimiter='=') }}"
+        env_vars: >-
+          {{
+            dict(
+              lookup('file', playbook_dir + '/.env')
+              .splitlines()
+              | select('match', '^[^#\\s]+=.+$')
+              | map('split', '=', 1)
+            )
+          }}
+    
+    - name: Show parsed env_vars
+      debug:
+        var: env_vars
+
 
     - name: Run setup.sh
       command: ./{{ setup_script }}
