@@ -47,13 +47,13 @@ services:
         build:
           context: ./grafana
           dockerfile: Dockerfile
-        user: "472"
+        user: "grafana"
         environment:
-            - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME:-admin}
-            - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
-            - GF_AUTH_ANONYMOUS_ENABLED=false
-            - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
-            - GF_AUTH_DISABLE_LOGIN_FORM=false
+            - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME}
+            - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
+            - GF_AUTH_ANONYMOUS_ENABLED=${GRAFANA_AUTH_ANONYMOUS_ENABLED}
+            - GF_AUTH_ANONYMOUS_ORG_ROLE=${GRAFANA_AUTH_ANONYMOUS_ORG_ROLE}
+            - GF_AUTH_DISABLE_LOGIN_FORM=${GRAFANA_AUTH_DISABLE_LOGIN_FORM}
 
         volumes:
             - ./grafana/data/grafana.db:/var/lib/grafana/grafana.db

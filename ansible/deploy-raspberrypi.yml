@@ -69,6 +69,10 @@
       file:
         path: "{{ repo_dir }}/{{ setup_script }}"
         mode: '0755'
+    
+    - name: Load environment variables from .env file
+      set_fact:
+        env_vars: "{{ lookup('ini', lookup('file', playbook_dir + '/.env'), delimiter='=') }}"
 
     - name: Run setup.sh
       command: ./{{ setup_script }}
@@ -76,12 +80,7 @@
         chdir: "{{ repo_dir }}"
       become: yes
       register: setup_output
-      environment:
-        MOSQUITTO_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_PORT_EXT') | default('1883') }}"
-        MOSQUITTO_WS_PORT_EXT: "{{ lookup('env', 'MOSQUITTO_WS_PORT_EXT') | default('9001') }}"
-        NODERED_PORT_EXT: "{{ lookup('env', 'NODERED_PORT_EXT') | default('1880') }}"
-        INFLUXDB_PORT_EXT: "{{ lookup('env', 'INFLUXDB_PORT_EXT') | default('8086') }}"
-        GRAFANA_PORT_EXT: "{{ lookup('env', 'GRAFANA_PORT_EXT') | default('3000') }}"
+      environment: "{{ env_vars }}"
     
     - name: Print setup.sh stdout
       debug:
