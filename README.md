@@ -7,6 +7,7 @@ sudo reboot
 
 ## Wi-Fi Setup (if needed)
 
+
 To connect your Raspberry Pi to a Wi-Fi network from the command line, use:
 
 sudo nmcli dev wifi connect "SSID_NAME" password "PASSWORD"

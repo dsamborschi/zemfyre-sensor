@@ -5,14 +5,15 @@
 REPO_URL="https://github.com/dsamborschi/zemfyre-sensor.git"
 REPO_DIR="zemfyre-sensor"
 
-# # Clone or update the repository
+# Clone or update the repository
 # if [ ! -d "$REPO_DIR/.git" ]; then
 #     echo "Cloning repository..."
 #     git clone "$REPO_URL"
 # else
-#     echo "Repository already exists. Pulling latest changes..."
+#     echo "Repository already exists. Overwriting with latest changes from remote..."
 #     cd "$REPO_DIR" || exit 1
-#     git pull
+#     git fetch origin
+#     git reset --hard origin/master
 #     cd ..
 # fi
 
