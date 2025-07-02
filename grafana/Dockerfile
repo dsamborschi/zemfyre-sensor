@@ -110,5 +110,10 @@ RUN if [ ! -z "${GF_INSTALL_PLUGINS}" ]; then \
       done \
     fi
 
+USER grafana
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:3000/api/health || exit 1
+
 ## Provisioning
 # COPY ./grafana/provisioning /etc/grafana/provisioning
