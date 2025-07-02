@@ -47,6 +47,7 @@ services:
         build:
           context: ./grafana
           dockerfile: Dockerfile
+        user: "472"
         environment:
             - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME:-admin}
             - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
