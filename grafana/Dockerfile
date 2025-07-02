@@ -110,47 +110,6 @@ RUN if [ ! -z "${GF_INSTALL_PLUGINS}" ]; then \
       done \
     fi
 
-# Remove native data sources
-# RUN rm -rf \
-#     /usr/share/grafana/public/app/plugins/datasource/elasticsearch \
-#     /usr/share/grafana/public/build/elasticsearch* \
-#     /usr/share/grafana/public/app/plugins/datasource/graphite \
-#     /usr/share/grafana/public/build/graphite* \
-#     /usr/share/grafana/public/app/plugins/datasource/opentsdb \
-#     /usr/share/grafana/public/build/opentsdb* \
-#     /usr/share/grafana/public/app/plugins/datasource/mssql \
-#     /usr/share/grafana/public/build/mssql* \
-#     /usr/share/grafana/public/app/plugins/datasource/mysql \
-#     /usr/share/grafana/public/build/mysql* \
-#     /usr/share/grafana/public/app/plugins/datasource/tempo \
-#     /usr/share/grafana/public/build/tempo* \
-#     /usr/share/grafana/public/app/plugins/datasource/jaeger \
-#     /usr/share/grafana/public/build/jaeger* \
-#     /usr/share/grafana/public/app/plugins/datasource/zipkin \
-#     /usr/share/grafana/public/build/zipkin* \
-#     /usr/share/grafana/public/app/plugins/datasource/azuremonitor \
-#     /usr/share/grafana/public/build/azureMonitor* \
-#     /usr/share/grafana/public/app/plugins/datasource/cloudwatch \
-#     /usr/share/grafana/public/build/cloudwatch* \
-#     /usr/share/grafana/public/app/plugins/datasource/cloud-monitoring \
-#     /usr/share/grafana/public/build/cloudMonitoring* \
-#     /usr/share/grafana/public/app/plugins/datasource/parca \
-#     /usr/share/grafana/public/build/parca* \
-#     /usr/share/grafana/public/app/plugins/datasource/phlare \
-#     /usr/share/grafana/public/build/phlare* \
-#     /usr/share/grafana/public/app/plugins/datasource/grafana-pyroscope-datasource \
-#     /usr/share/grafana/public/build/pyroscope*
-
-# Remove native panels
-# RUN rm -rf \
-#     /usr/share/grafana/public/app/plugins/panel/alertlist \
-#     /usr/share/grafana/public/app/plugins/panel/annolist \
-#     /usr/share/grafana/public/app/plugins/panel/dashlist \
-#     /usr/share/grafana/public/app/plugins/panel/news \
-#     /usr/share/grafana/public/app/plugins/panel/geomap \
-#     /usr/share/grafana/public/app/plugins/panel/table-old \
-#     /usr/share/grafana/public/app/plugins/panel/traces \
-#     /usr/share/grafana/public/app/plugins/panel/flamegraph
 
 USER grafana
 
