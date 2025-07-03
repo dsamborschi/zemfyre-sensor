@@ -6,10 +6,21 @@
     repo_url: "https://github.com/dsamborschi/zemfyre-sensor.git"
     repo_dir: "zemfyre-sensor"
     setup_script: "setup.sh"
-    kiosk_url: "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now"
     autostart_file: "/etc/xdg/lxsession/LXDE-pi/autostart"
 
   tasks:
+    - name: Load GRAFANA_PORT_EXT from .env file
+      set_fact:
+        grafana_port_ext: "{{ lookup('file', playbook_dir + '/.env').splitlines() | select('match', '^GRAFANA_PORT_EXT=') | map('regex_replace', '^GRAFANA_PORT_EXT=(.*)$', '\\1') | list | first | default('3000') }}"
+    
+    - name: Show loaded Grafana port
+      debug:
+        msg: "GRAFANA_PORT_EXT loaded from .env is: {{ grafana_port_ext }}"
+
+    - name: Set kiosk_url with dynamic port
+      set_fact:
+        kiosk_url: "http://localhost:{{ grafana_port_ext }}/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now"
+
     - name: Ensure git is installed
       apt:
         name: git
@@ -64,28 +75,18 @@
         dest: "{{ repo_dir }}"
         update: yes
         force: yes
+    
+    - name: Copy Raspberry Pi-specific .env file to repo directory
+      copy:
+        src: "{{ playbook_dir }}/.env"
+        dest: "{{ repo_dir }}/.env"
+        mode: '0644'
 
     - name: Ensure setup.sh is executable
       file:
         path: "{{ repo_dir }}/{{ setup_script }}"
         mode: '0755'
         
-    - name: Load environment variables from .env file
-      set_fact:
-        env_vars: >-
-          {{
-            dict(
-              lookup('file', playbook_dir + '/.env')
-              .splitlines()
-              | select('match', '^[^#\\s]+=.+$')
-              | map('split', '=', 1)
-            )
-          }}
-    
-    - name: Show parsed env_vars
-      debug:
-        var: env_vars
-
 
     - name: Run setup.sh
       command: ./{{ setup_script }}
@@ -93,7 +94,6 @@
         chdir: "{{ repo_dir }}"
       become: yes
       register: setup_output
-      environment: "{{ env_vars }}"
     
     - name: Print setup.sh stdout
       debug:
@@ -107,3 +107,4 @@
         reboot_timeout: 120
         pre_reboot_delay: 5
         post_reboot_delay: 10
+
