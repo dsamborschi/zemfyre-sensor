@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Script to clone or update repo, check/install Docker, and run docker-compose
-
+GRAFANA_DATA_PATH="/home/zemfyre/zemfyre-sensor/grafana/data"
 REPO_URL="https://github.com/dsamborschi/zemfyre-sensor.git"
 REPO_DIR="zemfyre-sensor"
 
@@ -47,5 +47,11 @@ fi
 
 # Run docker-compose
 sudo docker compose up -d --build
+
+echo "Fixing ownership to UID 472 (Grafana container user)..."
+sudo chown -R 472:0 "$GRAFANA_DATA_PATH"
+
+echo "Setting directory permissions to 775 (read/write/execute for owner and group)..."
+sudo chmod -R 775 "$GRAFANA_DATA_PATH"
 
 
