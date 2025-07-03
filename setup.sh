@@ -46,7 +46,7 @@ else
 fi
 
 # Run docker-compose
-sudo docker compose up -d --build
+sudo docker compose up -d --build > /dev/null
 
 echo "Fixing ownership to UID 472 (Grafana container user)..."
 # GRAFANA_UID=$(docker run --rm grafana/grafana-oss id -u grafana)

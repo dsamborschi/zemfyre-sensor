@@ -1,5 +1,5 @@
 ---
-- name: Deploy zemfyre-sensor to Raspberry Pi
+- name: Deploy zemfyre-sensor apps to Raspberry Pi
   hosts: raspberrypi
   become: yes
   vars:
