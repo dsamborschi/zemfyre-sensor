@@ -37,13 +37,18 @@
     - name: Ensure Chromium and kiosk tools are installed
       apt:
         name:
+          - xserver-xorg
+          - x11-xserver-utils
+          - xinit
+          - openbox
+          - unclutter
           - chromium-browser
         state: present
         update_cache: yes
     
     - name: Overwrite .xinitrc with X11 + Chromium kiosk setup
       copy:
-        dest: "/home/pi/.xinitrc"
+        dest: "/home/zemfyre/.xinitrc"
         content: |
           #!/bin/sh
           xset s off
@@ -51,9 +56,16 @@
           xset s noblank
           unclutter -idle 0.1 -root &
           openbox-session &
-          chromium-browser --noerrdialogs --disable-infobars --kiosk {{ kiosk_url }}
-        owner: pi
-        group: pi
+          
+          while true; do
+            curl --silent --head --fail "http://localhost:{{ grafana_port_ext }}/" && break
+            echo "Waiting for grafana..."
+            sleep 2
+          done
+
+          chromium-browser --no-sandbox --hide-scrollbars --disable-gpu --noerrdialogs --disable-infobars --kiosk "{{ kiosk_url }}"
+        owner: zemfyre
+        group: zemfyre
         mode: '0755'
 
 
@@ -86,7 +98,6 @@
         chdir: "{{ repo_dir }}"
       become: yes
       register: setup_output
-      environment: "{{ env_vars }}"
     
     - name: Print setup.sh stdout
       debug:

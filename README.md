@@ -5,14 +5,31 @@ sudo apt upgrade -y
 
 sudo reboot
 
-## Wi-Fi Setup (if needed)
+## Network Setup 
 
+# wifi
 
 To connect your Raspberry Pi to a Wi-Fi network from the command line, use:
 
-sudo nmcli dev wifi connect "SSID_NAME" password "PASSWORD"
+nmcli device wifi list
+nmcli device wifi connect "<SSID>" password "<password>"
+
 
 Replace `SSID_NAME` and `PASSWORD` with your Wi-Fi network's name and password.
+
+# Set static IP for eth0 (change Wired connection 1 to your eth0 name)
+
+nmcli connection modify "Wired connection 1" ipv4.addresses 192.168.0.156/24
+nmcli connection modify "Wired connection 1" ipv4.method manual
+nmcli connection modify "Wired connection 1" ipv4.gateway ""
+nmcli connection modify "Wired connection 1" ipv4.dns ""
+
+nmcli connection up eth0
+
+nmcli connection down "Wired connection 1"
+nmcli connection up "Wired connection 1"
+
+
 
 ## Docker setup
 
@@ -55,6 +72,13 @@ git full
 3) Run docker-compose and build the containers
 
 sudo docker compose up -d
+
+## VNC server setup
+
+sudo apt install realvnc-vnc-server
+sudo systemctl enable vncserver-x11-serviced.service
+sudo systemctl start vncserver-x11-serviced.service
+
 
 
 ## Other
@@ -144,24 +168,7 @@ sudo systemctl start ngrok
 
 sudo systemctl status ngrok
 
-# Setup eth 
 
-To set a static IP for your Ethernet interface using NetworkManager (nmcli):
-
-sudo nmcli connection add type ethernet ifname eth0 con-name static-eth0 ipv4.method manual ipv4.addresses 192.168.1.xxx/24 gw4 192.168.1.1 ipv4.dns 8.8.8.8
-
-# Or, using the legacy interfaces file:
-
-1) sudo nano /etc/network/interfaces.d
-
-
-2) 
-auto eth0
-iface eth0 inet static
-address 192.168.1.xxx      # Your desired static IP address
-netmask 255.255.255.0      # Subnet mask
-
-3) sudo reboot now
 
 
 # Disable Screen Blanking
@@ -192,6 +199,9 @@ Look for the line with xserver-command=X, and modify it to disable screen blanki
 
   curl --request GET "http://influxdb:8086/api/v2/buckets" \
 --header "Authorization: Token rbFJlMmKXhg23cw1Ns9FF63i4MR2k8P9FmgEjX3ZhpnPlthhf85vkIuG0urN-O-CNEN5GdWQsL2V1yEae1Nk9A=="
+
+
+
 
 
 
