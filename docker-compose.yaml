@@ -56,9 +56,10 @@ services:
             - GF_AUTH_DISABLE_LOGIN_FORM=${GRAFANA_AUTH_DISABLE_LOGIN_FORM}
 
         volumes:
-            - ${GRAFANA_VOLUME:-grafana-storage}:/var/lib/grafana
-            # - ./grafana/config/grafana.ini:/etc/grafana/grafana.ini
-            # - ./grafana/provisioning:/etc/grafana/provisioning
+            # - ${GRAFANA_VOLUME:-grafana-storage}:/var/lib/grafana
+            - ./grafana/data:/var/lib/grafana
+            - ./grafana/config/grafana.ini:/etc/grafana/grafana.ini
+            - ./grafana/provisioning:/etc/grafana/provisioning
         ports:
             - "${GRAFANA_PORT_EXT:-53000}:3000"
         networks:
@@ -71,6 +72,7 @@ services:
             - "9000:9000"
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
+            - ./portainer_data:/data
         networks:
             - zemfyre
 networks:
