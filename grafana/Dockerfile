@@ -13,7 +13,6 @@ ENV GF_PLUGIN_RENDERING_CHROME_BIN="/usr/bin/chrome"
 USER root
 
 
-
 RUN mkdir -p "$GF_PATHS_PLUGINS" && \
     chown -R grafana:${GF_GID} "$GF_PATHS_PLUGINS" && \
     if [ $GF_INSTALL_IMAGE_RENDERER_PLUGIN = "true" ]; then \
@@ -113,8 +112,8 @@ RUN if [ ! -z "${GF_INSTALL_PLUGINS}" ]; then \
 
 USER grafana
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:3000/api/health || exit 1
+# HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+#     CMD curl -f http://localhost:3000/api/health || exit 1
 
 ## Provisioning
 # COPY ./grafana/provisioning /etc/grafana/provisioning
