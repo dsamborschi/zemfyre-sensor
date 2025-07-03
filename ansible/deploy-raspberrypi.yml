@@ -6,7 +6,7 @@
     repo_url: "https://github.com/dsamborschi/zemfyre-sensor.git"
     repo_dir: "zemfyre-sensor"
     setup_script: "setup.sh"
-    kiosk_url: "http://localhost:53000/d/ddwxbtmmr6nlsa/zus80lp?orgId=1&refresh=auto&from=now-5m&to=now"
+    kiosk_url: "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now"
     autostart_file: "/etc/xdg/lxsession/LXDE-pi/autostart"
 
   tasks:
