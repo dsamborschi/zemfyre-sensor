@@ -8,14 +8,6 @@
         "env": []
     },
     {
-        "id": "a8f51a1788e6a1d0",
-        "type": "tab",
-        "label": "ZUS80LP IAQ",
-        "disabled": true,
-        "info": "",
-        "env": []
-    },
-    {
         "id": "29e4b09308b4f781",
         "type": "tab",
         "label": "ZUS80LP",
@@ -868,9 +860,9 @@
     {
         "id": "9d944948e290126e",
         "type": "ui-page",
-        "name": "Page 1",
+        "name": "ZUS80LP",
         "ui": "2836ef738fca8069",
-        "path": "/page1",
+        "path": "/zu380lp",
         "icon": "home",
         "layout": "grid",
         "theme": "bcaabb7706c65da8",
@@ -6168,109 +6160,6 @@
         ]
     },
     {
-        "id": "cec84da0e636c4d5",
-        "type": "mqtt in",
-        "z": "a8f51a1788e6a1d0",
-        "d": true,
-        "name": "",
-        "topic": "ZEM-SB",
-        "qos": "2",
-        "datatype": "auto-detect",
-        "broker": "ca4f07abb4d962ad",
-        "nl": false,
-        "rap": true,
-        "rh": 0,
-        "inputs": 0,
-        "x": 180,
-        "y": 260,
-        "wires": [
-            [
-                "851bd80ddc1077fb"
-            ]
-        ]
-    },
-    {
-        "id": "851bd80ddc1077fb",
-        "type": "delay",
-        "z": "a8f51a1788e6a1d0",
-        "name": "",
-        "pauseType": "rate",
-        "timeout": "5",
-        "timeoutUnits": "seconds",
-        "rate": "1",
-        "nbRateUnits": "5",
-        "rateUnits": "second",
-        "randomFirst": "1",
-        "randomLast": "5",
-        "randomUnits": "seconds",
-        "drop": false,
-        "allowrate": false,
-        "outputs": 1,
-        "x": 360,
-        "y": 380,
-        "wires": [
-            [
-                "476f239c3a06ed8c"
-            ]
-        ]
-    },
-    {
-        "id": "476f239c3a06ed8c",
-        "type": "function",
-        "z": "a8f51a1788e6a1d0",
-        "name": "Format metrics",
-        "func": "if (!msg.payload || typeof msg.payload !== 'object' || !msg.payload.device || !msg.payload.device.metrics) {\n    node.warn(\"Invalid payload format: \" + JSON.stringify(msg.payload));\n    return msg; // Exit if the structure is incorrect\n}\n\nlet cleanedMetrics = {};  // New object for cleaned metrics\n\n// Iterate over each metric key-value pair\nfor (let key in msg.payload.device.metrics) {\n    if (msg.payload.device.metrics.hasOwnProperty(key)) {\n        let cleanedKey = key.replace(/\\s*\\(.*?\\)\\s*/g, '').trim();\n        cleanedMetrics[cleanedKey] = msg.payload.device.metrics[key];\n    }\n}\n\n// Assign cleaned metrics back\nmsg.payload.device.metrics = cleanedMetrics;\n\n\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 580,
-        "y": 380,
-        "wires": [
-            [
-                "8057684794666f5b"
-            ]
-        ]
-    },
-    {
-        "id": "8057684794666f5b",
-        "type": "function",
-        "z": "a8f51a1788e6a1d0",
-        "name": "Calculate IAQ",
-        "func": "// Retrieve values from incoming message\nlet { temp, humidity, gas } = msg.payload.device.metrics;\n\n// Context storage for gas reference\nlet gas_reference = context.get(\"gas_reference\") || 2500;\nlet getgasreference_count = context.get(\"getgasreference_count\") || 0;\n\n// Function to calculate humidity score\nfunction getHumidityScore(humidity) {\n    const humWeighting = 0.25;\n    const humReference = 40;\n\n    if (humidity >= 38 && humidity <= 42) {\n        return humWeighting * 100;\n    } else if (humidity < 38) {\n        return (humWeighting / humReference) * humidity * 100;\n    } else {\n        return ((-humWeighting / (100 - humReference)) * humidity) + 0.416666 * 100;\n    }\n}\n\n// Function to calculate gas score\nfunction getGasScore(gasResistance, gasReference) {\n    const gasWeighting = 0.75;\n    const gasLowerLimit = 10000;\n    const gasUpperLimit = 300000;\n\n    let gasScore = (gasWeighting / (gasUpperLimit - gasLowerLimit)) * gasResistance -\n        (gasLowerLimit * (gasWeighting / (gasUpperLimit - gasLowerLimit))) * 100;\n    return Math.max(0, Math.min(75, gasScore));\n}\n\n// Function to calculate IAQ\nfunction calculateIAQ(air_quality_score) {\n    let IAQScore = (100 - air_quality_score) * 5;\n    let IAQText = \"Good\";\n\n    if (IAQScore >= 301) IAQText = \"Hazardous\";\n    else if (IAQScore >= 201) IAQText = \"Very Unhealthy\";\n    else if (IAQScore >= 176) IAQText = \"Unhealthy\";\n    else if (IAQScore >= 151) IAQText = \"Unhealthy for Sensitive Groups\";\n    else if (IAQScore >= 51) IAQText = \"Moderate\";\n\n    return { IAQText, IAQScore };\n}\n\n// Compute humidity and gas scores\nlet humidity_score = getHumidityScore(humidity);\nlet gas_score = getGasScore(gas, gas_reference);\n\n// Combine results for final IAQ index (0-100% where 100% is good)\nlet air_quality_score = humidity_score + gas_score;\n\n// Update gas reference every 5 readings\nif ((getgasreference_count++ % 5) === 0) {\n    let readings = 10;\n    let totalGas = 0;\n\n    for (let i = 0; i < readings; i++) {\n        totalGas += gas; // Simulating multiple readings\n    }\n\n    gas_reference = totalGas / readings;\n}\n\n// Compute IAQ using the same logic as Arduino\nlet IAQResult = calculateIAQ(air_quality_score);\n\n// Store updated values in context\ncontext.set(\"gas_reference\", gas_reference);\ncontext.set(\"getgasreference_count\", getgasreference_count);\n\n// Output final result\nmsg.payload = {\n    temperature: temp.toFixed(2) + \"°C\",\n    humidity: humidity.toFixed(1) + \"%\",\n    gas: gas + \" ohms\",\n    humidity_score: humidity_score.toFixed(2) + \"%\",\n    gas_score: gas_score.toFixed(2) + \"%\",\n    air_quality_score: air_quality_score.toFixed(2) + \"%\",\n    IAQ: IAQResult\n};\n\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 760,
-        "y": 140,
-        "wires": [
-            [
-                "3281439a7ee7f90a"
-            ]
-        ]
-    },
-    {
-        "id": "3281439a7ee7f90a",
-        "type": "debug",
-        "z": "a8f51a1788e6a1d0",
-        "name": "debug 3",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "false",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 880,
-        "y": 320,
-        "wires": []
-    },
-    {
         "id": "c7b33040fea769a4",
         "type": "mqtt in",
         "z": "29e4b09308b4f781",
@@ -6300,7 +6189,7 @@
         "timeout": "5",
         "timeoutUnits": "seconds",
         "rate": "1",
-        "nbRateUnits": "5",
+        "nbRateUnits": "1",
         "rateUnits": "second",
         "randomFirst": "1",
         "randomLast": "5",
@@ -6308,7 +6197,7 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 280,
+        "x": 270,
         "y": 360,
         "wires": [
             [
@@ -6503,6 +6392,36 @@
             [
                 "245c5543c5e69c5e"
             ]
+        ]
+    },
+    {
+        "id": "b382508bde18b479",
+        "type": "ui-number-input",
+        "z": "29e4b09308b4f781",
+        "group": "afadb199d621b737",
+        "name": "CPU Temperature compensation",
+        "label": "CPU Temperature compensation",
+        "order": 1,
+        "width": 0,
+        "height": 0,
+        "topic": "topic",
+        "topicType": "msg",
+        "min": 0,
+        "max": "100",
+        "step": 1,
+        "tooltip": "",
+        "passthru": true,
+        "sendOnBlur": true,
+        "sendOnEnter": true,
+        "className": "",
+        "clearable": false,
+        "icon": "",
+        "iconPosition": "left",
+        "iconInnerPosition": "inside",
+        "x": 330,
+        "y": 600,
+        "wires": [
+            []
         ]
     }
 ]
