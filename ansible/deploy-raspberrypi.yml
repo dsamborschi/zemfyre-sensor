@@ -11,11 +11,11 @@
   tasks:
     - name: Load GRAFANA_PORT_EXT from .env file
       set_fact:
-        grafana_port_ext: "{{ lookup('file', playbook_dir + '/.env').splitlines() | select('match', '^GRAFANA_PORT_EXT=') | map('regex_replace', '^GRAFANA_PORT_EXT=(.*)$', '\\1') | list | first | default('3000') }}"
+        grafana_port_ext: "{{ lookup('file', playbook_dir + '/.env.pi').splitlines() | select('match', '^GRAFANA_PORT_EXT=') | map('regex_replace', '^GRAFANA_PORT_EXT=(.*)$', '\\1') | list | first | default('3000') }}"
     
     - name: Show loaded Grafana port
       debug:
-        msg: "GRAFANA_PORT_EXT loaded from .env is: {{ grafana_port_ext }}"
+        msg: "GRAFANA_PORT_EXT loaded from .env.pi is: {{ grafana_port_ext }}"
 
     - name: Set kiosk_url with dynamic port
       set_fact:
@@ -78,7 +78,7 @@
     
     - name: Copy Raspberry Pi-specific .env file to repo directory
       copy:
-        src: "{{ playbook_dir }}/.env"
+        src: "{{ playbook_dir }}/.env.pi"
         dest: "{{ repo_dir }}/.env"
         mode: '0644'
 

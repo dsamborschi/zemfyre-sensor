@@ -42,7 +42,7 @@ fi
 if ! docker compose version &> /dev/null; then
     echo "Docker Compose plugin not found. You may need to install it manually or check Docker installation."
 else
-    echo "Docker Compose plugin is available."
+    echo "Docker Compose is already installed."
 fi
 
 # Run docker-compose
