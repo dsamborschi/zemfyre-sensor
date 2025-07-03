@@ -49,7 +49,8 @@ fi
 sudo docker compose up -d --build
 
 echo "Fixing ownership to UID 472 (Grafana container user)..."
-sudo chown -R 472:0 "$GRAFANA_DATA_PATH"
+GRAFANA_UID=$(docker run --rm grafana/grafana-oss id -u grafana)
+sudo chown -R $GRAFANA_UID:0 ./grafana/data
 
 echo "Setting directory permissions to 775 (read/write/execute for owner and group)..."
 sudo chmod -R 775 "$GRAFANA_DATA_PATH"
