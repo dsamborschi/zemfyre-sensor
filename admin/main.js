@@ -16,7 +16,7 @@ function App() {
       <Container maxWidth="sm">
         <Box mt={8} textAlign="center">
           <Typography variant="h3" gutterBottom>
-            Welcome to Zemfyre Admin
+            Welcome to Zemfyre
           </Typography>
           <Typography variant="subtitle1" gutterBottom>
             Use the navigation above to access the Dashboard or Demo.
