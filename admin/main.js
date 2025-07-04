@@ -20,7 +20,7 @@ function App() {
     <Box display="flex" flexDirection="column" height="100vh">
       {/* Conditionally Render AppBar */}
       {!kioskMode && (
-        <AppBar position="static" sx={{ backgroundColor: '#0A2239' }}>
+        <AppBar position="static" style={{ backgroundColor: '#0A2239' }}>
           <Toolbar>
             <Box sx={{ flexGrow: 1 }}>
               <img src="./public/images/logo.svg" alt="Zemfyre Logo" style={{ height: 40 }} />
