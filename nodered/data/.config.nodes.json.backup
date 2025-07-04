@@ -819,6 +819,30 @@
             }
         }
     },
+    "node-red-contrib-iotflows": {
+        "name": "node-red-contrib-iotflows",
+        "version": "1.4.3",
+        "local": true,
+        "user": true,
+        "nodes": {
+            "iotflows": {
+                "name": "iotflows",
+                "types": [
+                    "datastream in",
+                    "datastream out",
+                    "alert channel out",
+                    "action start",
+                    "action finish",
+                    "mqtt-iotflows-broker"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-iotflows",
+                "file": "/data/node_modules/node-red-contrib-iotflows/iotflows.js"
+            }
+        }
+    },
     "node-red-contrib-machine-learning-v2": {
         "name": "node-red-contrib-machine-learning-v2",
         "version": "1.0.9",

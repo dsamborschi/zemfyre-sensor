@@ -5635,7 +5635,7 @@
         "id": "c7b33040fea769a4",
         "type": "mqtt in",
         "z": "29e4b09308b4f781",
-        "name": "",
+        "name": "Subscribe to ZEM-SB mqtt topic",
         "topic": "ZEM-SB",
         "qos": "2",
         "datatype": "auto-detect",
@@ -5644,7 +5644,7 @@
         "rap": true,
         "rh": 0,
         "inputs": 0,
-        "x": 140,
+        "x": 170,
         "y": 140,
         "wires": [
             [
@@ -5799,7 +5799,7 @@
         "id": "8cd9ec4f3e067e23",
         "type": "function",
         "z": "29e4b09308b4f781",
-        "name": "metrics",
+        "name": "other",
         "func": "\n// Extract the sensor data\nlet payload = msg.payload;\n\n\n// Check if the expected format exists\nif (!payload.device || !payload.device.metrics) {\n    node.error(\"Invalid data format\", msg);\n    return null;\n}\n\n// Extract details\nlet deviceName = payload.device.name;\nlet macAddress = payload.device.mac;\nlet metrics = payload.device.metrics;\n\n\n// Construct InfluxDB JSON format\nmsg.payload.metrics = \n    {\n        device: deviceName,\n        temperature: metrics.temp,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light,\n        IAQScore_original: metrics.AQI,\n    };\n\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
@@ -5807,7 +5807,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 560,
+        "x": 550,
         "y": 460,
         "wires": [
             [
@@ -5819,7 +5819,7 @@
         "id": "245c5543c5e69c5e",
         "type": "join",
         "z": "29e4b09308b4f781",
-        "name": "",
+        "name": "join all",
         "mode": "custom",
         "build": "merged",
         "property": "payload",
@@ -5836,7 +5836,7 @@
         "reduceInit": "",
         "reduceInitType": "",
         "reduceFixup": "",
-        "x": 790,
+        "x": 800,
         "y": 300,
         "wires": [
             [
