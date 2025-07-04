@@ -5644,8 +5644,8 @@
         "rap": true,
         "rh": 0,
         "inputs": 0,
-        "x": 100,
-        "y": 240,
+        "x": 140,
+        "y": 140,
         "wires": [
             [
                 "71e796841444f251"
@@ -5669,8 +5669,8 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 270,
-        "y": 360,
+        "x": 230,
+        "y": 300,
         "wires": [
             [
                 "a8b2def19846c3a8"
@@ -5689,14 +5689,13 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 450,
-        "y": 360,
+        "x": 390,
+        "y": 300,
         "wires": [
             [
                 "30e8a7afe80a6412",
                 "c80ebf275b31e4bb",
-                "8cd9ec4f3e067e23",
-                "c1d3fc87b3c4ec59"
+                "8cd9ec4f3e067e23"
             ]
         ]
     },
@@ -5714,8 +5713,8 @@
         "retentionPolicyV18Flux": "",
         "org": "Zemfyre",
         "bucket": "ZUS80LP",
-        "x": 1100,
-        "y": 500,
+        "x": 1080,
+        "y": 440,
         "wires": []
     },
     {
@@ -5730,8 +5729,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 630,
-        "y": 340,
+        "x": 570,
+        "y": 300,
         "wires": [
             [
                 "245c5543c5e69c5e"
@@ -5750,8 +5749,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 630,
-        "y": 220,
+        "x": 570,
+        "y": 160,
         "wires": [
             [
                 "245c5543c5e69c5e"
@@ -5771,8 +5770,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1100,
-        "y": 240,
+        "x": 1120,
+        "y": 200,
         "wires": []
     },
     {
@@ -5788,7 +5787,7 @@
         "finalize": "",
         "libs": [],
         "x": 940,
-        "y": 340,
+        "y": 300,
         "wires": [
             [
                 "7dbb1bbe86fcf8b5",
@@ -5800,7 +5799,7 @@
         "id": "8cd9ec4f3e067e23",
         "type": "function",
         "z": "29e4b09308b4f781",
-        "name": "metrics",
+        "name": "other",
         "func": "\n// Extract the sensor data\nlet payload = msg.payload;\n\n\n// Check if the expected format exists\nif (!payload.device || !payload.device.metrics) {\n    node.error(\"Invalid data format\", msg);\n    return null;\n}\n\n// Extract details\nlet deviceName = payload.device.name;\nlet macAddress = payload.device.mac;\nlet metrics = payload.device.metrics;\n\n\n// Construct InfluxDB JSON format\nmsg.payload.metrics = \n    {\n        device: deviceName,\n        temperature: metrics.temp,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light,\n        IAQScore_original: metrics.AQI,\n    };\n\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
@@ -5808,8 +5807,8 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 640,
-        "y": 480,
+        "x": 550,
+        "y": 460,
         "wires": [
             [
                 "245c5543c5e69c5e"
@@ -5820,7 +5819,7 @@
         "id": "245c5543c5e69c5e",
         "type": "join",
         "z": "29e4b09308b4f781",
-        "name": "",
+        "name": "join all",
         "mode": "custom",
         "build": "merged",
         "property": "payload",
@@ -5837,63 +5836,12 @@
         "reduceInit": "",
         "reduceInitType": "",
         "reduceFixup": "",
-        "x": 790,
-        "y": 340,
+        "x": 800,
+        "y": 300,
         "wires": [
             [
                 "22b069973bd6910b"
             ]
-        ]
-    },
-    {
-        "id": "c1d3fc87b3c4ec59",
-        "type": "function",
-        "z": "29e4b09308b4f781",
-        "d": true,
-        "name": "FFT Converter",
-        "func": "var fft = global.get('fft');\nvar fftUtil = global.get('fftUtil');\n\nif (!fft || !fftUtil) {\n    node.error(\"FFT modules not loaded!\");\n    return msg;\n}\n\n// Get stored data from context\nvar x_buffer = context.get(\"x_buffer\") || [];\nvar y_buffer = context.get(\"y_buffer\") || [];\nvar z_buffer = context.get(\"z_buffer\") || [];\n\n// Extract new data point\nlet metrics = msg.payload.device.metrics;\n\nx_buffer.push(metrics.X);\ny_buffer.push(metrics.Y);\nz_buffer.push(metrics.Z);\n\n// Define the required FFT size (must be a power of 2)\nlet fft_size = 16; // Adjust this as needed\n\n// Keep only the last `fft_size` values\nif (x_buffer.length > fft_size) x_buffer.shift();\nif (y_buffer.length > fft_size) y_buffer.shift();\nif (z_buffer.length > fft_size) z_buffer.shift();\n\n// Store updated buffers\ncontext.set(\"x_buffer\", x_buffer);\ncontext.set(\"y_buffer\", y_buffer);\ncontext.set(\"z_buffer\", z_buffer);\n\n// Only perform FFT when we have enough data points\nif (x_buffer.length < fft_size) {\n    node.warn(\"Not enough data points for FFT yet\");\n    msg.payload.fft_data = null;\n    return msg;  // Wait until buffer fills up\n}\n\n// Perform FFT\nlet fft_x_data = fft(x_buffer);\nlet fft_y_data = fft(y_buffer);\nlet fft_z_data = fft(z_buffer);\n\n// Compute magnitude\nlet fft_x_magnitude = fftUtil.fftMag(fft_x_data);\nlet fft_y_magnitude = fftUtil.fftMag(fft_y_data);\nlet fft_z_magnitude = fftUtil.fftMag(fft_z_data);\n\n// Extract real and imaginary parts\nlet fft_x_real = [];\nlet fft_x_imaginary = [];\nfft_x_data.forEach(r => { fft_x_real.push(r[0]); fft_x_imaginary.push(r[1]); });\n\nlet fft_y_real = [];\nlet fft_y_imaginary = [];\nfft_y_data.forEach(r => { fft_y_real.push(r[0]); fft_y_imaginary.push(r[1]); });\n\nlet fft_z_real = [];\nlet fft_z_imaginary = [];\nfft_z_data.forEach(r => { fft_z_real.push(r[0]); fft_z_imaginary.push(r[1]); });\n\n// Compute frequency bins\nlet fft_frequency = fftUtil.fftFreq(fft_x_data, 100); // Change `100` to your real sampling rate\n\n// Add FFT results to message\nmsg.payload.fft_data = {\n    frequency: fft_frequency,\n    fft_x: { magnitude: fft_x_magnitude, real: fft_x_real, imaginary: fft_x_imaginary },\n    fft_y: { magnitude: fft_y_magnitude, real: fft_y_real, imaginary: fft_y_imaginary },\n    fft_z: { magnitude: fft_z_magnitude, real: fft_z_real, imaginary: fft_z_imaginary }\n};\n\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": "",
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 640,
-        "y": 120,
-        "wires": [
-            [
-                "245c5543c5e69c5e"
-            ]
-        ]
-    },
-    {
-        "id": "b382508bde18b479",
-        "type": "ui-number-input",
-        "z": "29e4b09308b4f781",
-        "group": "afadb199d621b737",
-        "name": "CPU Temperature compensation",
-        "label": "CPU Temperature compensation",
-        "order": 1,
-        "width": 0,
-        "height": 0,
-        "topic": "topic",
-        "topicType": "msg",
-        "min": 0,
-        "max": "100",
-        "step": 1,
-        "tooltip": "",
-        "passthru": true,
-        "sendOnBlur": true,
-        "sendOnEnter": true,
-        "className": "",
-        "clearable": false,
-        "icon": "",
-        "iconPosition": "left",
-        "iconInnerPosition": "inside",
-        "x": 330,
-        "y": 600,
-        "wires": [
-            []
         ]
     },
     {

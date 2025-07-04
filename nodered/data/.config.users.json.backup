@@ -12,7 +12,6 @@
                 "view-show-tips": true,
                 "view-show-welcome-tours": true
             }
-        },
-        "menu-menu-item-sidebar": false
+        }
     }
 }
