@@ -20,9 +20,9 @@ function App() {
       {!kioskMode && (
         <AppBar position="static" sx={{ backgroundColor: '#0A2239' }}>
           <Toolbar>
-            <Typography variant="h6" style={{ flexGrow: 1 }}>
-              Zemfyre
-            </Typography>
+            <Box sx={{ flexGrow: 1 }}>
+              <img src="images/logo.svg" alt="Zemfyre Logo" style={{ height: 40 }} />
+            </Box>
             <Button color="inherit" onClick={() => setView("home")}>
               Home
             </Button>
