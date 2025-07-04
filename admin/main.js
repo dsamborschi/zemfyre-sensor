@@ -3,35 +3,42 @@ const {
   Toolbar,
   Typography,
   Button,
+  IconButton,
   Box
 } = MaterialUI;
 
 function App() {
   const [view, setView] = React.useState("home");
+  const [kioskMode, setKioskMode] = React.useState(false);
 
   const grafanaURL =
     "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
 
   return (
     <Box display="flex" flexDirection="column" height="100vh">
-      {/* Sticky AppBar */}
-      <AppBar position="static" color="primary">
-        <Toolbar>
-          <Typography variant="h6" style={{ flexGrow: 1 }}>
-            Zemfyre Admin
-          </Typography>
-          <Button color="inherit" onClick={() => setView("dashboard")}>
-            Dashboard
-          </Button>
-          <Button color="inherit" onClick={() => setView("demo")}>
-            Demo
-          </Button>
-        </Toolbar>
-      </AppBar>
+      {/* Conditionally Render AppBar */}
+      {!kioskMode && (
+        <AppBar position="static" color="primary">
+          <Toolbar>
+            <Typography variant="h6" style={{ flexGrow: 1 }}>
+              Zemfyre Admin
+            </Typography>
+            <Button color="inherit" onClick={() => setView("dashboard")}>
+              Dashboard
+            </Button>
+            <Button color="inherit" onClick={() => setView("demo")}>
+              Demo
+            </Button>
+            <Button color="inherit" onClick={() => setKioskMode(true)}>
+              Kiosk Mode
+            </Button>
+          </Toolbar>
+        </AppBar>
+      )}
 
       {/* Main Content Area */}
       <Box flexGrow={1} overflow="hidden">
-        {view === "home" && (
+        {view === "home" && !kioskMode && (
           <Box
             height="100%"
             display="flex"
@@ -50,7 +57,22 @@ function App() {
         )}
 
         {view === "dashboard" && (
-          <Box height="100%">
+          <Box height="100%" position="relative">
+            {kioskMode && (
+              <Button
+                variant="contained"
+                size="small"
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  right: 10,
+                  zIndex: 10
+                }}
+                onClick={() => setKioskMode(false)}
+              >
+                Exit Kiosk
+              </Button>
+            )}
             <iframe
               src={grafanaURL}
               title="Grafana Dashboard"
@@ -62,7 +84,7 @@ function App() {
           </Box>
         )}
 
-        {view === "demo" && (
+        {view === "demo" && !kioskMode && (
           <Box
             height="100%"
             display="flex"
