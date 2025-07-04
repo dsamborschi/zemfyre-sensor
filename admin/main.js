@@ -18,7 +18,7 @@ function App() {
     <Box display="flex" flexDirection="column" height="100vh">
       {/* Conditionally Render AppBar */}
       {!kioskMode && (
-        <AppBar position="static" color="primary">
+        <AppBar position="static" sx={{ backgroundColor: '#0A2239' }}>
           <Toolbar>
             <Typography variant="h6" style={{ flexGrow: 1 }}>
               Zemfyre
