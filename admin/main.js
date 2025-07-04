@@ -3,19 +3,19 @@ const {
   Toolbar,
   Typography,
   Button,
-  Container,
   Box
 } = MaterialUI;
 
 function App() {
   const [view, setView] = React.useState("home");
 
-  const grafanaURL = "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
+  const grafanaURL =
+    "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
 
   return (
-    <React.Fragment>
+    <Box display="flex" flexDirection="column" height="100vh">
       {/* Sticky AppBar */}
-      <AppBar position="sticky" color="primary">
+      <AppBar position="static" color="primary">
         <Toolbar>
           <Typography variant="h6" style={{ flexGrow: 1 }}>
             Zemfyre Admin
@@ -30,9 +30,16 @@ function App() {
       </AppBar>
 
       {/* Main Content Area */}
-      <Container maxWidth="lg">
+      <Box flexGrow={1} overflow="hidden">
         {view === "home" && (
-          <Box mt={8} textAlign="center">
+          <Box
+            height="100%"
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+            textAlign="center"
+          >
             <Typography variant="h3" gutterBottom>
               Welcome to Zemfyre
             </Typography>
@@ -43,7 +50,7 @@ function App() {
         )}
 
         {view === "dashboard" && (
-          <Box mt={4} style={{ height: "80vh" }}>
+          <Box height="100%">
             <iframe
               src={grafanaURL}
               title="Grafana Dashboard"
@@ -56,14 +63,19 @@ function App() {
         )}
 
         {view === "demo" && (
-          <Box mt={4} textAlign="center">
+          <Box
+            height="100%"
+            display="flex"
+            alignItems="center"
+            justifyContent="center"
+            textAlign="center"
+          >
             <Typography variant="h4">Demo Section</Typography>
-            {/* Demo content goes here */}
           </Box>
         )}
-      </Container>
-    </React.Fragment>
+      </Box>
+    </Box>
   );
 }
 
-ReactDOM.render(<App />, document.getElementById('root'));
+ReactDOM.render(<App />, document.getElementById("root"));
