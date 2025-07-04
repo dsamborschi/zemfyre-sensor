@@ -56,7 +56,6 @@ services:
             - GF_AUTH_DISABLE_LOGIN_FORM=${GRAFANA_AUTH_DISABLE_LOGIN_FORM}
 
         volumes:
-            # - ${GRAFANA_VOLUME:-grafana-storage}:/var/lib/grafana
             - ./grafana/data:/var/lib/grafana
             - ./grafana/config/grafana.ini:/etc/grafana/grafana.ini
             - ./grafana/provisioning:/etc/grafana/provisioning
