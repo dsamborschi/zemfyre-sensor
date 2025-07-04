@@ -13,6 +13,6 @@
                 "view-show-welcome-tours": true
             }
         },
-        "menu-menu-item-sidebar": false
+        "menu-menu-item-sidebar": true
     }
 }

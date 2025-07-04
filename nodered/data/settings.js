@@ -415,7 +415,7 @@ module.exports = {
         theme: "midnight-red",
 
         page: {
-            title: "Zemfyre Flow Editor"
+            title: "Zemfyre Flows"
             // favicon: "/absolute/path/to/theme/icon",
             // css: "/absolute/path/to/custom/css/file",
             // scripts: [ "/absolute/path/to/custom/script/file", "/another/script/file"]
