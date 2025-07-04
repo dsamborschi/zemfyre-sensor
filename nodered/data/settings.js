@@ -421,7 +421,7 @@ module.exports = {
             // scripts: [ "/absolute/path/to/custom/script/file", "/another/script/file"]
         },
         header: {
-            title: "Zemfyre Flow Editor<br/>",
+            title: "Zemfyre Flows<br/>",
             image: null, // or null to remove image
             // url: "http://nodered.org" // optional url to make the header text/image a link to this url
         },
