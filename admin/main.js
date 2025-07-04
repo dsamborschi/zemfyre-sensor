@@ -54,7 +54,7 @@ function App() {
               Welcome to Zemfyre
             </Typography>
             <Typography variant="subtitle1" gutterBottom>
-              Use the navigation above to access the Dashboard or Demo.
+              Industrial Ethernet Solutions
             </Typography>
           </Box>
         )}
