@@ -104,10 +104,10 @@
        msg: "{{ setup_output.stdout_lines }}"
       when: setup_output is defined
 
-    - name: Reboot Raspberry Pi to apply chnages and start kiosk mode
-      reboot:
-        msg: "Reboot initiated by Ansible to start kiosk mode with updated Chromium settings."
-        connect_timeout: 5
-        reboot_timeout: 120
-        pre_reboot_delay: 5
-        post_reboot_delay: 10
+    # - name: Reboot Raspberry Pi to apply chnages and start kiosk mode
+    #   reboot:
+    #     msg: "Reboot initiated by Ansible to start kiosk mode with updated Chromium settings."
+    #     connect_timeout: 5
+    #     reboot_timeout: 120
+    #     pre_reboot_delay: 5
+    #     post_reboot_delay: 10

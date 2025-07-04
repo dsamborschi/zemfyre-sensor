@@ -31,8 +31,11 @@ function App() {
             <Button color="inherit" onClick={() => setView("dashboard")}>
               Dashboard
             </Button>
-             <Button color="inherit" onClick={() => setView("demo")}>
+             <Button color="inherit" onClick={() => setView("nodered")}>
               Node-Red
+            </Button>
+            <Button color="inherit" onClick={() => setView("settings")}>
+              Settings
             </Button>
             <Button color="inherit" onClick={() => setKioskMode(true)}>
               Kiosk Mode
@@ -58,6 +61,22 @@ function App() {
             <Typography variant="subtitle1" gutterBottom>
               Industrial Ethernet Solutions
             </Typography>
+          </Box>
+        )}
+
+        {view === "settings" && !kioskMode && (
+          <Box
+            height="100%"
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+            textAlign="center"
+          >
+            <Typography variant="h3" gutterBottom>
+              Settings
+            </Typography>
+           
           </Box>
         )}
 
@@ -89,7 +108,7 @@ function App() {
           </Box>
         )}
 
-        {view === "demo" && !kioskMode && (
+        {view === "nodered" && !kioskMode && (
          <Box height="100%" position="relative">
             {kioskMode && (
               <Button
