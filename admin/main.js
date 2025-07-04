@@ -23,6 +23,9 @@ function App() {
             <Typography variant="h6" style={{ flexGrow: 1 }}>
               Zemfyre Admin
             </Typography>
+            <Button color="inherit" onClick={() => setView("home")}>
+              Home
+            </Button>
             <Button color="inherit" onClick={() => setView("dashboard")}>
               Dashboard
             </Button>
