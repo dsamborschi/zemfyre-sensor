@@ -75,6 +75,16 @@ services:
             - ./portainer_data:/data
         networks:
             - zemfyre
+    admin:
+        build:
+            context: ./admin
+            dockerfile: Dockerfile
+        container_name: admin
+        restart: always
+        ports:
+            - "${ADMIN_PORT:-51850}:80"
+        networks:
+            - zemfyre
 networks:
   zemfyre:
     driver: bridge
