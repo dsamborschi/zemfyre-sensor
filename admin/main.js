@@ -29,7 +29,7 @@ function App() {
               Home
             </Button>
             <Button color="inherit" onClick={() => setView("dashboard")}>
-              Dashboard
+              Dashboards
             </Button>
              <Button color="inherit" onClick={() => setView("nodered")}>
               Node-Red
