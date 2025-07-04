@@ -19,7 +19,7 @@
 
     - name: Set kiosk_url with dynamic port
       set_fact:
-        kiosk_url: "http://localhost:{{ grafana_port_ext }}/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now"
+        kiosk_url: "http://localhost:51850/"
 
     
     - name: Ensure git is installed

@@ -9,7 +9,7 @@ function App() {
           <Typography variant="h6" style={{ flexGrow: 1 }}>
             Zemfyre Admin
           </Typography>
-          <Button color="inherit" href="#dashboard">Dashboard</Button>
+          <Button color="inherit" href="http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now">Dashboard</Button>
           <Button color="inherit" href="#demo">Demo</Button>
         </Toolbar>
       </AppBar>
