@@ -423,6 +423,7 @@ module.exports = {
         header: {
             title: "Zemfyre Flows<br/>",
             image: null, // or null to remove image
+            toolbar: false,
             // url: "http://nodered.org" // optional url to make the header text/image a link to this url
         },
 
