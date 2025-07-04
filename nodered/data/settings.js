@@ -423,7 +423,6 @@ module.exports = {
         header: {
             title: "Zemfyre Flows<br/>",
             image: null, // or null to remove image
-            toolbar: false,
             // url: "http://nodered.org" // optional url to make the header text/image a link to this url
         },
 
@@ -439,7 +438,8 @@ module.exports = {
              * added to the end of the palette.
              * If not set, the following default order is used:
              */
-            //categories: ['subflows', 'common', 'function', 'network', 'sequence', 'parser', 'storage'],
+            categories: ['common', 'function', 'network', 'sequence', 'parser', 'storage'],
+            editable: false 
         },
 
         projects: {
