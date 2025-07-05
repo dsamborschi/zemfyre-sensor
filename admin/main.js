@@ -230,8 +230,12 @@ function App() {
             {/* <Button color="inherit" onClick={() => setView("settings")}>
               Settings
             </Button> */}
-            <Button color="inherit" onClick={() => setKioskMode(true)}>
-              Kiosk Mode
+            <Button color="inherit" onClick={() => setKioskMode(true)} style={{ minWidth: 40, padding: 0 }}>
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="2"/>
+                <rect x="7" y="9" width="10" height="6" rx="1" fill="currentColor"/>
+                <rect x="10" y="17" width="4" height="2" rx="1" fill="currentColor"/>
+              </svg>
             </Button>
           </Toolbar>
         </AppBar>
@@ -309,11 +313,16 @@ function App() {
                   position: "absolute",
                   top: 10,
                   right: 10,
-                  zIndex: 10
+                  zIndex: 10,
+                  minWidth: 36,
+                  padding: 4
                 }}
                 onClick={() => setKioskMode(false)}
               >
-                Exit Kiosk
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3" y="5" width="14" height="10" rx="2" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M7 13L13 7M13 13L7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
               </Button>
             )}
             <iframe
@@ -337,11 +346,16 @@ function App() {
                   position: "absolute",
                   top: 10,
                   right: 10,
-                  zIndex: 10
+                  zIndex: 10,
+                  minWidth: 36,
+                  padding: 4
                 }}
                 onClick={() => setKioskMode(false)}
               >
-                Exit Kiosk
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3" y="5" width="14" height="10" rx="2" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M7 13L13 7M13 13L7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
               </Button>
             )}
             <iframe
@@ -364,11 +378,16 @@ function App() {
                   position: "absolute",
                   top: 10,
                   right: 10,
-                  zIndex: 10
+                  zIndex: 10,
+                  minWidth: 36,
+                  padding: 4
                 }}
                 onClick={() => setKioskMode(false)}
               >
-                Exit Kiosk
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3" y="5" width="14" height="10" rx="2" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M7 13L13 7M13 13L7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
               </Button>
             )}
             <iframe
