@@ -4876,7 +4876,7 @@
         "rh": 0,
         "inputs": 0,
         "x": 170,
-        "y": 140,
+        "y": 80,
         "wires": [
             [
                 "71e796841444f251"
@@ -4935,7 +4935,7 @@
         "type": "influxdb out",
         "z": "29e4b09308b4f781",
         "influxdb": "06ec447a89dfd1d3",
-        "name": "",
+        "name": "Send to InfluxDB",
         "measurement": "metrics",
         "precision": "",
         "retentionPolicy": "",
@@ -4944,15 +4944,15 @@
         "retentionPolicyV18Flux": "",
         "org": "Zemfyre",
         "bucket": "ZUS80LP",
-        "x": 1080,
-        "y": 440,
+        "x": 990,
+        "y": 460,
         "wires": []
     },
     {
         "id": "30e8a7afe80a6412",
         "type": "function",
         "z": "29e4b09308b4f781",
-        "name": "IAQ",
+        "name": "calculate IAQ",
         "func": "// Retrieve values from incoming message\nlet { temp, humidity, gas } = msg.payload.device.metrics;\nlet deviceName = msg.payload.device.name;\n\n// Context storage for gas reference\nlet gas_reference = context.get(\"gas_reference\") || 2500;\nlet getgasreference_count = context.get(\"getgasreference_count\") || 0;\n\n// Function to calculate humidity score\nfunction getHumidityScore(humidity) {\n    const humWeighting = 0.25;\n    const humReference = 40;\n\n    if (humidity >= 38 && humidity <= 42) {\n        return humWeighting * 100;\n    } else if (humidity < 38) {\n        return (humWeighting / humReference) * humidity * 100;\n    } else {\n        return ((-humWeighting / (100 - humReference)) * humidity) + 0.416666 * 100;\n    }\n}\n\n// Function to calculate gas score\nfunction getGasScore(gasResistance, gasReference) {\n    const gasWeighting = 0.75;\n    const gasLowerLimit = 10000;\n    const gasUpperLimit = 300000;\n\n    let gasScore = (gasWeighting / (gasUpperLimit - gasLowerLimit)) * gasResistance -\n        (gasLowerLimit * (gasWeighting / (gasUpperLimit - gasLowerLimit))) * 100;\n    return Math.max(0, Math.min(75, gasScore));\n}\n\n// Function to calculate IAQ\nfunction calculateIAQ(air_quality_score) {\n    let IAQScore = (100 - air_quality_score) * 5;\n    let IAQText = \"Good\";\n\n    if (IAQScore >= 301) IAQText = \"Hazardous\";\n    else if (IAQScore >= 201) IAQText = \"Very Unhealthy\";\n    else if (IAQScore >= 176) IAQText = \"Unhealthy\";\n    else if (IAQScore >= 151) IAQText = \"Unhealthy for Sensitive Groups\";\n    else if (IAQScore >= 51) IAQText = \"Moderate\";\n\n    return { IAQText, IAQScore };\n}\n\n// Compute humidity and gas scores\nlet humidity_score = getHumidityScore(humidity);\nlet gas_score = getGasScore(gas, gas_reference);\n\n// Combine results for final IAQ index (0-100% where 100% is good)\nlet air_quality_score = humidity_score + gas_score;\n\n// Update gas reference every 5 readings\nif ((getgasreference_count++ % 5) === 0) {\n    let readings = 10;\n    let totalGas = 0;\n\n    for (let i = 0; i < readings; i++) {\n        totalGas += gas; // Simulating multiple readings\n    }\n\n    gas_reference = totalGas / readings;\n}\n\n// Compute IAQ using the same logic as Arduino\nlet IAQResult = calculateIAQ(air_quality_score);\n\n// Store updated values in context\ncontext.set(\"gas_reference\", gas_reference);\ncontext.set(\"getgasreference_count\", getgasreference_count);\n\n// Output final result\nmsg.payload.iaq = {\n    humidity_score: humidity_score.toFixed(2),\n    gas_score: gas_score.toFixed(2),\n    air_quality_score: air_quality_score.toFixed(2),\n    IAQScore: IAQResult.IAQScore\n};\n\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
@@ -4960,7 +4960,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 570,
+        "x": 590,
         "y": 300,
         "wires": [
             [
@@ -4972,7 +4972,7 @@
         "id": "c80ebf275b31e4bb",
         "type": "function",
         "z": "29e4b09308b4f781",
-        "name": "XYZ",
+        "name": "calculate XYZ",
         "func": "var range = 2; // in g\nvar seismic_alert = 0;\n\n// Convert raw values from the sensor (X, Y, Z) to acceleration in g\nvar X_raw = msg.payload.device.metrics.X;\nvar Y_raw = msg.payload.device.metrics.Y;\nvar Z_raw = msg.payload.device.metrics.Z;\n\n\n// Scaling factor to convert from raw sensor data to g\nvar scalingFactor = range / 1024; // 1024 for 10-bit resolution, adjust if needed\n\n// Convert raw readings to g values\nvar X = X_raw * scalingFactor;\nvar Y = Y_raw * scalingFactor;\nvar Z = Z_raw * scalingFactor;\n\n// Calculate magnitude (total acceleration in g)\nvar magnitude = (Math.sqrt(Math.pow(X, 2) + Math.pow(Y, 2) + Math.pow(Z, 2)));\n// Calculate tilt (in radians) from the vertical Z axis\nvar tilt = Math.acos(Z / magnitude);  // Angle relative to gravity (z-axis)\n\nif (magnitude > 3) {\n    // whoa - maybe an earthquake\n    seismic_alert = 1\n}\n\n// Convert tilt to degrees\nvar tiltDegrees = tilt * (180 / Math.PI); // Convert to degrees\n\n// Ensure tilt is in the range 0 to 90 degrees (since we are measuring tilt from vertical)\nif (tiltDegrees > 90) {\n    tiltDegrees = 180 - tiltDegrees;\n}\n\n// Calculate pitch and roll angles\nvar pitch = Math.atan2(Y, Math.sqrt(Math.pow(X, 2) + Math.pow(Z, 2))) * (180 / Math.PI);\nvar roll = Math.atan2(X, Math.sqrt(Math.pow(Y, 2) + Math.pow(Z, 2))) * (180 / Math.PI);\n\n// Output the calculated values\nmsg.payload.xyz = {\n    magnitude: magnitude,\n    tilt: tiltDegrees,\n    pitch: pitch,\n    roll: roll,\n    alert: seismic_alert\n};\n\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
@@ -4980,7 +4980,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 570,
+        "x": 600,
         "y": 160,
         "wires": [
             [
@@ -4992,7 +4992,7 @@
         "id": "536c8823231354e6",
         "type": "debug",
         "z": "29e4b09308b4f781",
-        "name": "show combined",
+        "name": "debug",
         "active": true,
         "tosidebar": true,
         "console": false,
@@ -5001,7 +5001,7 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1120,
+        "x": 1030,
         "y": 200,
         "wires": []
     },
@@ -5030,7 +5030,7 @@
         "id": "8cd9ec4f3e067e23",
         "type": "function",
         "z": "29e4b09308b4f781",
-        "name": "other",
+        "name": "calculae other",
         "func": "\n// Extract the sensor data\nlet payload = msg.payload;\n\n\n// Check if the expected format exists\nif (!payload.device || !payload.device.metrics) {\n    node.error(\"Invalid data format\", msg);\n    return null;\n}\n\n// Extract details\nlet deviceName = payload.device.name;\nlet macAddress = payload.device.mac;\nlet metrics = payload.device.metrics;\n\n\n// Construct InfluxDB JSON format\nmsg.payload.metrics = \n    {\n        device: deviceName,\n        temperature: metrics.temp,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light,\n        IAQScore_original: metrics.AQI,\n    };\n\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
@@ -5038,7 +5038,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 550,
+        "x": 580,
         "y": 460,
         "wires": [
             [

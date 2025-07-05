@@ -179,7 +179,7 @@ function ContainersTable() {
                     disabled={restartingId === c.id}
                     size="small"
                   >
-                    <i className="fa fa-refresh" style={{ fontSize: 18 }}></i>
+                    <i className="fas fa-sync" style={{ fontSize: 18 }}></i>
                   </IconButton>
                 </Tooltip>
               </TableCell>
@@ -326,11 +326,26 @@ function App() {
           </Box>
         )}
 
-        {view === "nodered" && !kioskMode && (
+         {view === "nodered" && (
           <Box height="100%" position="relative">
+            {kioskMode && (
+              <Button
+                variant="contained"
+                size="small"
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  right: 10,
+                  zIndex: 10
+                }}
+                onClick={() => setKioskMode(false)}
+              >
+                Exit Kiosk
+              </Button>
+            )}
             <iframe
               src={noderedURL}
-              title="Node-RED"
+              title="Node-Red"
               width="100%"
               height="100%"
               frameBorder="0"
