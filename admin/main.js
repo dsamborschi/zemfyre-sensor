@@ -198,6 +198,7 @@ function App() {
   const grafanaURL =
     "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
   const noderedURL = "http://localhost:51880/";
+  const appsURL = "http://localhost:59000/#!/3/docker/containers";
 
   return (
     <Box display="flex" flexDirection="column" height="100vh">
@@ -270,7 +271,7 @@ function App() {
           </Box>
         )}
 
-        {view === "apps" && !kioskMode && (
+        {/* {view === "apps" && !kioskMode && (
           <Box
             height="100%"
             display="flex"
@@ -283,7 +284,7 @@ function App() {
     
             <ContainersTable />
           </Box>
-        )}
+        )} */}
 
         {view === "mqtt" && !kioskMode && (
           <Box
@@ -346,6 +347,33 @@ function App() {
             <iframe
               src={noderedURL}
               title="Node-Red"
+              width="100%"
+              height="100%"
+              frameBorder="0"
+              style={{ border: 0 }}
+            ></iframe>
+          </Box>
+        )}
+         {view === "apps" && (
+          <Box height="100%" position="relative">
+            {kioskMode && (
+              <Button
+                variant="contained"
+                size="small"
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  right: 10,
+                  zIndex: 10
+                }}
+                onClick={() => setKioskMode(false)}
+              >
+                Exit Kiosk
+              </Button>
+            )}
+            <iframe
+              src={appsURL}
+              title="Apps"
               width="100%"
               height="100%"
               frameBorder="0"
