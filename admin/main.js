@@ -195,7 +195,7 @@ function HomeSlides() {
   const slides = [
     {
       title: "Welcome to Zemfyre",
-      content: "Industrial Ethernet Solutions"
+      content: ""
     },
     {
       title: "About Us",
