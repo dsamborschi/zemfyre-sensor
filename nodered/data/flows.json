@@ -19,7 +19,7 @@
         "id": "68375442a913134b",
         "type": "tab",
         "label": "ZUS80LP to Azure Iot Hub",
-        "disabled": false,
+        "disabled": true,
         "info": "",
         "env": []
     },
