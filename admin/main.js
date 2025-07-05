@@ -226,15 +226,17 @@ function HomeSlides() {
       flexDirection="column"
       alignItems="center"
       justifyContent="center"
-      textAlign="center"
+      textAlign="left"
       sx={{ minHeight: 300 }}
     >
-      <Typography variant="h3" gutterBottom>
+      <Typography variant="h3" gutterBottom sx={{ textAlign: 'left', width: '100%', maxWidth: 600 }}>
         {slides[index].title}
       </Typography>
-      <Typography variant="subtitle1" gutterBottom>
-        {slides[index].content}
-      </Typography>
+      <Box maxWidth={600} width="100%" display="flex" flexDirection="column" alignItems="flex-start">
+        <Typography variant="subtitle1" gutterBottom component="div" sx={{ textAlign: 'left', width: '100%' }}>
+          {slides[index].content}
+        </Typography>
+      </Box>
     </Box>
   );
 }
