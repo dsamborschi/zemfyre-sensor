@@ -123,9 +123,7 @@ function ContainersTable() {
 
   return (
     <TableContainer component={Paper} sx={{ maxWidth: 900, margin: 'auto', mt: 2 }}>
-      <Typography variant="h5" gutterBottom sx={{ p: 2 }}>
-        Docker Containers
-      </Typography>
+      
       <Table>
         <TableHead>
           <TableRow>
