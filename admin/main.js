@@ -191,6 +191,54 @@ function ContainersTable() {
   );
 }
 
+function HomeSlides() {
+  const slides = [
+    {
+      title: "Welcome to Zemfyre",
+      content: "Industrial Ethernet Solutions"
+    },
+    {
+      title: "About Us",
+      content: "Zemfyre is a leading provider of innovative patent-pending Industrial Ethernet Solutions for enabling secure IIoT Cloud connectivity and acceleration of Industry 4.0 adoption. Zemfyre uses the latest game-changing Single Pair Ethernet (SPE) standard to provide seamless secure Ethernet connectivity and power to Field level IIoT devices (sensors and actuators)."
+    },
+    {
+      title: "Our Technology",
+      content: "Zemfyre develops and manufactures innovative industrial communication solutions based on revolutionary Single Pair Ethernet (SPE) and Zemfyre’s patent-pending technology."
+    },
+    {
+      title: "Let’s Talk",
+      content: "Whether it’s about our products, partnerships, or design services, we’d love to hear from you. Visit zemfyre.com or email info@zemfyre.com for more information."
+    }
+  ];
+  const [index, setIndex] = React.useState(0);
+
+  React.useEffect(() => {
+    const timer = setInterval(() => {
+      setIndex(i => (i + 1) % slides.length);
+    }, 4000);
+    return () => clearInterval(timer);
+  }, [slides.length]);
+
+  return (
+    <Box
+      height="100%"
+      display="flex"
+      flexDirection="column"
+      alignItems="center"
+      justifyContent="center"
+      textAlign="center"
+      sx={{ minHeight: 300 }}
+    >
+      <Typography variant="h3" gutterBottom>
+        {slides[index].title}
+      </Typography>
+      <Typography variant="subtitle1" gutterBottom>
+        {slides[index].content}
+      </Typography>
+    </Box>
+  );
+}
+
 function App() {
   const [view, setView] = React.useState("home");
   const [kioskMode, setKioskMode] = React.useState(false);
@@ -243,21 +291,7 @@ function App() {
 
       <Box flexGrow={1} overflow="hidden">
         {view === "home" && !kioskMode && (
-          <Box
-            height="100%"
-            display="flex"
-            flexDirection="column"
-            alignItems="center"
-            justifyContent="center"
-            textAlign="center"
-          >
-            <Typography variant="h3" gutterBottom>
-              Welcome to Zemfyre
-            </Typography>
-            <Typography variant="subtitle1" gutterBottom>
-              Industrial Ethernet Solutions
-            </Typography>
-          </Box>
+          <HomeSlides />
         )}
 
         {view === "settings" && !kioskMode && (

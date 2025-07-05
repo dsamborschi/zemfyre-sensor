@@ -1582,5 +1582,27 @@
                 "file": "/data/node_modules/node-red-node-ui-table/node.js"
             }
         }
+    },
+    "node-red-contrib-azure-iot-hub": {
+        "name": "node-red-contrib-azure-iot-hub",
+        "version": "0.4.0",
+        "local": true,
+        "user": true,
+        "nodes": {
+            "Azure": {
+                "name": "Azure",
+                "types": [
+                    "azureiothub",
+                    "azureiothubregistry",
+                    "azureiothubreceiver",
+                    "azureiothubdevicetwin"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-azure-iot-hub",
+                "file": "/data/node_modules/node-red-contrib-azure-iot-hub/azureiothub.js"
+            }
+        }
     }
 }

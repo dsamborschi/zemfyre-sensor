@@ -439,7 +439,7 @@ module.exports = {
              * If not set, the following default order is used:
              */
             categories: ['common', 'function', 'network', 'sequence', 'parser', 'storage'],
-            editable: false 
+            editable: true 
         },
 
         projects: {
