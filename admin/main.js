@@ -12,7 +12,9 @@ const {
   TableContainer,
   TableHead,
   TableRow,
-  Paper
+  Paper,
+  IconButton,
+  Tooltip
 } = MaterialUI;
 
 const API_BASE_URL = "http://localhost:53001"; 
@@ -101,8 +103,10 @@ function ContainersTable() {
   const [containers, setContainers] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
+  const [restartingId, setRestartingId] = React.useState(null);
 
-  React.useEffect(() => {
+  const fetchContainers = () => {
+    setLoading(true);
     fetch(`${API_BASE_URL}/containers`)
       .then(res => {
         if (!res.ok) throw new Error("Failed to fetch containers");
@@ -116,14 +120,40 @@ function ContainersTable() {
         setError(err.message);
         setLoading(false);
       });
+  };
+
+  React.useEffect(() => {
+    fetchContainers();
   }, []);
+
+  const handleRestart = async (id) => {
+    // Optimistically set state to 'restarting' for immediate feedback
+    setContainers(prev => prev.map(c =>
+      c.id === id ? { ...c, state: "restarting", status: "Restarting..." } : c
+    ));
+    setRestartingId(id);
+    try {
+      const res = await fetch(`${API_BASE_URL}/containers/${id}/restart`, { method: "POST" });
+      if (!res.ok) throw new Error("Failed to restart container");
+      // Fetch only the updated container info
+      const updatedRes = await fetch(`${API_BASE_URL}/containers`);
+      if (!updatedRes.ok) throw new Error("Failed to fetch containers");
+      const updatedContainers = await updatedRes.json();
+      setContainers(prev => prev.map(c =>
+        c.id === id ? updatedContainers.find(u => u.id === id) || c : c
+      ));
+    } catch (err) {
+      alert("Restart failed: " + err.message);
+    } finally {
+      setRestartingId(null);
+    }
+  };
 
   if (loading) return <Typography>Loading containers...</Typography>;
   if (error) return <Typography color="error">{error}</Typography>;
 
   return (
     <TableContainer component={Paper} sx={{ maxWidth: 900, margin: 'auto', mt: 2 }}>
-      
       <Table>
         <TableHead>
           <TableRow>
@@ -131,6 +161,7 @@ function ContainersTable() {
             <TableCell>Image</TableCell>
             <TableCell>State</TableCell>
             <TableCell>Status</TableCell>
+            <TableCell align="center">Actions</TableCell>
           </TableRow>
         </TableHead>
         <TableBody>
@@ -140,6 +171,18 @@ function ContainersTable() {
               <TableCell>{c.image}</TableCell>
               <TableCell>{c.state}</TableCell>
               <TableCell>{c.status}</TableCell>
+              <TableCell align="center">
+                <Tooltip title="Restart Container">
+                  <IconButton
+                    color="primary"
+                    onClick={() => handleRestart(c.id)}
+                    disabled={restartingId === c.id}
+                    size="small"
+                  >
+                    <i className="fa fa-refresh" style={{ fontSize: 18 }}></i>
+                  </IconButton>
+                </Tooltip>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>
@@ -183,9 +226,9 @@ function App() {
             {/* <Button color="inherit" onClick={() => setView("mqtt")}>
               MQTT
             </Button> */}
-            <Button color="inherit" onClick={() => setView("settings")}>
+            {/* <Button color="inherit" onClick={() => setView("settings")}>
               Settings
-            </Button>
+            </Button> */}
             <Button color="inherit" onClick={() => setKioskMode(true)}>
               Kiosk Mode
             </Button>

@@ -8,6 +8,11 @@ const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
 app.use(cors());
 
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  next();
+});
+
 app.get("/", (req, res) => {
   res.json({ message: "Zemfyre API is running!" });
 });
@@ -24,6 +29,16 @@ app.get("/containers", async (req, res) => {
       status: c.Status
     }));
     res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post("/containers/:id/restart", async (req, res) => {
+  try {
+    const container = docker.getContainer(req.params.id);
+    await container.restart();
+    res.json({ message: `Container ${req.params.id} restarted.` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
