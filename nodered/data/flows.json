@@ -5191,25 +5191,21 @@
         "y": 300,
         "wires": [
             [
-                "606a6647a3891097"
+                "792d659162587d57"
             ]
         ]
     },
     {
-        "id": "606a6647a3891097",
-        "type": "debug",
+        "id": "792d659162587d57",
+        "type": "azureiothub",
         "z": "68375442a913134b",
-        "name": "debug 1",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "false",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 760,
+        "name": "Azure IoT Hub",
+        "protocol": "amqp",
+        "x": 780,
         "y": 300,
-        "wires": []
+        "wires": [
+            []
+        ]
     },
     {
         "id": "bbb5efef98f61b14",

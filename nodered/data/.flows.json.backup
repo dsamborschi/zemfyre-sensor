@@ -4903,7 +4903,7 @@
         "id": "7e94111b1caa209e",
         "type": "debug",
         "z": "b1654e500e89153a",
-        "name": "show",
+        "name": "raw data",
         "active": true,
         "tosidebar": true,
         "console": false,
@@ -4912,7 +4912,7 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 450,
+        "x": 460,
         "y": 220,
         "wires": []
     },
@@ -5191,7 +5191,8 @@
         "y": 300,
         "wires": [
             [
-                "606a6647a3891097"
+                "606a6647a3891097",
+                "792d659162587d57"
             ]
         ]
     },
@@ -5208,8 +5209,20 @@
         "statusVal": "",
         "statusType": "auto",
         "x": 760,
-        "y": 300,
+        "y": 200,
         "wires": []
+    },
+    {
+        "id": "792d659162587d57",
+        "type": "azureiothub",
+        "z": "68375442a913134b",
+        "name": "Azure IoT Hub",
+        "protocol": "amqp",
+        "x": 780,
+        "y": 300,
+        "wires": [
+            []
+        ]
     },
     {
         "id": "bbb5efef98f61b14",
