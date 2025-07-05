@@ -1,8 +1,24 @@
 [
     {
+        "id": "b1654e500e89153a",
+        "type": "tab",
+        "label": "ZUS80LP raw",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
         "id": "29e4b09308b4f781",
         "type": "tab",
-        "label": "ZUS80LP",
+        "label": "ZUS80LP to Grafana",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "68375442a913134b",
+        "type": "tab",
+        "label": "ZUS80LP to Azure Iot Hub",
         "disabled": false,
         "info": "",
         "env": []
@@ -4863,6 +4879,44 @@
         ]
     },
     {
+        "id": "e57b2bdd5ab67fec",
+        "type": "mqtt in",
+        "z": "b1654e500e89153a",
+        "name": "Subscribe to ZEM-SB mqtt topic",
+        "topic": "ZEM-SB",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "ca4f07abb4d962ad",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 190,
+        "y": 220,
+        "wires": [
+            [
+                "7e94111b1caa209e"
+            ]
+        ]
+    },
+    {
+        "id": "7e94111b1caa209e",
+        "type": "debug",
+        "z": "b1654e500e89153a",
+        "name": "raw data",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 460,
+        "y": 220,
+        "wires": []
+    },
+    {
         "id": "c7b33040fea769a4",
         "type": "mqtt in",
         "z": "29e4b09308b4f781",
@@ -5074,6 +5128,88 @@
                 "22b069973bd6910b"
             ]
         ]
+    },
+    {
+        "id": "02237640dcfe4a52",
+        "type": "mqtt in",
+        "z": "68375442a913134b",
+        "name": "Subscribe to ZEM-SB mqtt topic",
+        "topic": "ZEM-SB",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "ca4f07abb4d962ad",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 300,
+        "wires": [
+            [
+                "1baf58f96dfa8da8"
+            ]
+        ]
+    },
+    {
+        "id": "1baf58f96dfa8da8",
+        "type": "delay",
+        "z": "68375442a913134b",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 430,
+        "y": 300,
+        "wires": [
+            [
+                "1daad7f18b0d8d98"
+            ]
+        ]
+    },
+    {
+        "id": "1daad7f18b0d8d98",
+        "type": "function",
+        "z": "68375442a913134b",
+        "name": "clean",
+        "func": "if (!msg.payload || typeof msg.payload !== 'object' || !msg.payload.device || !msg.payload.device.metrics) {\n    node.warn(\"Invalid payload format: \" + JSON.stringify(msg.payload));\n    return msg; // Exit if the structure is incorrect\n}\n\nlet cleanedMetrics = {};  // New object for cleaned metrics\n\n// Iterate over each metric key-value pair\nfor (let key in msg.payload.device.metrics) {\n    if (msg.payload.device.metrics.hasOwnProperty(key)) {\n        let cleanedKey = key.replace(/\\s*\\(.*?\\)\\s*/g, '').trim(); // Remove units in parentheses\n\n        // Rename \"gas resistance\" to \"gas\"\n        if (cleanedKey.toLowerCase() === \"gas resistance\") {\n            cleanedKey = \"gas\";\n        }\n\n        cleanedMetrics[cleanedKey] = msg.payload.device.metrics[key];\n    }\n}\n\n// Assign cleaned metrics back\nmsg.payload.device.metrics = cleanedMetrics;\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 590,
+        "y": 300,
+        "wires": [
+            [
+                "606a6647a3891097"
+            ]
+        ]
+    },
+    {
+        "id": "606a6647a3891097",
+        "type": "debug",
+        "z": "68375442a913134b",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 760,
+        "y": 300,
+        "wires": []
     },
     {
         "id": "bbb5efef98f61b14",
