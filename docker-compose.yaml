@@ -84,6 +84,18 @@ services:
             - "${ADMIN_PORT:-51850}:80"
         networks:
             - zemfyre
+    api:
+        build:
+            context: ./api
+            dockerfile: Dockerfile
+        container_name: zemfyre-api
+        restart: always
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+        ports:
+            - "53001:3001"
+        networks:
+            - zemfyre
 networks:
   zemfyre:
     driver: bridge

@@ -3,9 +3,152 @@ const {
   Toolbar,
   Typography,
   Button,
-  IconButton,
-  Box
+  Box,
+  TreeView,
+  TreeItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper
 } = MaterialUI;
+
+const API_BASE_URL = "http://localhost:53001"; 
+
+
+function insertIntoTree(tree, topic, value) {
+  const parts = topic.split("/");
+  let current = tree;
+
+  parts.forEach((part, idx) => {
+    if (!current[part]) {
+      current[part] = {};
+    }
+    if (idx === parts.length - 1) {
+      current[part]._value = value.toString();
+    }
+    current = current[part];
+  });
+}
+
+function renderTree(node, nodeIdPrefix = "") {
+  return Object.entries(node)
+    .filter(([key]) => key !== "_value")
+    .map(([key, child]) => {
+      const nodeId = `${nodeIdPrefix}/${key}`;
+      const label =
+        child._value !== undefined ? `${key}: ${child._value}` : key;
+
+      return (
+        <TreeItem key={nodeId} nodeId={nodeId} label={label}>
+          {renderTree(child, nodeId)}
+        </TreeItem>
+      );
+    });
+}
+
+function MqttTreeWithValues() {
+  const [tree, setTree] = React.useState({});
+
+  React.useEffect(() => {
+    const client = mqtt.connect("mqtt://localhost:5883");
+
+    client.on("connect", () => {
+      console.log("Connected to MQTT broker");
+      client.subscribe("#");
+    });
+
+    client.on("message", (topic, message) => {
+      setTree(prevTree => {
+        const newTree = JSON.parse(JSON.stringify(prevTree));
+        insertIntoTree(newTree, topic, message);
+        return newTree;
+      });
+    });
+
+    return () => {
+      client.end();
+    };
+  }, []);
+
+  return (
+    <Box
+      sx={{
+        border: "1px solid #ccc",
+        borderRadius: 2,
+        padding: 2,
+        width: "100%",
+        maxHeight: "80vh",
+        overflow: "auto"
+      }}
+    >
+      <Typography variant="h6" gutterBottom>
+        MQTT Topic Tree
+      </Typography>
+        <TreeView
+        defaultCollapseIcon="▼"
+        defaultExpandIcon="▶"
+        >
+        {renderTree(tree)}
+      </TreeView>
+    </Box>
+  );
+}
+
+function ContainersTable() {
+  const [containers, setContainers] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+
+  React.useEffect(() => {
+    fetch(`${API_BASE_URL}/containers`)
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch containers");
+        return res.json();
+      })
+      .then(data => {
+        setContainers(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  if (loading) return <Typography>Loading containers...</Typography>;
+  if (error) return <Typography color="error">{error}</Typography>;
+
+  return (
+    <TableContainer component={Paper} sx={{ maxWidth: 900, margin: 'auto', mt: 2 }}>
+      <Typography variant="h5" gutterBottom sx={{ p: 2 }}>
+        Docker Containers
+      </Typography>
+      <Table>
+        <TableHead>
+          <TableRow>
+            <TableCell>Names</TableCell>
+            <TableCell>Image</TableCell>
+            <TableCell>State</TableCell>
+            <TableCell>Status</TableCell>
+          </TableRow>
+        </TableHead>
+        <TableBody>
+          {containers.map(c => (
+            <TableRow key={c.id}>
+              <TableCell>{c.names.join(", ")}</TableCell>
+              <TableCell>{c.image}</TableCell>
+              <TableCell>{c.state}</TableCell>
+              <TableCell>{c.status}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </TableContainer>
+  );
+}
 
 function App() {
   const [view, setView] = React.useState("home");
@@ -13,27 +156,35 @@ function App() {
 
   const grafanaURL =
     "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
-
   const noderedURL = "http://localhost:51880/";
 
   return (
     <Box display="flex" flexDirection="column" height="100vh">
-      {/* Conditionally Render AppBar */}
       {!kioskMode && (
-        <AppBar position="static" style={{ backgroundColor: '#0A2239' }}>
+        <AppBar position="static" style={{ backgroundColor: "#0A2239" }}>
           <Toolbar>
             <Box sx={{ flexGrow: 1 }}>
-              <img src="./public/images/logo.svg" alt="Zemfyre Logo" style={{ height: 40 }} />
+              <img
+                src="./public/images/logo.svg"
+                alt="Zemfyre"
+                style={{ height: 40 }}
+              />
             </Box>
             <Button color="inherit" onClick={() => setView("home")}>
               Home
             </Button>
+            <Button color="inherit" onClick={() => setView("apps")}>
+              Apps
+            </Button>
             <Button color="inherit" onClick={() => setView("dashboard")}>
               Dashboards
             </Button>
-             <Button color="inherit" onClick={() => setView("nodered")}>
+            <Button color="inherit" onClick={() => setView("nodered")}>
               Node-Red
             </Button>
+            {/* <Button color="inherit" onClick={() => setView("mqtt")}>
+              MQTT
+            </Button> */}
             <Button color="inherit" onClick={() => setView("settings")}>
               Settings
             </Button>
@@ -44,7 +195,6 @@ function App() {
         </AppBar>
       )}
 
-      {/* Main Content Area */}
       <Box flexGrow={1} overflow="hidden">
         {view === "home" && !kioskMode && (
           <Box
@@ -76,7 +226,34 @@ function App() {
             <Typography variant="h3" gutterBottom>
               Settings
             </Typography>
-           
+          </Box>
+        )}
+
+        {view === "apps" && !kioskMode && (
+          <Box
+            height="100%"
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="center"
+            textAlign="center"
+            p={2}
+          >
+    
+            <ContainersTable />
+          </Box>
+        )}
+
+        {view === "mqtt" && !kioskMode && (
+          <Box
+            height="100%"
+            display="flex"
+            flexDirection="column"
+            alignItems="center"
+            justifyContent="flex-start"
+            p={2}
+          >
+            <MqttTreeWithValues />
           </Box>
         )}
 
@@ -109,25 +286,10 @@ function App() {
         )}
 
         {view === "nodered" && !kioskMode && (
-         <Box height="100%" position="relative">
-            {kioskMode && (
-              <Button
-                variant="contained"
-                size="small"
-                style={{
-                  position: "absolute",
-                  top: 10,
-                  right: 10,
-                  zIndex: 10
-                }}
-                onClick={() => setKioskMode(false)}
-              >
-                Exit Kiosk
-              </Button>
-            )}
+          <Box height="100%" position="relative">
             <iframe
               src={noderedURL}
-              title="Grafana Dashboard"
+              title="Node-RED"
               width="100%"
               height="100%"
               frameBorder="0"
