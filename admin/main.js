@@ -192,49 +192,65 @@ function ContainersTable() {
 }
 
 function HomeSlides() {
-  const slides = [
-    {
-      title: "Welcome to Zemfyre",
-      content: ""
-    },
-    {
-      title: "About Us",
-      content: "Zemfyre is a leading provider of innovative patent-pending Industrial Ethernet Solutions for enabling secure IIoT Cloud connectivity and acceleration of Industry 4.0 adoption. Zemfyre uses the latest game-changing Single Pair Ethernet (SPE) standard to provide seamless secure Ethernet connectivity and power to Field level IIoT devices (sensors and actuators)."
-    },
-    {
-      title: "Our Technology",
-      content: "Zemfyre develops and manufactures innovative industrial communication solutions based on revolutionary Single Pair Ethernet (SPE) and Zemfyre’s patent-pending technology."
-    },
-    {
-      title: "Let’s Talk",
-      content: "Whether it’s about our products, partnerships, or design services, we’d love to hear from you. Visit zemfyre.com or email info@zemfyre.com for more information."
-    }
-  ];
+  const [slides, setSlides] = React.useState([]);
   const [index, setIndex] = React.useState(0);
+  const [loading, setLoading] = React.useState(true);
+  const [error, setError] = React.useState(null);
+  const [htmlContent, setHtmlContent] = React.useState("");
 
   React.useEffect(() => {
+    fetch('./public/slides.json')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to load slides');
+        return res.json();
+      })
+      .then(data => {
+        setSlides(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        setError(err.message);
+        setLoading(false);
+      });
+  }, []);
+
+  React.useEffect(() => {
+    if (!slides.length) return;
     const timer = setInterval(() => {
       setIndex(i => (i + 1) % slides.length);
     }, 4000);
     return () => clearInterval(timer);
   }, [slides.length]);
 
+  React.useEffect(() => {
+    if (!slides.length) return;
+    const file = slides[index].file;
+    if (!file) { setHtmlContent(""); return; }
+    fetch('./public/' + file)
+      .then(res => res.text())
+      .then(setHtmlContent)
+      .catch(() => setHtmlContent("<div>Failed to load content.</div>"));
+  }, [slides, index]);
+
+  if (loading) return <Typography>Loading slides...</Typography>;
+  if (error) return <Typography color="error">{error}</Typography>;
+  if (!slides.length) return null;
+
   return (
     <Box
       height="100%"
       display="flex"
       flexDirection="column"
-      alignItems="center"
+      alignItems="center" // center the block horizontally
       justifyContent="center"
-      textAlign="left"
       sx={{ minHeight: 300 }}
     >
-      <Typography variant="h3" gutterBottom sx={{ textAlign: 'left', width: '100%', maxWidth: 600 }}>
-        {slides[index].title}
-      </Typography>
       <Box maxWidth={600} width="100%" display="flex" flexDirection="column" alignItems="flex-start">
+        <Typography variant="h3" gutterBottom sx={{ textAlign: 'left', width: '100%' }}>
+          {slides[index].title}
+        </Typography>
         <Typography variant="subtitle1" gutterBottom component="div" sx={{ textAlign: 'left', width: '100%' }}>
-          {slides[index].content}
+          <span dangerouslySetInnerHTML={{ __html: htmlContent }} />
         </Typography>
       </Box>
     </Box>

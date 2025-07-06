@@ -1,0 +1,18 @@
+[
+  {
+    "title": "Welcome to ZEMFYRE",
+    "file": "slides/slide1.html"
+  },
+  {
+    "title": "About Us",
+    "file": "slides/slide2.html"
+  },
+  {
+    "title": "Technology",
+    "file": "slides/slide3.html"
+  },
+  {
+    "title": "Let’s Talk",
+    "file": "slides/slide4.html"
+  }
+]
