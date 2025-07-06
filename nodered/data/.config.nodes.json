@@ -773,6 +773,28 @@
             }
         }
     },
+    "node-red-contrib-azure-iot-hub": {
+        "name": "node-red-contrib-azure-iot-hub",
+        "version": "0.4.0",
+        "local": true,
+        "user": true,
+        "nodes": {
+            "Azure": {
+                "name": "Azure",
+                "types": [
+                    "azureiothub",
+                    "azureiothubregistry",
+                    "azureiothubreceiver",
+                    "azureiothubdevicetwin"
+                ],
+                "enabled": true,
+                "local": true,
+                "user": false,
+                "module": "node-red-contrib-azure-iot-hub",
+                "file": "/data/node_modules/node-red-contrib-azure-iot-hub/azureiothub.js"
+            }
+        }
+    },
     "node-red-contrib-filesystem": {
         "name": "node-red-contrib-filesystem",
         "version": "1.0.0",
@@ -1134,7 +1156,7 @@
     },
     "node-red-contrib-opcua": {
         "name": "node-red-contrib-opcua",
-        "version": "0.2.331",
+        "version": "0.2.340",
         "local": true,
         "user": true,
         "nodes": {
@@ -1580,28 +1602,6 @@
                 "user": false,
                 "module": "node-red-node-ui-table",
                 "file": "/data/node_modules/node-red-node-ui-table/node.js"
-            }
-        }
-    },
-    "node-red-contrib-azure-iot-hub": {
-        "name": "node-red-contrib-azure-iot-hub",
-        "version": "0.4.0",
-        "local": true,
-        "user": true,
-        "nodes": {
-            "Azure": {
-                "name": "Azure",
-                "types": [
-                    "azureiothub",
-                    "azureiothubregistry",
-                    "azureiothubreceiver",
-                    "azureiothubdevicetwin"
-                ],
-                "enabled": true,
-                "local": true,
-                "user": false,
-                "module": "node-red-contrib-azure-iot-hub",
-                "file": "/data/node_modules/node-red-contrib-azure-iot-hub/azureiothub.js"
             }
         }
     }

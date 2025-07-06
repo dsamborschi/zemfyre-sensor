@@ -1,0 +1,99 @@
+<script type="text/javascript">
+    RED.nodes.registerType('create dataset',{
+        category: 'machine learning',
+        color: '#E2D96E',
+        defaults: {
+            name: {value:""},
+      			path: {value:""},
+      			saveFolder: {value:""},
+      			saveName: {value:""},
+      			input: {value:""},
+      			output: {value:""},
+      			trainingPartition: {value:""},
+      			shuffle: {value: ""},
+      			seed: {value: ""}
+        },
+        inputs:1,
+        outputs:1,
+        icon: "db.png",
+        label: function() {
+            return this.name||"create dataset";
+        }
+    });
+</script>
+
+<script type="text/x-red" data-template-name="create dataset">
+    <div class="form-row">
+        <label for="node-input-name"><i class="icon-tag"></i>Name</label>
+        <input type="text" id="node-input-name" placeholder="Name">
+    </div>
+	<div class="form-row">
+        <label for="node-input-path"><i class="icon-tag"></i>Path</label>
+        <input type="text" id="node-input-path" placeholder="Path to dataset">
+    </div>
+	<div class="form-row">
+        <label for="node-input-saveFolder"><i class="icon-tag"></i>Save folder</label>
+        <input type="text" id="node-input-saveFolder" placeholder="Save folder">
+    </div>
+	<div class="form-row">
+        <label for="node-input-saveName"><i class="icon-tag"></i>Save name</label>
+        <input type="text" id="node-input-saveName" placeholder="Save name">
+    </div>
+	<div class="form-row">
+        <label for="node-input-input"><i class="icon-tag"></i>Input</label>
+        <input type="text" id="node-input-input" placeholder="0">
+    </div>
+	<div class="form-row">
+        <label for="node-input-output"><i class="icon-tag"></i>Output</label>
+        <input type="number" id="node-input-output" placeholder="">
+    </div>
+	<div class="form-row">
+        <label for="node-input-trainingPartition"><i class="icon-tag"></i>Training partition</label>
+        <input type="number" id="node-input-trainingPartition" placeholder="80">
+    </div>
+	<div class="form-row">
+        <label for="node-input-shuffle"><i class="icon-tag"></i>Shuffle dataset</label>
+        <input type="checkbox" id="node-input-shuffle">
+    </div>
+	<div class="form-row">
+        <label for="node-input-seed"><i class="icon-tag"></i>Seed</label>
+        <input type="number" id="node-input-seed" placeholder="0">
+    </div>
+</script>
+
+<script type="text/x-red" data-help-name="create dataset">
+	<p>A node that loads a csv file and divides it into training and test partitions.</p>
+
+	<h3>Inputs</h3>
+	<dl class="message-properties">
+		<dd>
+			anything that triggers the operation.
+		</dd>
+	</dl>
+
+	<h3>Outputs</h3>
+	<ol class="node-ports">
+		<li>Standard output
+			<dl class="message-properties">
+				<dt>payload <span class="property-type">string</span></dt>
+				<dd>the result of the command.</dd>
+			</dl>
+		</li>
+	</ol>
+
+	<h3>Details</h3>
+	<p>
+		This node loads a csv file, formats it and divides it into training and test partitions.
+	</p>
+	<p>
+		The dataset can be shuffled.
+	</p>
+	<p>
+		Unnecessary data can be discarded.
+	</p>
+
+	<h3>References</h3>
+	<ul>
+		<li><a href="https://github.com/GabrieleMaurina/node-red-contrib-machine-learning">GitHub</a> - the nodes github repository</li>
+	</ul>
+</script>
