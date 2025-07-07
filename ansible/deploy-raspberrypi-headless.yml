@@ -35,6 +35,43 @@
         state: present
       become: yes
 
+    - name: Check if Docker is installed
+      command: docker --version
+      register: docker_check
+      failed_when: false
+      changed_when: false
+
+    - name: Install Docker if not present
+      block:
+        - name: Download Docker installation script
+          get_url:
+            url: https://get.docker.com
+            dest: /tmp/get-docker.sh
+            mode: '0755'
+        
+        - name: Run Docker installation script
+          shell: /tmp/get-docker.sh
+          
+        - name: Add user to docker group
+          user:
+            name: "{{ kiosk_user }}"
+            groups: docker
+            append: yes
+            
+        - name: Remove Docker installation script
+          file:
+            path: /tmp/get-docker.sh
+            state: absent
+            
+      when: docker_check.rc != 0
+      become: yes
+
+    - name: Check Docker Compose availability
+      command: docker compose version
+      register: docker_compose_check
+      failed_when: false
+      changed_when: false
+
     - name: Ensure Chromium and kiosk tools are installed
       apt:
         name:

@@ -17,28 +17,8 @@ REPO_DIR="zemfyre-sensor"
 #     cd ..
 # fi
 
-# Ensure the repo directory exists (handled by Ansible)
-cd "$REPO_DIR" || exit 1
-
-# Check if Docker is installed
-if ! command -v docker &> /dev/null; then
-    echo "Docker not found. Installing Docker..."
-    # Install Docker (Ubuntu/Debian)
-    curl -fsSL https://get.docker.com -o get-docker.sh
-    sh get-docker.sh
-    rm get-docker.sh
-    sudo usermod -aG docker "$USER"
-    echo "Docker installed. Please log out and log back in for group changes to take effect."
-else
-    echo "Docker is already installed."
-fi
-
-# Check if docker-compose is installed
-if ! docker compose version &> /dev/null; then
-    echo "Docker Compose plugin not found. You may need to install it manually or check Docker installation."
-else
-    echo "Docker Compose is already installed."
-fi
+# # Ensure the repo directory exists (handled by Ansible)
+# cd "$REPO_DIR" || exit 1
 
 # Run docker-compose
 sudo docker compose up -d --build > /dev/null
