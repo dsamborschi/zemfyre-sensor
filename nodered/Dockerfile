@@ -16,7 +16,7 @@ WORKDIR /data
 RUN chown -R node-red:node-red /data
 
 # Install dependencies as node-red user
-USER node-red
+# USER node-red
 RUN npm ci || npm install
 
 # Now overwrite the fixed node-red-contrib-machine-learning-v2 module
