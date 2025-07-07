@@ -115,7 +115,7 @@
         dest: "{{ repo_dir }}/.env"
         mode: '0644'
 
-    - name: Start Docker Compose services
+    - name: Run Docker Compose
       community.docker.docker_compose_v2:
         project_src: "{{ repo_dir }}"
         state: present
