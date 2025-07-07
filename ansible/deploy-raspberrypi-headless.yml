@@ -128,22 +128,23 @@
         msg: "{{ compose_output }}"
       when: compose_output is defined
 
-    - name: Ensure setup.sh is executable
+    - name: Fix Grafana data directory ownership (UID 472 - Grafana container user)
       file:
-        path: "{{ repo_dir }}/{{ setup_script }}"
-        mode: '0755'
-
-    - name: Run setup.sh
-      command: ./{{ setup_script }}
-      args:
-        chdir: "{{ repo_dir }}"
+        path: "{{ repo_dir }}/grafana/data"
+        owner: "472"
+        group: "0"
+        recurse: yes
+        state: directory
       become: yes
-      register: setup_output
-    
-    - name: Print setup.sh stdout
-      debug:
-       msg: "{{ setup_output.stdout_lines }}"
-      when: setup_output is defined
+
+    - name: Set Grafana data directory permissions (775)
+      file:
+        path: "{{ repo_dir }}/grafana/data"
+        mode: '0775'
+        recurse: yes
+        state: directory
+      become: yes
+
 
     - name: Reboot Raspberry Pi to apply chnages and start kiosk mode
       reboot:
