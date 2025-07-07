@@ -4913,7 +4913,6 @@
         "id": "c7b33040fea769a4",
         "type": "mqtt in",
         "z": "29e4b09308b4f781",
-        "d": true,
         "name": "Subscribe to ZEM-SB mqtt topic",
         "topic": "ZEM-SB",
         "qos": "2",

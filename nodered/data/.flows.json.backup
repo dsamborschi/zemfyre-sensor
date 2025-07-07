@@ -8,14 +8,6 @@
         "env": []
     },
     {
-        "id": "68375442a913134b",
-        "type": "tab",
-        "label": "ZUS80LP to Azure Iot Hub",
-        "disabled": true,
-        "info": "",
-        "env": []
-    },
-    {
         "id": "a1592475ef5a5656",
         "type": "tab",
         "label": "ZUS80LP Simulator",
@@ -27,6 +19,14 @@
         "id": "2997984a45c6416d",
         "type": "tab",
         "label": "ZUS80LP Gas Training",
+        "disabled": true,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "68375442a913134b",
+        "type": "tab",
+        "label": "ZUS80LP to Azure Iot Hub",
         "disabled": true,
         "info": "",
         "env": []
@@ -5124,85 +5124,6 @@
         ]
     },
     {
-        "id": "02237640dcfe4a52",
-        "type": "mqtt in",
-        "z": "68375442a913134b",
-        "d": true,
-        "name": "Subscribe to ZEM-SB mqtt topic",
-        "topic": "ZEM-SB",
-        "qos": "2",
-        "datatype": "auto-detect",
-        "broker": "3103516c9e0d4edc",
-        "nl": false,
-        "rap": true,
-        "rh": 0,
-        "inputs": 0,
-        "x": 170,
-        "y": 300,
-        "wires": [
-            [
-                "1baf58f96dfa8da8"
-            ]
-        ]
-    },
-    {
-        "id": "1baf58f96dfa8da8",
-        "type": "delay",
-        "z": "68375442a913134b",
-        "name": "",
-        "pauseType": "rate",
-        "timeout": "5",
-        "timeoutUnits": "seconds",
-        "rate": "1",
-        "nbRateUnits": "1",
-        "rateUnits": "second",
-        "randomFirst": "1",
-        "randomLast": "5",
-        "randomUnits": "seconds",
-        "drop": false,
-        "allowrate": false,
-        "outputs": 1,
-        "x": 430,
-        "y": 300,
-        "wires": [
-            [
-                "1daad7f18b0d8d98"
-            ]
-        ]
-    },
-    {
-        "id": "1daad7f18b0d8d98",
-        "type": "function",
-        "z": "68375442a913134b",
-        "name": "pre-process",
-        "func": "if (!msg.payload || typeof msg.payload !== 'object' || !msg.payload.device || !msg.payload.device.metrics) {\n    node.warn(\"Invalid payload format: \" + JSON.stringify(msg.payload));\n    return msg; // Exit if the structure is incorrect\n}\n\nlet cleanedMetrics = {};  // New object for cleaned metrics\n\n// Iterate over each metric key-value pair\nfor (let key in msg.payload.device.metrics) {\n    if (msg.payload.device.metrics.hasOwnProperty(key)) {\n        let cleanedKey = key.replace(/\\s*\\(.*?\\)\\s*/g, '').trim(); // Remove units in parentheses\n\n        // Rename \"gas resistance\" to \"gas\"\n        if (cleanedKey.toLowerCase() === \"gas resistance\") {\n            cleanedKey = \"gas\";\n        }\n\n        cleanedMetrics[cleanedKey] = msg.payload.device.metrics[key];\n    }\n}\n\n// Assign cleaned metrics back\nmsg.payload.device.metrics = cleanedMetrics;\n\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 610,
-        "y": 300,
-        "wires": [
-            [
-                "792d659162587d57"
-            ]
-        ]
-    },
-    {
-        "id": "792d659162587d57",
-        "type": "azureiothub",
-        "z": "68375442a913134b",
-        "name": "Azure IoT Hub",
-        "protocol": "amqp",
-        "x": 800,
-        "y": 300,
-        "wires": [
-            []
-        ]
-    },
-    {
         "id": "bbb5efef98f61b14",
         "type": "function",
         "z": "a1592475ef5a5656",
@@ -5960,6 +5881,85 @@
             [
                 "3123d6829b75eb93"
             ]
+        ]
+    },
+    {
+        "id": "02237640dcfe4a52",
+        "type": "mqtt in",
+        "z": "68375442a913134b",
+        "d": true,
+        "name": "Subscribe to ZEM-SB mqtt topic",
+        "topic": "ZEM-SB",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "3103516c9e0d4edc",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 300,
+        "wires": [
+            [
+                "1baf58f96dfa8da8"
+            ]
+        ]
+    },
+    {
+        "id": "1baf58f96dfa8da8",
+        "type": "delay",
+        "z": "68375442a913134b",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 430,
+        "y": 300,
+        "wires": [
+            [
+                "1daad7f18b0d8d98"
+            ]
+        ]
+    },
+    {
+        "id": "1daad7f18b0d8d98",
+        "type": "function",
+        "z": "68375442a913134b",
+        "name": "pre-process",
+        "func": "if (!msg.payload || typeof msg.payload !== 'object' || !msg.payload.device || !msg.payload.device.metrics) {\n    node.warn(\"Invalid payload format: \" + JSON.stringify(msg.payload));\n    return msg; // Exit if the structure is incorrect\n}\n\nlet cleanedMetrics = {};  // New object for cleaned metrics\n\n// Iterate over each metric key-value pair\nfor (let key in msg.payload.device.metrics) {\n    if (msg.payload.device.metrics.hasOwnProperty(key)) {\n        let cleanedKey = key.replace(/\\s*\\(.*?\\)\\s*/g, '').trim(); // Remove units in parentheses\n\n        // Rename \"gas resistance\" to \"gas\"\n        if (cleanedKey.toLowerCase() === \"gas resistance\") {\n            cleanedKey = \"gas\";\n        }\n\n        cleanedMetrics[cleanedKey] = msg.payload.device.metrics[key];\n    }\n}\n\n// Assign cleaned metrics back\nmsg.payload.device.metrics = cleanedMetrics;\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 610,
+        "y": 300,
+        "wires": [
+            [
+                "792d659162587d57"
+            ]
+        ]
+    },
+    {
+        "id": "792d659162587d57",
+        "type": "azureiothub",
+        "z": "68375442a913134b",
+        "name": "Azure IoT Hub",
+        "protocol": "amqp",
+        "x": 800,
+        "y": 300,
+        "wires": [
+            []
         ]
     }
 ]
