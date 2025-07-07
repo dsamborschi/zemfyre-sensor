@@ -12,4 +12,4 @@ while true; do
   sleep 2
 done
 
-chromium-browser --no-sandbox --hide-scrollbars --noerrdialogs --disable-infobars --kiosk "{{ kiosk_url }}"
+chromium-browser --disk-cache-size=104857600 --enable-features=VaapiVideoDecoder --media-cache-size=104857600 --no-sandbox --hide-scrollbars --noerrdialogs --disable-infobars --kiosk "{{ kiosk_url }}"

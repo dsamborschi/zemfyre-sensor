@@ -62,6 +62,15 @@
           file:
             path: /tmp/get-docker.sh
             state: absent
+
+        - name: Check Docker version
+          ansible.builtin.command: docker --version
+          register: docker_version
+          changed_when: false
+
+        - name: Show Docker version
+          ansible.builtin.debug:
+            msg: "{{ docker_version.stdout }}"
             
       when: docker_check.rc != 0
       become: yes

@@ -52,19 +52,10 @@
       debug:
         msg: "ngrok is {{ 'running' if ngrok_status.stdout == 'active' else 'not running or not installed' }}"
 
-    - name: Overwrite LXDE autostart file with kiosk setup
-      copy:
+    - name: Create LXDE autostart file from template for kiosk setup
+      template:
+        src: lxde-autostart.j2
         dest: "{{ autostart_file }}"
-        content: |
-          @lxpanel --profile LXDE-piAdd commentMore actions
-          @pcmanfm --desktop --profile LXDE-pi
-          @xscreensaver -no-splash
-
-          @xset s off
-          @xset -dpms
-          @xset s noblank
-          @unclutter -idle 0.1 -root
-          @chromium-browser --noerrdialogs --disable-infobars --kiosk {{ kiosk_url }}
         owner: root
         group: root
         mode: '0644'

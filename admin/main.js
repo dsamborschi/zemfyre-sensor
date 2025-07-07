@@ -258,7 +258,7 @@ function HomeSlides() {
 }
 
 function App() {
-  const [view, setView] = React.useState("home");
+  const [view, setView] = React.useState("dashboard");
   const [kioskMode, setKioskMode] = React.useState(false);
 
   const grafanaURL =
@@ -278,16 +278,44 @@ function App() {
                 style={{ height: 40 }}
               />
             </Box>
-            <Button color="inherit" onClick={() => setView("home")}>
+            <Button 
+              color="inherit" 
+              onClick={() => setView("home")}
+              style={{ 
+                backgroundColor: view === "home" ? "rgba(255,255,255,0.1)" : "transparent",
+                fontWeight: view === "home" ? "bold" : "normal"
+              }}
+            >
               Home
             </Button>
-            <Button color="inherit" onClick={() => setView("apps")}>
+            <Button 
+              color="inherit" 
+              onClick={() => setView("apps")}
+              style={{ 
+                backgroundColor: view === "apps" ? "rgba(255,255,255,0.1)" : "transparent",
+                fontWeight: view === "apps" ? "bold" : "normal"
+              }}
+            >
               Apps
             </Button>
-            <Button color="inherit" onClick={() => setView("dashboard")}>
+            <Button 
+              color="inherit" 
+              onClick={() => setView("dashboard")}
+              style={{ 
+                backgroundColor: view === "dashboard" ? "rgba(255,255,255,0.1)" : "transparent",
+                fontWeight: view === "dashboard" ? "bold" : "normal"
+              }}
+            >
               Dashboards
             </Button>
-            <Button color="inherit" onClick={() => setView("nodered")}>
+            <Button 
+              color="inherit" 
+              onClick={() => setView("nodered")}
+              style={{ 
+                backgroundColor: view === "nodered" ? "rgba(255,255,255,0.1)" : "transparent",
+                fontWeight: view === "nodered" ? "bold" : "normal"
+              }}
+            >
               Node-Red
             </Button>
             {/* <Button color="inherit" onClick={() => setView("mqtt")}>
