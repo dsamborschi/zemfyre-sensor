@@ -10,6 +10,7 @@ RUN apt-get install -y \
     openssh-client \
     git \
  && pip install --no-cache-dir ansible \
+ && ansible-galaxy collection install community.docker \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
