@@ -1,0 +1,15 @@
+#!/bin/sh
+# X11 kiosk mode initialization script
+xset s off
+xset -dpms
+xset s noblank
+unclutter -idle 0.1 -root &
+openbox-session &
+
+while true; do
+  curl --silent --head --fail "http://localhost:{{ grafana_port_ext }}/" && break
+  echo "Waiting for grafana..."
+  sleep 2
+done
+
+chromium-browser --no-sandbox --hide-scrollbars --disable-gpu --noerrdialogs --disable-infobars --kiosk "{{ kiosk_url }}"

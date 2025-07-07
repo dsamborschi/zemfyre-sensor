@@ -1,0 +1,20 @@
+---
+# Default variables for kiosk role
+kiosk_user: "zemfyre"
+kiosk_url: "http://localhost:51850/"
+kiosk_wait_service: "http://localhost:53000/"
+kiosk_wait_timeout: 120
+kiosk_chromium_flags:
+  - "--no-sandbox"
+  - "--hide-scrollbars"
+  - "--disable-gpu"
+  - "--noerrdialogs"
+  - "--disable-infobars"
+  - "--kiosk"
+kiosk_packages:
+  - xserver-xorg
+  - x11-xserver-utils
+  - xinit
+  - openbox
+  - unclutter
+  - chromium-browser

@@ -34,6 +34,8 @@ RUN mkdir -p "$GF_PATHS_PLUGINS" && \
 # Update Title
 RUN sed -i 's|<title>\[\[.AppTitle\]\]</title>|<title>Zemfyre</title>|g' /usr/share/grafana/public/views/index.html
 RUN sed -i 's|Loading Grafana|Loading Zemfyre Console|g' /usr/share/grafana/public/views/index.html
+# Remove Grafana Loading Spinner
+RUN sed -i '/<div class="preloader">/,/<\/div>/d' /usr/share/grafana/public/views/index.html
 
 ##################################################################
 ## VISUAL
@@ -74,7 +76,6 @@ RUN find /usr/share/grafana/public/build/ -name *.js \
     -exec sed -i 's|(.,.....)(....,{className:.,onClick:.,iconOnly:!0,icon:"rss","aria-label":"News"})|null|g' {} \; \
 ## Remove Open Source icon
     -exec sed -i 's|.push({target:"_blank",id:"version",text:`${..edition}${.}`,url:..licenseUrl,icon:"external-link-alt"})||g' {} \;
-
 
 
 RUN if [ $GF_INSTALL_IMAGE_RENDERER_PLUGIN = "true" ]; then \

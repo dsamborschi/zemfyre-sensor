@@ -7,6 +7,7 @@
     repo_dir: "zemfyre-sensor"
     setup_script: "setup.sh"
     autostart_file: "/etc/xdg/lxsession/LXDE-pi/autostart"
+    kiosk_user: "zemfyre"
 
   tasks:
     - name: Load GRAFANA_PORT_EXT from .env file
@@ -46,28 +47,23 @@
         state: present
         update_cache: yes
     
-    - name: Overwrite .xinitrc with X11 + Chromium kiosk setup
-      copy:
-        dest: "/home/zemfyre/.xinitrc"
-        content: |
-          #!/bin/sh
-          xset s off
-          xset -dpms
-          xset s noblank
-          unclutter -idle 0.1 -root &
-          openbox-session &
-          
-          while true; do
-            curl --silent --head --fail "http://localhost:{{ grafana_port_ext }}/" && break
-            echo "Waiting for grafana..."
-            sleep 2
-          done
-
-          chromium-browser --no-sandbox --hide-scrollbars --disable-gpu --noerrdialogs --disable-infobars --kiosk "{{ kiosk_url }}"
-        owner: zemfyre
-        group: zemfyre
+    - name: Create .xinitrc from template for X11 + Chromium kiosk setup
+      template:
+        src: xinitrc.j2
+        dest: "/home/{{ kiosk_user }}/.xinitrc"
+        owner: "{{ kiosk_user }}"
+        group: "{{ kiosk_user }}"
         mode: '0755'
 
+
+    - name: Ensure repo directory exists
+      file:
+        path: "{{ repo_dir }}"
+        state: directory
+        owner: "{{ kiosk_user }}"
+        group: "{{ kiosk_user }}"
+        mode: '0755'
+      become: true
 
     - name: Download or update zemfyre-sensor repo
       git:

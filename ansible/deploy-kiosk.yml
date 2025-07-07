@@ -1,0 +1,20 @@
+---
+- name: Deploy kiosk mode setup
+  hosts: raspberrypi
+  become: yes
+  vars:
+    kiosk_user: "zemfyre"
+    kiosk_url: "http://localhost:51850/"
+    kiosk_wait_service: "http://localhost:53000/"
+  
+  roles:
+    - kiosk
+
+  post_tasks:
+    - name: Reboot to enable kiosk mode
+      reboot:
+        msg: "Reboot initiated by Ansible to start kiosk mode"
+        connect_timeout: 5
+        reboot_timeout: 120
+        pre_reboot_delay: 5
+        post_reboot_delay: 10

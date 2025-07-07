@@ -11,7 +11,7 @@
         "id": "68375442a913134b",
         "type": "tab",
         "label": "ZUS80LP to Azure Iot Hub",
-        "disabled": false,
+        "disabled": true,
         "info": "",
         "env": []
     },
@@ -26,8 +26,8 @@
     {
         "id": "2997984a45c6416d",
         "type": "tab",
-        "label": "Gas Training",
-        "disabled": false,
+        "label": "ZUS80LP Gas Training",
+        "disabled": true,
         "info": "",
         "env": []
     },
@@ -4913,6 +4913,7 @@
         "id": "c7b33040fea769a4",
         "type": "mqtt in",
         "z": "29e4b09308b4f781",
+        "d": true,
         "name": "Subscribe to ZEM-SB mqtt topic",
         "topic": "ZEM-SB",
         "qos": "2",
@@ -5712,6 +5713,7 @@
         "id": "15d00ae5f6303831",
         "type": "mqtt in",
         "z": "2997984a45c6416d",
+        "d": true,
         "name": "Subscribe to sensor data",
         "topic": "ZEM-SB",
         "qos": "2",
