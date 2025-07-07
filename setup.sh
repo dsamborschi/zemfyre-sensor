@@ -20,8 +20,7 @@ REPO_DIR="zemfyre-sensor"
 # # Ensure the repo directory exists (handled by Ansible)
 # cd "$REPO_DIR" || exit 1
 
-# Run docker-compose
-sudo docker compose up -d --build > /dev/null
+# Run docker-compose (handled by Ansible)
 
 echo "Fixing ownership to UID 472 (Grafana container user)..."
 # GRAFANA_UID=$(docker run --rm grafana/grafana-oss id -u grafana)

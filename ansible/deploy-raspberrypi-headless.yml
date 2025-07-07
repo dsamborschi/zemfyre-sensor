@@ -137,6 +137,20 @@
        msg: "{{ setup_output.stdout_lines }}"
       when: setup_output is defined
 
+    - name: Start Docker Compose services
+      docker_compose:
+        project_src: "{{ repo_dir }}"
+        state: present
+        build: yes
+        detached: yes
+      become: yes
+      register: compose_output
+
+    - name: Print Docker Compose output
+      debug:
+        msg: "{{ compose_output }}"
+      when: compose_output is defined
+
     - name: Reboot Raspberry Pi to apply chnages and start kiosk mode
       reboot:
         msg: "Reboot initiated by Ansible to start kiosk mode with updated Chromium settings."
