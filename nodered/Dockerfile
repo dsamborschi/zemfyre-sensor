@@ -20,7 +20,7 @@ RUN chown -R node-red:node-red /data
 RUN npm ci || npm install
 
 # Now overwrite the fixed node-red-contrib-machine-learning-v2 module
-#COPY data/custom/node-red-contrib-machine-learning-v2 /data/node_modules/node-red-contrib-machine-learning-v2
+COPY data/custom/node-red-contrib-machine-learning-v2 /data/node_modules/node-red-contrib-machine-learning-v2
 
 WORKDIR /usr/src/node-red
 
