@@ -4947,7 +4947,7 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 230,
+        "x": 190,
         "y": 300,
         "wires": [
             [
@@ -4967,7 +4967,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 410,
+        "x": 370,
         "y": 300,
         "wires": [
             [
@@ -4991,8 +4991,8 @@
         "retentionPolicyV18Flux": "",
         "org": "Zemfyre",
         "bucket": "ZUS80LP",
-        "x": 990,
-        "y": 460,
+        "x": 1110,
+        "y": 300,
         "wires": []
     },
     {
@@ -5007,7 +5007,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 590,
+        "x": 570,
         "y": 300,
         "wires": [
             [
@@ -5027,7 +5027,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 600,
+        "x": 580,
         "y": 160,
         "wires": [
             [
@@ -5048,7 +5048,7 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1030,
+        "x": 1070,
         "y": 200,
         "wires": []
     },
@@ -5064,7 +5064,7 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 940,
+        "x": 920,
         "y": 300,
         "wires": [
             [
@@ -5077,7 +5077,7 @@
         "id": "8cd9ec4f3e067e23",
         "type": "function",
         "z": "29e4b09308b4f781",
-        "name": "calculae other",
+        "name": "calculate other",
         "func": "\n// Extract the sensor data\nlet payload = msg.payload;\n\n\n// Check if the expected format exists\nif (!payload.device || !payload.device.metrics) {\n    node.error(\"Invalid data format\", msg);\n    return null;\n}\n\n// Extract details\nlet deviceName = payload.device.name;\nlet macAddress = payload.device.mac;\nlet metrics = payload.device.metrics;\n\n\n// Construct InfluxDB JSON format\nmsg.payload.metrics = \n    {\n        device: deviceName,\n        temperature: metrics.temp,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light,\n        IAQScore_original: metrics.AQI,\n    };\n\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
@@ -5114,7 +5114,7 @@
         "reduceInit": "",
         "reduceInitType": "",
         "reduceFixup": "",
-        "x": 800,
+        "x": 760,
         "y": 300,
         "wires": [
             [
