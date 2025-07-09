@@ -124,13 +124,25 @@
         dest: "{{ repo_dir }}/.env"
         mode: '0644'
 
-    - name: Run Docker Compose
+    # - name: Run Docker Compose
+    #   community.docker.docker_compose_v2:
+    #     project_src: "{{ repo_dir }}"
+    #     state: present
+    #     build: always
+    #   become: yes
+    #   register: compose_output
+
+    - name: Run Docker Compose (with Pi override)
       community.docker.docker_compose_v2:
         project_src: "{{ repo_dir }}"
+        files:
+          - docker-compose.yml
+          - docker-compose.override.yml
         state: present
         build: always
       become: yes
       register: compose_output
+
 
     - name: Print Docker Compose output
       debug:

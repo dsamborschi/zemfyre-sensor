@@ -11,6 +11,9 @@ COPY data/package.json /data/
 COPY data/settings.js /data/settings.js
 COPY data/flows.json /data/flows.json
 
+# Now overwrite the fixed node-red-contrib-machine-learning-v2 module
+COPY data/custom/node-red-contrib-machine-learning-v2 /data/node_modules/node-red-contrib-machine-learning-v2
+
 WORKDIR /data
 
 RUN chown -R node-red:node-red /data
@@ -19,8 +22,6 @@ RUN chown -R node-red:node-red /data
 # USER node-red
 RUN npm ci || npm install
 
-# Now overwrite the fixed node-red-contrib-machine-learning-v2 module
-COPY data/custom/node-red-contrib-machine-learning-v2 /data/node_modules/node-red-contrib-machine-learning-v2
 
 WORKDIR /usr/src/node-red
 
