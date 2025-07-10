@@ -7,8 +7,8 @@ services:
           - "${MOSQUITTO_WS_PORT_EXT}:9001"
         volumes:
           - ./mosquitto/config:/mosquitto/config/
-        # networks:
-        #    - zemfyre-net
+        networks:
+           - zemfyre-net
     nodered:
         build:
             context: ./nodered
@@ -20,8 +20,8 @@ services:
             - ./nodered/data:/data
             - ./nodered/nodes:/data/nodes
             - /data/node_modules
-        # networks:
-        #    - zemfyre-net
+        networks:
+           - zemfyre-net
 
     influx:
         container_name: influxdb
@@ -36,8 +36,8 @@ services:
         volumes:
             - ./influx/data:/var/lib/influxdb2
             - ./influx/config:/etc/influxdb2
-        # networks:
-        #    - zemfyre-net
+        networks:
+           - zemfyre-net
 
     grafana:
         depends_on:
@@ -61,8 +61,8 @@ services:
             - ./grafana/provisioning:/etc/grafana/provisioning
         ports:
             - "${GRAFANA_PORT_EXT:-53000}:3000"
-        # networks:
-        #    - zemfyre-net
+        networks:
+           - zemfyre-net
 
     portainer:
         image: portainer/portainer-ce:latest
@@ -73,8 +73,8 @@ services:
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - ./portainer/data:/data
-        # networks:
-        #    - zemfyre-net
+        networks:
+           - zemfyre-net
 
     admin:
         build:
@@ -84,8 +84,8 @@ services:
         restart: always
         ports:
             - "${ADMIN_PORT:-51850}:80"
-        # networks:
-        #    - zemfyre-net
+        networks:
+           - zemfyre-net
     api:
         build:
             context: ./api
@@ -96,8 +96,8 @@ services:
           - /var/run/docker.sock:/var/run/docker.sock
         ports:
             - "53001:3001"
-        # networks:
-        #    - zemfyre-net
+        networks:
+           - zemfyre-net
     max31855:
         build: 
            context: ./max31855
@@ -105,11 +105,11 @@ services:
         container_name: max31855_reader
         privileged: true
         devices:
-          - /dev/gpiomem
+        - /dev/gpiomem
         restart: unless-stopped
-# networks:
-#     zemfyre-net:
-#        external: true
+networks:
+    zemfyre-net:
+       external: true
 
 
 
