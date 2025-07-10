@@ -5987,7 +5987,6 @@
         "id": "0c9fb24bbb3da034",
         "type": "influxdb out",
         "z": "887b6fb15f0f5070",
-        "d": true,
         "influxdb": "06ec447a89dfd1d3",
         "name": "",
         "measurement": "temps",
