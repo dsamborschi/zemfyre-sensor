@@ -136,8 +136,8 @@
       community.docker.docker_compose_v2:
         project_src: "{{ repo_dir }}"
         files:
-          - docker-compose.yml
-          - docker-compose.override.yml
+          - docker-compose.yaml
+          - docker-compose.override.yaml
         state: present
         build: always
       become: yes

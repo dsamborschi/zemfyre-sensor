@@ -1,5 +1,3 @@
-# docker-compose.pi.yml
-version: "3.8"
 
 services:
   mosquitto:
