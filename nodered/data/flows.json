@@ -5826,7 +5826,7 @@
         "topic": "ZEM-SB",
         "qos": "2",
         "datatype": "auto-detect",
-        "broker": "ca4f07abb4d962ad",
+        "broker": "3103516c9e0d4edc",
         "nl": false,
         "rap": true,
         "rh": 0,
@@ -5879,24 +5879,6 @@
                 "7c97db1c0b930b05"
             ]
         ]
-    },
-    {
-        "id": "6ebaa2ffd55d4975",
-        "type": "debug",
-        "z": "2997984a45c6416d",
-        "d": true,
-        "name": "print ",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 770,
-        "y": 180,
-        "wires": []
     },
     {
         "id": "b39e07eb453744d2",
@@ -6045,7 +6027,6 @@
         "y": 280,
         "wires": [
             [
-                "6ebaa2ffd55d4975",
                 "ac38489913a1e367"
             ]
         ]
