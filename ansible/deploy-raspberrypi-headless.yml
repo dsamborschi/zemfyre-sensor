@@ -137,7 +137,7 @@
         project_src: "{{ repo_dir }}"
         files:
           - docker-compose.yaml
-          - docker-compose.override.yaml
+          # - docker-compose.override.yaml
         state: present
         build: always
       become: yes
