@@ -1,5 +1,13 @@
 [
     {
+        "id": "887b6fb15f0f5070",
+        "type": "tab",
+        "label": "ZUS80LP to Grafana",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
         "id": "a1592475ef5a5656",
         "type": "tab",
         "label": "ZUS80LP Simulator",
@@ -20,14 +28,6 @@
         "type": "tab",
         "label": "ZUS80LP to Azure Iot Hub",
         "disabled": true,
-        "info": "",
-        "env": []
-    },
-    {
-        "id": "887b6fb15f0f5070",
-        "type": "tab",
-        "label": "ZUS80LP to Grafana",
-        "disabled": false,
         "info": "",
         "env": []
     },
@@ -4910,6 +4910,408 @@
         ]
     },
     {
+        "id": "2f66a05cd6773804",
+        "type": "mqtt in",
+        "z": "887b6fb15f0f5070",
+        "name": "Subscribe to ZEM-SB mqtt topic",
+        "topic": "ZEM-SB",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "ca4f07abb4d962ad",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 170,
+        "y": 80,
+        "wires": [
+            [
+                "c3b68be215c18f46"
+            ]
+        ]
+    },
+    {
+        "id": "c3b68be215c18f46",
+        "type": "delay",
+        "z": "887b6fb15f0f5070",
+        "name": "",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": false,
+        "allowrate": false,
+        "outputs": 1,
+        "x": 190,
+        "y": 300,
+        "wires": [
+            [
+                "76fe0ca4603299d8"
+            ]
+        ]
+    },
+    {
+        "id": "76fe0ca4603299d8",
+        "type": "function",
+        "z": "887b6fb15f0f5070",
+        "name": "preprocess",
+        "func": "if (!msg.payload || typeof msg.payload !== 'object' || !msg.payload.device || !msg.payload.device.metrics) {\n    node.warn(\"Invalid payload format: \" + JSON.stringify(msg.payload));\n    return msg; // Exit if the structure is incorrect\n}\n\nlet cleanedMetrics = {};  // New object for cleaned metrics\n\n// Iterate over each metric key-value pair\nfor (let key in msg.payload.device.metrics) {\n    if (msg.payload.device.metrics.hasOwnProperty(key)) {\n        let cleanedKey = key.replace(/\\s*\\(.*?\\)\\s*/g, '').trim(); // Remove units in parentheses\n\n        // Rename \"gas resistance\" to \"gas\"\n        if (cleanedKey.toLowerCase() === \"gas resistance\") {\n            cleanedKey = \"gas\";\n        }\n\n        cleanedMetrics[cleanedKey] = msg.payload.device.metrics[key];\n    }\n}\n\n// Assign cleaned metrics back\nmsg.payload.device.metrics = cleanedMetrics;\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 370,
+        "y": 300,
+        "wires": [
+            [
+                "b9b6b02852e2214b",
+                "0d5a3cb8f9a23e93",
+                "abeadeafe5c0e2cb",
+                "e3b1aa7874fdf8d3",
+                "dcb6529059f43129"
+            ]
+        ]
+    },
+    {
+        "id": "2c26485ee2352420",
+        "type": "influxdb out",
+        "z": "887b6fb15f0f5070",
+        "influxdb": "06ec447a89dfd1d3",
+        "name": "Send to InfluxDB",
+        "measurement": "metrics",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "Zemfyre",
+        "bucket": "ZUS80LP",
+        "x": 1110,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "b9b6b02852e2214b",
+        "type": "function",
+        "z": "887b6fb15f0f5070",
+        "name": "calculate IAQ",
+        "func": "// Retrieve values from incoming message\nlet { temp, humidity, gas } = msg.payload.device.metrics;\nlet deviceName = msg.payload.device.name;\n\n// Context storage for gas reference\nlet gas_reference = context.get(\"gas_reference\") || 2500;\nlet getgasreference_count = context.get(\"getgasreference_count\") || 0;\n\n// Function to calculate humidity score\nfunction getHumidityScore(humidity) {\n    const humWeighting = 0.25;\n    const humReference = 40;\n\n    if (humidity >= 38 && humidity <= 42) {\n        return humWeighting * 100;\n    } else if (humidity < 38) {\n        return (humWeighting / humReference) * humidity * 100;\n    } else {\n        return ((-humWeighting / (100 - humReference)) * humidity) + 0.416666 * 100;\n    }\n}\n\n// Function to calculate gas score\nfunction getGasScore(gasResistance, gasReference) {\n    const gasWeighting = 0.75;\n    const gasLowerLimit = 10000;\n    const gasUpperLimit = 300000;\n\n    let gasScore = (gasWeighting / (gasUpperLimit - gasLowerLimit)) * gasResistance -\n        (gasLowerLimit * (gasWeighting / (gasUpperLimit - gasLowerLimit))) * 100;\n    return Math.max(0, Math.min(75, gasScore));\n}\n\n// Function to calculate IAQ\nfunction calculateIAQ(air_quality_score) {\n    let IAQScore = (100 - air_quality_score) * 5;\n    let IAQText = \"Good\";\n\n    if (IAQScore >= 301) IAQText = \"Hazardous\";\n    else if (IAQScore >= 201) IAQText = \"Very Unhealthy\";\n    else if (IAQScore >= 176) IAQText = \"Unhealthy\";\n    else if (IAQScore >= 151) IAQText = \"Unhealthy for Sensitive Groups\";\n    else if (IAQScore >= 51) IAQText = \"Moderate\";\n\n    return { IAQText, IAQScore };\n}\n\n// Compute humidity and gas scores\nlet humidity_score = getHumidityScore(humidity);\nlet gas_score = getGasScore(gas, gas_reference);\n\n// Combine results for final IAQ index (0-100% where 100% is good)\nlet air_quality_score = humidity_score + gas_score;\n\n// Update gas reference every 5 readings\nif ((getgasreference_count++ % 5) === 0) {\n    let readings = 10;\n    let totalGas = 0;\n\n    for (let i = 0; i < readings; i++) {\n        totalGas += gas; // Simulating multiple readings\n    }\n\n    gas_reference = totalGas / readings;\n}\n\n// Compute IAQ using the same logic as Arduino\nlet IAQResult = calculateIAQ(air_quality_score);\n\n// Store updated values in context\ncontext.set(\"gas_reference\", gas_reference);\ncontext.set(\"getgasreference_count\", getgasreference_count);\n\n// Output final result\nmsg.payload.iaq = {\n    humidity_score: humidity_score.toFixed(2),\n    gas_score: gas_score.toFixed(2),\n    air_quality_score: air_quality_score.toFixed(2),\n    IAQScore: IAQResult.IAQScore\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 570,
+        "y": 300,
+        "wires": [
+            [
+                "54f8b4737634c106"
+            ]
+        ]
+    },
+    {
+        "id": "0d5a3cb8f9a23e93",
+        "type": "function",
+        "z": "887b6fb15f0f5070",
+        "name": "calculate XYZ metrics",
+        "func": "var range = 2; // in g\nvar seismic_alert = 0;\n\n// Convert raw values from the sensor (X, Y, Z) to acceleration in g\nvar X_raw = msg.payload.device.metrics.X;\nvar Y_raw = msg.payload.device.metrics.Y;\nvar Z_raw = msg.payload.device.metrics.Z;\n\n\n// Scaling factor to convert from raw sensor data to g\nvar scalingFactor = range / 1024; // 1024 for 10-bit resolution, adjust if needed\n\n// Convert raw readings to g values\nvar X = X_raw * scalingFactor;\nvar Y = Y_raw * scalingFactor;\nvar Z = Z_raw * scalingFactor;\n\n// Calculate magnitude (total acceleration in g)\nvar magnitude = (Math.sqrt(Math.pow(X, 2) + Math.pow(Y, 2) + Math.pow(Z, 2)));\n// Calculate tilt (in radians) from the vertical Z axis\nvar tilt = Math.acos(Z / magnitude);  // Angle relative to gravity (z-axis)\n\nif (magnitude > 3) {\n    // whoa - maybe an earthquake\n    seismic_alert = 1\n}\n\n// Convert tilt to degrees\nvar tiltDegrees = tilt * (180 / Math.PI); // Convert to degrees\n\n// Ensure tilt is in the range 0 to 90 degrees (since we are measuring tilt from vertical)\nif (tiltDegrees > 90) {\n    tiltDegrees = 180 - tiltDegrees;\n}\n\n// Calculate pitch and roll angles\nvar pitch = Math.atan2(Y, Math.sqrt(Math.pow(X, 2) + Math.pow(Z, 2))) * (180 / Math.PI);\nvar roll = Math.atan2(X, Math.sqrt(Math.pow(Y, 2) + Math.pow(Z, 2))) * (180 / Math.PI);\n\n// Output the calculated values\nmsg.payload.xyz = {\n    magnitude: magnitude,\n    tilt: tiltDegrees,\n    pitch: pitch,\n    roll: roll,\n    alert: seismic_alert\n};\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 600,
+        "y": 160,
+        "wires": [
+            [
+                "54f8b4737634c106"
+            ]
+        ]
+    },
+    {
+        "id": "dcb6529059f43129",
+        "type": "debug",
+        "z": "887b6fb15f0f5070",
+        "d": true,
+        "name": "debug",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1090,
+        "y": 180,
+        "wires": []
+    },
+    {
+        "id": "e9d2511af1a4fd57",
+        "type": "function",
+        "z": "887b6fb15f0f5070",
+        "name": "combine",
+        "func": "let deviceName = msg.payload.metrics.device;\nlet metrics = msg.payload.metrics;\nlet iaq= msg.payload.iaq;\nlet xyz = msg.payload.xyz;\nlet fftData = msg.payload.fft_data;\n\nfunction roundToFour(num) {\n    return parseFloat(num.toFixed(4));\n}\n\nfunction roundToTwo(num) {\n    return parseFloat(num.toFixed(2));\n}\n\nfunction round(num) {\n    return parseFloat(num.toFixed(2));\n}\n\n// Construct InfluxDB JSON format\nmsg.payload = [\n    {\n        temperature: metrics.temperature,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light,\n        humidity_score: parseFloat(iaq.humidity_score),\n        gas_score: parseFloat(iaq.gas_score),\n        air_quality_score: parseFloat(iaq.air_quality_score),\n        IAQScore: metrics.IAQScore_original,\n        magnitude: xyz.magnitude,\n        tilt: Math.round(xyz.tilt),\n        pitch: Math.round(xyz.pitch),\n        roll: Math.round(xyz.roll)\n    },\n    {\n        device: metrics.device\n     \n    }\n];\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 920,
+        "y": 300,
+        "wires": [
+            [
+                "2c26485ee2352420"
+            ]
+        ]
+    },
+    {
+        "id": "abeadeafe5c0e2cb",
+        "type": "function",
+        "z": "887b6fb15f0f5070",
+        "name": "calculate other",
+        "func": "\n// Extract the sensor data\nlet payload = msg.payload;\n\n\n// Check if the expected format exists\nif (!payload.device || !payload.device.metrics) {\n    node.error(\"Invalid data format\", msg);\n    return null;\n}\n\n// Extract details\nlet deviceName = payload.device.name;\nlet macAddress = payload.device.mac;\nlet metrics = payload.device.metrics;\n\n\n// Construct InfluxDB JSON format\nmsg.payload.metrics = \n    {\n        device: deviceName,\n        temperature: metrics.temp,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light,\n        IAQScore_original: metrics.AQI,\n    };\n\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 580,
+        "y": 460,
+        "wires": [
+            [
+                "54f8b4737634c106"
+            ]
+        ]
+    },
+    {
+        "id": "54f8b4737634c106",
+        "type": "join",
+        "z": "887b6fb15f0f5070",
+        "name": "join all",
+        "mode": "custom",
+        "build": "merged",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "topic",
+        "joiner": "\\n",
+        "joinerType": "str",
+        "useparts": false,
+        "accumulate": false,
+        "timeout": "",
+        "count": "4",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "",
+        "reduceFixup": "",
+        "x": 760,
+        "y": 300,
+        "wires": [
+            [
+                "e9d2511af1a4fd57"
+            ]
+        ]
+    },
+    {
+        "id": "2cdfcfafe7f9179d",
+        "type": "mqtt in",
+        "z": "887b6fb15f0f5070",
+        "name": "",
+        "topic": "sensor/+",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "ca4f07abb4d962ad",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 160,
+        "y": 560,
+        "wires": [
+            [
+                "8821bb851f65c753"
+            ]
+        ]
+    },
+    {
+        "id": "0c9fb24bbb3da034",
+        "type": "influxdb out",
+        "z": "887b6fb15f0f5070",
+        "influxdb": "06ec447a89dfd1d3",
+        "name": "",
+        "measurement": "temps",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "Zemfyre",
+        "bucket": "temp_correction",
+        "x": 990,
+        "y": 460,
+        "wires": []
+    },
+    {
+        "id": "3b2f57c47c130223",
+        "type": "debug",
+        "z": "887b6fb15f0f5070",
+        "d": true,
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1080,
+        "y": 600,
+        "wires": []
+    },
+    {
+        "id": "e3b1aa7874fdf8d3",
+        "type": "change",
+        "z": "887b6fb15f0f5070",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.device.metrics.temp",
+                "tot": "msg"
+            },
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "sensor1_temp",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 340,
+        "y": 520,
+        "wires": [
+            [
+                "9a25b9468845bd28"
+            ]
+        ]
+    },
+    {
+        "id": "8821bb851f65c753",
+        "type": "change",
+        "z": "887b6fb15f0f5070",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "sensor2_temp",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 330,
+        "y": 720,
+        "wires": [
+            [
+                "9a25b9468845bd28"
+            ]
+        ]
+    },
+    {
+        "id": "9a25b9468845bd28",
+        "type": "join",
+        "z": "887b6fb15f0f5070",
+        "name": "",
+        "mode": "custom",
+        "build": "object",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "topic",
+        "joiner": "\\n",
+        "joinerType": "str",
+        "useparts": false,
+        "accumulate": true,
+        "timeout": "",
+        "count": "2",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "",
+        "reduceFixup": "",
+        "x": 530,
+        "y": 600,
+        "wires": [
+            [
+                "0c9fb24bbb3da034",
+                "5d2865dfea33bdf0",
+                "0e35c6cb6c32be8c"
+            ]
+        ]
+    },
+    {
+        "id": "5d2865dfea33bdf0",
+        "type": "function",
+        "z": "887b6fb15f0f5070",
+        "d": true,
+        "name": "buffer and calculate offset",
+        "func": "let buffer = flow.get(\"calibration_buffer\") || [];\n\nbuffer.push({\n    sensor1: msg.payload.sensor1_temp,\n    sensor2: msg.payload.sensor2_temp\n});\n\nif (buffer.length > 10000) buffer.shift(); // keep only last ~1000\n\nflow.set(\"calibration_buffer\", buffer);\n\nlet offset = 0;\nif (buffer.length >= 100) {\n    let sum = 0;\n    buffer.forEach(entry => {\n        sum += entry.sensor1 - entry.sensor2;\n    });\n    offset = sum / buffer.length;\n}\n\nmsg.payload = {\n    offset: parseFloat(offset.toFixed(4)),\n    readings: buffer.length\n};\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 830,
+        "y": 600,
+        "wires": [
+            [
+                "3b2f57c47c130223"
+            ]
+        ]
+    },
+    {
+        "id": "0e35c6cb6c32be8c",
+        "type": "debug",
+        "z": "887b6fb15f0f5070",
+        "name": "debug 3",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 660,
+        "y": 700,
+        "wires": []
+    },
+    {
         "id": "bbb5efef98f61b14",
         "type": "function",
         "z": "a1592475ef5a5656",
@@ -5746,407 +6148,5 @@
         "wires": [
             []
         ]
-    },
-    {
-        "id": "2f66a05cd6773804",
-        "type": "mqtt in",
-        "z": "887b6fb15f0f5070",
-        "name": "Subscribe to ZEM-SB mqtt topic",
-        "topic": "ZEM-SB",
-        "qos": "2",
-        "datatype": "auto-detect",
-        "broker": "3103516c9e0d4edc",
-        "nl": false,
-        "rap": true,
-        "rh": 0,
-        "inputs": 0,
-        "x": 170,
-        "y": 80,
-        "wires": [
-            [
-                "c3b68be215c18f46"
-            ]
-        ]
-    },
-    {
-        "id": "c3b68be215c18f46",
-        "type": "delay",
-        "z": "887b6fb15f0f5070",
-        "name": "",
-        "pauseType": "rate",
-        "timeout": "5",
-        "timeoutUnits": "seconds",
-        "rate": "1",
-        "nbRateUnits": "1",
-        "rateUnits": "second",
-        "randomFirst": "1",
-        "randomLast": "5",
-        "randomUnits": "seconds",
-        "drop": false,
-        "allowrate": false,
-        "outputs": 1,
-        "x": 190,
-        "y": 300,
-        "wires": [
-            [
-                "76fe0ca4603299d8"
-            ]
-        ]
-    },
-    {
-        "id": "76fe0ca4603299d8",
-        "type": "function",
-        "z": "887b6fb15f0f5070",
-        "name": "preprocess",
-        "func": "if (!msg.payload || typeof msg.payload !== 'object' || !msg.payload.device || !msg.payload.device.metrics) {\n    node.warn(\"Invalid payload format: \" + JSON.stringify(msg.payload));\n    return msg; // Exit if the structure is incorrect\n}\n\nlet cleanedMetrics = {};  // New object for cleaned metrics\n\n// Iterate over each metric key-value pair\nfor (let key in msg.payload.device.metrics) {\n    if (msg.payload.device.metrics.hasOwnProperty(key)) {\n        let cleanedKey = key.replace(/\\s*\\(.*?\\)\\s*/g, '').trim(); // Remove units in parentheses\n\n        // Rename \"gas resistance\" to \"gas\"\n        if (cleanedKey.toLowerCase() === \"gas resistance\") {\n            cleanedKey = \"gas\";\n        }\n\n        cleanedMetrics[cleanedKey] = msg.payload.device.metrics[key];\n    }\n}\n\n// Assign cleaned metrics back\nmsg.payload.device.metrics = cleanedMetrics;\n\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 370,
-        "y": 300,
-        "wires": [
-            [
-                "b9b6b02852e2214b",
-                "0d5a3cb8f9a23e93",
-                "abeadeafe5c0e2cb",
-                "e3b1aa7874fdf8d3",
-                "dcb6529059f43129"
-            ]
-        ]
-    },
-    {
-        "id": "2c26485ee2352420",
-        "type": "influxdb out",
-        "z": "887b6fb15f0f5070",
-        "influxdb": "06ec447a89dfd1d3",
-        "name": "Send to InfluxDB",
-        "measurement": "metrics",
-        "precision": "",
-        "retentionPolicy": "",
-        "database": "database",
-        "precisionV18FluxV20": "ms",
-        "retentionPolicyV18Flux": "",
-        "org": "Zemfyre",
-        "bucket": "ZUS80LP",
-        "x": 1110,
-        "y": 300,
-        "wires": []
-    },
-    {
-        "id": "b9b6b02852e2214b",
-        "type": "function",
-        "z": "887b6fb15f0f5070",
-        "name": "calculate IAQ",
-        "func": "// Retrieve values from incoming message\nlet { temp, humidity, gas } = msg.payload.device.metrics;\nlet deviceName = msg.payload.device.name;\n\n// Context storage for gas reference\nlet gas_reference = context.get(\"gas_reference\") || 2500;\nlet getgasreference_count = context.get(\"getgasreference_count\") || 0;\n\n// Function to calculate humidity score\nfunction getHumidityScore(humidity) {\n    const humWeighting = 0.25;\n    const humReference = 40;\n\n    if (humidity >= 38 && humidity <= 42) {\n        return humWeighting * 100;\n    } else if (humidity < 38) {\n        return (humWeighting / humReference) * humidity * 100;\n    } else {\n        return ((-humWeighting / (100 - humReference)) * humidity) + 0.416666 * 100;\n    }\n}\n\n// Function to calculate gas score\nfunction getGasScore(gasResistance, gasReference) {\n    const gasWeighting = 0.75;\n    const gasLowerLimit = 10000;\n    const gasUpperLimit = 300000;\n\n    let gasScore = (gasWeighting / (gasUpperLimit - gasLowerLimit)) * gasResistance -\n        (gasLowerLimit * (gasWeighting / (gasUpperLimit - gasLowerLimit))) * 100;\n    return Math.max(0, Math.min(75, gasScore));\n}\n\n// Function to calculate IAQ\nfunction calculateIAQ(air_quality_score) {\n    let IAQScore = (100 - air_quality_score) * 5;\n    let IAQText = \"Good\";\n\n    if (IAQScore >= 301) IAQText = \"Hazardous\";\n    else if (IAQScore >= 201) IAQText = \"Very Unhealthy\";\n    else if (IAQScore >= 176) IAQText = \"Unhealthy\";\n    else if (IAQScore >= 151) IAQText = \"Unhealthy for Sensitive Groups\";\n    else if (IAQScore >= 51) IAQText = \"Moderate\";\n\n    return { IAQText, IAQScore };\n}\n\n// Compute humidity and gas scores\nlet humidity_score = getHumidityScore(humidity);\nlet gas_score = getGasScore(gas, gas_reference);\n\n// Combine results for final IAQ index (0-100% where 100% is good)\nlet air_quality_score = humidity_score + gas_score;\n\n// Update gas reference every 5 readings\nif ((getgasreference_count++ % 5) === 0) {\n    let readings = 10;\n    let totalGas = 0;\n\n    for (let i = 0; i < readings; i++) {\n        totalGas += gas; // Simulating multiple readings\n    }\n\n    gas_reference = totalGas / readings;\n}\n\n// Compute IAQ using the same logic as Arduino\nlet IAQResult = calculateIAQ(air_quality_score);\n\n// Store updated values in context\ncontext.set(\"gas_reference\", gas_reference);\ncontext.set(\"getgasreference_count\", getgasreference_count);\n\n// Output final result\nmsg.payload.iaq = {\n    humidity_score: humidity_score.toFixed(2),\n    gas_score: gas_score.toFixed(2),\n    air_quality_score: air_quality_score.toFixed(2),\n    IAQScore: IAQResult.IAQScore\n};\n\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 570,
-        "y": 300,
-        "wires": [
-            [
-                "54f8b4737634c106"
-            ]
-        ]
-    },
-    {
-        "id": "0d5a3cb8f9a23e93",
-        "type": "function",
-        "z": "887b6fb15f0f5070",
-        "name": "calculate XYZ metrics",
-        "func": "var range = 2; // in g\nvar seismic_alert = 0;\n\n// Convert raw values from the sensor (X, Y, Z) to acceleration in g\nvar X_raw = msg.payload.device.metrics.X;\nvar Y_raw = msg.payload.device.metrics.Y;\nvar Z_raw = msg.payload.device.metrics.Z;\n\n\n// Scaling factor to convert from raw sensor data to g\nvar scalingFactor = range / 1024; // 1024 for 10-bit resolution, adjust if needed\n\n// Convert raw readings to g values\nvar X = X_raw * scalingFactor;\nvar Y = Y_raw * scalingFactor;\nvar Z = Z_raw * scalingFactor;\n\n// Calculate magnitude (total acceleration in g)\nvar magnitude = (Math.sqrt(Math.pow(X, 2) + Math.pow(Y, 2) + Math.pow(Z, 2)));\n// Calculate tilt (in radians) from the vertical Z axis\nvar tilt = Math.acos(Z / magnitude);  // Angle relative to gravity (z-axis)\n\nif (magnitude > 3) {\n    // whoa - maybe an earthquake\n    seismic_alert = 1\n}\n\n// Convert tilt to degrees\nvar tiltDegrees = tilt * (180 / Math.PI); // Convert to degrees\n\n// Ensure tilt is in the range 0 to 90 degrees (since we are measuring tilt from vertical)\nif (tiltDegrees > 90) {\n    tiltDegrees = 180 - tiltDegrees;\n}\n\n// Calculate pitch and roll angles\nvar pitch = Math.atan2(Y, Math.sqrt(Math.pow(X, 2) + Math.pow(Z, 2))) * (180 / Math.PI);\nvar roll = Math.atan2(X, Math.sqrt(Math.pow(Y, 2) + Math.pow(Z, 2))) * (180 / Math.PI);\n\n// Output the calculated values\nmsg.payload.xyz = {\n    magnitude: magnitude,\n    tilt: tiltDegrees,\n    pitch: pitch,\n    roll: roll,\n    alert: seismic_alert\n};\n\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 600,
-        "y": 160,
-        "wires": [
-            [
-                "54f8b4737634c106"
-            ]
-        ]
-    },
-    {
-        "id": "dcb6529059f43129",
-        "type": "debug",
-        "z": "887b6fb15f0f5070",
-        "d": true,
-        "name": "debug",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 1090,
-        "y": 180,
-        "wires": []
-    },
-    {
-        "id": "e9d2511af1a4fd57",
-        "type": "function",
-        "z": "887b6fb15f0f5070",
-        "name": "combine",
-        "func": "let deviceName = msg.payload.metrics.device;\nlet metrics = msg.payload.metrics;\nlet iaq= msg.payload.iaq;\nlet xyz = msg.payload.xyz;\nlet fftData = msg.payload.fft_data;\n\nfunction roundToFour(num) {\n    return parseFloat(num.toFixed(4));\n}\n\nfunction roundToTwo(num) {\n    return parseFloat(num.toFixed(2));\n}\n\nfunction round(num) {\n    return parseFloat(num.toFixed(2));\n}\n\n// Construct InfluxDB JSON format\nmsg.payload = [\n    {\n        temperature: metrics.temperature,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light,\n        humidity_score: parseFloat(iaq.humidity_score),\n        gas_score: parseFloat(iaq.gas_score),\n        air_quality_score: parseFloat(iaq.air_quality_score),\n        IAQScore: metrics.IAQScore_original,\n        magnitude: xyz.magnitude,\n        tilt: Math.round(xyz.tilt),\n        pitch: Math.round(xyz.pitch),\n        roll: Math.round(xyz.roll)\n    },\n    {\n        device: metrics.device\n     \n    }\n];\nreturn msg;",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 920,
-        "y": 300,
-        "wires": [
-            [
-                "2c26485ee2352420"
-            ]
-        ]
-    },
-    {
-        "id": "abeadeafe5c0e2cb",
-        "type": "function",
-        "z": "887b6fb15f0f5070",
-        "name": "calculate other",
-        "func": "\n// Extract the sensor data\nlet payload = msg.payload;\n\n\n// Check if the expected format exists\nif (!payload.device || !payload.device.metrics) {\n    node.error(\"Invalid data format\", msg);\n    return null;\n}\n\n// Extract details\nlet deviceName = payload.device.name;\nlet macAddress = payload.device.mac;\nlet metrics = payload.device.metrics;\n\n\n// Construct InfluxDB JSON format\nmsg.payload.metrics = \n    {\n        device: deviceName,\n        temperature: metrics.temp,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light,\n        IAQScore_original: metrics.AQI,\n    };\n\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 580,
-        "y": 460,
-        "wires": [
-            [
-                "54f8b4737634c106"
-            ]
-        ]
-    },
-    {
-        "id": "54f8b4737634c106",
-        "type": "join",
-        "z": "887b6fb15f0f5070",
-        "name": "join all",
-        "mode": "custom",
-        "build": "merged",
-        "property": "payload",
-        "propertyType": "msg",
-        "key": "topic",
-        "joiner": "\\n",
-        "joinerType": "str",
-        "useparts": false,
-        "accumulate": false,
-        "timeout": "",
-        "count": "4",
-        "reduceRight": false,
-        "reduceExp": "",
-        "reduceInit": "",
-        "reduceInitType": "",
-        "reduceFixup": "",
-        "x": 760,
-        "y": 300,
-        "wires": [
-            [
-                "e9d2511af1a4fd57"
-            ]
-        ]
-    },
-    {
-        "id": "2cdfcfafe7f9179d",
-        "type": "mqtt in",
-        "z": "887b6fb15f0f5070",
-        "name": "",
-        "topic": "sensor/+",
-        "qos": "2",
-        "datatype": "auto-detect",
-        "broker": "3103516c9e0d4edc",
-        "nl": false,
-        "rap": true,
-        "rh": 0,
-        "inputs": 0,
-        "x": 160,
-        "y": 560,
-        "wires": [
-            [
-                "8821bb851f65c753"
-            ]
-        ]
-    },
-    {
-        "id": "0c9fb24bbb3da034",
-        "type": "influxdb out",
-        "z": "887b6fb15f0f5070",
-        "influxdb": "06ec447a89dfd1d3",
-        "name": "",
-        "measurement": "temps",
-        "precision": "",
-        "retentionPolicy": "",
-        "database": "database",
-        "precisionV18FluxV20": "ms",
-        "retentionPolicyV18Flux": "",
-        "org": "Zemfyre",
-        "bucket": "temp_correction",
-        "x": 990,
-        "y": 460,
-        "wires": []
-    },
-    {
-        "id": "3b2f57c47c130223",
-        "type": "debug",
-        "z": "887b6fb15f0f5070",
-        "d": true,
-        "name": "debug 1",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 1080,
-        "y": 600,
-        "wires": []
-    },
-    {
-        "id": "e3b1aa7874fdf8d3",
-        "type": "change",
-        "z": "887b6fb15f0f5070",
-        "name": "",
-        "rules": [
-            {
-                "t": "set",
-                "p": "payload",
-                "pt": "msg",
-                "to": "payload.device.metrics.temp",
-                "tot": "msg"
-            },
-            {
-                "t": "set",
-                "p": "topic",
-                "pt": "msg",
-                "to": "sensor1_temp",
-                "tot": "str"
-            }
-        ],
-        "action": "",
-        "property": "",
-        "from": "",
-        "to": "",
-        "reg": false,
-        "x": 340,
-        "y": 520,
-        "wires": [
-            [
-                "9a25b9468845bd28"
-            ]
-        ]
-    },
-    {
-        "id": "8821bb851f65c753",
-        "type": "change",
-        "z": "887b6fb15f0f5070",
-        "name": "",
-        "rules": [
-            {
-                "t": "set",
-                "p": "topic",
-                "pt": "msg",
-                "to": "sensor2_temp",
-                "tot": "str"
-            }
-        ],
-        "action": "",
-        "property": "",
-        "from": "",
-        "to": "",
-        "reg": false,
-        "x": 330,
-        "y": 720,
-        "wires": [
-            [
-                "9a25b9468845bd28"
-            ]
-        ]
-    },
-    {
-        "id": "9a25b9468845bd28",
-        "type": "join",
-        "z": "887b6fb15f0f5070",
-        "name": "",
-        "mode": "custom",
-        "build": "object",
-        "property": "payload",
-        "propertyType": "msg",
-        "key": "topic",
-        "joiner": "\\n",
-        "joinerType": "str",
-        "useparts": false,
-        "accumulate": true,
-        "timeout": "",
-        "count": "2",
-        "reduceRight": false,
-        "reduceExp": "",
-        "reduceInit": "",
-        "reduceInitType": "",
-        "reduceFixup": "",
-        "x": 530,
-        "y": 600,
-        "wires": [
-            [
-                "0c9fb24bbb3da034",
-                "5d2865dfea33bdf0",
-                "0e35c6cb6c32be8c"
-            ]
-        ]
-    },
-    {
-        "id": "5d2865dfea33bdf0",
-        "type": "function",
-        "z": "887b6fb15f0f5070",
-        "d": true,
-        "name": "buffer and calculate offset",
-        "func": "let buffer = flow.get(\"calibration_buffer\") || [];\n\nbuffer.push({\n    sensor1: msg.payload.sensor1_temp,\n    sensor2: msg.payload.sensor2_temp\n});\n\nif (buffer.length > 10000) buffer.shift(); // keep only last ~1000\n\nflow.set(\"calibration_buffer\", buffer);\n\nlet offset = 0;\nif (buffer.length >= 100) {\n    let sum = 0;\n    buffer.forEach(entry => {\n        sum += entry.sensor1 - entry.sensor2;\n    });\n    offset = sum / buffer.length;\n}\n\nmsg.payload = {\n    offset: parseFloat(offset.toFixed(4)),\n    readings: buffer.length\n};\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 830,
-        "y": 600,
-        "wires": [
-            [
-                "3b2f57c47c130223"
-            ]
-        ]
-    },
-    {
-        "id": "0e35c6cb6c32be8c",
-        "type": "debug",
-        "z": "887b6fb15f0f5070",
-        "name": "debug 3",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 660,
-        "y": 700,
-        "wires": []
     }
 ]

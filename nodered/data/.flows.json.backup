@@ -6115,6 +6115,7 @@
         "id": "5d2865dfea33bdf0",
         "type": "function",
         "z": "887b6fb15f0f5070",
+        "d": true,
         "name": "buffer and calculate offset",
         "func": "let buffer = flow.get(\"calibration_buffer\") || [];\n\nbuffer.push({\n    sensor1: msg.payload.sensor1_temp,\n    sensor2: msg.payload.sensor2_temp\n});\n\nif (buffer.length > 10000) buffer.shift(); // keep only last ~1000\n\nflow.set(\"calibration_buffer\", buffer);\n\nlet offset = 0;\nif (buffer.length >= 100) {\n    let sum = 0;\n    buffer.forEach(entry => {\n        sum += entry.sensor1 - entry.sensor2;\n    });\n    offset = sum / buffer.length;\n}\n\nmsg.payload = {\n    offset: parseFloat(offset.toFixed(4)),\n    readings: buffer.length\n};\nreturn msg;\n",
         "outputs": 1,
