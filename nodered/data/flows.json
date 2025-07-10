@@ -1556,7 +1556,7 @@
         "type": "mqtt-broker",
         "name": "",
         "broker": "10.0.0.198",
-        "port": "5883",
+        "port": "1883",
         "clientid": "",
         "autoConnect": true,
         "usetls": false,
@@ -6006,6 +6006,7 @@
         "id": "3b2f57c47c130223",
         "type": "debug",
         "z": "887b6fb15f0f5070",
+        "d": true,
         "name": "debug 1",
         "active": true,
         "tosidebar": true,
@@ -6036,7 +6037,7 @@
                 "t": "set",
                 "p": "topic",
                 "pt": "msg",
-                "to": "￼sensor1_temp",
+                "to": "sensor1_temp",
                 "tot": "str"
             }
         ],
@@ -6106,7 +6107,8 @@
         "wires": [
             [
                 "0c9fb24bbb3da034",
-                "5d2865dfea33bdf0"
+                "5d2865dfea33bdf0",
+                "0e35c6cb6c32be8c"
             ]
         ]
     },
@@ -6115,7 +6117,7 @@
         "type": "function",
         "z": "887b6fb15f0f5070",
         "name": "buffer and calculate offset",
-        "func": "\nlet buffer = flow.get(\"temp_buffer\") || [];\n\n// Add current reading\nbuffer.push({\n    sensor1: msg.payload.sensor1_temp,\n    sensor2: msg.payload.sensor2_temp\n});\n\n// Keep last N readings (e.g., 100)\nconst MAX_BUFFER_SIZE = 100;\nif (buffer.length > MAX_BUFFER_SIZE) {\n    buffer.shift();\n}\n\nflow.set(\"temp_buffer\", buffer);\n\n// Calculate average offset\nlet offset = 0;\nif (buffer.length >= 5) {  // wait for at least 5 readings\n    let sum = 0;\n    for (let i = 0; i < buffer.length; i++) {\n        sum += buffer[i].sensor1 - buffer[i].sensor2;\n    }\n    offset = sum / buffer.length;\n}\n\n// Apply offset correction\nlet corrected_sensor1 = msg.payload.sensor1_temp - offset;\n\n// Prepare InfluxDB format\nmsg.payload = [\n    {\n        measurement: \"temps\",\n        fields: {\n            sensor1_corrected: parseFloat(corrected_sensor1.toFixed(2)),\n            sensor2: parseFloat(msg.payload.sensor2_temp.toFixed(2)),\n            offset: parseFloat(offset.toFixed(4))\n        },\n        timestamp: Date.now() * 1000000 // nanoseconds\n    }\n];\n\nreturn msg;\n",
+        "func": "let buffer = flow.get(\"calibration_buffer\") || [];\n\nbuffer.push({\n    sensor1: msg.payload.sensor1_temp,\n    sensor2: msg.payload.sensor2_temp\n});\n\nif (buffer.length > 10000) buffer.shift(); // keep only last ~1000\n\nflow.set(\"calibration_buffer\", buffer);\n\nlet offset = 0;\nif (buffer.length >= 100) {\n    let sum = 0;\n    buffer.forEach(entry => {\n        sum += entry.sensor1 - entry.sensor2;\n    });\n    offset = sum / buffer.length;\n}\n\nmsg.payload = {\n    offset: parseFloat(offset.toFixed(4)),\n    readings: buffer.length\n};\nreturn msg;\n",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -6129,5 +6131,22 @@
                 "3b2f57c47c130223"
             ]
         ]
+    },
+    {
+        "id": "0e35c6cb6c32be8c",
+        "type": "debug",
+        "z": "887b6fb15f0f5070",
+        "name": "debug 3",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 660,
+        "y": 700,
+        "wires": []
     }
 ]
