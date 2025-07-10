@@ -98,7 +98,7 @@ class MAX31855(object):
 # ──────────────────────────
 # MQTT SETUP
 # ──────────────────────────
-MQTT_BROKER = "localhost"     # or IP address of broker
+MQTT_BROKER = "mosquitto"     # or IP address of broker
 MQTT_PORT = 1883
 MQTT_TOPIC = "sensor/temperature"
 
