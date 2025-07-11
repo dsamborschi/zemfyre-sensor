@@ -3,7 +3,7 @@
 # This script builds the Ansible Docker image and runs the playbook
 set -e
 
-IMAGE_NAME=ansible-raspi
+IMAGE_NAME=ansible-deploy-kiosk
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 

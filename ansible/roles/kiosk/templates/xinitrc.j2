@@ -1,14 +1,15 @@
 #!/bin/sh
-# Kiosk mode X11 initialization script
+# X11 kiosk mode initialization script
 xset s off
 xset -dpms
 xset s noblank
 unclutter -idle 0.1 -root &
 openbox-session &
 
-# Wait for service to be available
-echo "Waiting for service at {{ kiosk_wait_service }}..."
-timeout {{ kiosk_wait_timeout }} bash -c 'while ! curl --silent --head --fail "{{ kiosk_wait_service }}"; do sleep 2; done'
+while true; do
+  curl --silent --head --fail "http://localhost:{{ grafana_port_ext }}/" && break
+  echo "Waiting for grafana..."
+  sleep 2
+done
 
-# Launch Chromium in kiosk mode
-chromium-browser {{ kiosk_chromium_flags | join(' ') }} "{{ kiosk_url }}"
+chromium-browser --disk-cache-size=104857600 --enable-features=VaapiVideoDecoder --media-cache-size=104857600 --no-sandbox --hide-scrollbars --noerrdialogs --disable-infobars --kiosk "{{ kiosk_url }}"

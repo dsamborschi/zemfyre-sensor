@@ -5,10 +5,7 @@
   vars:
     repo_url: "https://github.com/dsamborschi/zemfyre-sensor.git"
     repo_dir: "zemfyre-sensor"
-    setup_script: "setup.sh"
     kiosk_user: "zemfyre"
-    # Set this to true for desktop mode with LXDE, false for headless mode with X11/openbox
-    desktop_mode: false
 
   tasks:
     - name: Load environment variables from .env file
@@ -16,13 +13,10 @@
         grafana_port_ext: "{{ lookup('file', playbook_dir + '/.env.pi').splitlines() | select('match', '^GRAFANA_PORT_EXT=') | map('regex_replace', '^GRAFANA_PORT_EXT=(.*)$', '\\1') | list | first | default('3000') }}"
         admin_port: "{{ lookup('file', playbook_dir + '/.env.pi').splitlines() | select('match', '^ADMIN_PORT=') | map('regex_replace', '^ADMIN_PORT=(.*)$', '\\1') | list | first | default('51850') }}"
 
-    - name: Set kiosk_url based on mode
-      set_fact:
-        kiosk_url: "{{ 'http://localhost:' + grafana_port_ext + '/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now' if desktop_mode else 'http://localhost:' + admin_port + '/' }}"
-
-    - name: Debug deployment mode
-      debug:
-        msg: "Deploying in {{ 'desktop' if desktop_mode else 'headless' }} mode. Kiosk URL: {{ kiosk_url }}"
+    - name: Setup kiosk environment
+      include_role:
+        name: kiosk
+  
 
     - name: Ensure git is installed
       apt:
@@ -92,48 +86,6 @@
       failed_when: false
       changed_when: false
 
-    - name: Ensure Chromium and kiosk tools are installed (Desktop mode)
-      apt:
-        name:
-          - chromium-browser
-          - unclutter
-          - xdotool
-        state: present
-        update_cache: yes
-      when: desktop_mode
-
-    - name: Ensure Chromium and kiosk tools are installed (Headless mode)
-      apt:
-        name:
-          - xserver-xorg
-          - x11-xserver-utils
-          - xinit
-          - openbox
-          - unclutter
-          - chromium-browser
-        state: present
-        update_cache: yes
-      when: not desktop_mode
-
-    - name: Create LXDE autostart file from template for desktop kiosk setup
-      template:
-        src: lxde-autostart.j2
-        dest: "/etc/xdg/lxsession/LXDE-pi/autostart"
-        owner: root
-        group: root
-        mode: '0644'
-      when: desktop_mode
-    
-    - name: Create .xinitrc from template for headless X11 + Chromium kiosk setup
-      template:
-        src: xinitrc.j2
-        dest: "/home/{{ kiosk_user }}/.xinitrc"
-        owner: "{{ kiosk_user }}"
-        group: "{{ kiosk_user }}"
-        mode: '0755'
-      when: not desktop_mode
-
-
     - name: Ensure repo directory exists
       file:
         path: "{{ repo_dir }}"
@@ -190,9 +142,13 @@
         state: directory
       become: yes
 
+    - name: Debug final kiosk setup
+      debug:
+        msg: "Kiosk setup complete. Mode detected: {{ hostvars[inventory_hostname]['desktop_mode'] | default('unknown') }}"
+
     - name: Reboot Raspberry Pi to apply changes and start kiosk mode
       reboot:
-        msg: "Reboot initiated by Ansible to start {{ 'desktop' if desktop_mode else 'headless' }} kiosk mode with updated Chromium settings."
+        msg: "Reboot initiated by Ansible to start kiosk mode with zemfyre-sensor dashboard."
         connect_timeout: 5
         reboot_timeout: 120
         pre_reboot_delay: 5

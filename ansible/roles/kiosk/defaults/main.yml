@@ -1,20 +1,31 @@
 ---
 # Default variables for kiosk role
+
+# Kiosk user (will be created if it doesn't exist)
 kiosk_user: "zemfyre"
-kiosk_url: "http://localhost:51850/"
-kiosk_wait_service: "http://localhost:53000/"
-kiosk_wait_timeout: 120
-kiosk_chromium_flags:
-  - "--no-sandbox"
-  - "--hide-scrollbars"
-  - "--disable-gpu"
+
+# Auto-detect desktop mode (can be overridden)
+desktop_mode: false
+
+# Default URLs - these should be overridden by the calling playbook
+grafana_port_ext: "3000"
+admin_port: "51850"
+
+# Chromium flags for better kiosk experience
+chromium_flags:
   - "--noerrdialogs"
   - "--disable-infobars"
   - "--kiosk"
-kiosk_packages:
-  - xserver-xorg
-  - x11-xserver-utils
-  - xinit
-  - openbox
-  - unclutter
-  - chromium-browser
+  - "--disable-session-crashed-bubble"
+  - "--disable-component-extensions-with-background-pages"
+  - "--disable-background-timer-throttling"
+  - "--disable-renderer-backgrounding"
+  - "--disable-field-trial-config"
+  - "--disable-web-security"
+  - "--disable-features=TranslateUI"
+  - "--no-first-run"
+  - "--fast"
+  - "--fast-start"
+  - "--disable-default-apps"
+  - "--aggressive-cache-discard"
+  - "--memory-pressure-off"
