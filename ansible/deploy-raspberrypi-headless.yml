@@ -1,5 +1,5 @@
 ---
-- name: Deploy zemfyre-sensor to Raspberry Pi
+- name: Deploy zemfyre-sensor to Raspberry Pi (Headless and Desktop)
   hosts: raspberrypi
   become: yes
   vars:
@@ -8,6 +8,8 @@
     setup_script: "setup.sh"
     autostart_file: "/etc/xdg/lxsession/LXDE-pi/autostart"
     kiosk_user: "zemfyre"
+    # Set this to true for desktop mode with LXDE, false for headless mode with X11/openbox
+    desktop_mode: "false"
 
   tasks:
     - name: Load environment variables from .env file
@@ -15,9 +17,13 @@
         grafana_port_ext: "{{ lookup('file', playbook_dir + '/.env.pi').splitlines() | select('match', '^GRAFANA_PORT_EXT=') | map('regex_replace', '^GRAFANA_PORT_EXT=(.*)$', '\\1') | list | first | default('3000') }}"
         admin_port: "{{ lookup('file', playbook_dir + '/.env.pi').splitlines() | select('match', '^ADMIN_PORT=') | map('regex_replace', '^ADMIN_PORT=(.*)$', '\\1') | list | first | default('51850') }}"
 
-    - name: Set kiosk_url admin url with port
+    - name: Set kiosk_url based on mode
       set_fact:
-        kiosk_url: "http://localhost:{{ admin_port }}/"
+        kiosk_url: "{{ 'http://localhost:' + grafana_port_ext + '/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now' if desktop_mode else 'http://localhost:' + admin_port + '/' }}"
+
+    - name: Debug deployment mode
+      debug:
+        msg: "Deploying in {{ 'desktop' if desktop_mode else 'headless' }} mode. Kiosk URL: {{ kiosk_url }}"
 
     - name: Ensure git is installed
       apt:
@@ -71,13 +77,33 @@
       when: docker_check.rc != 0
       become: yes
 
+    - name: Check if ngrok is running as a systemd service
+      shell: systemctl is-active ngrok.service
+      register: ngrok_status
+      changed_when: false
+      failed_when: false
+
+    - name: Print ngrok service status
+      debug:
+        msg: "ngrok is {{ 'running' if ngrok_status.stdout == 'active' else 'not running or not installed' }}"
+
     - name: Check Docker Compose availability
       command: docker compose version
       register: docker_compose_check
       failed_when: false
       changed_when: false
 
-    - name: Ensure Chromium and kiosk tools are installed
+    - name: Ensure Chromium and kiosk tools are installed (Desktop mode)
+      apt:
+        name:
+          - chromium-browser
+          - unclutter
+          - xdotool
+        state: present
+        update_cache: yes
+      when: desktop_mode
+
+    - name: Ensure Chromium and kiosk tools are installed (Headless mode)
       apt:
         name:
           - xserver-xorg
@@ -88,14 +114,25 @@
           - chromium-browser
         state: present
         update_cache: yes
+      when: not desktop_mode
+
+    - name: Create LXDE autostart file from template for desktop kiosk setup
+      template:
+        src: lxde-autostart.j2
+        dest: "{{ autostart_file }}"
+        owner: root
+        group: root
+        mode: '0644'
+      when: desktop_mode
     
-    - name: Create .xinitrc from template for X11 + Chromium kiosk setup
+    - name: Create .xinitrc from template for headless X11 + Chromium kiosk setup
       template:
         src: xinitrc.j2
         dest: "/home/{{ kiosk_user }}/.xinitrc"
         owner: "{{ kiosk_user }}"
         group: "{{ kiosk_user }}"
         mode: '0755'
+      when: not desktop_mode
 
 
     - name: Ensure repo directory exists
@@ -120,7 +157,8 @@
         dest: "{{ repo_dir }}/.env"
         mode: '0644'
 
-    - name: Run Docker Compose (with Pi override)
+
+    - name: Run Docker Compose (Headless mode with Pi override)
       community.docker.docker_compose_v2:
         project_src: "{{ repo_dir }}"
         files:
@@ -153,10 +191,9 @@
         state: directory
       become: yes
 
-
-    - name: Reboot Raspberry Pi to apply chnages and start kiosk mode
+    - name: Reboot Raspberry Pi to apply changes and start kiosk mode
       reboot:
-        msg: "Reboot initiated by Ansible to start kiosk mode with updated Chromium settings."
+        msg: "Reboot initiated by Ansible to start {{ 'desktop' if desktop_mode else 'headless' }} kiosk mode with updated Chromium settings."
         connect_timeout: 5
         reboot_timeout: 120
         pre_reboot_delay: 5
