@@ -6,10 +6,9 @@
     repo_url: "https://github.com/dsamborschi/zemfyre-sensor.git"
     repo_dir: "zemfyre-sensor"
     setup_script: "setup.sh"
-    autostart_file: "/etc/xdg/lxsession/LXDE-pi/autostart"
     kiosk_user: "zemfyre"
     # Set this to true for desktop mode with LXDE, false for headless mode with X11/openbox
-    desktop_mode: "false"
+    desktop_mode: false
 
   tasks:
     - name: Load environment variables from .env file
@@ -119,7 +118,7 @@
     - name: Create LXDE autostart file from template for desktop kiosk setup
       template:
         src: lxde-autostart.j2
-        dest: "{{ autostart_file }}"
+        dest: "/etc/xdg/lxsession/LXDE-pi/autostart"
         owner: root
         group: root
         mode: '0644'
