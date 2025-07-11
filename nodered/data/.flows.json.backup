@@ -5132,7 +5132,7 @@
         "topic": "sensor/+",
         "qos": "2",
         "datatype": "auto-detect",
-        "broker": "3103516c9e0d4edc",
+        "broker": "ca4f07abb4d962ad",
         "nl": false,
         "rap": true,
         "rh": 0,
@@ -5920,7 +5920,7 @@
         "z": "2997984a45c6416d",
         "name": "Train KNN",
         "savePath": "/data/models",
-        "saveName": "gas_lpg_knn_model",
+        "saveName": "gas_methanol_knn_model",
         "neighbors": "5",
         "weights": "uniform",
         "x": 930,
@@ -5943,7 +5943,7 @@
         "timeout": "5",
         "timeoutUnits": "seconds",
         "rate": "1",
-        "nbRateUnits": "5",
+        "nbRateUnits": "1",
         "rateUnits": "second",
         "randomFirst": "1",
         "randomLast": "5",
@@ -5951,11 +5951,12 @@
         "drop": false,
         "allowrate": false,
         "outputs": 1,
-        "x": 160,
+        "x": 150,
         "y": 220,
         "wires": [
             [
-                "5fb94e978020ef59"
+                "5fb94e978020ef59",
+                "c37230eb81c722a6"
             ]
         ]
     },
@@ -5963,9 +5964,10 @@
         "id": "7c97db1c0b930b05",
         "type": "predictor",
         "z": "2997984a45c6416d",
+        "d": true,
         "name": "Predict Gas",
         "modelPath": "/data/models",
-        "modelName": "gas_lpg_knn_model",
+        "modelName": "gas_methanol_knn_model",
         "x": 610,
         "y": 400,
         "wires": [
@@ -6016,7 +6018,7 @@
         "type": "function",
         "z": "2997984a45c6416d",
         "name": "Add Label",
-        "func": "msg.payload = {\n    gas: msg.payload.gas,\n    temp: msg.payload.temp,\n    hum: msg.payload.hum,\n    label: \"LPG\"\n};\nreturn msg;",
+        "func": "msg.payload = {\n    gas: msg.payload.gas,\n    temp: msg.payload.temp,\n    hum: msg.payload.hum,\n    label: \"Methanol\"\n};\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -6049,6 +6051,42 @@
             [
                 "3123d6829b75eb93"
             ]
+        ]
+    },
+    {
+        "id": "c37230eb81c722a6",
+        "type": "debug",
+        "z": "2997984a45c6416d",
+        "name": "raw",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 410,
+        "y": 200,
+        "wires": []
+    },
+    {
+        "id": "3fb79ff9f3a523d0",
+        "type": "create dataset",
+        "z": "2997984a45c6416d",
+        "name": "",
+        "path": "",
+        "saveFolder": "",
+        "saveName": "",
+        "input": "",
+        "output": "",
+        "trainingPartition": "",
+        "shuffle": "",
+        "seed": "",
+        "x": 760,
+        "y": 120,
+        "wires": [
+            []
         ]
     },
     {
