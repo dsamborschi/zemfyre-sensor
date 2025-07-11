@@ -10,23 +10,15 @@
     kiosk_user: "zemfyre"
 
   tasks:
-    - name: Load GRAFANA_PORT_EXT from .env file
+    - name: Load environment variables from .env file
       set_fact:
         grafana_port_ext: "{{ lookup('file', playbook_dir + '/.env.pi').splitlines() | select('match', '^GRAFANA_PORT_EXT=') | map('regex_replace', '^GRAFANA_PORT_EXT=(.*)$', '\\1') | list | first | default('3000') }}"
-        
-    - name: Load ADMIN_PORT from .env file
-      set_fact:
         admin_port: "{{ lookup('file', playbook_dir + '/.env.pi').splitlines() | select('match', '^ADMIN_PORT=') | map('regex_replace', '^ADMIN_PORT=(.*)$', '\\1') | list | first | default('51850') }}"
-    
-    - name: Show loaded Grafana port
-      debug:
-        msg: "ADMIN_PORT loaded from .env.pi is: {{ admin_port }}"
 
-    - name: Set kiosk_url with dynamic port
+    - name: Set kiosk_url admin url with port
       set_fact:
         kiosk_url: "http://localhost:{{ admin_port }}/"
 
-    
     - name: Ensure git is installed
       apt:
         name: git
