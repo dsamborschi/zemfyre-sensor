@@ -6019,7 +6019,7 @@
         "type": "function",
         "z": "2997984a45c6416d",
         "name": "Add Label",
-        "func": "msg.payload = {\n    gas: msg.payload.gas,\n    temp: msg.payload.temp,\n    hum: msg.payload.hum,\n    label: \"air\"\n};\nreturn msg;",
+        "func": "msg.payload = {\n    gas: msg.payload.gas,\n    temp: msg.payload.temp,\n    hum: msg.payload.hum,\n    label: \"open_air\"\n};\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
@@ -6097,7 +6097,6 @@
         "id": "append_to_file",
         "type": "file",
         "z": "2997984a45c6416d",
-        "d": true,
         "name": "Append to gas_data.csv",
         "filename": "/data/models/gas_data.csv",
         "filenameType": "str",
@@ -6110,6 +6109,110 @@
         "wires": [
             []
         ]
+    },
+    {
+        "id": "7b941900e56d7cea",
+        "type": "create dataset",
+        "z": "2997984a45c6416d",
+        "name": "gas_model",
+        "path": "/data/models/gas_data.csv",
+        "saveFolder": "/data/models/",
+        "saveName": "sensor_gas_dataset",
+        "input": "gas,temp,humidity",
+        "output": "3",
+        "trainingPartition": "80",
+        "shuffle": "",
+        "seed": "42",
+        "x": 410,
+        "y": 640,
+        "wires": [
+            [
+                "b396ad2711bc9ef6"
+            ]
+        ]
+    },
+    {
+        "id": "4684f44d4ff5e4c5",
+        "type": "inject",
+        "z": "2997984a45c6416d",
+        "name": "",
+        "props": [
+            {
+                "p": "payload"
+            },
+            {
+                "p": "topic",
+                "vt": "str"
+            }
+        ],
+        "repeat": "",
+        "crontab": "",
+        "once": false,
+        "onceDelay": 0.1,
+        "topic": "",
+        "payload": "",
+        "payloadType": "date",
+        "x": 160,
+        "y": 620,
+        "wires": [
+            [
+                "7b941900e56d7cea"
+            ]
+        ]
+    },
+    {
+        "id": "b396ad2711bc9ef6",
+        "type": "k neighbors classifier",
+        "z": "2997984a45c6416d",
+        "name": "Train KNN",
+        "savePath": "/data/models",
+        "saveName": "gas_knn_model",
+        "neighbors": "5",
+        "weights": "uniform",
+        "x": 650,
+        "y": 640,
+        "wires": [
+            [
+                "9e912add50a697fa"
+            ],
+            [
+                "cbb4643a2275c238"
+            ]
+        ]
+    },
+    {
+        "id": "9e912add50a697fa",
+        "type": "debug",
+        "z": "2997984a45c6416d",
+        "name": "print",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 850,
+        "y": 620,
+        "wires": []
+    },
+    {
+        "id": "cbb4643a2275c238",
+        "type": "debug",
+        "z": "2997984a45c6416d",
+        "name": "error",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 850,
+        "y": 720,
+        "wires": []
     },
     {
         "id": "02237640dcfe4a52",
