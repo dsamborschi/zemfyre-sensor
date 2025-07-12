@@ -1,4 +1,3 @@
-# Ansible Dockerfile for Raspberry Pi deployment
 FROM python:3.12
 
 # Upgrade system packages to address vulnerabilities

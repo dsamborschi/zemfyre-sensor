@@ -5822,7 +5822,6 @@
         "id": "15d00ae5f6303831",
         "type": "mqtt in",
         "z": "2997984a45c6416d",
-        "d": true,
         "name": "Subscribe to sensor data",
         "topic": "ZEM-SB",
         "qos": "2",
@@ -5872,12 +5871,12 @@
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 400,
-        "y": 280,
+        "x": 360,
+        "y": 300,
         "wires": [
             [
-                "7b7fe125e2ede3d0",
-                "7c97db1c0b930b05"
+                "7c97db1c0b930b05",
+                "7b7fe125e2ede3d0"
             ]
         ]
     },
@@ -5970,7 +5969,7 @@
         "modelPath": "/data/models",
         "modelName": "gas_methanol_knn_model",
         "x": 610,
-        "y": 400,
+        "y": 180,
         "wires": [
             [
                 "e14fb6b603d8e1ee"
@@ -5994,7 +5993,7 @@
         "statusVal": "",
         "statusType": "auto",
         "x": 850,
-        "y": 380,
+        "y": 60,
         "wires": []
     },
     {
@@ -6010,8 +6009,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 850,
-        "y": 460,
+        "x": 830,
+        "y": 180,
         "wires": []
     },
     {
@@ -6019,18 +6018,19 @@
         "type": "function",
         "z": "2997984a45c6416d",
         "name": "Add Label",
-        "func": "msg.payload = {\n    gas: msg.payload.gas,\n    temp: msg.payload.temp,\n    hum: msg.payload.hum,\n    label: \"Methanol\"\n};\nreturn msg;",
+        "func": "msg.payload = {\n    gas: msg.payload.gas,\n    temp: msg.payload.temp,\n    hum: msg.payload.hum,\n    label: \"air\"\n};\nreturn msg;",
         "outputs": 1,
         "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 600,
-        "y": 280,
+        "x": 560,
+        "y": 300,
         "wires": [
             [
-                "ac38489913a1e367"
+                "ac38489913a1e367",
+                "format_csv"
             ]
         ]
     },
@@ -6038,6 +6038,7 @@
         "id": "ac38489913a1e367",
         "type": "function",
         "z": "2997984a45c6416d",
+        "d": true,
         "name": "Batch",
         "func": "// Desired batch size\nconst BATCH_SIZE = 10;\n\n// Retrieve batch from context\nlet batch = flow.get('batch') || [];\n\n// Assume incoming msg.payload is a single sample object with flat features and label\nbatch.push(msg.payload);\n\n// Save batch back to context\nflow.set('batch', batch);\n\n// If batch size reached, send batch as array and clear storage\nif (batch.length >= BATCH_SIZE) {\n    // Send batch downstream\n    let outMsg = { payload: batch };\n    \n    // Clear batch\n    flow.set('batch', []);\n    \n    return outMsg;\n}\n\n// Otherwise, do not send message yet (hold samples)\nreturn null;\n",
         "outputs": 1,
@@ -6067,25 +6068,44 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 410,
-        "y": 200,
+        "x": 370,
+        "y": 180,
         "wires": []
     },
     {
-        "id": "3fb79ff9f3a523d0",
-        "type": "create dataset",
+        "id": "format_csv",
+        "type": "function",
         "z": "2997984a45c6416d",
-        "name": "",
-        "path": "",
-        "saveFolder": "",
-        "saveName": "",
-        "input": "",
-        "output": "",
-        "trainingPartition": "",
-        "shuffle": "",
-        "seed": "",
-        "x": 760,
-        "y": 120,
+        "name": "Format as CSV",
+        "func": "const data = msg.payload;\nmsg.payload = `${data.gas},${data.temp},${data.hum},${data.label}\\n`;\nreturn msg;",
+        "outputs": 1,
+        "timeout": "",
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 680,
+        "y": 460,
+        "wires": [
+            [
+                "append_to_file"
+            ]
+        ]
+    },
+    {
+        "id": "append_to_file",
+        "type": "file",
+        "z": "2997984a45c6416d",
+        "d": true,
+        "name": "Append to gas_data.csv",
+        "filename": "/data/models/gas_data.csv",
+        "filenameType": "str",
+        "appendNewline": false,
+        "createDir": false,
+        "overwriteFile": "false",
+        "encoding": "none",
+        "x": 930,
+        "y": 460,
         "wires": [
             []
         ]
