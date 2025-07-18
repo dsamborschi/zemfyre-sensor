@@ -1,4 +1,15 @@
 services:
+
+    nginx:
+        image: nginx
+        ports:
+        - "80:80"
+        volumes:
+        - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+        depends_on:
+        - grafana
+        networks:
+           - zemfyre-net
     mosquitto:
         image: eclipse-mosquitto
         restart: always
@@ -54,6 +65,7 @@ services:
             - GF_AUTH_ANONYMOUS_ENABLED=${GRAFANA_AUTH_ANONYMOUS_ENABLED}
             - GF_AUTH_ANONYMOUS_ORG_ROLE=${GRAFANA_AUTH_ANONYMOUS_ORG_ROLE}
             - GF_AUTH_DISABLE_LOGIN_FORM=${GRAFANA_AUTH_DISABLE_LOGIN_FORM}
+            - GF_HTTP_ALLOW_ORIGIN=*
 
         volumes:
             - ./grafana/data:/var/lib/grafana

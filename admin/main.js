@@ -1,23 +1,8 @@
-const {
-  AppBar,
-  Toolbar,
-  Typography,
-  Button,
-  Box,
-  TreeView,
-  TreeItem,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  IconButton,
-  Tooltip
-} = MaterialUI;
+const { AppBar, Toolbar, Typography, Button, Box, TreeView, TreeItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Tooltip, Menu, MenuItem, CircularProgress } = MaterialUI;
 
-const API_BASE_URL = "http://localhost:53001"; 
+const API_BASE_URL = "http://localhost:53001";
+const GRAFANA_API_URL = "http://localhost/apps/grafana/api/search?type=dash-db"; // Placeholder, adjust as needed
+const GRAFANA_API_TOKEN = "glsa_MzypDsGjFIYtnE0TxEg9r2pf54Xod9md_23b77887"; // Placeholder, replace with your token
 
 
 function insertIntoTree(tree, topic, value) {
@@ -260,9 +245,39 @@ function HomeSlides() {
 function App() {
   const [view, setView] = React.useState("dashboard");
   const [kioskMode, setKioskMode] = React.useState(false);
+  // Grafana dashboards state
+  const [dashboards, setDashboards] = React.useState([]);
+  const [dashboardsLoading, setDashboardsLoading] = React.useState(false);
+  const [dashboardsError, setDashboardsError] = React.useState(null);
+  const [selectedDashboard, setSelectedDashboard] = React.useState(null);
+  const [dashboardMenuAnchor, setDashboardMenuAnchor] = React.useState(null);
 
-  const grafanaURL =
-    "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
+  // Fetch dashboards from Grafana API
+  React.useEffect(() => {
+    setDashboardsLoading(true);
+    fetch(GRAFANA_API_URL, {
+      headers: {
+        "Authorization": `Bearer ${GRAFANA_API_TOKEN}`
+      }
+    })
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch dashboards");
+        return res.json();
+      })
+      .then(data => {
+        setDashboards(data);
+        setDashboardsLoading(false);
+      })
+      .catch(err => {
+        setDashboardsError(err.message);
+        setDashboardsLoading(false);
+      });
+  }, []);
+
+  // Compute Grafana iframe URL
+  const grafanaURL = selectedDashboard
+    ? `http://localhost:53000/d/${selectedDashboard.uid || selectedDashboard.id}/${selectedDashboard.slug || selectedDashboard.uri.replace('db/', '')}?orgId=1&refresh=auto&from=now-5m&to=now&kiosk`
+    : "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
   const noderedURL = "http://localhost:51880/";
   const appsURL = "http://localhost:59000/#!/3/docker/containers";
 
@@ -298,16 +313,44 @@ function App() {
             >
               Apps
             </Button>
-            <Button 
-              color="inherit" 
-              onClick={() => setView("dashboard")}
-              style={{ 
+            {/* Dashboards dropdown */}
+            <Button
+              color="inherit"
+              onClick={e => setDashboardMenuAnchor(e.currentTarget)}
+              style={{
                 backgroundColor: view === "dashboard" ? "rgba(255,255,255,0.1)" : "transparent",
                 fontWeight: view === "dashboard" ? "bold" : "normal"
               }}
             >
               Dashboards
             </Button>
+            <Menu
+              anchorEl={dashboardMenuAnchor}
+              open={Boolean(dashboardMenuAnchor)}
+              onClose={() => setDashboardMenuAnchor(null)}
+            >
+              {dashboardsLoading && (
+                <MenuItem><CircularProgress size={20} /> Loading...</MenuItem>
+              )}
+              {dashboardsError && (
+                <MenuItem disabled>Error: {dashboardsError}</MenuItem>
+              )}
+              {dashboards && dashboards.length > 0 && dashboards.map(d => (
+                <MenuItem
+                  key={d.uid || d.id || d.uri}
+                  onClick={() => {
+                    setSelectedDashboard(d);
+                    setDashboardMenuAnchor(null);
+                    setView("dashboard");
+                  }}
+                >
+                  {d.title || d.name || d.uri}
+                </MenuItem>
+              ))}
+              {(!dashboardsLoading && dashboards && dashboards.length === 0) && (
+                <MenuItem disabled>No dashboards found</MenuItem>
+              )}
+            </Menu>
             <Button 
               color="inherit" 
               onClick={() => setView("nodered")}
