@@ -94,6 +94,8 @@ services:
             dockerfile: Dockerfile
         container_name: admin
         restart: always
+        environment:
+            - GRAFANA_API_TOKEN=glsa_MzypDsGjFIYtnE0TxEg9r2pf54Xod9md_23b77887
         ports:
             - "${ADMIN_PORT:-51850}:80"
         networks:

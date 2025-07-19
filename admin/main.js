@@ -2,7 +2,7 @@ const { AppBar, Toolbar, Typography, Button, Box, TreeView, TreeItem, Table, Tab
 
 const API_BASE_URL = "http://localhost:53001";
 const GRAFANA_API_URL = "http://localhost/apps/grafana/api/search?type=dash-db"; 
-const GRAFANA_API_TOKEN = "glsa_MzypDsGjFIYtnE0TxEg9r2pf54Xod9md_23b77887"; 
+const GRAFANA_API_TOKEN = process.env.GRAFANA_URL || 'http://localhost:3000';
 
 
 function insertIntoTree(tree, topic, value) {
