@@ -1,6 +1,9 @@
+import fetch from "node-fetch";
 import express from "express";
 import Docker from "dockerode";
 import cors from "cors";
+
+
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -39,6 +42,30 @@ app.post("/containers/:id/restart", async (req, res) => {
     const container = docker.getContainer(req.params.id);
     await container.restart();
     res.json({ message: `Container ${req.params.id} restarted.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Proxy endpoint for Grafana dashboards
+app.get("/grafana/dashboards", async (req, res) => {
+  const grafanaUrl = process.env.GRAFANA_URL || "http://grafana:3000";
+  const apiToken = process.env.GRAFANA_API_TOKEN;
+  if (!apiToken) {
+    return res.status(500).json({ error: "GRAFANA_API_TOKEN not set in backend" });
+  }
+  try {
+    const response = await fetch(`${grafanaUrl}/api/search?type=dash-db`, {
+      headers: {
+        "Authorization": `Bearer ${apiToken}`,
+        "Content-Type": "application/json"
+      }
+    });
+    if (!response.ok) {
+      return res.status(response.status).json({ error: `Grafana API error: ${response.statusText}` });
+    }
+    const data = await response.json();
+    res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

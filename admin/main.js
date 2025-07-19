@@ -1,8 +1,7 @@
 const { AppBar, Toolbar, Typography, Button, Box, TreeView, TreeItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Tooltip, Menu, MenuItem, CircularProgress } = MaterialUI;
 
 const API_BASE_URL = "http://localhost:53001";
-const GRAFANA_API_URL = "http://localhost/apps/grafana/api/search?type=dash-db"; 
-const GRAFANA_API_TOKEN = process.env.GRAFANA_URL || 'http://localhost:3000';
+const GRAFANA_API_URL = `${API_BASE_URL}/grafana/dashboards`;
 
 
 function insertIntoTree(tree, topic, value) {
@@ -252,14 +251,10 @@ function App() {
   const [selectedDashboard, setSelectedDashboard] = React.useState(null);
   const [dashboardMenuAnchor, setDashboardMenuAnchor] = React.useState(null);
 
-  // Fetch dashboards from Grafana API
+  // Fetch dashboards from backend API (which proxies Grafana)
   React.useEffect(() => {
     setDashboardsLoading(true);
-    fetch(GRAFANA_API_URL, {
-      headers: {
-        "Authorization": `Bearer ${GRAFANA_API_TOKEN}`
-      }
-    })
+    fetch(GRAFANA_API_URL)
       .then(res => {
         if (!res.ok) throw new Error("Failed to fetch dashboards");
         return res.json();
