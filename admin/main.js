@@ -1,8 +1,8 @@
 const { AppBar, Toolbar, Typography, Button, Box, TreeView, TreeItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Tooltip, Menu, MenuItem, CircularProgress } = MaterialUI;
 
 const API_BASE_URL = "http://localhost:53001";
-const GRAFANA_API_URL = "http://localhost/apps/grafana/api/search?type=dash-db"; // Placeholder, adjust as needed
-const GRAFANA_API_TOKEN = "glsa_MzypDsGjFIYtnE0TxEg9r2pf54Xod9md_23b77887"; // Placeholder, replace with your token
+const GRAFANA_API_URL = "http://localhost/apps/grafana/api/search?type=dash-db"; 
+const GRAFANA_API_TOKEN = "glsa_MzypDsGjFIYtnE0TxEg9r2pf54Xod9md_23b77887"; 
 
 
 function insertIntoTree(tree, topic, value) {
@@ -276,9 +276,9 @@ function App() {
 
   // Compute Grafana iframe URL
   const grafanaURL = selectedDashboard
-    ? `http://localhost:53000/d/${selectedDashboard.uid || selectedDashboard.id}/${selectedDashboard.slug || selectedDashboard.uri.replace('db/', '')}?orgId=1&refresh=auto&from=now-5m&to=now&kiosk`
-    : "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
-  const noderedURL = "http://localhost:51880/";
+    ? `http://localhost/apps/grafana/d/${selectedDashboard.uid || selectedDashboard.id}/${selectedDashboard.slug || selectedDashboard.uri.replace('db/', '')}?orgId=1&refresh=auto&from=now-5m&to=now&kiosk`
+    : "http://localhost/apps/grafana/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
+  const noderedURL = "http://localhost/apps/nodered/";
   const appsURL = "http://localhost:59000/#!/3/docker/containers";
 
   return (
