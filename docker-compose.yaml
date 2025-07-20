@@ -4,10 +4,9 @@ services:
         image: nginx
         ports:
         - "80:80"
+        command: ["nginx", "-g", "daemon off;"]
         volumes:
         - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-        depends_on:
-        - grafana
         networks:
            - zemfyre-net
     mosquitto:
@@ -122,6 +121,8 @@ services:
         devices:
         - /dev/gpiomem
         restart: unless-stopped
+        networks:
+           - zemfyre-net
 networks:
     zemfyre-net:
        external: true
