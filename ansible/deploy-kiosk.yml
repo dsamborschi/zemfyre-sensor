@@ -112,6 +112,8 @@
     - name: Run Docker Compose (Headless mode with Pi override)
       community.docker.docker_compose_v2:
         project_src: "{{ repo_dir }}"
+        files:
+          - docker-compose.pi.yaml
         state: present
         build: always
       become: yes
