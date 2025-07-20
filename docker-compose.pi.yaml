@@ -123,11 +123,9 @@ services:
         restart: unless-stopped
         networks:
            - zemfyre-net
+
 networks:
-    zemfyre-net:
-       external: true
-
-
-
+  zemfyre-net:
+    driver: bridge
 
 
