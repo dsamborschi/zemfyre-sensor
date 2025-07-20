@@ -1,31 +1,30 @@
 services:
-  nginx:
-    network_mode: bridge
-    depends_on: []  # optional override to remove depends_on if not needed
-
-  mosquitto:
-    network_mode: bridge
-
-  nodered:
-    network_mode: bridge
-
   influx:
-    network_mode: bridge
+    networks: []  # 🚫 override to remove networks key
 
   grafana:
-    network_mode: bridge
+    networks: []
+
+  mosquitto:
+    networks: []
+
+  nginx:
+    networks: []
+    depends_on: []
+
+  nodered:
+    networks: []
 
   portainer:
-    network_mode: bridge
+    networks: []
 
   admin:
-    network_mode: bridge
+    networks: []
 
   api:
-    network_mode: bridge
+    networks: []
 
   max31855:
-    network_mode: bridge
+    networks: []
 
-# Override the networks block at the bottom of the base file
-networks: {}
+networks: {}  # override custom networks definition
