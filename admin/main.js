@@ -420,7 +420,7 @@ function App() {
   const grafanaURL = selectedDashboard
     ? `http://localhost:53000/d/${selectedDashboard.uid || selectedDashboard.id}/${selectedDashboard.slug || selectedDashboard.uri.replace('db/', '')}?orgId=1&refresh=auto&from=now-5m&to=now&kiosk`
     : "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
-  const noderedURL = "http://localhost/apps/nodered/";
+  const noderedURL = "http://localhost:51880";
   const appsURL = "http://localhost:59000/#!/3/docker/containers";
 
   return (
