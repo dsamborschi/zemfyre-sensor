@@ -119,14 +119,12 @@
       become: yes
       register: compose_output
 
-    - name: Prune unused Docker images
+    - name: Prune unused Docker images (dangling only)
       community.docker.docker_prune:
         images: true
-        containers: false
-        networks: false
-        volumes: false
-        filters:
-        dangling: true
+        images_filters:
+          dangling: "true"
+
 
     - name: Print Docker Compose output
       debug:
