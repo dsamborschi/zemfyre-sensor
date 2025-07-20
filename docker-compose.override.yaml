@@ -1,0 +1,31 @@
+services:
+  nginx:
+    network_mode: bridge
+    depends_on: []  # optional override to remove depends_on if not needed
+
+  mosquitto:
+    network_mode: bridge
+
+  nodered:
+    network_mode: bridge
+
+  influx:
+    network_mode: bridge
+
+  grafana:
+    network_mode: bridge
+
+  portainer:
+    network_mode: bridge
+
+  admin:
+    network_mode: bridge
+
+  api:
+    network_mode: bridge
+
+  max31855:
+    network_mode: bridge
+
+# Override the networks block at the bottom of the base file
+networks: {}
