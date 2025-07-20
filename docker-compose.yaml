@@ -53,6 +53,7 @@ services:
     grafana:
         depends_on:
             - influx
+            - nginx
         container_name: grafana
         restart: always
         build:
