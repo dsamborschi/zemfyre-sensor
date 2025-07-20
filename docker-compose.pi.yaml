@@ -1,14 +1,14 @@
 services:
 
-    nginx:
-        image: nginx
-        ports:
-        - "80:80"
-        command: ["nginx", "-g", "daemon off;"]
-        volumes:
-        - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-        networks:
-           - zemfyre-net
+    # nginx:
+    #     image: nginx
+    #     ports:
+    #     - "80:80"
+    #     command: ["nginx", "-g", "daemon off;"]
+    #     volumes:
+    #     - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    #     networks:
+    #        - zemfyre-net
     mosquitto:
         image: eclipse-mosquitto
         restart: always
@@ -52,7 +52,6 @@ services:
     grafana:
         depends_on:
             - influx
-            - nginx
         container_name: grafana
         restart: always
         build:
