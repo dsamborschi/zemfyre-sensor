@@ -1,3 +1,150 @@
+function Settings() {
+  const [dashboards, setDashboards] = React.useState([]);
+  const [dashboardsLoading, setDashboardsLoading] = React.useState(false);
+  const [dashboardsError, setDashboardsError] = React.useState(null);
+  const [selectedDashboard, setSelectedDashboard] = React.useState(null);
+  const [variables, setVariables] = React.useState([]);
+  const [variablesLoading, setVariablesLoading] = React.useState(false);
+  const [variablesError, setVariablesError] = React.useState(null);
+  const [varEdits, setVarEdits] = React.useState({});
+  const [updateStatus, setUpdateStatus] = React.useState({});
+
+  // Fetch dashboards on mount
+  React.useEffect(() => {
+    setDashboardsLoading(true);
+    fetch(`${API_BASE_URL}/grafana/dashboards`)
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch dashboards");
+        return res.json();
+      })
+      .then(data => {
+        setDashboards(data);
+        setDashboardsLoading(false);
+      })
+      .catch(err => {
+        setDashboardsError(err.message);
+        setDashboardsLoading(false);
+      });
+  }, []);
+
+  // Fetch variables when dashboard selected
+  React.useEffect(() => {
+    if (!selectedDashboard) return;
+    setVariablesLoading(true);
+    setVariables([]);
+    setVariablesError(null);
+    fetch(`${API_BASE_URL}/grafana/dashboards/${selectedDashboard.uid}/variables`)
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch variables");
+        return res.json();
+      })
+      .then(data => {
+        setVariables(data);
+        setVarEdits({});
+        setVariablesLoading(false);
+      })
+      .catch(err => {
+        setVariablesError(err.message);
+        setVariablesLoading(false);
+      });
+  }, [selectedDashboard]);
+
+  const handleVarEdit = (name, value) => {
+    setVarEdits(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleVarUpdate = (name) => {
+    const value = varEdits[name];
+    if (!value) return;
+    setUpdateStatus(prev => ({ ...prev, [name]: 'updating' }));
+    fetch(`${API_BASE_URL}/grafana/dashboards/${selectedDashboard.uid}/variables/${name}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setUpdateStatus(prev => ({ ...prev, [name]: data.error ? 'error' : 'success' }));
+        // Optionally refresh variables
+        if (!data.error) {
+          setTimeout(() => setUpdateStatus(prev => ({ ...prev, [name]: undefined })), 2000);
+        }
+      })
+      .catch(() => setUpdateStatus(prev => ({ ...prev, [name]: 'error' })));
+  };
+
+  return (
+    <Box width="100%" textAlign="left" mt={2}>
+      <Typography variant="h5" gutterBottom>Grafana Variables</Typography>
+      {dashboardsLoading && <Typography>Loading dashboards...</Typography>}
+      {dashboardsError && <Typography color="error">{dashboardsError}</Typography>}
+      <Box mb={2}>
+        <Typography variant="subtitle1">Select Dashboard:</Typography>
+        <select
+          style={{ minWidth: 250, marginTop: 4, marginBottom: 8 }}
+          value={selectedDashboard ? selectedDashboard.uid : ''}
+          onChange={e => {
+            const d = dashboards.find(d => d.uid === e.target.value);
+            setSelectedDashboard(d || null);
+          }}
+        >
+          <option value="">-- Select --</option>
+          {dashboards.map(d => (
+            <option key={d.uid || d.id} value={d.uid}>{d.title || d.name || d.uri}</option>
+          ))}
+        </select>
+      </Box>
+      {variablesLoading && <Typography>Loading variables...</Typography>}
+      {variablesError && <Typography color="error">{variablesError}</Typography>}
+      {selectedDashboard && !variablesLoading && variables.length === 0 && (
+        <Typography>No variables found for this dashboard.</Typography>
+      )}
+      {variables.length > 0 && (
+        <Box component="form" autoComplete="off" onSubmit={e => e.preventDefault()}>
+          <TableContainer component={Paper} sx={{ maxWidth: 600 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Variable</TableCell>
+                  <TableCell>Current Value</TableCell>
+                  <TableCell></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {variables.map(v => (
+                  <TableRow key={v.name}>
+                    <TableCell>{v.label}</TableCell>
+                    <TableCell>
+                      <input
+                        type="text"
+                        value={varEdits[v.name] !== undefined ? varEdits[v.name] : (v.current?.value || '')}
+                        onChange={e => handleVarEdit(v.name, e.target.value)}
+                        style={{ width: 120 }}
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        onClick={() => handleVarUpdate(v.name)}
+                        disabled={updateStatus[v.name] === 'updating'}
+                      >
+                        {updateStatus[v.name] === 'updating' ? 'Updating...' : 'Update'}
+                      </Button>
+                      {updateStatus[v.name] === 'success' && <span style={{ color: 'green', marginLeft: 8 }}>✔</span>}
+                      {updateStatus[v.name] === 'error' && <span style={{ color: 'red', marginLeft: 8 }}>✖</span>}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        </Box>
+      )}
+    </Box>
+  );
+}
+// VariablesSection: Settings page dashboard/variable management
 const { AppBar, Toolbar, Typography, Button, Box, TreeView, TreeItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Tooltip, Menu, MenuItem, CircularProgress } = MaterialUI;
 
 const API_BASE_URL = "http://localhost:53001";
@@ -271,8 +418,8 @@ function App() {
 
   // Compute Grafana iframe URL
   const grafanaURL = selectedDashboard
-    ? `http://localhost/apps/grafana/d/${selectedDashboard.uid || selectedDashboard.id}/${selectedDashboard.slug || selectedDashboard.uri.replace('db/', '')}?orgId=1&refresh=auto&from=now-5m&to=now&kiosk`
-    : "http://localhost/apps/grafana/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
+    ? `http://localhost:53000/d/${selectedDashboard.uid || selectedDashboard.id}/${selectedDashboard.slug || selectedDashboard.uri.replace('db/', '')}?orgId=1&refresh=auto&from=now-5m&to=now&kiosk`
+    : "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
   const noderedURL = "http://localhost/apps/nodered/";
   const appsURL = "http://localhost:59000/#!/3/docker/containers";
 
@@ -356,12 +503,17 @@ function App() {
             >
               Node-Red
             </Button>
-            {/* <Button color="inherit" onClick={() => setView("mqtt")}>
-              MQTT
-            </Button> */}
-            {/* <Button color="inherit" onClick={() => setView("settings")}>
+  
+            <Button 
+              color="inherit" 
+              onClick={() => setView("settings")}
+              style={{ 
+                backgroundColor: view === "settings" ? "rgba(255,255,255,0.1)" : "transparent",
+                fontWeight: view === "settings" ? "bold" : "normal"
+              }}
+            >
               Settings
-            </Button> */}
+            </Button>
             <Button color="inherit" onClick={() => setKioskMode(true)} style={{ minWidth: 40, padding: 0 }}>
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="2"/>
@@ -384,29 +536,18 @@ function App() {
             display="flex"
             flexDirection="column"
             alignItems="center"
-            justifyContent="center"
+            justifyContent="flex-start"
             textAlign="center"
+            p={2}
+            maxWidth={700}
+            margin="auto"
           >
             <Typography variant="h3" gutterBottom>
               Settings
             </Typography>
+            <Settings />
           </Box>
         )}
-
-        {/* {view === "apps" && !kioskMode && (
-          <Box
-            height="100%"
-            display="flex"
-            flexDirection="column"
-            alignItems="center"
-            justifyContent="center"
-            textAlign="center"
-            p={2}
-          >
-    
-            <ContainersTable />
-          </Box>
-        )} */}
 
         {view === "mqtt" && !kioskMode && (
           <Box

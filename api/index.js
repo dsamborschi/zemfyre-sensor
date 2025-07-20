@@ -3,13 +3,12 @@ import express from "express";
 import Docker from "dockerode";
 import cors from "cors";
 
-
-
 const app = express();
 const port = process.env.PORT || 3001;
 const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
 app.use(cors());
+app.use(express.json()); // Needed for POST/PUT bodies
 
 app.use((req, res, next) => {
   console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
@@ -23,7 +22,6 @@ app.get("/", (req, res) => {
 app.get("/containers", async (req, res) => {
   try {
     const containers = await docker.listContainers({ all: true });
-    // Map to a simpler structure
     const result = containers.map(c => ({
       id: c.Id,
       names: c.Names,
@@ -47,25 +45,84 @@ app.post("/containers/:id/restart", async (req, res) => {
   }
 });
 
-// Proxy endpoint for Grafana dashboards
+// List all dashboards
 app.get("/grafana/dashboards", async (req, res) => {
   const grafanaUrl = process.env.GRAFANA_URL || "http://grafana:3000";
   const apiToken = process.env.GRAFANA_API_TOKEN;
-  if (!apiToken) {
-    return res.status(500).json({ error: "GRAFANA_API_TOKEN not set in backend" });
-  }
+  if (!apiToken) return res.status(500).json({ error: "GRAFANA_API_TOKEN not set" });
+
   try {
     const response = await fetch(`${grafanaUrl}/api/search?type=dash-db`, {
+      headers: { "Authorization": `Bearer ${apiToken}` }
+    });
+    if (!response.ok) return res.status(response.status).json({ error: response.statusText });
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Get dashboard variables
+app.get("/grafana/dashboards/:uid/variables", async (req, res) => {
+  const grafanaUrl = process.env.GRAFANA_URL || "http://grafana:3000";
+  const apiToken = process.env.GRAFANA_API_TOKEN;
+
+  try {
+    const response = await fetch(`${grafanaUrl}/api/dashboards/uid/${req.params.uid}`, {
+      headers: { "Authorization": `Bearer ${apiToken}` }
+    });
+    if (!response.ok) return res.status(response.status).json({ error: response.statusText });
+    const data = await response.json();
+    const variables = data.dashboard.templating?.list || [];
+    res.json(variables);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Update dashboard variable default value
+app.post("/grafana/dashboards/:uid/variables/:varName", async (req, res) => {
+  const grafanaUrl = process.env.GRAFANA_URL || "http://grafana:3000";
+  const apiToken = process.env.GRAFANA_API_TOKEN;
+  const { value } = req.body;
+
+  if (!value) return res.status(400).json({ error: "New value is required in body" });
+
+  try {
+    // Get existing dashboard
+    const getRes = await fetch(`${grafanaUrl}/api/dashboards/uid/${req.params.uid}`, {
+      headers: { "Authorization": `Bearer ${apiToken}` }
+    });
+
+    const dashboardData = await getRes.json();
+    const dashboard = dashboardData.dashboard;
+    const variable = dashboard.templating.list.find(v => v.name === req.params.varName);
+
+    if (!variable) return res.status(404).json({ error: "Variable not found" });
+
+    variable.current = { text: value, value: value };
+    variable.options = [{ text: value, value: value, selected: true }];
+
+    // Send updated dashboard
+    const payload = {
+      dashboard,
+      message: `Updated variable ${req.params.varName}`,
+      overwrite: true
+    };
+
+    const putRes = await fetch(`${grafanaUrl}/api/dashboards/db`, {
+      method: "POST",
       headers: {
         "Authorization": `Bearer ${apiToken}`,
         "Content-Type": "application/json"
-      }
+      },
+      body: JSON.stringify(payload)
     });
-    if (!response.ok) {
-      return res.status(response.status).json({ error: `Grafana API error: ${response.statusText}` });
-    }
-    const data = await response.json();
-    res.json(data);
+
+    if (!putRes.ok) return res.status(putRes.status).json({ error: "Failed to update dashboard" });
+
+    res.json({ message: `Variable ${req.params.varName} updated to ${value}` });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
