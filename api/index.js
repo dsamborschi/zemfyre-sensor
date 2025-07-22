@@ -2,6 +2,7 @@ import fetch from "node-fetch";
 import express from "express";
 import Docker from "dockerode";
 import cors from "cors";
+import { exec } from "child_process";
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -126,6 +127,20 @@ app.post("/grafana/dashboards/:uid/variables/:varName", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+app.post("/notify", (req, res) => {
+  const title = req.body.title || "Test Notification";
+  const message = req.body.message || "Hello from Docker container!";
+
+  // Run notify-send command
+  exec(`notify-send "${title}" "${message}"`, (error, stdout, stderr) => {
+    if (error) {
+      console.error("notify-send error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+    res.json({ message: "Notification sent", title, body: message });
+  });
 });
 
 app.listen(port, () => {
