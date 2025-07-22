@@ -4,6 +4,7 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 RUN npm install --production
+RUN apt-get update && apt-get install -y libnotify-bin
 
 COPY . .
 
