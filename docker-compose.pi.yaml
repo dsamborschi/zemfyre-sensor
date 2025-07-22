@@ -111,6 +111,7 @@ services:
           - /tmp/.X11-unix:/tmp/.X11-unix  # for X11
           - /run/user/1000/bus:/run/user/1000/bus  # for D-Bus socket
           - /var/run/docker.sock:/var/run/docker.sock
+        user: "1000:1000"
         ports:
             - "53001:3001"
         networks:
