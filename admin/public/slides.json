@@ -1,18 +1,42 @@
 [
   {
-    "title": "Welcome to ZEMFYRE",
+    "title": "ZEMFYRE",
     "file": "slides/slide1.html"
   },
   {
-    "title": "About Us",
+    "title": "ZEMFYRE MEMBER OF SPE ALLIANCE",
     "file": "slides/slide2.html"
   },
   {
-    "title": "Technology",
+    "title": "PRODUCTS (CE MARK)",
     "file": "slides/slide3.html"
   },
   {
-    "title": "Let’s Talk",
+    "title": "IIOT/SENSORS CONNECTIVITY WITH SPE",
     "file": "slides/slide4.html"
+  },
+  {
+    "title": "PRODUCTS",
+    "file": "slides/slide5.html"
+  },
+  {
+    "title": "PRODUCTS",
+    "file": "slides/slide6.html"
+  },
+  {
+    "title": "PRODUCTS",
+    "file": "slides/slide7.html"
+  },
+  {
+    "title": "FUTURE ICS NETWORKS",
+    "file": "slides/slide8.html"
+  },
+  {
+    "title": "ZEMLOCKTM APP - ICS CYBERSECURITY APP",
+    "file": "slides/slide9.html"
+  },
+  {
+    "title": "SUMMARY",
+    "file": "slides/slide10.html"
   }
 ]

@@ -105,7 +105,11 @@ services:
         restart: always
         environment:
             - GRAFANA_API_TOKEN=${GRAFANA_API_TOKEN}
+            - DISPLAY=${DISPLAY}
+            - DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}
         volumes:
+          - /tmp/.X11-unix:/tmp/.X11-unix  # for X11
+          - /run/user/1000/bus:/run/user/1000/bus  # for D-Bus socket
           - /var/run/docker.sock:/var/run/docker.sock
         ports:
             - "53001:3001"
