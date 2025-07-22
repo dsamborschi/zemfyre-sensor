@@ -1,0 +1,34 @@
+---
+- name: Install notify-send dependency
+  apt:
+    name: libnotify-bin
+    state: present
+    update_cache: yes
+
+- name: Ensure dunst is installed (optional)
+  apt:
+    name: dunst
+    state: present
+
+- name: Add DISPLAY and XAUTHORITY exports to user's .bashrc for SSH sessions
+  lineinfile:
+    path: /home/zemfyre/.bashrc
+    insertafter: EOF
+    line: "{{ item }}"
+    create: yes
+    state: present
+  loop:
+    - 'export DISPLAY=:0'
+    - 'export XAUTHORITY=/home/zemfyre/.Xauthority'
+  become: true
+  become_user: zemfyre
+
+- name: Ensure ~/bin is in PATH in .bashrc
+  lineinfile:
+    path: /home/zemfyre/.bashrc
+    insertafter: EOF
+    line: 'export PATH="$HOME/bin:$PATH"'
+    create: yes
+    state: present
+  become: true
+  become_user: zemfyre

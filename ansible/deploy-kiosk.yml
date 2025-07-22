@@ -16,6 +16,10 @@
     - name: Setup kiosk environment
       include_role:
         name: kiosk
+
+    - name: Setup notification environment
+      include_role:
+        name: notify  
   
 
     - name: Ensure git is installed
