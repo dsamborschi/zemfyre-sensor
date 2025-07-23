@@ -112,17 +112,6 @@ services:
             - "53001:3001"
         networks:
            - zemfyre-net
-    max31855:
-        build: 
-           context: ./max31855
-           dockerfile: Dockerfile
-        container_name: max31855_reader
-        privileged: true
-        devices:
-        - /dev/gpiomem
-        restart: unless-stopped
-        networks:
-           - zemfyre-net
 networks:
     zemfyre-net:
        external: true

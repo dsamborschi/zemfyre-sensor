@@ -465,7 +465,7 @@ function HomeSlides() {
     if (!slides.length) return;
     const timer = setInterval(() => {
       setIndex(i => (i + 1) % slides.length);
-    }, 4000);
+    }, 20000);
     return () => clearInterval(timer);
   }, [slides.length]);
 
@@ -475,7 +475,12 @@ function HomeSlides() {
     if (!file) { setHtmlContent(""); return; }
     fetch('./public/' + file)
       .then(res => res.text())
-      .then(setHtmlContent)
+      .then(html => {
+        // Wrap images in a div and constrain their size
+        // Replace <img ...> with <img ... class="slide-img" />
+        const processed = html.replace(/<img([^>]*)>/g, '<img$1 class="slide-img" />');
+        setHtmlContent(processed);
+      })
       .catch(() => setHtmlContent("<div>Failed to load content.</div>"));
   }, [slides, index]);
 
@@ -485,14 +490,24 @@ function HomeSlides() {
 
   return (
     <Box
-      height="100%"
+      height="90%"
       display="flex"
       flexDirection="column"
-      alignItems="center" // center the block horizontally
+      alignItems="center"
       justifyContent="center"
       sx={{ minHeight: 300 }}
     >
-      <Box maxWidth={600} width="100%" display="flex" flexDirection="column" alignItems="flex-start">
+      {/* Slide image size override */}
+      <style>{`
+        .slide-img {
+          max-width: 70%;
+          width: auto;
+          height: auto;
+          display: block;
+          margin: 16px 0;
+        }
+      `}</style>
+      <Box  width="100%" display="flex" flexDirection="column" alignItems="flex-start">
         <Typography variant="h3" gutterBottom sx={{ textAlign: 'left', width: '100%' }}>
           {slides[index].title}
         </Typography>
@@ -641,7 +656,7 @@ function App() {
         </AppBar>
       )}
 
-      <Box flexGrow={1} overflow="hidden">
+      <Box flexGrow={1} overflow="hidden" sx={{ background: '#fff' }}>
         {view === "home" && !kioskMode && (
           <HomeSlides />
         )}
