@@ -83,46 +83,56 @@ app.get("/grafana/alert-rules", async (req, res) => {
   }
 });
 
-// POST: Update threshold in alert rule
 app.post("/grafana/update-alert-threshold", async (req, res) => {
   const { rule_uid, new_threshold } = req.body;
 
   try {
-    // 1. Get current rule
+    // 1. Get current rule definition
     const ruleResp = await fetch(`${grafanaUrl}/api/v1/provisioning/alert-rules/${rule_uid}`, {
-      headers: { "Authorization": `Bearer ${apiToken}`}
+      headers: {
+        "Authorization": `Bearer ${apiToken}`,
+        "Content-Type": "application/json"
+      }
     });
+
+    if (!ruleResp.ok) {
+      return res.status(500).json({ error: `Failed to fetch rule: ${await ruleResp.text()}` });
+    }
+
     const rule = await ruleResp.json();
 
-    // 2. Find the data item with refId === 'C' (where threshold is stored)
-    const thresholdData = rule.data.find(item => item.refId === "C");
+    // 2. Find threshold data with refId === "C"
+    const thresholdData = rule.data.find(d => d.refId === "C");
 
     if (!thresholdData) {
       return res.status(400).json({ error: "Threshold data with refId 'C' not found." });
     }
 
-    // 3. Update the threshold param (params[0]) inside the evaluator object
-    if (
-      thresholdData.model &&
-      thresholdData.model.conditions &&
-      thresholdData.model.conditions[0] &&
-      thresholdData.model.conditions[0].evaluator &&
-      Array.isArray(thresholdData.model.conditions[0].evaluator.params)
-    ) {
-      thresholdData.model.conditions[0].evaluator.params[0] = Number(new_threshold);
-    } else {
-      return res.status(400).json({ error: "Alert rule structure unexpected, cannot find evaluator params." });
+    const evaluator = thresholdData.model.conditions?.[0]?.evaluator;
+
+    if (!evaluator || !Array.isArray(evaluator.params)) {
+      return res.status(400).json({ error: "Evaluator structure not found or malformed." });
     }
 
+    // 3. Update threshold value
+    evaluator.params[0] = Number(new_threshold);
+
     // 4. PUT updated rule back to Grafana
-    const updateResp = await fetch(
-      `${grafanaUrl}/api/v1/provisioning/alert-rules/${rule_uid}`,
-      {
-        method: "PUT",
-        headers: { "Authorization": `Bearer ${apiToken}`,"X-Disable-Provenance": "disabled" },
-        body: JSON.stringify(rule)
-      }
-    );
+    const updateResp = await fetch(`${grafanaUrl}/api/v1/provisioning/alert-rules/${rule_uid}`, {
+      method: "PUT",
+      headers: {
+        "Authorization": `Bearer ${apiToken}`,
+        "Content-Type": "application/json",
+        "X-Disable-Provenance": "true" // optional, disables history tracking
+      },
+      body: JSON.stringify(rule)
+    });
+
+    const responseText = await updateResp.text();
+
+    if (!updateResp.ok) {
+      return res.status(updateResp.status).json({ error: `Update failed: ${responseText}` });
+    }
 
     res.json({ message: "Threshold updated successfully", status: updateResp.status });
   } catch (err) {

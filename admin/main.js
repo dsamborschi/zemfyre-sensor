@@ -1,4 +1,51 @@
 function Settings() {
+  // Alert rules state
+  const [alertRules, setAlertRules] = React.useState([]);
+  const [alertRulesLoading, setAlertRulesLoading] = React.useState(false);
+  const [alertRulesError, setAlertRulesError] = React.useState(null);
+  const [thresholdEdits, setThresholdEdits] = React.useState({});
+  const [thresholdStatus, setThresholdStatus] = React.useState({});
+
+  // Fetch alert rules on mount
+  React.useEffect(() => {
+    setAlertRulesLoading(true);
+    fetch(`${API_BASE_URL}/grafana/alert-rules`)
+      .then(res => {
+        if (!res.ok) throw new Error("Failed to fetch alert rules");
+        return res.json();
+      })
+      .then(data => {
+        setAlertRules(data);
+        setAlertRulesLoading(false);
+      })
+      .catch(err => {
+        setAlertRulesError(err.message);
+        setAlertRulesLoading(false);
+      });
+  }, []);
+
+  const handleThresholdEdit = (uid, value) => {
+    setThresholdEdits(prev => ({ ...prev, [uid]: value }));
+  };
+
+  const handleThresholdUpdate = (uid) => {
+    const new_threshold = thresholdEdits[uid];
+    if (new_threshold === undefined || new_threshold === "") return;
+    setThresholdStatus(prev => ({ ...prev, [uid]: "updating" }));
+    fetch(`${API_BASE_URL}/grafana/update-alert-threshold`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rule_uid: uid, new_threshold })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setThresholdStatus(prev => ({ ...prev, [uid]: data.error ? "error" : "success" }));
+        if (!data.error) {
+          setTimeout(() => setThresholdStatus(prev => ({ ...prev, [uid]: undefined })), 2000);
+        }
+      })
+      .catch(() => setThresholdStatus(prev => ({ ...prev, [uid]: "error" })));
+  };
   const [dashboards, setDashboards] = React.useState([]);
   const [dashboardsLoading, setDashboardsLoading] = React.useState(false);
   const [dashboardsError, setDashboardsError] = React.useState(null);
@@ -80,19 +127,25 @@ function Settings() {
       {dashboardsError && <Typography color="error">{dashboardsError}</Typography>}
       <Box mb={2}>
         <Typography variant="subtitle1">Select Dashboard:</Typography>
-        <select
-          style={{ minWidth: 250, marginTop: 4, marginBottom: 8 }}
-          value={selectedDashboard ? selectedDashboard.uid : ''}
-          onChange={e => {
-            const d = dashboards.find(d => d.uid === e.target.value);
-            setSelectedDashboard(d || null);
-          }}
-        >
-          <option value="">-- Select --</option>
-          {dashboards.map(d => (
-            <option key={d.uid || d.id} value={d.uid}>{d.title || d.name || d.uri}</option>
-          ))}
-        </select>
+        <Box sx={{ minWidth: 250, mt: 1, mb: 2 }}>
+          <MaterialUI.FormControl fullWidth size="small">
+            <MaterialUI.InputLabel id="dashboard-select-label">Dashboard</MaterialUI.InputLabel>
+            <MaterialUI.Select
+              labelId="dashboard-select-label"
+              value={selectedDashboard ? selectedDashboard.uid : ''}
+              label="Dashboard"
+              onChange={e => {
+                const d = dashboards.find(d => d.uid === e.target.value);
+                setSelectedDashboard(d || null);
+              }}
+            >
+              <MaterialUI.MenuItem value="">-- Select --</MaterialUI.MenuItem>
+              {dashboards.map(d => (
+                <MaterialUI.MenuItem key={d.uid || d.id} value={d.uid}>{d.title || d.name || d.uri}</MaterialUI.MenuItem>
+              ))}
+            </MaterialUI.Select>
+          </MaterialUI.FormControl>
+        </Box>
       </Box>
       {variablesLoading && <Typography>Loading variables...</Typography>}
       {variablesError && <Typography color="error">{variablesError}</Typography>}
@@ -115,11 +168,12 @@ function Settings() {
                   <TableRow key={v.name}>
                     <TableCell>{v.label}</TableCell>
                     <TableCell>
-                      <input
-                        type="text"
+                      <MaterialUI.TextField
+                        size="small"
                         value={varEdits[v.name] !== undefined ? varEdits[v.name] : (v.current?.value || '')}
                         onChange={e => handleVarEdit(v.name, e.target.value)}
-                        style={{ width: 120 }}
+                        variant="outlined"
+                        sx={{ width: 120 }}
                       />
                     </TableCell>
                     <TableCell>
@@ -141,6 +195,69 @@ function Settings() {
           </TableContainer>
         </Box>
       )}
+
+      {/* Alert Rules Section */}
+      <Box mt={4}>
+        <Typography variant="h5" gutterBottom>Grafana Alert Rules</Typography>
+        {alertRulesLoading && <Typography>Loading alert rules...</Typography>}
+        {alertRulesError && <Typography color="error">{alertRulesError}</Typography>}
+        {(alertRules && alertRules.length > 0) ? (
+          <TableContainer component={Paper} sx={{ maxWidth: 700 }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Rule Name</TableCell>
+                  <TableCell>Threshold</TableCell>
+                  <TableCell></TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {alertRules.map(rule => {
+                  // Find threshold value from rule data (refId C)
+                  let threshold = "";
+                  if (rule.data) {
+                    const cData = rule.data.find(d => d.refId === "C");
+                    if (cData && cData.model && cData.model.conditions && cData.model.conditions[0] && cData.model.conditions[0].evaluator && Array.isArray(cData.model.conditions[0].evaluator.params)) {
+                      threshold = cData.model.conditions[0].evaluator.params[0];
+                    }
+                  }
+                  return (
+                    <TableRow key={rule.uid}>
+                      <TableCell>{rule.title || rule.name || rule.uid}</TableCell>
+                      <TableCell>
+                        <MaterialUI.TextField
+                          size="small"
+                          type="number"
+                          value={thresholdEdits[rule.uid] !== undefined ? thresholdEdits[rule.uid] : threshold}
+                          onChange={e => handleThresholdEdit(rule.uid, e.target.value)}
+                          variant="outlined"
+                          sx={{ width: 100 }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={() => handleThresholdUpdate(rule.uid)}
+                          disabled={thresholdStatus[rule.uid] === "updating"}
+                        >
+                          {thresholdStatus[rule.uid] === "updating" ? "Updating..." : "Update"}
+                        </Button>
+                        {thresholdStatus[rule.uid] === "success" && <span style={{ color: "green", marginLeft: 8 }}>✔</span>}
+                        {thresholdStatus[rule.uid] === "error" && <span style={{ color: "red", marginLeft: 8 }}>✖</span>}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        ) : (
+          (!alertRulesLoading && alertRules && alertRules.length === 0) && (
+            <Typography>No alert rules found.</Typography>
+          )
+        )}
+      </Box>
     </Box>
   );
 }
