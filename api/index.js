@@ -130,19 +130,20 @@ app.post("/grafana/dashboards/:uid/variables/:varName", async (req, res) => {
 });
 
 app.post("/notify", (req, res) => {
-  const title = req.body.title || "Test Notification";
-  const message = req.body.message || "Hello from Docker container!";
+  const title = req.body.title || "ZEMFYRE ALERT";
+  const message = req.body.message || "Critical alert from ZEMFYRE!";
 
-  // Run notify-send command
-  exec(`notify-send "${title}" "${message}"`, (error, stdout, stderr) => {
+  // Run notify-send with critical urgency and no timeout
+  const notifyCommand = `notify-send -u critical -t 0 "${title}" "${message}"`;
+
+  exec(notifyCommand, (error, stdout, stderr) => {
     if (error) {
       console.error("notify-send error:", error);
       return res.status(500).json({ error: error.message });
     }
-    res.json({ message: "Notification sent", title, body: message });
+    res.json({ message: "Critical notification sent", title, body: message });
   });
 });
-
 app.listen(port, () => {
   console.log(`API server listening on port ${port}`);
 });
