@@ -8,6 +8,9 @@ const app = express();
 const port = process.env.PORT || 3001;
 const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
+const grafanaUrl = process.env.GRAFANA_URL || "http://grafana:3000";
+const apiToken = process.env.GRAFANA_API_TOKEN;
+
 app.use(cors());
 app.use(express.json()); // Needed for POST/PUT bodies
 
@@ -48,8 +51,7 @@ app.post("/containers/:id/restart", async (req, res) => {
 
 // List all dashboards
 app.get("/grafana/dashboards", async (req, res) => {
-  const grafanaUrl = process.env.GRAFANA_URL || "http://grafana:3000";
-  const apiToken = process.env.GRAFANA_API_TOKEN;
+
   if (!apiToken) return res.status(500).json({ error: "GRAFANA_API_TOKEN not set" });
 
   try {
@@ -61,6 +63,70 @@ app.get("/grafana/dashboards", async (req, res) => {
     res.json(data);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// List all alert rules
+app.get("/grafana/alert-rules", async (req, res) => {
+
+  if (!apiToken) return res.status(500).json({ error: "GRAFANA_API_TOKEN not set" });
+
+  try {
+    const response = await fetch(`${grafanaUrl}/api/v1/provisioning/alert-rules`, {
+      headers: { "Authorization": `Bearer ${apiToken}` }
+    });
+    if (!response.ok) return res.status(response.status).json({ error: response.statusText });
+    const data = await response.json();
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST: Update threshold in alert rule
+app.post("/grafana/update-alert-threshold", async (req, res) => {
+  const { rule_uid, new_threshold } = req.body;
+
+  try {
+    // 1. Get current rule
+    const ruleResp = await fetch(`${grafanaUrl}/api/v1/provisioning/alert-rules/${rule_uid}`, {
+      headers: { "Authorization": `Bearer ${apiToken}`}
+    });
+    const rule = await ruleResp.json();
+
+    // 2. Find the data item with refId === 'C' (where threshold is stored)
+    const thresholdData = rule.data.find(item => item.refId === "C");
+
+    if (!thresholdData) {
+      return res.status(400).json({ error: "Threshold data with refId 'C' not found." });
+    }
+
+    // 3. Update the threshold param (params[0]) inside the evaluator object
+    if (
+      thresholdData.model &&
+      thresholdData.model.conditions &&
+      thresholdData.model.conditions[0] &&
+      thresholdData.model.conditions[0].evaluator &&
+      Array.isArray(thresholdData.model.conditions[0].evaluator.params)
+    ) {
+      thresholdData.model.conditions[0].evaluator.params[0] = Number(new_threshold);
+    } else {
+      return res.status(400).json({ error: "Alert rule structure unexpected, cannot find evaluator params." });
+    }
+
+    // 4. PUT updated rule back to Grafana
+    const updateResp = await fetch(
+      `${grafanaUrl}/api/v1/provisioning/alert-rules/${rule_uid}`,
+      {
+        method: "PUT",
+        headers: { "Authorization": `Bearer ${apiToken}`,"X-Disable-Provenance": "disabled" },
+        body: JSON.stringify(rule)
+      }
+    );
+
+    res.json({ message: "Threshold updated successfully", status: updateResp.status });
+  } catch (err) {
+    res.status(500).json({ error: err.toString() });
   }
 });
 
