@@ -32,6 +32,14 @@
         "env": []
     },
     {
+        "id": "cbf1d5905c54aa45",
+        "type": "tab",
+        "label": "Misc",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
         "id": "621993a41d6b1896",
         "type": "subflow",
         "name": "ZUS80LP Air Temperature",
@@ -4974,7 +4982,6 @@
                 "b9b6b02852e2214b",
                 "0d5a3cb8f9a23e93",
                 "abeadeafe5c0e2cb",
-                "e3b1aa7874fdf8d3",
                 "dcb6529059f43129"
             ]
         ]
@@ -5123,193 +5130,6 @@
                 "e9d2511af1a4fd57"
             ]
         ]
-    },
-    {
-        "id": "2cdfcfafe7f9179d",
-        "type": "mqtt in",
-        "z": "887b6fb15f0f5070",
-        "name": "",
-        "topic": "sensor/+",
-        "qos": "2",
-        "datatype": "auto-detect",
-        "broker": "ca4f07abb4d962ad",
-        "nl": false,
-        "rap": true,
-        "rh": 0,
-        "inputs": 0,
-        "x": 160,
-        "y": 560,
-        "wires": [
-            [
-                "8821bb851f65c753"
-            ]
-        ]
-    },
-    {
-        "id": "0c9fb24bbb3da034",
-        "type": "influxdb out",
-        "z": "887b6fb15f0f5070",
-        "influxdb": "06ec447a89dfd1d3",
-        "name": "",
-        "measurement": "temps",
-        "precision": "",
-        "retentionPolicy": "",
-        "database": "database",
-        "precisionV18FluxV20": "ms",
-        "retentionPolicyV18Flux": "",
-        "org": "Zemfyre",
-        "bucket": "temp_correction",
-        "x": 990,
-        "y": 460,
-        "wires": []
-    },
-    {
-        "id": "3b2f57c47c130223",
-        "type": "debug",
-        "z": "887b6fb15f0f5070",
-        "d": true,
-        "name": "debug 1",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 1080,
-        "y": 600,
-        "wires": []
-    },
-    {
-        "id": "e3b1aa7874fdf8d3",
-        "type": "change",
-        "z": "887b6fb15f0f5070",
-        "name": "",
-        "rules": [
-            {
-                "t": "set",
-                "p": "payload",
-                "pt": "msg",
-                "to": "payload.device.metrics.temp",
-                "tot": "msg"
-            },
-            {
-                "t": "set",
-                "p": "topic",
-                "pt": "msg",
-                "to": "sensor1_temp",
-                "tot": "str"
-            }
-        ],
-        "action": "",
-        "property": "",
-        "from": "",
-        "to": "",
-        "reg": false,
-        "x": 340,
-        "y": 520,
-        "wires": [
-            [
-                "9a25b9468845bd28"
-            ]
-        ]
-    },
-    {
-        "id": "8821bb851f65c753",
-        "type": "change",
-        "z": "887b6fb15f0f5070",
-        "name": "",
-        "rules": [
-            {
-                "t": "set",
-                "p": "topic",
-                "pt": "msg",
-                "to": "sensor2_temp",
-                "tot": "str"
-            }
-        ],
-        "action": "",
-        "property": "",
-        "from": "",
-        "to": "",
-        "reg": false,
-        "x": 330,
-        "y": 720,
-        "wires": [
-            [
-                "9a25b9468845bd28"
-            ]
-        ]
-    },
-    {
-        "id": "9a25b9468845bd28",
-        "type": "join",
-        "z": "887b6fb15f0f5070",
-        "name": "",
-        "mode": "custom",
-        "build": "object",
-        "property": "payload",
-        "propertyType": "msg",
-        "key": "topic",
-        "joiner": "\\n",
-        "joinerType": "str",
-        "useparts": false,
-        "accumulate": true,
-        "timeout": "",
-        "count": "2",
-        "reduceRight": false,
-        "reduceExp": "",
-        "reduceInit": "",
-        "reduceInitType": "",
-        "reduceFixup": "",
-        "x": 530,
-        "y": 600,
-        "wires": [
-            [
-                "0c9fb24bbb3da034",
-                "5d2865dfea33bdf0",
-                "0e35c6cb6c32be8c"
-            ]
-        ]
-    },
-    {
-        "id": "5d2865dfea33bdf0",
-        "type": "function",
-        "z": "887b6fb15f0f5070",
-        "d": true,
-        "name": "buffer and calculate offset",
-        "func": "let buffer = flow.get(\"calibration_buffer\") || [];\n\nbuffer.push({\n    sensor1: msg.payload.sensor1_temp,\n    sensor2: msg.payload.sensor2_temp\n});\n\nif (buffer.length > 10000) buffer.shift(); // keep only last ~1000\n\nflow.set(\"calibration_buffer\", buffer);\n\nlet offset = 0;\nif (buffer.length >= 100) {\n    let sum = 0;\n    buffer.forEach(entry => {\n        sum += entry.sensor1 - entry.sensor2;\n    });\n    offset = sum / buffer.length;\n}\n\nmsg.payload = {\n    offset: parseFloat(offset.toFixed(4)),\n    readings: buffer.length\n};\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 830,
-        "y": 600,
-        "wires": [
-            [
-                "3b2f57c47c130223"
-            ]
-        ]
-    },
-    {
-        "id": "0e35c6cb6c32be8c",
-        "type": "debug",
-        "z": "887b6fb15f0f5070",
-        "name": "debug 3",
-        "active": true,
-        "tosidebar": true,
-        "console": false,
-        "tostatus": false,
-        "complete": "payload",
-        "targetType": "msg",
-        "statusVal": "",
-        "statusType": "auto",
-        "x": 660,
-        "y": 700,
-        "wires": []
     },
     {
         "id": "bbb5efef98f61b14",
@@ -6118,7 +5938,7 @@
         "path": "/data/models/gas_data.csv",
         "saveFolder": "/data/models/",
         "saveName": "sensor_gas_dataset",
-        "input": "gas,temp,humidity",
+        "input": "0.1.2",
         "output": "3",
         "trainingPartition": "80",
         "shuffle": "",
@@ -6291,6 +6111,194 @@
         "y": 300,
         "wires": [
             []
+        ]
+    },
+    {
+        "id": "5d2865dfea33bdf0",
+        "type": "function",
+        "z": "cbf1d5905c54aa45",
+        "d": true,
+        "name": "buffer and calculate offset",
+        "func": "let buffer = flow.get(\"calibration_buffer\") || [];\n\nbuffer.push({\n    sensor1: msg.payload.sensor1_temp,\n    sensor2: msg.payload.sensor2_temp\n});\n\nif (buffer.length > 10000) buffer.shift(); // keep only last ~1000\n\nflow.set(\"calibration_buffer\", buffer);\n\nlet offset = 0;\nif (buffer.length >= 100) {\n    let sum = 0;\n    buffer.forEach(entry => {\n        sum += entry.sensor1 - entry.sensor2;\n    });\n    offset = sum / buffer.length;\n}\n\nmsg.payload = {\n    offset: parseFloat(offset.toFixed(4)),\n    readings: buffer.length\n};\nreturn msg;\n",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 810,
+        "y": 300,
+        "wires": [
+            [
+                "3b2f57c47c130223"
+            ]
+        ]
+    },
+    {
+        "id": "9a25b9468845bd28",
+        "type": "join",
+        "z": "cbf1d5905c54aa45",
+        "name": "",
+        "mode": "custom",
+        "build": "object",
+        "property": "payload",
+        "propertyType": "msg",
+        "key": "topic",
+        "joiner": "\\n",
+        "joinerType": "str",
+        "useparts": false,
+        "accumulate": true,
+        "timeout": "",
+        "count": "2",
+        "reduceRight": false,
+        "reduceExp": "",
+        "reduceInit": "",
+        "reduceInitType": "",
+        "reduceFixup": "",
+        "x": 510,
+        "y": 300,
+        "wires": [
+            [
+                "0c9fb24bbb3da034",
+                "5d2865dfea33bdf0",
+                "0e35c6cb6c32be8c"
+            ]
+        ]
+    },
+    {
+        "id": "3b2f57c47c130223",
+        "type": "debug",
+        "z": "cbf1d5905c54aa45",
+        "d": true,
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 1060,
+        "y": 300,
+        "wires": []
+    },
+    {
+        "id": "e3b1aa7874fdf8d3",
+        "type": "change",
+        "z": "cbf1d5905c54aa45",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "payload",
+                "pt": "msg",
+                "to": "payload.device.metrics.temp",
+                "tot": "msg"
+            },
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "sensor1_temp",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 320,
+        "y": 200,
+        "wires": [
+            [
+                "9a25b9468845bd28"
+            ]
+        ]
+    },
+    {
+        "id": "8821bb851f65c753",
+        "type": "change",
+        "z": "cbf1d5905c54aa45",
+        "name": "",
+        "rules": [
+            {
+                "t": "set",
+                "p": "topic",
+                "pt": "msg",
+                "to": "sensor2_temp",
+                "tot": "str"
+            }
+        ],
+        "action": "",
+        "property": "",
+        "from": "",
+        "to": "",
+        "reg": false,
+        "x": 310,
+        "y": 420,
+        "wires": [
+            [
+                "9a25b9468845bd28"
+            ]
+        ]
+    },
+    {
+        "id": "0c9fb24bbb3da034",
+        "type": "influxdb out",
+        "z": "cbf1d5905c54aa45",
+        "influxdb": "06ec447a89dfd1d3",
+        "name": "",
+        "measurement": "temps",
+        "precision": "",
+        "retentionPolicy": "",
+        "database": "database",
+        "precisionV18FluxV20": "ms",
+        "retentionPolicyV18Flux": "",
+        "org": "Zemfyre",
+        "bucket": "temp_correction",
+        "x": 970,
+        "y": 160,
+        "wires": []
+    },
+    {
+        "id": "0e35c6cb6c32be8c",
+        "type": "debug",
+        "z": "cbf1d5905c54aa45",
+        "name": "debug 3",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "payload",
+        "targetType": "msg",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 640,
+        "y": 400,
+        "wires": []
+    },
+    {
+        "id": "2cdfcfafe7f9179d",
+        "type": "mqtt in",
+        "z": "cbf1d5905c54aa45",
+        "d": true,
+        "name": "",
+        "topic": "sensor/+",
+        "qos": "2",
+        "datatype": "auto-detect",
+        "broker": "ca4f07abb4d962ad",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 140,
+        "y": 260,
+        "wires": [
+            [
+                "8821bb851f65c753"
+            ]
         ]
     }
 ]

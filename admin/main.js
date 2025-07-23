@@ -496,7 +496,7 @@ function HomeSlides() {
       flexDirection="column"
       alignItems="center"
       justifyContent="center"
-      sx={{ minHeight: 300 }}
+      sx={{ minHeight: 300, position: 'relative' }}
     >
       {/* Slide image size override */}
       <style>{`
@@ -508,35 +508,45 @@ function HomeSlides() {
           margin: 16px auto; /* center horizontally */
         }
       `}</style>
-      <Box width="100%" display="flex" flexDirection="column" alignItems="flex-start">
-        <Box display="flex" alignItems="center" mb={2}>
+      <Box width="100%" display="flex" flexDirection="column" alignItems="center">
+        <Box width="100%" display="flex" alignItems="center" justifyContent="flex-start" mb={2}>
           <Typography variant="h3" gutterBottom sx={{ textAlign: 'left', width: '100%' }}>
             {slides[index].title}
           </Typography>
-          <Box ml={2}>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={() => setPlaying(false)}
-              disabled={!playing}
-              sx={{ minWidth: 36, mr: 1 }}
-            >
-              &#10073;&#10073; {/* Pause icon */}
-            </Button>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={() => setPlaying(true)}
-              disabled={playing}
-              sx={{ minWidth: 36 }}
-            >
-              &#9654; {/* Play icon */}
-            </Button>
-          </Box>
         </Box>
-        <Typography variant="subtitle1" gutterBottom component="div" sx={{ textAlign: 'left', width: '100%' }}>
+        <Typography variant="subtitle1" gutterBottom component="div" sx={{ textAlign: 'center', width: '100%' }}>
           <span dangerouslySetInnerHTML={{ __html: htmlContent }} />
         </Typography>
+      </Box>
+      {/* Play/Pause buttons in bottom right corner */}
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: 24,
+          right: 32,
+          display: 'flex',
+          alignItems: 'center',
+          zIndex: 2
+        }}
+      >
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => setPlaying(false)}
+          disabled={!playing}
+          sx={{ minWidth: 36, mr: 1 }}
+        >
+          &#10073;&#10073; Pause
+        </Button>
+        <Button
+          variant="contained"
+          size="small"
+          onClick={() => setPlaying(true)}
+          disabled={playing}
+          sx={{ minWidth: 36 }}
+        >
+          &#9654; Play
+        </Button>
       </Box>
     </Box>
   );
