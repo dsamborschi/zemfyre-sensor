@@ -504,7 +504,7 @@ function HomeSlides() {
           width: auto;
           height: auto;
           display: block;
-          margin: 16px 0;
+          margin: 16px auto; /* center horizontally */
         }
       `}</style>
       <Box  width="100%" display="flex" flexDirection="column" alignItems="flex-start">
