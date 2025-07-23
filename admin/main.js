@@ -66,6 +66,14 @@ function Settings() {
       })
       .then(data => {
         setDashboards(data);
+        // Preselect ZUS80LP_compact dashboard if present
+        const zusDashboard = data.find(d => {
+          const title = (d.title || d.name || d.uri || "").toLowerCase();
+          return title.includes("zus80lp_compact");
+        });
+        if (zusDashboard) {
+          setSelectedDashboard(zusDashboard);
+        }
         setDashboardsLoading(false);
       })
       .catch(err => {
