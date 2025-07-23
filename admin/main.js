@@ -129,7 +129,6 @@ function Settings() {
         <Typography variant="subtitle1">Select Dashboard:</Typography>
         <Box sx={{ minWidth: 250, mt: 1, mb: 2 }}>
           <MaterialUI.FormControl fullWidth size="small">
-            <MaterialUI.InputLabel id="dashboard-select-label">Dashboard</MaterialUI.InputLabel>
             <MaterialUI.Select
               labelId="dashboard-select-label"
               value={selectedDashboard ? selectedDashboard.uid : ''}
