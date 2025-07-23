@@ -444,6 +444,7 @@ function HomeSlides() {
   const [loading, setLoading] = React.useState(true);
   const [error, setError] = React.useState(null);
   const [htmlContent, setHtmlContent] = React.useState("");
+  const [playing, setPlaying] = React.useState(true);
 
   React.useEffect(() => {
     fetch('./public/slides.json')
@@ -462,12 +463,12 @@ function HomeSlides() {
   }, []);
 
   React.useEffect(() => {
-    if (!slides.length) return;
+    if (!slides.length || !playing) return;
     const timer = setInterval(() => {
       setIndex(i => (i + 1) % slides.length);
-    }, 20000);
+    }, 5000);
     return () => clearInterval(timer);
-  }, [slides.length]);
+  }, [slides.length, playing]);
 
   React.useEffect(() => {
     if (!slides.length) return;
@@ -507,10 +508,32 @@ function HomeSlides() {
           margin: 16px auto; /* center horizontally */
         }
       `}</style>
-      <Box  width="100%" display="flex" flexDirection="column" alignItems="flex-start">
-        <Typography variant="h3" gutterBottom sx={{ textAlign: 'left', width: '100%' }}>
-          {slides[index].title}
-        </Typography>
+      <Box width="100%" display="flex" flexDirection="column" alignItems="flex-start">
+        <Box display="flex" alignItems="center" mb={2}>
+          <Typography variant="h3" gutterBottom sx={{ textAlign: 'left', width: '100%' }}>
+            {slides[index].title}
+          </Typography>
+          <Box ml={2}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setPlaying(false)}
+              disabled={!playing}
+              sx={{ minWidth: 36, mr: 1 }}
+            >
+              &#10073;&#10073; {/* Pause icon */}
+            </Button>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => setPlaying(true)}
+              disabled={playing}
+              sx={{ minWidth: 36 }}
+            >
+              &#9654; {/* Play icon */}
+            </Button>
+          </Box>
+        </Box>
         <Typography variant="subtitle1" gutterBottom component="div" sx={{ textAlign: 'left', width: '100%' }}>
           <span dangerouslySetInnerHTML={{ __html: htmlContent }} />
         </Typography>
@@ -657,8 +680,30 @@ function App() {
       )}
 
       <Box flexGrow={1} overflow="hidden" sx={{ background: '#fff' }}>
-        {view === "home" && !kioskMode && (
-          <HomeSlides />
+        {view === "home" && (
+          <>
+            {kioskMode && (
+              <Button
+                variant="contained"
+                size="small"
+                style={{
+                  position: "absolute",
+                  top: 10,
+                  right: 10,
+                  zIndex: 10,
+                  minWidth: 36,
+                  padding: 4
+                }}
+                onClick={() => setKioskMode(false)}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <rect x="3" y="5" width="14" height="10" rx="2" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M7 13L13 7M13 13L7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+                </svg>
+              </Button>
+            )}
+            <HomeSlides />
+          </>
         )}
 
         {view === "settings" && !kioskMode && (
