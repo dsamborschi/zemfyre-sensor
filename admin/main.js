@@ -534,7 +534,8 @@ function HomeSlides() {
           right: 32,
           display: 'flex',
           alignItems: 'center',
-          zIndex: 2
+          zIndex: 2,
+          gap: '8px'
         }}
       >
         <Button
@@ -542,7 +543,7 @@ function HomeSlides() {
           size="small"
           onClick={() => setPlaying(false)}
           disabled={!playing}
-          sx={{ minWidth: 36, mr: 1 }}
+          sx={{ minWidth: 36, marginRight: '5px'}}
         >
           &#10073;&#10073; Pause
         </Button>
@@ -551,7 +552,7 @@ function HomeSlides() {
           size="small"
           onClick={() => setPlaying(true)}
           disabled={playing}
-          sx={{ minWidth: 36 }}
+          sx={{ minWidth: 36  }}
         >
           &#9654; Play
         </Button>
