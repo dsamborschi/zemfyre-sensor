@@ -474,7 +474,7 @@ function HomeSlides() {
     if (!slides.length || !playing) return;
     const timer = setInterval(() => {
       setIndex(i => (i + 1) % slides.length);
-    }, 5000);
+    }, 8000);
     return () => clearInterval(timer);
   }, [slides.length, playing]);
 
