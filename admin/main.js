@@ -545,7 +545,7 @@ function HomeSlides() {
           disabled={!playing}
           sx={{ minWidth: 36, marginRight: '5px'}}
         >
-          &#10073;&#10073; Pause
+          &#10073;&#10073;
         </Button>
         <Button
           variant="contained"
@@ -554,7 +554,7 @@ function HomeSlides() {
           disabled={playing}
           sx={{ minWidth: 36  }}
         >
-          &#9654; Play
+          &#9654; 
         </Button>
       </Box>
     </Box>
