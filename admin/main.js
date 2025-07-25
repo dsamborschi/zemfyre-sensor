@@ -563,7 +563,7 @@ function HomeSlides() {
 
 function App() {
   const [view, setView] = React.useState("home");
-  const [kioskMode, setKioskMode] = React.useState(false);
+  const [kioskMode, setKioskMode] = React.useState(true);
   // Grafana dashboards state
   const [dashboards, setDashboards] = React.useState([]);
   const [dashboardsLoading, setDashboardsLoading] = React.useState(false);
