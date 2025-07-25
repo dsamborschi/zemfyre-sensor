@@ -526,7 +526,8 @@ function HomeSlides() {
           <span dangerouslySetInnerHTML={{ __html: htmlContent }} />
         </Typography>
       </Box>
-      {/* Play/Pause buttons in bottom right corner */}
+      {/* Play/Pause buttons in bottom right corner (commented out for kiosk mode) */}
+      {/**
       <Box
         sx={{
           position: 'absolute',
@@ -557,6 +558,7 @@ function HomeSlides() {
           &#9654; 
         </Button>
       </Box>
+      */}
     </Box>
   );
 }
