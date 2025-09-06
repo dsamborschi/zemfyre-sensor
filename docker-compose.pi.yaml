@@ -1,14 +1,4 @@
 services:
-
-    # nginx:
-    #     image: nginx
-    #     ports:
-    #     - "80:80"
-    #     command: ["nginx", "-g", "daemon off;"]
-    #     volumes:
-    #     - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
-    #     networks:
-    #        - zemfyre-net
     mosquitto:
         image: eclipse-mosquitto
         restart: always
@@ -80,7 +70,7 @@ services:
         container_name: portainer
         restart: always
         ports:
-            - "59000:9000"
+            - "${API_PORT_EXT:-59000}:9000"
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - ./portainer/data:/data
@@ -94,7 +84,7 @@ services:
         container_name: admin
         restart: always
         ports:
-            - "${ADMIN_PORT:-51850}:80"
+            - "${ADMIN_PORT_EXT:-51850}:80"
         networks:
            - zemfyre-net
     api:
@@ -113,21 +103,10 @@ services:
           - /var/run/docker.sock:/var/run/docker.sock
         user: "1000:1000"
         ports:
-            - "53001:3001"
+            - "${API_PORT_EXT:-53001}:3001"
         networks:
            - zemfyre-net
-    # max31855:
-    #     build: 
-    #        context: ./max31855
-    #        dockerfile: Dockerfile
-    #     container_name: max31855_reader
-    #     privileged: true
-    #     devices:
-    #     - /dev/gpiomem
-    #     restart: unless-stopped
-    #     networks:
-    #        - zemfyre-net
-
+ 
 networks:
   zemfyre-net:
     driver: bridge
