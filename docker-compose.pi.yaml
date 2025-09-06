@@ -70,7 +70,7 @@ services:
         container_name: portainer
         restart: always
         ports:
-            - "${API_PORT_EXT:-59000}:9000"
+            - "${PORT_PORT_EXT:-59000}:9000"
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - ./portainer/data:/data
