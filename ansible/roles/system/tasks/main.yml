@@ -1,0 +1,5 @@
+- name: Add Raspbian public key for apt
+  ansible.builtin.apt_key:
+    keyserver: keyserver.ubuntu.com
+    id: 9165938D90FDDD2E
+    state: present

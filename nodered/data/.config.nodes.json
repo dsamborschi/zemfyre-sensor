@@ -1,7 +1,7 @@
 {
     "node-red": {
         "name": "node-red",
-        "version": "4.0.9",
+        "version": "4.1.0",
         "local": false,
         "user": false,
         "nodes": {
@@ -1588,7 +1588,7 @@
     },
     "node-red-node-ui-table": {
         "name": "node-red-node-ui-table",
-        "version": "0.4.4",
+        "version": "0.4.5",
         "local": true,
         "user": true,
         "nodes": {
