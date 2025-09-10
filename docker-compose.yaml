@@ -95,7 +95,7 @@ services:
         container_name: admin
         restart: always
         ports:
-            - "${ADMIN_PORT:-51850}:80"
+            - "${ADMIN_PORT_EXT:-51850}:80"
         networks:
            - zemfyre-net
     api:
@@ -109,7 +109,7 @@ services:
         volumes:
           - /var/run/docker.sock:/var/run/docker.sock
         ports:
-            - "${API_PORT:-53001}:3001"
+            - "${API_PORT_EXT:-53001}:3001"
         networks:
            - zemfyre-net
     max31855:
