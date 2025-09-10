@@ -1,48 +1,40 @@
----
-# roles/network/tasks/main.yml
-
-- name: Detect the NetworkManager connection name for eth0
-  command: nmcli -t -f NAME,DEVICE connection show
-  register: nmcli_conn_list
-  changed_when: false
+- name: Delete unwanted auto-generated Wired connection 1
+  command: nmcli connection delete "Wired connection 1"
+  ignore_errors: true
   become: true
 
-- name: Set variable for connection name of eth0
-  set_fact:
-    nm_connection: "{{ item.split(':')[0] }}"
-  loop: "{{ nmcli_conn_list.stdout_lines }}"
-  when: item.split(':')[1] == nm_interface
-  vars:
-    nm_interface: "eth0"
+- name: Ensure eth0 connection profile exists
+  command: nmcli connection add type ethernet ifname eth0 con-name eth0
+  args:
+    creates: /etc/NetworkManager/system-connections/eth0.nmconnection
+  become: true
 
-- name: Configure wired network connection (only if not present)
+- name: Configure eth0 with static IP
   block:
     - name: Set static IP address
-      command: nmcli connection modify "{{ nm_connection }}" ipv4.addresses "{{ nm_ip }}"
+      command: nmcli connection modify eth0 ipv4.addresses "{{ nm_ip }}"
       become: true
 
     - name: Set manual method for IPv4
-      command: nmcli connection modify "{{ nm_connection }}" ipv4.method manual
+      command: nmcli connection modify eth0 ipv4.method manual
       become: true
 
     - name: Set gateway
-      command: nmcli connection modify "{{ nm_connection }}" ipv4.gateway "{{ nm_gateway }}"
+      command: nmcli connection modify eth0 ipv4.gateway "{{ nm_gateway }}"
       become: true
 
     - name: Set DNS
-      command: nmcli connection modify "{{ nm_connection }}" ipv4.dns "{{ nm_dns }}"
+      command: nmcli connection modify eth0 ipv4.dns "{{ nm_dns }}"
       become: true
 
     - name: Bring connection down
-      command: nmcli connection down "{{ nm_connection }}" || true
+      command: nmcli connection down eth0 || true
       ignore_errors: true
       become: true
 
     - name: Bring connection up again
-      command: nmcli connection up "{{ nm_connection }}"
+      command: nmcli connection up eth0
       become: true
-  when: nm_connection is defined
-
   vars:
     nm_ip: "192.168.1.30/24"
     nm_gateway: ""
