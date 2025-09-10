@@ -76,18 +76,6 @@
       - tty
     append: yes
 
-- name: Set up auto-login for kiosk user (headless mode)
-  lineinfile:
-    path: /etc/systemd/system/getty@tty1.service.d/override.conf
-    line: "ExecStart=-/sbin/agetty --autologin {{ kiosk_user }} --noclear %I $TERM"
-    regexp: "^ExecStart="
-    create: yes
-    owner: root
-    group: root
-    mode: '0644'
-  when: not desktop_mode
-  notify: reload systemd
-
 - name: Create systemd override directory for getty
   file:
     path: /etc/systemd/system/getty@tty1.service.d
@@ -96,3 +84,32 @@
     group: root
     mode: '0755'
   when: not desktop_mode
+
+- name: Set up auto-login for kiosk user (headless mode)
+  blockinfile:
+    path: /etc/systemd/system/getty@tty1.service.d/override.conf
+    create: yes
+    owner: root
+    group: root
+    mode: '0644'
+    block: |
+      [Service]
+      ExecStart=
+      ExecStart=-/sbin/agetty --autologin {{ kiosk_user }} --noclear %I $TERM
+  when: not desktop_mode
+  notify: reload systemd
+
+- name: Start X automatically on login for headless kiosk
+  lineinfile:
+    path: "/home/{{ kiosk_user }}/.bash_profile"
+    create: yes
+    line: |
+      if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+          startx
+      fi
+    owner: "{{ kiosk_user }}"
+    group: "{{ kiosk_user }}"
+    mode: '0644'
+  when: not desktop_mode
+
+

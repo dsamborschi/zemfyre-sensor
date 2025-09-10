@@ -26,7 +26,7 @@ eth -mqtt     # Displays current MQTT broker binding (none by default)
 
 To assign the MQTT broker address using URL (used in this demo):
 ```bash
-eth -mqtt url "mqtt-dashboard.com"
+eth -mqtt ip 192.168.1.30
 eth -mqtt port 1883
 eth -mqtt     # Display updated configuration
 ```
@@ -37,7 +37,7 @@ As LAN access is on `xxx.xxx.100.xxx`:
 
 ```bash
 eth -ifconfig           # Displays current binding
-eth -ifconfig ip 192.168.100.170     # Update device LAN address
+eth -ifconfig ip 192.168.1.40    # Update device LAN address
 eth -ifconfig gw 192.168.100.2       # Update LAN to WAN gateway access
 ```
 

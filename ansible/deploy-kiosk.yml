@@ -6,26 +6,18 @@
     repo_url: "https://github.com/dsamborschi/zemfyre-sensor.git"
     repo_dir: "zemfyre-sensor"
     kiosk_user: "zemfyre"
+  roles:
+    - system
+    - network
+    - kiosk
+    - notify
 
   tasks:
     - name: Load environment variables from .env file
       set_fact:
         grafana_port_ext: "{{ lookup('file', playbook_dir + '/.env.pi').splitlines() | select('match', '^GRAFANA_PORT_EXT=') | map('regex_replace', '^GRAFANA_PORT_EXT=(.*)$', '\\1') | list | first | default('3000') }}"
         admin_port: "{{ lookup('file', playbook_dir + '/.env.pi').splitlines() | select('match', '^ADMIN_PORT=') | map('regex_replace', '^ADMIN_PORT=(.*)$', '\\1') | list | first | default('51850') }}"
-
-    - name: Configure system
-      include_role:
-        name: system
-
-    - name: Setup kiosk environment
-      include_role:
-        name: kiosk
-
-    - name: Setup notification environment
-      include_role:
-        name: notify  
   
-
     - name: Ensure git is installed
       apt:
         name: git

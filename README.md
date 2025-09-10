@@ -19,15 +19,15 @@ Replace `SSID_NAME` and `PASSWORD` with your Wi-Fi network's name and password.
 
 # Set static IP for eth0 (change Wired connection 1 to your eth0 name)
 
-nmcli connection modify "Wired connection 1" ipv4.addresses 192.168.0.156/24
-nmcli connection modify "Wired connection 1" ipv4.method manual
-nmcli connection modify "Wired connection 1" ipv4.gateway ""
-nmcli connection modify "Wired connection 1" ipv4.dns ""
+sudo nmcli connection modify "Wired connection 1" ipv4.addresses 192.168.0.156/24
+sudo nmcli connection modify "Wired connection 1" ipv4.method manual
+sudo nmcli connection modify "Wired connection 1" ipv4.gateway ""
+sudo nmcli connection modify "Wired connection 1" ipv4.dns ""
 
-nmcli connection up eth0
+sudo nmcli connection up eth0
 
-nmcli connection down "Wired connection 1"
-nmcli connection up "Wired connection 1"
+sudo nmcli connection down "Wired connection 1"
+sudo nmcli connection up "Wired connection 1"
 
 
 

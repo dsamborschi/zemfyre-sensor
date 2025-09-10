@@ -1,5 +1,11 @@
-- name: Add Raspbian public key for apt
-  ansible.builtin.apt_key:
-    keyserver: keyserver.ubuntu.com
-    id: 9165938D90FDDD2E
+- name: Install RealVNC VNC Server
+  apt:
+    name: realvnc-vnc-server
     state: present
+    update_cache: yes
+
+- name: Enable VNC server service
+  systemd:
+    name: vncserver-x11-serviced.service
+    enabled: yes
+    state: started
