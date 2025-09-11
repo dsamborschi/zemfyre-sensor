@@ -1,4 +1,4 @@
-FROM python:3.12-slim-bullseye
+FROM python:3.12-slim-bookworm
 
 # Upgrade system packages to address vulnerabilities
 RUN apt-get update && apt-get upgrade -y
@@ -10,6 +10,7 @@ RUN apt-get install -y \
     git \
  && pip install --no-cache-dir ansible \
  && ansible-galaxy collection install community.docker \
+ && apt-get update && apt-get upgrade -y \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /workspace
