@@ -37,7 +37,7 @@ services:
     influx:
         container_name: influxdb
         image: influxdb:alpine
-        restart: unless-stopped
+        restart: always
         environment:
             - INFLUXDB_INIT_ORG=Zemfyre
             - INFLUXDB_INIT_BUCKET=ZUS80LP

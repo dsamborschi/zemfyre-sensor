@@ -1,4 +1,4 @@
-FROM python:3.12
+FROM python:3.12-slim-bullseye
 
 # Upgrade system packages to address vulnerabilities
 RUN apt-get update && apt-get upgrade -y
