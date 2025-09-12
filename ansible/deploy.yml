@@ -6,6 +6,7 @@
     repo_url: "https://github.com/dsamborschi/zemfyre-sensor.git"
     repo_dir: "zemfyre-sensor"
     kiosk_user: "zemfyre"
+    ntp_server_ip: "192.168.1.100"
     
   pre_tasks:
     - name: Load environment variables from .env file
