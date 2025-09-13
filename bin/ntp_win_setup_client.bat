@@ -25,11 +25,13 @@ REM ==========================
 REM Remove firewall rule for NTP
 REM ==========================
 echo Removing firewall rule "Allow NTP from Pi" if exists...
-powershell -Command $rule = Get-NetFirewallRule -DisplayName "Allow NTP from Pi"; 
-if ($rule) { 
-    Remove-NetFirewallRule -DisplayName "Allow NTP from Pi"; 
-    Write-Host "Firewall rule removed."; 
-} else {Write-Host "No firewall rule found."}
+netsh advfirewall firewall show rule name="Allow NTP from Pi" >nul 2>&1
+if errorlevel 1 (
+    echo No firewall rule found
+) else (
+    netsh advfirewall firewall delete rule name="Allow NTP from Pi" >nul
+    echo Firewall rule removed
+)
 
 echo.
 echo Script finished.

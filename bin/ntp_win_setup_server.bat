@@ -22,19 +22,32 @@ REM ==========================
 REM Verify NTP server is enabled
 REM ==========================
 for /f "tokens=3" %%A in ('reg query "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\W32Time\TimeProviders\NtpServer" /v Enabled') do set NTP_ENABLED=%%A
-echo NTP server Enabled? %NTP_ENABLED%
+
+if "%NTP_ENABLED%"=="0x1" (
+    echo NTP server is ENABLED and running.
+) else (
+    echo NTP server is DISABLED.
+)
+
 
 REM ==========================
 REM Check and configure firewall rule for NTP
 REM ==========================
 echo Checking firewall rule for inbound UDP 123...
-powershell -Command $rule = Get-NetFirewallRule | Where-Object {($_.Enabled -eq 'True') -and ($_.Direction -eq 'Inbound') -and ($_.Action -eq 'Allow')} | ForEach-Object {Get-NetFirewallPortFilter -AssociatedNetFirewallRule $_} | Where-Object {$_.Protocol -eq 'UDP' -and $_.LocalPort -eq 123}; 
-if ($rule) {Write-Host "Firewall rule exists for NTP (UDP 123)."} else { 
-    Write-Host "No firewall rule found for UDP 123. Creating one...";
-    New-NetFirewallRule -DisplayName "Allow NTP from Pi" -Direction Inbound -Action Allow -Protocol UDP -LocalPort 123 -Profile Any;
-    Write-Host "Firewall rule created."
-}
+netsh advfirewall firewall show rule name="Allow NTP from Pi" >nul 2>&1
+if errorlevel 1 (
+    echo No firewall rule found for UDP 123. Creating one...
+    netsh advfirewall firewall add rule name="Allow NTP from Pi" dir=in action=allow protocol=UDP localport=123
+    echo Firewall rule created.
+) else (
+    echo Firewall rule already exists for NTP UDP 123
+)
+
 
 echo.
 echo Script finished.
 pause
+
+REM ==========================
+REM Optional: Test NTP server functionality
+REM w32tm /stripchart /computer:EXTERNAL_IP /samples:4 /dataonly

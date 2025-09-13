@@ -1,40 +1,19 @@
-- name: Install RealVNC VNC Server
-  apt:
-    name: realvnc-vnc-server
-    state: present
-    update_cache: yes
-
-- name: Enable VNC server service
-  systemd:
-    name: vncserver-x11-serviced.service
-    enabled: yes
-    state: started
-
-- name: Ensure NTPsec is installed
-  apt:
-    name: ntpsec
-    state: present
-    update_cache: yes
-
-- name: Ensure NTP server entry exists
+- name: Configure systemd-timesyncd NTP server
   lineinfile:
-    path: /etc/ntpsec/ntp.conf
-    regexp: '^server\s+{{ ntp_server_ip }}\s+iburst$'
-    line: 'server {{ ntp_server_ip }} iburst'
-    state: present
-    insertafter: '^# Custom NTP server'  # optional: place after comment
+    path: /etc/systemd/timesyncd.conf
+    regexp: '^NTP='
+    line: 'NTP={{ ntp_server_ip}}'
+    create: yes
 
-- name: Enable and start ntpsec service
+- name: Set fallback NTP servers to Debian pool
+  lineinfile:
+    path: /etc/systemd/timesyncd.conf
+    regexp: '^FallbackNTP='
+    line: 'FallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org'
+    create: yes
+
+- name: Enable and start systemd-timesyncd
   systemd:
-    name: ntpsec
+    name: systemd-timesyncd
     enabled: yes
     state: started
-
-- name: Verify NTPsec peers
-  command: ntpq -p
-  register: ntpq_output
-  changed_when: false
-
-- name: Show NTP peers
-  debug:
-    var: ntpq_output.stdout_lines
