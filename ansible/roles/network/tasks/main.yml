@@ -1,3 +1,6 @@
+---
+# roles/network/tasks/main.yml
+
 - name: Delete unwanted auto-generated Wired connection 1
   command: nmcli connection delete "Wired connection 1"
   ignore_errors: true
@@ -9,33 +12,18 @@
     creates: /etc/NetworkManager/system-connections/eth0.nmconnection
   become: true
 
-- name: Configure eth0 with static IP
-  block:
-    - name: Set static IP address
-      command: nmcli connection modify eth0 ipv4.addresses "{{ nm_ip }}"
-      become: true
+- name: Set static IP address
+  command: nmcli connection modify eth0 ipv4.addresses "{{ nm_ip }}"
+  become: true
 
-    - name: Set manual method for IPv4
-      command: nmcli connection modify eth0 ipv4.method manual
-      become: true
+- name: Set manual method for IPv4
+  command: nmcli connection modify eth0 ipv4.method manual
+  become: true
 
-    - name: Set gateway
-      command: nmcli connection modify eth0 ipv4.gateway "{{ nm_gateway }}"
-      become: true
+- name: Set gateway
+  command: nmcli connection modify eth0 ipv4.gateway "{{ nm_gateway }}"
+  become: true
 
-    - name: Set DNS
-      command: nmcli connection modify eth0 ipv4.dns "{{ nm_dns }}"
-      become: true
-
-    - name: Bring connection down
-      command: nmcli connection down eth0 || true
-      ignore_errors: true
-      become: true
-
-    - name: Bring connection up again
-      command: nmcli connection up eth0
-      become: true
-  vars:
-    nm_ip: "192.168.1.30/24"
-    nm_gateway: ""
-    nm_dns: ""
+- name: Set DNS
+  command: nmcli connection modify eth0 ipv4.dns "{{ nm_dns }}"
+  become: true

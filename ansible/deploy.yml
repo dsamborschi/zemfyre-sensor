@@ -7,6 +7,9 @@
     repo_dir: "zemfyre-sensor"
     kiosk_user: "zemfyre"
     ntp_server_ip: "192.168.1.100"
+    nm_ip: "192.168.1.30/24"
+    nm_gateway: ""
+    nm_dns: ""
     
   pre_tasks:
     - name: Load environment variables from .env file

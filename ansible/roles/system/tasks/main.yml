@@ -1,8 +1,17 @@
+- name: Ensure [Time] section exists in timesyncd.conf
+  lineinfile:
+    path: /etc/systemd/timesyncd.conf
+    regexp: '^\[Time\]'
+    line: '[Time]'
+    create: yes
+    state: present
+
 - name: Configure systemd-timesyncd NTP server
   lineinfile:
     path: /etc/systemd/timesyncd.conf
     regexp: '^NTP='
-    line: 'NTP={{ ntp_server_ip}}'
+    line: 'NTP={{ ntp_server_ip }}'
+    insertafter: '^\[Time\]'
     create: yes
 
 - name: Set fallback NTP servers to Debian pool
@@ -10,10 +19,19 @@
     path: /etc/systemd/timesyncd.conf
     regexp: '^FallbackNTP='
     line: 'FallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org'
+    insertafter: '^\[Time\]'
+    create: yes
+
+- name: Allow systemd-timesyncd to handle large offsets (48 hours)
+  lineinfile:
+    path: /etc/systemd/timesyncd.conf
+    regexp: '^RootDistanceMaxSec='
+    line: 'RootDistanceMaxSec=172800'
+    insertafter: '^\[Time\]'
     create: yes
 
 - name: Enable and start systemd-timesyncd
   systemd:
     name: systemd-timesyncd
     enabled: yes
-    state: started
+    state: restarted
