@@ -8,7 +8,7 @@ on:
       - master
 
 jobs:
-  upload-bat:
+  upload-server-bat:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -19,7 +19,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Upload BAT to Azure Blob
+      - name: Upload server BAT to Azure Blob
         run: |
           az storage blob upload \
             --account-name ${{ secrets.AZURE_STORAGE_ACCOUNT }} \
