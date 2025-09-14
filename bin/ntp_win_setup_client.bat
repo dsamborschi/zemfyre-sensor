@@ -1,7 +1,7 @@
 
 @echo off
 REM ==========================
-REM Disable Windows NTP server and remove firewall rule
+REM Disable Windows NTP server and remove firewall rule, test
 REM ==========================
 
 echo Stopping W32Time service...
@@ -17,7 +17,7 @@ net start W32Time
 
 REM ==========================
 REM Verify NTP server is disabled
-REM ==========================, test3
+REM ==========================
 for /f "tokens=3" %%A in ('reg query "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Services\W32Time\TimeProviders\NtpServer" /v Enabled') do set NTP_ENABLED=%%A
 echo NTP server Enabled? %NTP_ENABLED%
 
