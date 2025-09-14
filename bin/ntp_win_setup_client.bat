@@ -1,7 +1,7 @@
 
 @echo off
 REM ==========================
-REM Disable Windows NTP server and remove firewall rule, test
+REM Disable Windows NTP server and remove firewall rule
 REM ==========================
 
 echo Stopping W32Time service...
