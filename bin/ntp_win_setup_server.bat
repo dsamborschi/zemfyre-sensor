@@ -1,6 +1,6 @@
 @echo off
 REM ==========================
-REM Configure and enable Windows NTP server, TEST3
+REM Configure and enable Windows NTP server
 REM ==========================
 
 echo Ensuring W32Time service is set to start automatically...
