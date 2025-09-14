@@ -25,7 +25,7 @@ jobs:
             --account-name ${{ secrets.AZURE_STORAGE_ACCOUNT }} \
             --container-name scripts \
             --name ntp_win_setup_client.bat \
-            --file bin/ntp_win_setup_server.bat \
+            --file bin/ntp_win_setup_client.bat \
             --overwrite true \
             --content-type application/octet-stream \
             --content-disposition "attachment; filename=ntp_win_setup_client.bat"
