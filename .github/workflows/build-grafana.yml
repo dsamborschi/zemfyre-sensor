@@ -9,8 +9,6 @@ on:
 jobs:
   push_to_registry:
     name: push docker image to hub
-    if: |
-      startsWith(github.event.release.name, 'Release-cloud') 
     runs-on: ubuntu-latest
     steps:
       - name: check repository
