@@ -1,6 +1,6 @@
 ---
 - name: Deploy zemfyre-sensor to Raspberry Pi (Headless and Desktop)
-  hosts: raspberrypi
+  hosts: all
   become: yes
   vars:
     repo_url: "https://github.com/dsamborschi/zemfyre-sensor.git"
