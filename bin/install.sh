@@ -232,10 +232,10 @@ function upgrade_docker_containers() {
         "$GITHUB_RAW_URL/master/bin/upgrade_containers.sh" \
         -O "$UPGRADE_SCRIPT_PATH"
 
-    sudo -u ${USER} \
-        DOCKER_TAG="${DOCKER_TAG}" \
-        GIT_BRANCH="${BRANCH}" \
-        "${UPGRADE_SCRIPT_PATH}"
+    # sudo -u ${USER} \
+    #     DOCKER_TAG="${DOCKER_TAG}" \
+    #     GIT_BRANCH="${BRANCH}" \
+    #     "${UPGRADE_SCRIPT_PATH}"
 }
 
 function cleanup() {
