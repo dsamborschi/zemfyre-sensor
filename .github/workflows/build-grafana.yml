@@ -31,7 +31,7 @@ jobs:
           username: ${{secrets.DOCKERHUB_USERNAME}}
           password: ${{secrets.DOCKERHUB_PASSWORD}}
           
-      - name: build and push nodered image
+      - name: build and push grafana image
         uses: docker/build-push-action@v5
         with:
           context: ./grafana
