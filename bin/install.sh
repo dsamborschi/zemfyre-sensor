@@ -393,8 +393,8 @@ function main() {
     gum format "**System Upgrade:**     ${SYSTEM_UPGRADE}"
     gum format "**Docker Tag Prefix:**  \`${DOCKER_TAG}\`"
 
-    if [ ! -d "${iotistic_REPO_DIR}" ]; then
-        mkdir "${iotistic_REPO_DIR}"
+    if [ ! -d "${IOTISTIC_REPO_DIR}" ]; then
+        mkdir "${IOTISTIC_REPO_DIR}"
     fi
 
     initialize_ansible
