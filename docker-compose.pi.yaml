@@ -67,10 +67,10 @@ services:
             - GF_AUTH_DISABLE_LOGIN_FORM=${GRAFANA_AUTH_DISABLE_LOGIN_FORM}
             - GF_HTTP_ALLOW_ORIGIN=*
 
-        volumes:
-            - ./grafana/data:/var/lib/grafana
-            - ./grafana/config/grafana.ini:/etc/grafana/grafana.ini
-            - ./grafana/provisioning:/etc/grafana/provisioning
+        # volumes:
+        #     - ./grafana/data:/var/lib/grafana
+        #     - ./grafana/config/grafana.ini:/etc/grafana/grafana.ini
+        #     - ./grafana/provisioning:/etc/grafana/provisioning
         ports:
             - "${GRAFANA_PORT_EXT:-53000}:3000"
         networks:

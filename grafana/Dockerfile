@@ -111,6 +111,11 @@ RUN if [ ! -z "${GF_INSTALL_PLUGINS}" ]; then \
     fi
 
 
+# copy database and config files
+COPY data /var/lib/grafana
+COPY config/grafana.ini /etc/grafana/grafana.ini
+
+
 USER grafana
 
 # HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
