@@ -67,7 +67,7 @@ if [[ "$DEVICE_TYPE" =~ ^(x86|pi5)$ ]]; then
 fi
 
 sudo -E docker compose \
-    -f /home/${USER}/iotistic/docker-compose.yaml \
+    -f /home/${USER}/iotistic/docker-compose.pi.yaml \
     ${MODE}
 
 if [ -f /var/run/reboot-required ]; then
@@ -75,5 +75,5 @@ if [ -f /var/run/reboot-required ]; then
 fi
 
 sudo -E docker compose \
-    -f /home/${USER}/iotistic/docker-compose.yaml \
+    -f /home/${USER}/iotistic/docker-compose.pi.yaml \
     up -d
