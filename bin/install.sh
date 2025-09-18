@@ -233,6 +233,7 @@ function upgrade_docker_containers() {
         -O "$UPGRADE_SCRIPT_PATH"
 
     chmod +x "$UPGRADE_SCRIPT_PATH"
+    chown ${USER}:${USER} "$UPGRADE_SCRIPT_PATH"
 
     sudo -u ${USER} env \
         DOCKER_TAG="${DOCKER_TAG}" \
