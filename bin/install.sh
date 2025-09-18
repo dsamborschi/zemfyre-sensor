@@ -232,6 +232,8 @@ function upgrade_docker_containers() {
         "$GITHUB_RAW_URL/master/bin/upgrade_containers.sh" \
         -O "$UPGRADE_SCRIPT_PATH"
 
+    chmod +x "$UPGRADE_SCRIPT_PATH"
+
     sudo -u ${USER} env \
         DOCKER_TAG="${DOCKER_TAG}" \
         GIT_BRANCH="${BRANCH}" \
