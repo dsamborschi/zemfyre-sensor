@@ -46,21 +46,19 @@
     dest: "{{ repo_dir }}/.env"
     mode: '0644'
 
-- name: Fix Grafana data directory ownership (UID 472 - Grafana container user)
+- name: Fix Grafana data directory ownership
   file:
     path: "{{ repo_dir }}/grafana/data"
-    owner: "472"
-    group: "0"
+    owner: 472
+    group: 0
     recurse: yes
     state: directory
   become: true
 
-- name: Set Grafana data directory permissions (775)
-  file:
-    path: "{{ repo_dir }}/grafana/data"
-    mode: '0775'
-    recurse: yes
-    state: directory
+- name: Set directories to 775 and files to 664 in Grafana data
+  shell: |
+    find {{ repo_dir }}/grafana/data -type d -exec chmod 775 {} \;
+    find {{ repo_dir }}/grafana/data -type f -exec chmod 664 {} \;
   become: true
 
 - name: Debug final kiosk setup
