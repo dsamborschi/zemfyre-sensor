@@ -1,0 +1,66 @@
+- name: Check if Docker is installed
+  command: docker --version
+  register: docker_check
+  failed_when: false
+  changed_when: false
+
+- name: Install Docker if not present
+  block:
+    - name: Download Docker installation script
+      get_url:
+        url: https://get.docker.com
+        dest: /tmp/get-docker.sh
+        mode: '0755'
+
+    - name: Run Docker installation script
+      shell: /tmp/get-docker.sh
+
+    - name: Add user to docker group
+      user:
+        name: "{{ kiosk_user }}"
+        groups: docker
+        append: yes
+
+    - name: Remove Docker installation script
+      file:
+        path: /tmp/get-docker.sh
+        state: absent
+
+    - name: Check Docker version
+      ansible.builtin.command: docker --version
+      register: docker_version
+      changed_when: false
+
+    - name: Show Docker version
+      ansible.builtin.debug:
+        msg: "{{ docker_version.stdout }}"
+  when: docker_check.rc != 0
+  become: true
+
+- name: Check Docker Compose availability
+  command: docker compose version
+  register: docker_compose_check
+  failed_when: false
+  changed_when: false
+
+- name: Run Docker Compose (Headless mode with Pi override)
+  community.docker.docker_compose_v2:
+    project_src: "{{ repo_dir }}"
+    files:
+      - docker-compose.pi.yaml
+    state: present
+    build: always
+  become: true
+  register: compose_output
+
+- name: Prune unused Docker images (dangling only)
+  community.docker.docker_prune:
+    images: true
+    images_filters:
+      dangling: "true"
+
+- name: Print Docker Compose output
+  debug:
+    msg: "{{ compose_output }}"
+  when: compose_output is defined
+
