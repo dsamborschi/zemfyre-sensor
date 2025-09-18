@@ -15,6 +15,7 @@ DOCKER_TAG="latest"
 UPGRADE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/upgrade_containers.sh"
 ARCHITECTURE=$(uname -m)
 DISTRO_VERSION=$(lsb_release -rs)
+MODE="build" # either "pull" or "build"
 
 INTRO_MESSAGE=(
     "Iotistic requires a dedicated Raspberry Pi and an SD card."
@@ -238,7 +239,7 @@ function upgrade_docker_containers() {
     sudo -u ${USER} env \
         DOCKER_TAG="${DOCKER_TAG}" \
         GIT_BRANCH="${BRANCH}" \
-        MODE="build" \
+        MODE="${MODE}" \
         "${UPGRADE_SCRIPT_PATH}"
 }
 
