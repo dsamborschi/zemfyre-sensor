@@ -205,8 +205,8 @@ function run_ansible_playbook() {
 
     sudo -u ${USER} ${SUDO_ARGS[@]} ansible localhost \
         -m git \
-        -a "repo=$REPOSITORY dest=${iotistic_REPO_DIR} version=${BRANCH} force=yes"
-    cd ${iotistic_REPO_DIR}/ansible
+        -a "repo=$REPOSITORY dest=${IOTISTIC_REPO_DIR} version=${BRANCH} force=yes"
+    cd ${IOTISTIC_REPO_DIR}/ansible
 
     if [ "$ARCHITECTURE" == "x86_64" ]; then
         if [ ! -f /etc/sudoers.d/010_${USER}-nopasswd ]; then
@@ -219,7 +219,7 @@ function run_ansible_playbook() {
     fi
 
     sudo -E -u ${USER} ${SUDO_ARGS[@]} \
-        ansible-playbook site.yml "${ANSIBLE_PLAYBOOK_ARGS[@]}"
+        ansible-playbook deploy.yml "${ANSIBLE_PLAYBOOK_ARGS[@]}"
 }
 
 function upgrade_docker_containers() {
