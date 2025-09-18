@@ -61,9 +61,9 @@
     find {{ repo_dir }}/grafana/data -type f -exec chmod 664 {} \;
   become: true
 
-- name: Debug final kiosk setup
-  debug:
-    msg: "Kiosk setup complete. Mode detected: {{ hostvars[inventory_hostname]['desktop_mode'] | default('unknown') }}"
+# - name: Debug final kiosk setup
+#   debug:
+#     msg: "Kiosk setup complete. Mode detected: {{ hostvars[inventory_hostname]['desktop_mode'] | default('unknown') }}"
 
 # - name: Reboot Raspberry Pi to apply changes and start kiosk mode
 #   reboot:
