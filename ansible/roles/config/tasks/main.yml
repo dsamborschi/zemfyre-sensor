@@ -50,7 +50,7 @@
   file:
     path: "{{ repo_dir }}/grafana/data"
     owner: 472
-    group: "{{ ansible_user_gid }}"
+    group: "{{ kiosk_user }}"
     recurse: yes
     state: directory
   become: true
