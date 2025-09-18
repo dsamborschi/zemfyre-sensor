@@ -51,13 +51,15 @@ services:
            - zemfyre-net
 
     grafana:
+        image: grafana/grafana:latest
+        build:
+          context: ./grafana
+          dockerfile: Dockerfile
         depends_on:
             - influx
         container_name: grafana
         restart: always
-        build:
-          context: ./grafana
-          dockerfile: Dockerfile
+   
         user: "grafana"
         environment:
             - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME}
@@ -66,11 +68,6 @@ services:
             - GF_AUTH_ANONYMOUS_ORG_ROLE=${GRAFANA_AUTH_ANONYMOUS_ORG_ROLE}
             - GF_AUTH_DISABLE_LOGIN_FORM=${GRAFANA_AUTH_DISABLE_LOGIN_FORM}
             - GF_HTTP_ALLOW_ORIGIN=*
-
-        # volumes:
-        #     - ./grafana/data:/var/lib/grafana
-        #     - ./grafana/config/grafana.ini:/etc/grafana/grafana.ini
-        #     - ./grafana/provisioning:/etc/grafana/provisioning
         ports:
             - "${GRAFANA_PORT_EXT:-53000}:3000"
         networks:
