@@ -36,7 +36,7 @@ jobs:
       - name: build and push nodered image
         uses: docker/build-push-action@v5
         with:
-          context: .
+          context: ./grafana
           file: Dockerfile
           no-cache: true 
           push: true
