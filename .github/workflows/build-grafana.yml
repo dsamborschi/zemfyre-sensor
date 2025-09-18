@@ -1,14 +1,11 @@
 name: Build and Push Grafana Image and Push to docker
 
 on: 
-  release:
-   types: [created]
-  workflow_dispatch:  
-    inputs:
-      release_version:
-        description: 'Release version'
-        required: false
-        default: 'latest' 
+  push:
+    branches:
+      - master
+    paths:
+      - 'grafana/**' 
 jobs:
   push_to_registry:
     name: push docker image to hub
