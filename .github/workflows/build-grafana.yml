@@ -33,9 +33,6 @@ jobs:
           username: ${{secrets.DOCKERHUB_USERNAME}}
           password: ${{secrets.DOCKERHUB_PASSWORD}}
           
-      - name: Extract Release Version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_ENV
-
       - name: build and push nodered image
         uses: docker/build-push-action@v5
         with:
@@ -44,6 +41,5 @@ jobs:
           no-cache: true 
           push: true
           tags: |
-            iotistic/grafana:${{ env.VERSION }}
             iotistic/grafana:latest  
   
