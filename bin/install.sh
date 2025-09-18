@@ -17,7 +17,7 @@ ARCHITECTURE=$(uname -m)
 DISTRO_VERSION=$(lsb_release -rs)
 
 INTRO_MESSAGE=(
-    "iotistic requires a dedicated Raspberry Pi and an SD card."
+    "Iotistic requires a dedicated Raspberry Pi and an SD card."
     "You will not be able to use the regular desktop environment once installed."
     ""
     "When prompted for the version, you can choose between the following:"
@@ -27,10 +27,10 @@ INTRO_MESSAGE=(
     "Take note that \`latest\` is a rolling release."
 )
 MANAGE_NETWORK_PROMPT=(
-    "Would you like iotistic to manage the network for you?"
+    "Would you like Iotistic to manage the network for you?"
 )
 VERSION_PROMPT=(
-    "Which version of iotistic would you like to install?"
+    "Which version of Iotistic would you like to install?"
 )
 VERSION_PROMPT_CHOICES=(
     "latest"
@@ -73,7 +73,7 @@ function install_prerequisites() {
 }
 
 function display_banner() {
-    local TITLE="${1:-iotistic Installer}"
+    local TITLE="${1:-Iotistic Installer}"
     local COLOR="212"
 
     gum style \
@@ -203,7 +203,7 @@ function set_device_type() {
 }
 
 function run_ansible_playbook() {
-    display_section "Run the iotistic Ansible Playbook"
+    display_section "Run the Iotistic Ansible Playbook"
     set_device_type
 
     sudo -u ${USER} ${SUDO_ARGS[@]} ansible localhost \
@@ -296,7 +296,7 @@ function modify_permissions() {
 function write_iotistic_version() {
     local GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
     local GIT_SHORT_HASH=$(git rev-parse --short HEAD)
-    local iotistic_VERSION="iotistic Version: ${GIT_BRANCH}@${GIT_SHORT_HASH}"
+    local iotistic_VERSION="Iotistic Version: ${GIT_BRANCH}@${GIT_SHORT_HASH}"
 
     echo "${iotistic_VERSION}" > ~/version.md
     echo "$(lsb_release -a 2> /dev/null)" >> ~/version.md
