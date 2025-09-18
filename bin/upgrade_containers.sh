@@ -57,9 +57,9 @@ else
 fi
 
 
-cat /home/${USER}/iotistic/docker-compose.yml.tmpl \
-    | envsubst \
-    > /home/${USER}/iotistic/docker-compose.yaml
+# cat /home/${USER}/iotistic/docker-compose.yml.tmpl \
+#     | envsubst \
+#     > /home/${USER}/iotistic/docker-compose.yaml
 
 if [[ "$DEVICE_TYPE" =~ ^(x86|pi5)$ ]]; then
     sed -i '/devices:/ {N; /\n.*\/dev\/vchiq:\/dev\/vchiq/d}' \

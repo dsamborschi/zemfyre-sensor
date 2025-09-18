@@ -35,3 +35,4 @@
     name: systemd-timesyncd
     enabled: yes
     state: restarted
+
