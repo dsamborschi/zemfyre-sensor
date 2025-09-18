@@ -63,7 +63,7 @@ fi
 
 if [[ "$DEVICE_TYPE" =~ ^(x86|pi5)$ ]]; then
     sed -i '/devices:/ {N; /\n.*\/dev\/vchiq:\/dev\/vchiq/d}' \
-        /home/${USER}/iotistic/docker-compose.yaml
+        /home/${USER}/iotistic/docker-compose.pi.yaml
 fi
 
 sudo -E docker compose \
