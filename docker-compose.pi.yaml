@@ -51,7 +51,7 @@ services:
            - zemfyre-net
 
     grafana:
-        image: grafana/grafana:latest
+        image: iotistic/grafana:latest
         build:
           context: ./grafana
           dockerfile: Dockerfile
@@ -96,6 +96,7 @@ services:
         networks:
            - zemfyre-net
     api:
+        image: iotistic/zemfyre-api:latest
         build:
             context: ./api
             dockerfile: Dockerfile
