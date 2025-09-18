@@ -35,7 +35,7 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           context: ./grafana
-          file: Dockerfile
+          file: ./grafana/Dockerfile
           no-cache: true 
           push: true
           tags: |
