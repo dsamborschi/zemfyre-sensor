@@ -181,6 +181,9 @@ function install_ansible() {
     # See https://github.com/Screenly/iotistic/issues/1654 for details.
     sudo ${SUDO_ARGS[@]} pip install cryptography==38.0.1
     sudo ${SUDO_ARGS[@]} pip install "$ANSIBLE_VERSION"
+
+    # 🔹 Install community.docker collection so docker_compose_v2 works
+    ansible-galaxy collection install community.docker
 }
 
 function set_device_type() {
