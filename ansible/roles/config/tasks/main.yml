@@ -40,11 +40,11 @@
 #     update: yes
 #     force: yes
 
-- name: Copy Raspberry Pi-specific .env file to repo directory
-  copy:
-    src: "{{ playbook_dir }}/.env.pi"
-    dest: "{{ repo_dir }}/.env"
-    mode: '0644'
+# - name: Copy Raspberry Pi-specific .env file to repo directory
+#   copy:
+#     src: "{{ playbook_dir }}/.env.pi"
+#     dest: "{{ repo_dir }}/.env"
+#     mode: '0644'
 
 - name: Fix Grafana data directory ownership
   file:
