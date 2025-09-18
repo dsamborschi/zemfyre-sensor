@@ -111,15 +111,13 @@ RUN if [ ! -z "${GF_INSTALL_PLUGINS}" ]; then \
     fi
 
 
-# copy database and config files
+# copy database, config files and provisioning files
 COPY data /var/lib/grafana
 COPY config/grafana.ini /etc/grafana/grafana.ini
+# COPY ./provisioning /etc/grafana/provisioning
 
-
+# set permissions
 USER grafana
 
 # HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 #     CMD curl -f http://localhost:53000/api/health || exit 1
-
-## Provisioning
-# COPY ./grafana/provisioning /etc/grafana/provisioning
