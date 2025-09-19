@@ -14,7 +14,6 @@ A comprehensive IoT solution for environmental monitoring using Bosch BME688 gas
 - **Machine Learning**: Custom Node-RED ML nodes for predictive analytics
 - **Kiosk Mode**: Full-screen dashboard display for dedicated monitoring stations
 - **Web Admin**: Management interface for system configuration
-- **Expert Design**: Application software designed by IoT software experts at [Iotistic Inc](http://www.iotistic.ca)
 - **Multi-Platform**: Supports Raspberry Pi (1-5), x86_64, and ARM architectures
 
 ## 📋 Table of Contents
