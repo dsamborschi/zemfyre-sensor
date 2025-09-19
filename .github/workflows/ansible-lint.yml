@@ -20,6 +20,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Run ansible-lint
-        uses: ansible-community/ansible-lint-action@main
+        uses: ansible/ansible-lint@v25.9.0    # pick a version / release
         with:
-          path: "ansible/"
+          args: ""
+          working_directory: "ansible/"
