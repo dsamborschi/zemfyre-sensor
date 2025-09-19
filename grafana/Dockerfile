@@ -31,7 +31,7 @@ RUN mkdir -p "$GF_PATHS_PLUGINS" && \
       fi \
     fi
 
-# Update Title3
+# Update Title4
 RUN sed -i 's|<title>\[\[.AppTitle\]\]</title>|<title>Zemfyre</title>|g' /usr/share/grafana/public/views/index.html
 RUN sed -i 's|Loading Grafana|Loading Zemfyre Console|g' /usr/share/grafana/public/views/index.html
 # Remove Grafana Loading Spinner
