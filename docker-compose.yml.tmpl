@@ -52,9 +52,9 @@ services:
 
     grafana:
         image: iotistic/grafana:${DOCKER_TAG}-${DEVICE_TYPE}
-        # build:
-        #   context: ./grafana
-        #   dockerfile: Dockerfile
+        build:
+           context: ./grafana
+           dockerfile: Dockerfile
         depends_on:
             - influx
         container_name: grafana
@@ -87,9 +87,9 @@ services:
 
     admin:
         image: iotistic/zemfyre-admin:${DOCKER_TAG}-${DEVICE_TYPE}
-        # build:
-        #   context: ./admin
-        #   dockerfile: Dockerfile
+        build:
+           context: ./admin
+           dockerfile: Dockerfile
         container_name: admin
         restart: always
         ports:
@@ -97,7 +97,7 @@ services:
         networks:
            - zemfyre-net
     api:
-        image: iotistic/zemfyre-api:latest
+        image: iotistic/zemfyre-api:${DOCKER_TAG}-${DEVICE_TYPE}
         build:
             context: ./api
             dockerfile: Dockerfile
