@@ -78,12 +78,8 @@ The system consists of several containerized services:
 - **Bosch BME688 Environmental Sensor**
 - **4-in-1 measurements**: Temperature, Humidity, Pressure, Gas/Air Quality
 - **SPE Connectivity**: Single Pair Ethernet for data and power (designed by Zemfyre Inc)
-- **I2C connections** (for development/testing):
-  - VCC: 3.3V
-  - GND: Ground
-  - SDA: GPIO 2 (I2C Data)
-  - SCL: GPIO 3 (I2C Clock)
-  - Default I2C Address: 0x77 (or 0x76)
+- **Ethernet Connection**: Sensor connected to Raspberry Pi via Ethernet interface
+- **Default Network Address**: Configurable via DHCP or static IP assignment
 
 ### Alternative Platforms
 - **x86_64 Linux** systems (Ubuntu, Debian)
@@ -93,14 +89,12 @@ The system consists of several containerized services:
 
 ### Target System (Raspberry Pi)
 - **Debian/Raspbian** 11+ (Bullseye or newer)
-- **Python 3.9+**
+- **NodeJS**
 - **Docker & Docker Compose** (installed automatically)
-- **I2C enabled** (for sensor communication)
-- **SPE support** (for Zemfyre SPE-enabled sensors)
-- **GPIO access** (for additional sensors)
+
 
 ### Development/Control System
-- **Python 3.7+**
+- **NodeJS**
 - **Ansible** (for automated deployment)
 - **Git**
 - **SSH access** to target system
