@@ -19,7 +19,7 @@ fi
 
 # The `getmac` module might exit with non-zero exit code if no MAC address is found.
 set +e
-export MAC_ADDRESS=`${HOME}/installer_venv/bin/python -m getmac`
+MAC_ADDRESS=$(${HOME}/installer_venv/bin/python -c "from getmac import get_mac_address; print(get_mac_address() or '')")
 set -e
 
 if [ -z "$DOCKER_TAG" ]; then
