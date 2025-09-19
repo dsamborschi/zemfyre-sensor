@@ -69,7 +69,7 @@ The system consists of several containerized services:
 ## 🔧 Hardware Requirements
 
 ### Minimum Requirements
-- **Raspberry Pi 2 or newer** (Pi 1 supported but not recommended)
+- **Raspberry Pi 3 or newer** (Pi 3+ required for optimal performance)
 - **8GB+ SD Card** (16GB+ recommended)
 - **Stable power supply** (5V 2.5A minimum for Pi 3+)
 - **Network connectivity** (Ethernet or WiFi)
@@ -152,8 +152,8 @@ ssh pi@<raspberry-pi-ip>
 curl -fsSL https://scripts.iotistic.ca/install | bash
 ```
 
-### Method 2: Ansible Deployment
-Ideal for multiple devices or remote deployment:
+### Method 2: Ansible Controlled Deployment
+Ideal for multiple devices or remote deployment using containerized Ansible:
 
 1. **Configure inventory**:
 ```bash
@@ -161,10 +161,13 @@ Ideal for multiple devices or remote deployment:
 echo "pi@192.168.1.100 ansible_ssh_pass=yourpassword" > hosts.ini
 ```
 
-2. **Run deployment**:
+2. **Run deployment** (Ansible runs inside Docker container):
 ```bash
 cd ansible
-ansible-playbook -i ../hosts.ini deploy.yml
+# Build and run Ansible in container
+docker build -t zemfyre-ansible .
+docker run --rm -v $(pwd):/workspace -v ~/.ssh:/root/.ssh zemfyre-ansible \
+  ansible-playbook -i /workspace/hosts.ini /workspace/deploy.yml
 ```
 
 ### Method 3: Development Setup
