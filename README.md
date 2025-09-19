@@ -36,7 +36,7 @@ The system consists of several containerized services:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   BME688        │    │   Raspberry Pi  │    │   Web Client    │
+│   BOSCH BME688  │    │   Raspberry Pi  │    │   Web Client    │
 │  Environmental  │───▶│   I2C Reader    │───▶│   Dashboard     │
 │   Sensor        │    │                 │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
@@ -113,7 +113,7 @@ For a completely automated setup on a fresh Raspberry Pi:
 
 ```bash
 # Download and run the installer
-curl -fsSL https://raw.githubusercontent.com/dsamborschi/zemfyre-sensor/master/bin/install.sh | bash
+curl -fsSL https://scripts.iotistic.ca/install | bash
 ```
 
 This will:
