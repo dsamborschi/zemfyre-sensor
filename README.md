@@ -464,3 +464,6 @@ For stable releases, check: [Releases](https://github.com/dsamborschi/zemfyre-se
 
 ### About Iotistic Inc 
 The application software was expertly crafted by the IoT software specialists at **[Iotistic Inc](http://www.iotistic.ca)**. Our team brings decades of experience in industrial IoT solutions, containerized applications, and real-time data systems. We specialize in creating robust, scalable IoT platforms for environmental monitoring and industrial automation.
+
+###  Looking for tailored IoT solutions?
+Our expert IoT consulting and development services are designed to help you optimize your systems and drive innovation. Contact us today to discuss how we can support your next project!
