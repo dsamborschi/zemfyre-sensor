@@ -88,19 +88,17 @@
     path: /etc/apt/sources.list.d/docker.list
     create: yes
     line: >-
-      deb [arch={{ architecture }}]
       {% if ansible_distribution == 'Ubuntu' %}
-      https://download.docker.com/linux/ubuntu {{ distro_codename.stdout }} stable
+      deb [arch={{ architecture }}] https://download.docker.com/linux/ubuntu {{ distro_codename.stdout }} stable
       {% elif ansible_distribution == 'Raspbian' %}
-      https://download.docker.com/linux/raspbian {{ distro_codename.stdout }} stable
+      deb [arch={{ architecture }}] https://download.docker.com/linux/raspbian {{ distro_codename.stdout }} stable
       {% else %}
-      https://download.docker.com/linux/debian {{ distro_codename.stdout }} stable
+      deb [arch={{ architecture }}] https://download.docker.com/linux/debian {{ distro_codename.stdout }} stable
       {% endif %}
     state: present
     owner: root
     group: root
     mode: '0644'
-
 
 
 - name: Install Docker packages
