@@ -157,18 +157,28 @@ Ideal for multiple devices or remote deployment using containerized Ansible:
 
 1. **Configure inventory**:
 ```bash
-# Edit hosts.ini with your Pi's details
-echo "pi@192.168.1.100 ansible_ssh_pass=yourpassword" > hosts.ini
+# Edit ansible/hosts.ini with your Pi's details
+echo "pi@192.168.1.100 ansible_ssh_pass=yourpassword" > ansible/hosts.ini
 ```
 
-2. **Run deployment** (Ansible runs inside Docker container):
+2. **Configure environment**:
 ```bash
-cd ansible
-# Build and run Ansible in container
-docker build -t zemfyre-ansible .
-docker run --rm -v $(pwd):/workspace -v ~/.ssh:/root/.ssh zemfyre-ansible \
-  ansible-playbook -i /workspace/hosts.ini /workspace/deploy.yml
+# Copy and edit the environment file
+cp ansible/.env.pi.example ansible/.env.pi
+# Edit .env.pi with your specific configuration
 ```
+
+3. **Run deployment** (using containerized Ansible):
+```bash
+# Execute the deployment script
+./ansible/run.sh
+```
+
+The `run.sh` script automatically:
+- Builds the Ansible Docker container
+- Mounts the project workspace
+- Loads environment variables from `.env.pi`
+- Executes the deployment playbook
 
 ### Method 3: Development Setup
 For development and testing:
