@@ -2,8 +2,8 @@
 
 ## 0. SSH Credentials for Raspberry Pi
 - **Host:** `10.0.0.97`
-- **Username:** `admin`
-- **Password:** `password123`
+- **Username:** `CHANGEME`
+- **Password:** `CHANGEME`
 
 ## 1. Prerequisites
 - Python 3 and pip installed on your local machine
