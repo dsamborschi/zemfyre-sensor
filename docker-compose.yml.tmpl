@@ -21,6 +21,7 @@ services:
         networks:
            - zemfyre-net
     nodered:
+        image: iotistic/zemfyre-nodered:${DOCKER_TAG}-${DEVICE_TYPE}
         build:
             context: ./nodered
             dockerfile: Dockerfile
@@ -51,7 +52,7 @@ services:
            - zemfyre-net
 
     grafana:
-        image: iotistic/grafana:${DOCKER_TAG}-${DEVICE_TYPE}
+        image: iotistic/zemfyre-grafana:${DOCKER_TAG}-${DEVICE_TYPE}
         build:
            context: ./grafana
            dockerfile: Dockerfile
