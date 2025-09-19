@@ -15,7 +15,7 @@ DOCKER_TAG="latest"
 UPGRADE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/upgrade_containers.sh"
 ARCHITECTURE=$(uname -m)
 DISTRO_VERSION=$(lsb_release -rs)
-MODE="pull" # either "pull" or "build"
+MODE="pull" #  either "pull" or "build"
 
 INTRO_MESSAGE=(
     "Iotistic requires a dedicated Raspberry Pi and an SD card."
