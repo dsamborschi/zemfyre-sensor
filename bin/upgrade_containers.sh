@@ -75,5 +75,5 @@ if [ -f /var/run/reboot-required ]; then
 fi
 
 sudo -E docker compose \
-    -f /home/${USER}/iotistic/docker-compose.pi.yml \
+    -f /home/${USER}/iotistic/docker-compose.yml \
     up -d
