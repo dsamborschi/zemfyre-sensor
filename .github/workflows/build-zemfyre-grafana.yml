@@ -58,5 +58,5 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
           cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
           tags: |
-            iotistic/grafana:latest-${{ matrix.board }}
+            iotistic/zemfyre-grafana:latest-${{ matrix.board }}
 
