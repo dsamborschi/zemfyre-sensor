@@ -223,7 +223,9 @@ function run_ansible_playbook() {
     fi
 
     sudo -E -u ${USER} ${SUDO_ARGS[@]} \
-        ansible-playbook deploy.yml "${ANSIBLE_PLAYBOOK_ARGS[@]}"
+    DEVICE_TYPE="$DEVICE_TYPE" \
+    ansible-playbook deploy.yml -e "device_type=$DEVICE_TYPE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
+
 }
 
 function upgrade_docker_containers() {
