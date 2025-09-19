@@ -289,23 +289,6 @@ zemfyre-sensor/
 └── portainer/             # Container management
 ```
 
-### Adding Custom Sensors
-
-1. **Create sensor directory**:
-```bash
-mkdir sensors/your-sensor
-cd sensors/your-sensor
-```
-
-2. **Implement sensor reader**:
-```python
-# your_sensor_reader.py
-import paho.mqtt.client as mqtt
-
-# Your sensor code here
-# Publish to MQTT: mqtt_client.publish("sensor/your-data", payload)
-```
-
 3. **Add to Docker Compose**:
 ```yaml
 your-sensor:
