@@ -215,27 +215,18 @@ KIOSK_IP=192.168.1.30/24
 
 ### Sensor Configuration
 
-Edit `bme688/bme688_reader.py` for sensor settings:
+For complete sensor setup, configuration, and CLI commands, see the comprehensive guide:
 
-```python
-# I2C Configuration
-i2c_address = 0x77   # BME688 I2C address (0x77 or 0x76)
-i2c_bus = 1          # I2C bus number
+📖 **[Sensor Setup Guide](SENSOR.md)** - Complete hardware setup, network configuration, MQTT broker setup, and troubleshooting
 
-# MQTT Settings
-MQTT_BROKER = "mosquitto"
-MQTT_TOPICS = {
-    "temperature": "sensor/temperature",
-    "humidity": "sensor/humidity", 
-    "pressure": "sensor/pressure",
-    "gas_resistance": "sensor/gas"
-}
+This guide covers:
+- **Hardware Setup**: Physical connections and SPE connectivity
+- **Initial Connection**: Serial and network access methods
+- **CLI Configuration**: Complete command reference for network and MQTT setup
+- **Sensor Validation**: BME688 environmental sensor verification
+- **Troubleshooting**: Common issues and diagnostic commands
 
-# Measurement Settings
-sampling_rate = 1    # Seconds between readings
-gas_heater_temp = 320  # Gas sensor heater temperature (°C)
-gas_heater_duration = 150  # Gas sensor heater duration (ms)
-```
+> **Quick Reference**: The BME688 sensor connects via SPE (Single Pair Ethernet) and provides 4-in-1 environmental measurements: temperature, humidity, pressure, and gas/air quality.
 
 ## 📊 Usage
 
