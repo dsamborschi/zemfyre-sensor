@@ -1,10 +1,11 @@
-# Zemfyre Sensor - IoT Temperature Monitoring System
+# Zemfyre Sensor - IoT Environmental Monitoring System
 
-A comprehensive IoT solution for temperature monitoring using MAX31855 thermocouple sensors with Raspberry Pi, featuring real-time data visualization, machine learning capabilities, and kiosk mode display.
+A comprehensive IoT solution for environmental monitoring using Bosch BME688 gas sensors with Raspberry Pi, featuring real-time data visualization, machine learning capabilities, and kiosk mode display. This sensor system was designed with SPE (Single Pair Ethernet) technology by **Zemfyre Inc**, the leader in SPE technology solutions. The application software was expertly designed by the IoT software experts team at **iotistic.ca**.
 
 ## 🌟 Features
 
-- **Temperature Monitoring**: Real-time temperature sensing using MAX31855 thermocouple sensors
+- **Environmental Monitoring**: Real-time sensing using Bosch BME688 4-in-1 environmental sensors (temperature, humidity, pressure, gas/air quality)
+- **SPE Technology**: Designed with Single Pair Ethernet (SPE) connectivity for simplified wiring and power delivery
 - **IoT Stack**: Complete containerized solution with Docker Compose
 - **Data Visualization**: Grafana dashboards for real-time monitoring and historical analysis
 - **Data Storage**: InfluxDB time-series database for sensor data
@@ -13,6 +14,7 @@ A comprehensive IoT solution for temperature monitoring using MAX31855 thermocou
 - **Machine Learning**: Custom Node-RED ML nodes for predictive analytics
 - **Kiosk Mode**: Full-screen dashboard display for dedicated monitoring stations
 - **Web Admin**: Management interface for system configuration
+- **Expert Design**: Application software designed by IoT software experts at iotistic.ca
 - **Multi-Platform**: Supports Raspberry Pi (1-5), x86_64, and ARM architectures
 
 ## 📋 Table of Contents
@@ -34,8 +36,8 @@ The system consists of several containerized services:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   MAX31855      │    │   Raspberry Pi  │    │   Web Client    │
-│  Thermocouple   │───▶│   GPIO Reader   │───▶│   Dashboard     │
+│   BME688        │    │   Raspberry Pi  │    │   Web Client    │
+│  Environmental  │───▶│   I2C Reader    │───▶│   Dashboard     │
 │   Sensor        │    │                 │    │                 │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
                               │
@@ -61,7 +63,7 @@ The system consists of several containerized services:
 | **Node-RED** | IoT flow programming | 1880 | nodered |
 | **InfluxDB** | Time-series database | 8086 | influxdb |
 | **Grafana** | Data visualization | 3000 | grafana |
-| **MAX31855** | Temperature sensor reader | - | max31855 |
+| **BME688** | Environmental sensor reader | - | bme688 |
 | **Admin Panel** | System management | 51850 | admin |
 
 ## 🔧 Hardware Requirements
@@ -73,12 +75,15 @@ The system consists of several containerized services:
 - **Network connectivity** (Ethernet or WiFi)
 
 ### Sensor Hardware
-- **MAX31855 Thermocouple Amplifier**
-- **K-Type Thermocouple** (or compatible)
-- **GPIO connections**:
-  - CS Pin: GPIO 27
-  - Clock Pin: GPIO 22
-  - Data Pin: GPIO 17
+- **Bosch BME688 Environmental Sensor**
+- **4-in-1 measurements**: Temperature, Humidity, Pressure, Gas/Air Quality
+- **SPE Connectivity**: Single Pair Ethernet for data and power (designed by Zemfyre Inc)
+- **I2C connections** (for development/testing):
+  - VCC: 3.3V
+  - GND: Ground
+  - SDA: GPIO 2 (I2C Data)
+  - SCL: GPIO 3 (I2C Clock)
+  - Default I2C Address: 0x77 (or 0x76)
 
 ### Alternative Platforms
 - **x86_64 Linux** systems (Ubuntu, Debian)
@@ -90,7 +95,9 @@ The system consists of several containerized services:
 - **Debian/Raspbian** 11+ (Bullseye or newer)
 - **Python 3.9+**
 - **Docker & Docker Compose** (installed automatically)
-- **GPIO access** (for sensor communication)
+- **I2C enabled** (for sensor communication)
+- **SPE support** (for Zemfyre SPE-enabled sensors)
+- **GPIO access** (for additional sensors)
 
 ### Development/Control System
 - **Python 3.7+**
@@ -198,20 +205,26 @@ KIOSK_IP=192.168.1.30/24
 
 ### Sensor Configuration
 
-Edit `max31855/max31855_reader.py` for sensor settings:
+Edit `bme688/bme688_reader.py` for sensor settings:
 
 ```python
-# GPIO Pin Configuration
-cs_pin = 27      # Chip Select
-clock_pin = 22   # Clock
-data_pin = 17    # Data
+# I2C Configuration
+i2c_address = 0x77   # BME688 I2C address (0x77 or 0x76)
+i2c_bus = 1          # I2C bus number
 
 # MQTT Settings
 MQTT_BROKER = "mosquitto"
-MQTT_TOPIC = "sensor/temperature"
+MQTT_TOPICS = {
+    "temperature": "sensor/temperature",
+    "humidity": "sensor/humidity", 
+    "pressure": "sensor/pressure",
+    "gas_resistance": "sensor/gas"
+}
 
-# Temperature Units
-units = "c"      # 'c' for Celsius, 'f' for Fahrenheit, 'k' for Kelvin
+# Measurement Settings
+sampling_rate = 1    # Seconds between readings
+gas_heater_temp = 320  # Gas sensor heater temperature (°C)
+gas_heater_duration = 150  # Gas sensor heater duration (ms)
 ```
 
 ## 📊 Usage
@@ -236,17 +249,20 @@ After installation, access your services at:
 ### MQTT Topics
 
 - **Temperature Data**: `sensor/temperature`
+- **Humidity Data**: `sensor/humidity`
+- **Pressure Data**: `sensor/pressure`
+- **Gas/Air Quality**: `sensor/gas`
 - **System Status**: `system/status`
-- **Alerts**: `alerts/temperature`
+- **Alerts**: `alerts/environmental`
 
-### Temperature Monitoring
+### Environmental Monitoring
 
 The system automatically:
-1. **Reads** temperature from MAX31855 sensor every second
-2. **Publishes** data to MQTT broker
+1. **Reads** environmental data from BME688 sensor every second (temperature, humidity, pressure, gas resistance)
+2. **Publishes** data to MQTT broker on separate topics
 3. **Stores** historical data in InfluxDB
 4. **Visualizes** real-time and historical data in Grafana
-5. **Triggers** alerts based on configured thresholds
+5. **Triggers** alerts based on configured thresholds for air quality and environmental conditions
 
 ## 🛠️ Development
 
@@ -265,7 +281,7 @@ zemfyre-sensor/
 ├── bin/                   # Installation scripts
 ├── grafana/               # Grafana configuration
 ├── influx/                # InfluxDB setup
-├── max31855/              # Temperature sensor code
+├── bme688/                # Environmental sensor code
 ├── mosquitto/             # MQTT broker config
 ├── nginx/                 # Reverse proxy config
 ├── nodered/               # Node-RED flows and nodes
@@ -326,14 +342,16 @@ docker-compose restart
 
 **Sensor Not Reading**:
 ```bash
-# Check GPIO permissions
-sudo usermod -a -G gpio $USER
+# Check I2C is enabled
+sudo raspi-config
+# Go to Interface Options > I2C > Enable
 
-# Verify wiring connections
-# CS: GPIO 27, Clock: GPIO 22, Data: GPIO 17
+# Check I2C devices
+sudo i2cdetect -y 1
 
+# Verify BME688 is detected at address 0x77 or 0x76
 # Test sensor manually
-python3 max31855/max31855_reader.py
+python3 bme688/bme688_reader.py
 ```
 
 **Network Issues**:
@@ -360,7 +378,7 @@ docker stats
 - **System logs**: `/var/log/syslog`
 - **Docker logs**: `docker-compose logs`
 - **Application logs**: `logs/` directory in each service
-- **Sensor logs**: Check MAX31855 container output
+- **Sensor logs**: Check BME688 container output
 
 ### Performance Optimization
 
@@ -455,4 +473,10 @@ For stable releases, check: [Releases](https://github.com/dsamborschi/zemfyre-se
 
 ---
 
-**Made with ❤️ for the IoT community**
+**Powered by Zemfyre Inc SPE Technology** | **Software by iotistic.ca IoT Experts** | **Made with ❤️ for the IoT community**
+
+### About Zemfyre Inc
+Zemfyre Inc is the industry leader in Single Pair Ethernet (SPE) technology, providing innovative solutions for simplified industrial networking. Our SPE technology enables both data and power transmission over a single pair of wires, reducing installation complexity and costs for IoT deployments.
+
+### About iotistic.ca
+The application software was expertly crafted by the IoT software specialists at **iotistic.ca**. Our team brings decades of experience in industrial IoT solutions, containerized applications, and real-time data systems. We specialize in creating robust, scalable IoT platforms for environmental monitoring and industrial automation.
