@@ -9,5 +9,5 @@ RUN apt-get update && apt-get install -y libnotify-bin
 COPY . .
 
 EXPOSE 3001
-# cd api && npm start1
+# cd api && npm start
 CMD ["npm", "start"]
