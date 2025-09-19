@@ -409,7 +409,7 @@ For stable releases, check: [Releases](https://github.com/dsamborschi/zemfyre-se
 
 ---
 
-**Powered by [Zemfyre Inc](https://zemfyre.com) SPE Technology** | **Software by [iotistic.ca](http://www.iotistic.ca) IoT Experts** | **Made with ❤️ for the IoT community**
+**Powered by [Zemfyre Inc](https://zemfyre.com) SPE Technology** | **Software by [Iotistic Inc](http://www.iotistic.ca) IoT Experts** | **Made with ❤️ for the IoT community**
 
 ### About Zemfyre Inc
 [Zemfyre Inc](https://zemfyre.com) is the industry leader in Single Pair Ethernet (SPE) technology, providing innovative solutions for simplified industrial networking. Our SPE technology enables both data and power transmission over a single pair of wires, reducing installation complexity and costs for IoT deployments.
@@ -417,5 +417,5 @@ For stable releases, check: [Releases](https://github.com/dsamborschi/zemfyre-se
 ### About Iotistic Inc 
 The application software was expertly crafted by the IoT software specialists at **[Iotistic Inc](http://www.iotistic.ca)**. Our team brings decades of experience in industrial IoT solutions, containerized applications, and real-time data systems. We specialize in creating robust, scalable IoT platforms for environmental monitoring and industrial automation.
 
-###  Looking for tailored IoT solutions?
+### Looking for tailored IoT solutions?
 Our expert IoT consulting and development services are designed to help you optimize your systems and drive innovation. Contact us today to discuss how we can support your next project!

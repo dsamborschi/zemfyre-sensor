@@ -5,6 +5,7 @@ services:
         ports:
         - "80:80"
         command: ["nginx", "-g", "daemon off;"]
+        restart: unless-stopped
         volumes:
         - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
         networks:
@@ -13,8 +14,8 @@ services:
         image: eclipse-mosquitto
         restart: always
         ports:
-          - "${MOSQUITTO_PORT_EXT}:1883"
-          - "${MOSQUITTO_WS_PORT_EXT}:9001"
+          - "${MOSQUITTO_PORT_EXT:-1883}:1883"
+          - "${MOSQUITTO_WS_PORT_EXT:-59001}:9001"
         volumes:
           - ./mosquitto/config:/mosquitto/config/
         networks:
@@ -36,7 +37,7 @@ services:
     influx:
         container_name: influxdb
         image: influxdb:alpine
-        restart: unless-stopped
+        restart: always
         environment:
             - INFLUXDB_INIT_ORG=Zemfyre
             - INFLUXDB_INIT_BUCKET=ZUS80LP
@@ -50,14 +51,14 @@ services:
            - zemfyre-net
 
     grafana:
+        build:
+           context: ./grafana
+           dockerfile: Dockerfile
         depends_on:
             - influx
-            - nginx
         container_name: grafana
         restart: always
-        build:
-          context: ./grafana
-          dockerfile: Dockerfile
+   
         user: "grafana"
         environment:
             - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME}
@@ -66,11 +67,6 @@ services:
             - GF_AUTH_ANONYMOUS_ORG_ROLE=${GRAFANA_AUTH_ANONYMOUS_ORG_ROLE}
             - GF_AUTH_DISABLE_LOGIN_FORM=${GRAFANA_AUTH_DISABLE_LOGIN_FORM}
             - GF_HTTP_ALLOW_ORIGIN=*
-
-        volumes:
-            - ./grafana/data:/var/lib/grafana
-            - ./grafana/config/grafana.ini:/etc/grafana/grafana.ini
-            - ./grafana/provisioning:/etc/grafana/provisioning
         ports:
             - "${GRAFANA_PORT_EXT:-53000}:3000"
         networks:
@@ -81,7 +77,7 @@ services:
         container_name: portainer
         restart: always
         ports:
-            - "59000:9000"
+            - "${PORT_PORT_EXT:-59000}:9000"
         volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - ./portainer/data:/data
@@ -90,8 +86,8 @@ services:
 
     admin:
         build:
-            context: ./admin
-            dockerfile: Dockerfile
+           context: ./admin
+           dockerfile: Dockerfile
         container_name: admin
         restart: always
         ports:
@@ -106,28 +102,20 @@ services:
         restart: always
         environment:
             - GRAFANA_API_TOKEN=${GRAFANA_API_TOKEN}
+            - DISPLAY=${DISPLAY}
+            - DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}
         volumes:
+          - /tmp/.X11-unix:/tmp/.X11-unix  # for X11
+          - /run/user/1000/bus:/run/user/1000/bus  # for D-Bus socket
           - /var/run/docker.sock:/var/run/docker.sock
+        user: "1000:1000"
         ports:
             - "${API_PORT_EXT:-53001}:3001"
         networks:
            - zemfyre-net
-    max31855:
-        build: 
-           context: ./max31855
-           dockerfile: Dockerfile
-        container_name: max31855_reader
-        privileged: true
-        devices:
-        - /dev/gpiomem
-        restart: unless-stopped
-        networks:
-           - zemfyre-net
+ 
 networks:
-    zemfyre-net:
-       external: true
-
-
-
+  zemfyre-net:
+    driver: bridge
 
 
