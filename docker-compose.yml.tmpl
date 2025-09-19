@@ -86,7 +86,7 @@ services:
            - zemfyre-net
 
     admin:
-        image: iotistic/zemfyre-admin:latest
+        image: iotistic/zemfyre-admin:${DOCKER_TAG}-${DEVICE_TYPE}
         build:
             context: ./admin
             dockerfile: Dockerfile

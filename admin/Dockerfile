@@ -3,7 +3,7 @@ FROM nginx:alpine
 # Copy static React app to nginx html directory
 COPY . /usr/share/nginx/html
 
-# Expose port 80.
+# Expose port 80..
 EXPOSE 80
 
 CMD ["nginx", "-g", "daemon off;"]
