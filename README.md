@@ -1,6 +1,6 @@
 # Zemfyre Sensor - IoT Environmental Monitoring System
 
-A comprehensive IoT solution for environmental monitoring using Bosch BME688 gas sensors with Raspberry Pi, featuring real-time data visualization, machine learning capabilities, and kiosk mode display. This sensor system was designed with SPE (Single Pair Ethernet) technology by **Zemfyre Inc**, the leader in SPE technology solutions. The application software was expertly designed by the IoT software experts team at **iotistic.ca**.
+A comprehensive IoT solution for environmental monitoring using Bosch BME688 gas sensors with Raspberry Pi, featuring real-time data visualization, machine learning capabilities, and kiosk mode display. This sensor system was designed with SPE (Single Pair Ethernet) technology by **[Zemfyre Inc](https://zemfyre.com)**, the leader in SPE technology solutions. The application software was expertly designed by the IoT software experts team at **[Iotistic Inc](http://www.iotistic.ca)**.
 
 ## 🌟 Features
 
@@ -14,7 +14,7 @@ A comprehensive IoT solution for environmental monitoring using Bosch BME688 gas
 - **Machine Learning**: Custom Node-RED ML nodes for predictive analytics
 - **Kiosk Mode**: Full-screen dashboard display for dedicated monitoring stations
 - **Web Admin**: Management interface for system configuration
-- **Expert Design**: Application software designed by IoT software experts at iotistic.ca
+- **Expert Design**: Application software designed by IoT software experts at [Iotistic Inc](http://www.iotistic.ca)
 - **Multi-Platform**: Supports Raspberry Pi (1-5), x86_64, and ARM architectures
 
 ## 📋 Table of Contents
@@ -77,7 +77,7 @@ The system consists of several containerized services:
 ### Sensor Hardware
 - **Bosch BME688 Environmental Sensor**
 - **4-in-1 measurements**: Temperature, Humidity, Pressure, Gas/Air Quality
-- **SPE Connectivity**: Single Pair Ethernet for data and power (designed by Zemfyre Inc)
+- **SPE Connectivity**: Single Pair Ethernet for data and power (designed by [Zemfyre Inc](https://zemfyre.com))
 - **Ethernet Connection**: Sensor connected to Raspberry Pi via Ethernet interface
 - **Default Network Address**: Configurable via DHCP or static IP assignment
 
@@ -480,10 +480,10 @@ For stable releases, check: [Releases](https://github.com/dsamborschi/zemfyre-se
 
 ---
 
-**Powered by Zemfyre Inc SPE Technology** | **Software by iotistic.ca IoT Experts** | **Made with ❤️ for the IoT community**
+**Powered by [Zemfyre Inc](https://zemfyre.com) SPE Technology** | **Software by [iotistic.ca](http://www.iotistic.ca) IoT Experts** | **Made with ❤️ for the IoT community**
 
 ### About Zemfyre Inc
-Zemfyre Inc is the industry leader in Single Pair Ethernet (SPE) technology, providing innovative solutions for simplified industrial networking. Our SPE technology enables both data and power transmission over a single pair of wires, reducing installation complexity and costs for IoT deployments.
+[Zemfyre Inc](https://zemfyre.com) is the industry leader in Single Pair Ethernet (SPE) technology, providing innovative solutions for simplified industrial networking. Our SPE technology enables both data and power transmission over a single pair of wires, reducing installation complexity and costs for IoT deployments.
 
-### About iotistic.ca
-The application software was expertly crafted by the IoT software specialists at **iotistic.ca**. Our team brings decades of experience in industrial IoT solutions, containerized applications, and real-time data systems. We specialize in creating robust, scalable IoT platforms for environmental monitoring and industrial automation.
+### About [Iotistic Inc](http://www.iotistic.ca)
+The application software was expertly crafted by the IoT software specialists at **[Iotistic Inc](http://www.iotistic.ca)**. Our team brings decades of experience in industrial IoT solutions, containerized applications, and real-time data systems. We specialize in creating robust, scalable IoT platforms for environmental monitoring and industrial automation.
