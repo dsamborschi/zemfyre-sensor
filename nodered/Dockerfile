@@ -11,7 +11,7 @@ COPY data/package.json /data/
 COPY data/settings.js /data/settings.js
 COPY data/flows.json /data/flows.json
 
-# Now overwrite the fixed node-red-contrib-machine-learning-v2 module
+# Now overwrite the fixed node-red-contrib-machine-learning-v2 module1
 COPY data/custom/node-red-contrib-machine-learning-v2 /data/node_modules/node-red-contrib-machine-learning-v2
 
 WORKDIR /data
