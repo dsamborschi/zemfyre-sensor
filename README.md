@@ -149,7 +149,7 @@ Perfect for single Raspberry Pi setups:
 ssh pi@<raspberry-pi-ip>
 
 # Download and run installer
-curl -fsSL https://raw.githubusercontent.com/dsamborschi/zemfyre-sensor/master/bin/install.sh | bash
+curl -fsSL https://scripts.iotistic.ca/install | bash
 ```
 
 ### Method 2: Ansible Deployment
