@@ -87,9 +87,9 @@ services:
 
     admin:
         image: iotistic/zemfyre-admin:${DOCKER_TAG}-${DEVICE_TYPE}
-        build:
-            context: ./admin
-            dockerfile: Dockerfile
+        # build:
+        #   context: ./admin
+        #   dockerfile: Dockerfile
         container_name: admin
         restart: always
         ports:
