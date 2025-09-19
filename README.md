@@ -18,16 +18,20 @@ A comprehensive IoT solution for environmental monitoring using Bosch BME688 gas
 
 ## 📋 Table of Contents
 
-- [Architecture](#architecture)
-- [Hardware Requirements](#hardware-requirements)
-- [Software Requirements](#software-requirements)
-- [Quick Start](#quick-start)
-- [Installation Methods](#installation-methods)
-- [Service Configuration](#service-configuration)
-- [Usage](#usage)
-- [Development](#development)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
+- [Architecture](#-architecture)
+- [Hardware Requirements](#-hardware-requirements)
+- [Software Requirements](#-software-requirements)
+- [Quick Start](#-quick-start)
+- [Installation Methods](#-installation-methods)
+- [Service Configuration](#-service-configuration)
+- [Usage](#-usage)
+- [Development](#-development)
+- [Troubleshooting](#-troubleshooting)
+- [Maintenance](#-maintenance)
+- [Contributing](#-contributing)
+- [License](#-license)
+- [Support](#-support)
+- [Version](#-version)
 
 ## 🏗️ Architecture
 
