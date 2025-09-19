@@ -252,7 +252,6 @@ function cleanup() {
     sudo apt-get clean
     sudo docker system prune -f
     sudo apt autoremove -y
-    sudo apt-get install plymouth --reinstall -y
     sudo find /usr/share/doc \
         -depth \
         -type f \
