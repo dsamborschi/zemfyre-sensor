@@ -97,7 +97,7 @@ services:
         networks:
            - zemfyre-net
     api:
-        image: iotistic/zemfyre-api::${DOCKER_TAG}-${DEVICE_TYPE}
+        image: iotistic/zemfyre-api:${DOCKER_TAG}-${DEVICE_TYPE}
         build:
             context: ./api
             dockerfile: Dockerfile
