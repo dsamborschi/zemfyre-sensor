@@ -7,12 +7,12 @@ IMAGE_NAME=ansible-deploy
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
-# Check if .env.pi exists
-if [ ! -f "$SCRIPT_DIR/.env.pi" ]; then
-    echo "ERROR: .env.pi file not found!"
-    echo "Please copy .env.pi.example to .env.pi and update with your values:"
-    echo "  cp ansible/.env.pi.example ansible/.env.pi"
-    echo "  # Edit ansible/.env.pi with your actual configuration"
+# Check if .env exists in project root
+if [ ! -f "$PROJECT_ROOT/.env" ]; then
+    echo "ERROR: .env file not found in project root!"
+    echo "Please copy .env.example to .env and update with your values:"
+    echo "  cp .env.example .env"
+    echo "  # Edit .env with your actual configuration"
     exit 1
 fi
 
@@ -22,7 +22,7 @@ docker build -t $IMAGE_NAME "$SCRIPT_DIR"
 # Run the playbook inside the container, mounting the project root
 # Pass any extra args to ansible playbook (e.g., -i hosts.ini)
 docker run --rm -it \
-  --env-file "$SCRIPT_DIR/.env.pi" \
+  --env-file "$PROJECT_ROOT/.env" \
   -e ANSIBLE_HOST_KEY_CHECKING=False \
   -v "$PROJECT_ROOT:/workspace" \
   $IMAGE_NAME \

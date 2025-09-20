@@ -12,15 +12,16 @@
     nm_dns: ""
     
   pre_tasks:
-    - name: Load environment variables from .env file
+    - name: Load environment variables from environment
       set_fact:
-        grafana_port_ext: "{{ lookup('file', playbook_dir + '/.env.pi').splitlines() | select('match', '^GRAFANA_PORT_EXT=') | map('regex_replace', '^GRAFANA_PORT_EXT=(.*)$', '\\1') | list | first | default('3000') }}"
-        admin_port: "{{ lookup('file', playbook_dir + '/.env.pi').splitlines() | select('match', '^ADMIN_PORT=') | map('regex_replace', '^ADMIN_PORT=(.*)$', '\\1') | list | first | default('51850') }}"
+        grafana_port_ext: "{{ lookup('env', 'GRAFANA_PORT_EXT') | default('3000') }}"
+        admin_port: "{{ lookup('env', 'ADMIN_PORT_EXT') | default('51850') }}"
 
   roles:
     - system
     - network
     - kiosk
+    - docker
 
 
 
