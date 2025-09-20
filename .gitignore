@@ -1,0 +1,12 @@
+nodered/data/node-modules/*
+nodered/data/lib/*
+nodered/data/.npm
+influx/data/engine/*
+influx/data/influxd.sqlite
+.env
+.env.local
+.env.development
+.env.production
+.env.staging
+
+
