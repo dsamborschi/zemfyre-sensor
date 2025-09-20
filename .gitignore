@@ -8,5 +8,6 @@ influx/data/influxd.sqlite
 .env.development
 .env.production
 .env.staging
+ansible/.env.pi
 
 
