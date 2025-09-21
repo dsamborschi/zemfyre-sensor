@@ -2,7 +2,7 @@
 
 set -e
 
-tag="v.1.0.3"
+tag="v.1.0.5"
 tag=$(echo "$tag" | sed 's|+|.|g')
 
 # Check and warn about missing required commands before doing any actual work.
@@ -57,7 +57,7 @@ case "$machine" in
 esac
 
 # Download and decompress into the target location
-url="https://github.com/dsamborschi/balena-engine/releases/download/${tag}/balena-engine-${tag}-${arch}.tar.gz"
+url="https://github.com/dsamborschi/balena-engine/releases/download/${tag}/iotistic-engine-${tag}-${arch}.tar.gz"
 
 curl -sL "$url" | $sudo tar xzv -C /usr/local/bin --strip-components=1
 
