@@ -57,7 +57,7 @@ case "$machine" in
 esac
 
 # Download and decompress into the target location
-url="https://github.com/dsamborschi/balena-engine/releases/download/${tag}/iotistic-engine-${tag}-${arch}.tar.gz"
+url="https://github.com/dsamborschi/iotistic-engine/releases/download/${tag}/iotistic-engine-${tag}-${arch}.tar.gz"
 
 curl -sL "$url" | $sudo tar xzv -C /usr/local/bin --strip-components=1
 
