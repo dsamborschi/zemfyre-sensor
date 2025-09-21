@@ -2,7 +2,7 @@
 
 set -e
 
-tag="v.1.0.5"
+tag="v1.0.5"
 tag=$(echo "$tag" | sed 's|+|.|g')
 
 # Check and warn about missing required commands before doing any actual work.
