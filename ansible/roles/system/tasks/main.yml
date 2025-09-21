@@ -150,24 +150,39 @@
 
 # ---------------- Docker Compose V2 Plugin -----------------
 
+- name: Get system architecture for Docker Compose
+  ansible.builtin.command: uname -m
+  register: system_arch
+  changed_when: false
+
+- name: Set Docker Compose architecture variable
+  ansible.builtin.set_fact:
+    compose_arch: "{{ 'x86_64' if system_arch.stdout == 'x86_64' else 'aarch64' if system_arch.stdout == 'aarch64' else 'armv7' }}"
+
 - name: Create CLI plugins directory
-  file:
+  ansible.builtin.file:
     path: "/usr/local/lib/docker/cli-plugins"
     state: directory
     owner: root
     group: root
     mode: "0755"
 
-- name: Download Docker Compose V2 binary (Raspberry Pi)
-  get_url:
-    url: "https://github.com/docker/compose/releases/download/v2.28.2/docker-compose-linux-aarch64"
+- name: Download Docker Compose V2 binary
+  ansible.builtin.get_url:
+    url: "https://github.com/docker/compose/releases/download/v2.29.2/docker-compose-linux-{{ compose_arch }}"
     dest: "/usr/local/lib/docker/cli-plugins/docker-compose"
     mode: '0755'
     owner: root
     group: root
 
-- name: Verify docker-compose version
-  command: appengine compose version
+- name: Verify docker compose installation
+  ansible.builtin.command: docker compose version
+  register: compose_version
+  changed_when: false
+
+- name: Display Docker Compose version
+  ansible.builtin.debug:
+    msg: "Docker Compose version: {{ compose_version.stdout }}"
 
 - name: Perform system upgrade
   ansible.builtin.apt:
