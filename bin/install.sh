@@ -424,7 +424,7 @@ function main() {
     initialize_locales
     install_packages
     
-    install_appEngine
+    # install_appEngine
 
     install_ansible
     run_ansible_playbook

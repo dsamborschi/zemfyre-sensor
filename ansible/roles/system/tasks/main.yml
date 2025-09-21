@@ -148,6 +148,27 @@
 #     ansible_architecture == "armv7l" or
 #     ansible_architecture == "armv6l"
 
+# ---------------- Docker Compose V2 Plugin -----------------
+
+- name: Create CLI plugins directory
+  file:
+    path: "/usr/local/lib/docker/cli-plugins"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Download Docker Compose V2 binary (Raspberry Pi)
+  get_url:
+    url: "https://github.com/docker/compose/releases/download/v2.28.2/docker-compose-linux-aarch64"
+    dest: "/usr/local/lib/docker/cli-plugins/docker-compose"
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Verify docker-compose version
+  command: appengine compose version
+
 - name: Perform system upgrade
   ansible.builtin.apt:
     upgrade: dist
