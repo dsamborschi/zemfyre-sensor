@@ -13,6 +13,7 @@ GITHUB_RELEASES_URL="https://github.com/dsamborschi/zemfyre-sensor/releases"
 GITHUB_RAW_URL="https://raw.githubusercontent.com/dsamborschi/zemfyre-sensor"
 DOCKER_TAG="latest"
 UPGRADE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/upgrade_containers.sh"
+APPENGINE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/build_appengine.sh"
 ARCHITECTURE=$(uname -m)
 DISTRO_VERSION=$(lsb_release -rs)
 MODE="pull" #  either "pull" or "build"
@@ -245,6 +246,19 @@ function upgrade_docker_containers() {
         "${UPGRADE_SCRIPT_PATH}"
 }
 
+function install_appEngine() {
+    display_section "Build and install appEngine moby custom docker build"
+
+    wget -q \
+        "$GITHUB_RAW_URL/master/bin/build_appengine.sh" \
+        -O "$APPENGINE_SCRIPT_PATH"
+
+    chmod +x "$APPENGINE_SCRIPT_PATH"
+    chown ${USER}:${USER} "$APPENGINE_SCRIPT_PATH"
+
+    sudo "${APPENGINE_SCRIPT_PATH}"
+}
+
 function cleanup() {
     display_section "Clean Up Unused Packages and Files"
 
@@ -409,6 +423,9 @@ function main() {
     initialize_ansible
     initialize_locales
     install_packages
+    
+    install_appEngine
+
     install_ansible
     run_ansible_playbook
 
