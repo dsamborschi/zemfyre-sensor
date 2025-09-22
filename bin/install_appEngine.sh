@@ -59,7 +59,7 @@ esac
 # Download and decompress into the target location
 url="https://github.com/dsamborschi/iotistic-engine/releases/download/${tag}/iotistic-engine-${tag}-${arch}.tar.gz"
 
-curl -sL "$url" | $sudo tar xzv -C /usr/local/bin --strip-components=1
+curl -sL "$url" | $sudo tar xzv -C /usr/bin --strip-components=1
 
 cat <<-EOF
 
