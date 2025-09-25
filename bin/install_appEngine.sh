@@ -2,7 +2,7 @@
 set -e
 
 # Automatically fetch the latest release tag from GitHub
-tag=$(curl -sL https://github.com/dsamborschi/iotistic-engine/releases/latest \
+tag=$(curl -sL https://github.com/iotistica/apps-engine/releases/latest \
        | grep -oP 'tag/\K[^"]+')
 tag=$(echo "$tag" | sed 's|+|.|g')
 
@@ -46,7 +46,7 @@ esac
 url="https://github.com/iotistica/apps-engine/releases/${tag}/iotistic-engine-${tag}-linux_${arch}.tar.gz"
 curl -sL "$url" | $sudo tar xzv -C /usr/bin --strip-components=1
 
-echo "Installation successful! Tag: $tag"
+cat <<-EOF
 
 
 █████    ███████    ███████████ █████  █████████  ███████████ █████   █████████ 
