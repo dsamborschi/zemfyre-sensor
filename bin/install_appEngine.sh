@@ -45,39 +45,3 @@ esac
 # Download and extract
 url="https://github.com/iotistica/apps-engine/releases/download/${tag}/iotistic-engine-${tag}-linux_${arch}.tar.gz"
 curl -sL "$url" | $sudo tar xzv -C /usr/bin --strip-components=1
-
-cat <<-EOF
-
-Installation successful!
-
-█████    ███████    ███████████ █████  █████████  ███████████ █████   █████████ 
-░░███   ███░░░░░███ ░█░░░███░░░█░░███  ███░░░░░███░█░░░███░░░█░░███   ███░░░░░███
- ░███  ███     ░░███░   ░███  ░  ░███ ░███    ░░░ ░   ░███  ░  ░███  ███     ░░░ 
- ░███ ░███      ░███    ░███     ░███ ░░█████████     ░███     ░███ ░███         
- ░███ ░███      ░███    ░███     ░███  ░░░░░░░░███    ░███     ░███ ░███         
- ░███ ░░███     ███     ░███     ░███  ███    ░███    ░███     ░███ ░░███     ███
- █████ ░░░███████░      █████    █████░░█████████     █████    █████ ░░█████████ 
-░░░░░    ░░░░░░░       ░░░░░    ░░░░░  ░░░░░░░░░     ░░░░░    ░░░░░   ░░░░░░░░░  
-  
-  the container engine for the IoT
-
-To use appEngine you need to start iotitic-engine-daemon as a background process...
-This can be done manually or using the init system scripts provided here:
-
-    https://github.com/balena-os/balena-engine/tree/$tag/contrib/init
-
-This requires adding a \"iotistic-engine\" group for the daemon to run under:
-
-    sudo groupadd -r iotistic-engine
-
-If you want to allow non-root users to run containers they can be added to this group
-with something like:
-
-    sudo usermod -aG iotistic-engine <user>
-
-WARNING: Adding a user to the \"iotistic-engine\" group will grant the ability to run
-         containers which can be used to obtain root privileges on the
-         docker host.
-         Refer to https://docs.docker.com/engine/security/security/#docker-daemon-attack-surface
-         for more information.
-EOF
