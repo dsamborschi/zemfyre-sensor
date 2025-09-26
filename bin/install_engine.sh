@@ -60,6 +60,9 @@ esac
 # Download and extract
 
 # Download and extract
+# curl -L https://github.com/iotistica/apps-engine/releases/download/${tag}/iotistic-engine-${tag}-linux_${arch}.tar.gz \
+#   | sudo tar xzv -C /usr/bin --strip-components=1
+
 url="https://github.com/iotistica/apps-engine/releases/download/${tag}/iotistic-engine-${tag}-linux_${arch}.tar.gz"
 curl -sL "$url" | $sudo tar xzv -C /usr/bin --strip-components=1
 
