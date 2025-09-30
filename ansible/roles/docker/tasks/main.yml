@@ -47,7 +47,7 @@
   community.docker.docker_compose_v2:
     project_src: "{{ repo_dir }}"
     files:
-      - docker-compose.pi.yaml
+      - docker-compose.yaml
     state: present
     build: always
   become: true
