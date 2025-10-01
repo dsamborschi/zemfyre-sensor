@@ -7,8 +7,6 @@ services:
             tty: true
             restart: always
             network_mode: host
-            ports:
-            - "${APP_MANAGER_PORT_EXT:-53002}:3002"
             volumes:
             - /var/run/docker.sock:/var/run/docker.sock
             - application-manager-data:/app/data
