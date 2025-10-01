@@ -14,8 +14,6 @@ jobs:
     strategy:
       matrix:
         include:
-          - board: pi3
-            platform: linux/arm/v7
           - board: pi4
             platform: linux/arm/v7
           - board: pi4-64
