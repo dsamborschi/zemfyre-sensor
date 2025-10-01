@@ -1,49 +1,32 @@
-# Multi-stage build for optimal image size
-
-# ----------------------
-# Build stage
-# ----------------------
-FROM node:20-alpine AS builder
+# Use slim Debian base
+FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apk add --no-cache python3 make g++ bash
+# Install build tools
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 
-# Copy package files
-COPY package*.json ./ 
+COPY package*.json ./
 COPY tsconfig.json ./
-
-# Install all dependencies (including dev)
 RUN npm ci
 
-# Copy source code
 COPY src ./src
-
-# Build TypeScript
 RUN npm run build
 
-# ----------------------
 # Production stage
-# ----------------------
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
-
-# Install runtime build dependencies temporarily (needed for sqlite3)
-RUN apk add --no-cache python3 py3-distutils make g++ bash
-
-# Copy package files
 COPY package*.json ./
 
-# Install only production dependencies
+# Install production dependencies
+RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
 RUN npm ci --omit=dev
 
-# Copy built files from builder stage
 COPY --from=builder /app/dist ./dist
 
-# Remove build tools to keep image small
-RUN apk del python3 make g++ bash
+# Remove build tools to shrink image
+RUN apt-get purge -y python3 make g++ && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
-# Start the API server
+
 CMD ["npm", "run", "start:docker"]
