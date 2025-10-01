@@ -88,6 +88,8 @@ export class ContainerManager extends EventEmitter {
 	private isApplyingState = false;
 	private dockerManager: DockerManager;
 	private useRealDocker: boolean;
+	private reconciliationInterval?: NodeJS.Timeout;
+	private isReconciliationEnabled = false;
 
 	constructor(useRealDocker: boolean = false) {
 		super();
@@ -706,6 +708,54 @@ export class ContainerManager extends EventEmitter {
 				}
 			});
 		});
+	}
+
+	// ========================================================================
+	// AUTO-RECONCILIATION (Like Balena Supervisor)
+	// ========================================================================
+
+	/**
+	 * Start automatic reconciliation loop
+	 * This monitors containers and automatically restarts them if they stop
+	 */
+	public startAutoReconciliation(intervalMs: number = 30000): void {
+		if (this.isReconciliationEnabled) {
+			console.log('Auto-reconciliation already running');
+			return;
+		}
+
+		console.log(`🔄 Starting auto-reconciliation every ${intervalMs}ms`);
+		this.isReconciliationEnabled = true;
+
+		this.reconciliationInterval = setInterval(async () => {
+			if (this.useRealDocker && !this.isApplyingState) {
+				console.log('🔄 Auto-reconciliation check...');
+				try {
+					await this.applyTargetState();
+				} catch (error) {
+					console.error('Auto-reconciliation error:', error);
+				}
+			}
+		}, intervalMs);
+	}
+
+	/**
+	 * Stop automatic reconciliation loop
+	 */
+	public stopAutoReconciliation(): void {
+		if (this.reconciliationInterval) {
+			clearInterval(this.reconciliationInterval);
+			this.reconciliationInterval = undefined;
+			this.isReconciliationEnabled = false;
+			console.log('🛑 Stopped auto-reconciliation');
+		}
+	}
+
+	/**
+	 * Check if auto-reconciliation is enabled
+	 */
+	public isAutoReconciliationEnabled(): boolean {
+		return this.isReconciliationEnabled;
 	}
 }
 

@@ -419,3 +419,35 @@ The application software was expertly crafted by the IoT software specialists at
 
 ### Looking for tailored IoT solutions?
 Our expert IoT consulting and development services are designed to help you optimize your systems and drive innovation. Contact us today to discuss how we can support your next project!
+
+
+
+curl -X POST http://localhost:3002/api/v1/state/target \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apps": {
+      "1001": {
+        "appId": 1001,
+        "appName": "my-nginx-test",
+        "services": [
+          {
+            "serviceId": 1,
+            "serviceName": "nginx",
+            "imageName": "nginx:alpine",
+            "appId": 1001,
+            "appName": "my-nginx-test",
+            "config": {
+              "image": "nginx:alpine",
+              "ports": ["8085:80"],
+              "environment": {
+                "ENV": "production"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }'
+
+
+curl -X POST http://localhost:3002/api/v1/state/apply

@@ -18,7 +18,7 @@ import * as db from '../db';
 // ============================================================================
 
 const app = express();
-const PORT = process.env.APP_MANAGER_PORT_EXT || 3002;
+const PORT = process.env.PORT || 3002;
 
 // Middleware
 app.use(cors());
@@ -40,7 +40,14 @@ async function initializeServer() {
 	containerManager = new ContainerManager(USE_REAL_DOCKER);
 	await containerManager.init();
 	
-	console.log('Server initialization complete');
+	// Enable auto-reconciliation if using real Docker
+	if (USE_REAL_DOCKER) {
+		const intervalMs = parseInt(process.env.RECONCILIATION_INTERVAL_MS || '30000', 10);
+		containerManager.startAutoReconciliation(intervalMs);
+		console.log(`✅ Auto-reconciliation enabled (${intervalMs}ms interval)`);
+	}
+	
+	console.log('✅ Server initialization complete');
 }
 
 // Store for tracking operations
@@ -229,10 +236,10 @@ app.post('/api/v1/state/apply', async (req: Request, res: Response) => {
 		containerManager
 			.applyTargetState()
 			.then(() => {
-				console.log('Reconciliation complete');
+				console.log('✅ Reconciliation complete');
 			})
 			.catch((error) => {
-				console.error('Reconciliation failed:', error);
+				console.error('❌ Reconciliation failed:', error);
 				lastError = error instanceof Error ? error.message : String(error);
 				isReconciling = false;
 			});
@@ -471,7 +478,7 @@ initializeServer().then(() => {
 	// Start Express server
 	app.listen(PORT, () => {
 		console.log('='.repeat(80));
-		console.log('Simple Container Manager API');
+		console.log('🚀 Simple Container Manager API');
 		console.log('='.repeat(80));
 		console.log(`Server running on http://localhost:${PORT}`);
 		console.log(`Documentation: http://localhost:${PORT}/api/docs`);
