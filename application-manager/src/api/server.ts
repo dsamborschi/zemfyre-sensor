@@ -40,7 +40,7 @@ async function initializeServer() {
 	containerManager = new ContainerManager(USE_REAL_DOCKER);
 	await containerManager.init();
 	
-	console.log('✅ Server initialization complete');
+	console.log('Server initialization complete');
 }
 
 // Store for tracking operations
@@ -229,10 +229,10 @@ app.post('/api/v1/state/apply', async (req: Request, res: Response) => {
 		containerManager
 			.applyTargetState()
 			.then(() => {
-				console.log('✅ Reconciliation complete');
+				console.log('Reconciliation complete');
 			})
 			.catch((error) => {
-				console.error('❌ Reconciliation failed:', error);
+				console.error('Reconciliation failed:', error);
 				lastError = error instanceof Error ? error.message : String(error);
 				isReconciling = false;
 			});
