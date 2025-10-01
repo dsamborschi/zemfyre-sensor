@@ -12,9 +12,11 @@ services:
           - "${APP_MANAGER_PORT_EXT:-53002}:3002"
         volumes:
           - /var/run/docker.sock:/var/run/docker.sock
+          - aplication-manager-data:/app/data
         environment:
           - USE_REAL_DOCKER=true
           - NODE_ENV=production
+          - DATABASE_PATH=/app/data/database.sqlite
 
     nginx:
         image: nginx
@@ -133,6 +135,9 @@ services:
             - "${API_PORT_EXT:-53001}:3001"
         networks:
            - zemfyre-net
+volumes:
+  application-manager-data:
+    driver: local
  
 networks:
   zemfyre-net:

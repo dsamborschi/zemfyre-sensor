@@ -28,5 +28,9 @@ COPY --from=builder /app/dist ./dist
 # Remove build tools to shrink image
 RUN apt-get purge -y python3 make g++ && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
 
+# Create data directory and declare volume
+RUN mkdir -p /app/data
+VOLUME ["/app/data"]
+
 
 CMD ["npm", "run", "start:docker"]

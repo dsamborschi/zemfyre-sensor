@@ -16,6 +16,7 @@
 import { EventEmitter } from 'events';
 import _ from 'lodash';
 import { DockerManager } from './docker-manager';
+import * as db from './db';
 
 // ============================================================================
 // TYPES (Simplified)
@@ -94,6 +95,72 @@ export class ContainerManager extends EventEmitter {
 		this.dockerManager = new DockerManager();
 	}
 
+	/**
+	 * Initialize and load persisted state from database
+	 */
+	public async init(): Promise<void> {
+		console.log('Initializing ContainerManager...');
+		
+		// Load target state from database
+		await this.loadTargetStateFromDB();
+		
+		// Sync current state from Docker if using real Docker
+		if (this.useRealDocker) {
+			await this.syncCurrentStateFromDocker();
+		}
+		
+		console.log('✅ ContainerManager initialized');
+	}
+
+	/**
+	 * Load target state from database
+	 */
+	private async loadTargetStateFromDB(): Promise<void> {
+		try {
+			const snapshots = await db.models('stateSnapshot')
+				.where({ type: 'target' })
+				.orderBy('createdAt', 'desc')
+				.limit(1);
+
+			if (snapshots.length > 0) {
+				this.targetState = JSON.parse(snapshots[0].state);
+				console.log('✅ Loaded target state from database');
+				this.emit('target-state-changed', this.targetState);
+			}
+		} catch (error) {
+			console.error('Failed to load target state from DB:', error);
+		}
+	}
+
+	/**
+	 * Save target state to database
+	 */
+	private async saveTargetStateToDB(): Promise<void> {
+		try {
+			await db.models('stateSnapshot').insert({
+				type: 'target',
+				state: JSON.stringify(this.targetState),
+			});
+			console.log('✅ Saved target state to database');
+		} catch (error) {
+			console.error('Failed to save target state to DB:', error);
+		}
+	}
+
+	/**
+	 * Save current state to database
+	 */
+	private async saveCurrentStateToDB(): Promise<void> {
+		try {
+			await db.models('stateSnapshot').insert({
+				type: 'current',
+				state: JSON.stringify(this.currentState),
+			});
+		} catch (error) {
+			console.error('Failed to save current state to DB:', error);
+		}
+	}
+
 	// Typed event emitter methods
 	public on<K extends keyof ContainerManagerEvents>(
 		event: K,
@@ -116,9 +183,13 @@ export class ContainerManager extends EventEmitter {
 	/**
 	 * Set what containers SHOULD be running (target state)
 	 */
-	public setTarget(target: SimpleState): void {
+	public async setTarget(target: SimpleState): Promise<void> {
 		console.log('Setting target state...');
 		this.targetState = _.cloneDeep(target);
+		
+		// Persist to database
+		await this.saveTargetStateToDB();
+		
 		this.emit('target-state-changed', target);
 	}
 
@@ -145,10 +216,10 @@ export class ContainerManager extends EventEmitter {
 
 			// Build state from running containers
 			for (const container of containers) {
-				const appId = parseInt(container.labels['io.balena.app-id']);
-				const appName = container.labels['io.balena.app-name'];
-				const serviceId = parseInt(container.labels['io.balena.service-id']);
-				const serviceName = container.labels['io.balena.service-name'];
+				const appId = parseInt(container.labels['iotistic.app-id']);
+				const appName = container.labels['iotistic.app-name'];
+				const serviceId = parseInt(container.labels['iotistic.service-id']);
+				const serviceName = container.labels['iotistic.service-name'];
 
 				// Ensure app exists
 				if (!this.currentState.apps[appId]) {
@@ -232,6 +303,9 @@ export class ContainerManager extends EventEmitter {
 
 			console.log('\nState reconciliation complete!');
 			console.log('='.repeat(80) + '\n');
+
+			// Save current state snapshot after successful reconciliation
+			await this.saveCurrentStateToDB();
 
 			this.emit('state-applied');
 		} catch (error) {

@@ -11,6 +11,7 @@ import cors from 'cors';
 import bodyParser from 'body-parser';
 import ContainerManager from '../container-manager';
 import type { SimpleState, SimpleApp, SimpleService } from '../container-manager';
+import * as db from '../db';
 
 // ============================================================================
 // SERVER SETUP
@@ -26,28 +27,25 @@ app.use(bodyParser.json());
 // Create container manager instance
 // Set USE_REAL_DOCKER=true to use real Docker instead of simulation
 const USE_REAL_DOCKER = process.env.USE_REAL_DOCKER === 'true';
-const containerManager = new ContainerManager(USE_REAL_DOCKER);
+let containerManager: ContainerManager;
+
+// Initialize database and container manager
+async function initializeServer() {
+	console.log('🚀 Initializing server...');
+	
+	// Initialize database
+	await db.initialized();
+	
+	// Create and initialize container manager
+	containerManager = new ContainerManager(USE_REAL_DOCKER);
+	await containerManager.init();
+	
+	console.log('✅ Server initialization complete');
+}
 
 // Store for tracking operations
 let isReconciling = false;
 let lastError: string | null = null;
-
-// ============================================================================
-// EVENT LISTENERS
-// ============================================================================
-
-containerManager.on('target-state-changed', (state) => {
-	console.log('📡 Target state updated');
-});
-
-containerManager.on('current-state-changed', (state) => {
-	console.log('📡 Current state updated');
-});
-
-containerManager.on('state-applied', () => {
-	console.log('✅ State successfully applied');
-	isReconciling = false;
-});
 
 // ============================================================================
 // API ROUTES
@@ -176,7 +174,7 @@ app.get('/api/v1/state/target', (req: Request, res: Response) => {
  * 
  * Body: SimpleState object
  */
-app.post('/api/v1/state/target', (req: Request, res: Response) => {
+app.post('/api/v1/state/target', async (req: Request, res: Response) => {
 	try {
 		const targetState: SimpleState = req.body;
 
@@ -196,7 +194,7 @@ app.post('/api/v1/state/target', (req: Request, res: Response) => {
 		}
 
 		// Set target state
-		containerManager.setTarget(targetState);
+		await containerManager.setTarget(targetState);
 
 		res.json({
 			status: 'success',
@@ -338,7 +336,7 @@ app.get('/api/v1/apps/:appId', async (req: Request, res: Response) => {
  * 
  * Body: SimpleApp object
  */
-app.post('/api/v1/apps/:appId', (req: Request, res: Response) => {
+app.post('/api/v1/apps/:appId', async (req: Request, res: Response) => {
 	try {
 		const appId = parseInt(req.params.appId, 10);
 		if (isNaN(appId)) {
@@ -372,7 +370,7 @@ app.post('/api/v1/apps/:appId', (req: Request, res: Response) => {
 		targetState.apps[appId] = app;
 
 		// Set new target state
-		containerManager.setTarget(targetState);
+		await containerManager.setTarget(targetState);
 
 		res.json({
 			status: 'success',
@@ -391,7 +389,7 @@ app.post('/api/v1/apps/:appId', (req: Request, res: Response) => {
  * DELETE /api/v1/apps/:appId
  * Remove app from target state
  */
-app.delete('/api/v1/apps/:appId', (req: Request, res: Response) => {
+app.delete('/api/v1/apps/:appId', async (req: Request, res: Response) => {
 	try {
 		const appId = parseInt(req.params.appId, 10);
 		if (isNaN(appId)) {
@@ -416,7 +414,7 @@ app.delete('/api/v1/apps/:appId', (req: Request, res: Response) => {
 		delete targetState.apps[appId];
 
 		// Set new target state
-		containerManager.setTarget(targetState);
+		await containerManager.setTarget(targetState);
 
 		res.json({
 			status: 'success',
@@ -454,23 +452,45 @@ app.use((err: Error, req: Request, res: Response, next: any) => {
 // START SERVER
 // ============================================================================
 
-app.listen(PORT, () => {
-	console.log('='.repeat(80));
-	console.log('🚀 Simple Container Manager API');
-	console.log('='.repeat(80));
-	console.log(`Server running on http://localhost:${PORT}`);
-	console.log(`Documentation: http://localhost:${PORT}/api/docs`);
-	console.log('='.repeat(80));
-	console.log('\nEndpoints:');
-	console.log(`  GET    /api/v1/state           - Get current and target state`);
-	console.log(`  POST   /api/v1/state/target    - Set target state`);
-	console.log(`  POST   /api/v1/state/apply     - Apply target state`);
-	console.log(`  GET    /api/v1/status          - Get manager status`);
-	console.log(`  GET    /api/v1/apps            - List all apps`);
-	console.log(`  GET    /api/v1/apps/:appId     - Get specific app`);
-	console.log(`  POST   /api/v1/apps/:appId     - Set app`);
-	console.log(`  DELETE /api/v1/apps/:appId     - Remove app`);
-	console.log('='.repeat(80) + '\n');
+// Initialize and start server
+initializeServer().then(() => {
+	// Setup event listeners after containerManager is initialized
+	containerManager.on('target-state-changed', (state) => {
+		console.log('📡 Target state updated');
+	});
+
+	containerManager.on('current-state-changed', (state) => {
+		console.log('📡 Current state updated');
+	});
+
+	containerManager.on('state-applied', () => {
+		console.log('✅ State successfully applied');
+		isReconciling = false;
+	});
+
+	// Start Express server
+	app.listen(PORT, () => {
+		console.log('='.repeat(80));
+		console.log('🚀 Simple Container Manager API');
+		console.log('='.repeat(80));
+		console.log(`Server running on http://localhost:${PORT}`);
+		console.log(`Documentation: http://localhost:${PORT}/api/docs`);
+		console.log(`Docker mode: ${USE_REAL_DOCKER ? 'REAL' : 'SIMULATED'}`);
+		console.log('='.repeat(80));
+		console.log('\nEndpoints:');
+		console.log(`  GET    /api/v1/state           - Get current and target state`);
+		console.log(`  POST   /api/v1/state/target    - Set target state`);
+		console.log(`  POST   /api/v1/state/apply     - Apply target state`);
+		console.log(`  GET    /api/v1/status          - Get manager status`);
+		console.log(`  GET    /api/v1/apps            - List all apps`);
+		console.log(`  GET    /api/v1/apps/:appId     - Get specific app`);
+		console.log(`  POST   /api/v1/apps/:appId     - Set app`);
+		console.log(`  DELETE /api/v1/apps/:appId     - Remove app`);
+		console.log('='.repeat(80) + '\n');
+	});
+}).catch((error) => {
+	console.error('❌ Failed to initialize server:', error);
+	process.exit(1);
 });
 
 export default app;

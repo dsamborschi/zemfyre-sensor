@@ -147,10 +147,10 @@ export class DockerManager {
 					},
 				},
 				Labels: {
-					'io.balena.app-id': service.appId.toString(),
-					'io.balena.app-name': service.appName,
-					'io.balena.service-id': service.serviceId.toString(),
-					'io.balena.service-name': service.serviceName,
+					'iotistic.app-id': service.appId.toString(),
+					'iotistic.app-name': service.appName,
+					'iotistic.service-id': service.serviceId.toString(),
+					'iotistic.service-name': service.serviceName,
 					...(service.config.labels || {}),
 				},
 			};
@@ -234,7 +234,7 @@ export class DockerManager {
 		const containers = await this.docker.listContainers({
 			all: true,
 			filters: {
-				label: ['io.balena.app-id'],
+				label: ['iotistic.app-id'],
 			},
 		});
 
@@ -278,7 +278,7 @@ export class DockerManager {
 			Name: name,
 			Driver: 'bridge',
 			Labels: {
-				'io.balena.managed': 'true',
+				'iotistic.managed': 'true',
 			},
 		});
 		console.log(`    Network created`);
@@ -314,7 +314,7 @@ export class DockerManager {
 		const volume = await this.docker.createVolume({
 			Name: name,
 			Labels: {
-				'io.balena.managed': 'true',
+				'iotistic.managed': 'true',
 			},
 		});
 		console.log(`    Volume created`);
