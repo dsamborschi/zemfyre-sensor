@@ -31,7 +31,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install runtime build dependencies temporarily (needed for sqlite3)
-RUN apk add --no-cache python3 make g++ bash
+RUN apk add --no-cache python3 py3-distutils make g++ bash
 
 # Copy package files
 COPY package*.json ./
