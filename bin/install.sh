@@ -246,7 +246,7 @@ function upgrade_docker_containers() {
         "${UPGRADE_SCRIPT_PATH}"
 }
 
-function install_appEngine() {
+function install_engine() {
     display_section "Build and install appEngine moby custom docker build"
 
     wget -q \

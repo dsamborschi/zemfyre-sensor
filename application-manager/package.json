@@ -1,0 +1,53 @@
+{
+  "name": "standalone-application-manager",
+  "version": "1.0.0",
+  "description": "Standalone application manager extracted from balena-supervisor with REST API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "clean": "rimraf dist",
+    "dev": "tsx watch src/api/server.ts",
+    "start": "node dist/api/server.js",
+    "start:docker": "USE_REAL_DOCKER=true node dist/api/server.js",
+    "lint": "eslint src --ext .ts",
+    "test": "mocha --require ts-node/register test/**/*.spec.ts"
+  },
+  "keywords": [
+    "balena",
+    "application-manager",
+    "docker",
+    "container-orchestration",
+    "api"
+  ],
+  "author": "",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "bluebird": "^3.7.2",
+    "body-parser": "^1.20.2",
+    "cors": "^2.8.5",
+    "dockerode": "^4.0.2",
+    "express": "^4.18.2",
+    "fp-ts": "^2.16.5",
+    "io-ts": "2.2.20",
+    "knex": "^3.1.0",
+    "lodash": "^4.17.21",
+    "sqlite3": "^5.1.6",
+    "strict-event-emitter-types": "^2.0.0",
+    "typed-error": "^3.2.1"
+  },
+  "devDependencies": {
+    "@types/bluebird": "^3.5.42",
+    "@types/body-parser": "^1.19.5",
+    "@types/cors": "^2.8.17",
+    "@types/dockerode": "^3.3.28",
+    "@types/express": "^4.17.21",
+    "@types/lodash": "^4.17.0",
+    "@types/node": "^22.10.6",
+    "rimraf": "^5.0.10",
+    "ts-node": "^10.0.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.7.3"
+  }
+}
