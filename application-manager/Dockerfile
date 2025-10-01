@@ -15,6 +15,8 @@ RUN npm ci
 COPY src ./src
 RUN npm run build
 
+# Copy migration files (they're .js, not compiled by TypeScript)
+COPY src/migrations ./dist/migrations
 
 # ---- Production stage ----
 FROM node:20-slim AS runtime
@@ -36,6 +38,10 @@ COPY --from=builder /app/dist ./dist
 # Data volume
 RUN mkdir -p /app/data
 VOLUME ["/app/data"]
+
+# Set environment variables
+ENV USE_REAL_DOCKER=true
+ENV DATABASE_PATH=/app/data/database.sqlite
 
 EXPOSE 3002
 
