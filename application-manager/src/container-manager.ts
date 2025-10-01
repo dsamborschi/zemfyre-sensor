@@ -467,11 +467,12 @@ export class ContainerManager extends EventEmitter {
 				});
 			}
 
-			// Service updated (image or config changed)
+			// Service updated (image or config changed) OR container is not running
 			if (currentSvc && targetSvc) {
 				const needsUpdate =
 					currentSvc.imageName !== targetSvc.imageName ||
-					!_.isEqual(currentSvc.config, targetSvc.config);
+					!_.isEqual(currentSvc.config, targetSvc.config) ||
+					currentSvc.status !== 'running'; // Check if container is not running
 
 				if (needsUpdate && currentSvc.containerId) {
 					// Download new image
