@@ -12,7 +12,7 @@ services:
           - "${APP_MANAGER_PORT_EXT:-53002}:3002"
         volumes:
           - /var/run/docker.sock:/var/run/docker.sock
-          - aplication-manager-data:/app/data
+          - application-manager-data:/app/data
         environment:
           - USE_REAL_DOCKER=true
           - NODE_ENV=production
