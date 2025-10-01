@@ -1,5 +1,6 @@
 services:
     application-manager:
+            container_name: application-manager
             build:
                 context: ./application-manager
                 dockerfile: Dockerfile

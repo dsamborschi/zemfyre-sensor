@@ -1,5 +1,6 @@
 services:
     application-manager:
+        container_name: application-manager
         image: iotistic/application-manager:${DOCKER_TAG}-${DEVICE_TYPE}
         build:
             context: ./application-manager
