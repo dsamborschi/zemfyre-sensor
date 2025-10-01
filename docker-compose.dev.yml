@@ -1,5 +1,19 @@
 services:
-
+    application-manager:
+        build:
+            context: ./application-manager
+            dockerfile: Dockerfile
+        privileged: true
+        tty: true
+        restart: always
+        network_mode: host
+        ports:
+          - "${APP_MANAGER_PORT_EXT:-53002}:3002"
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+        environment:
+          - USE_REAL_DOCKER=true
+          - NODE_ENV=production
     nginx:
         image: nginx
         ports:
