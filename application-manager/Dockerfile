@@ -39,9 +39,6 @@ COPY --from=builder /app/dist ./dist
 RUN mkdir -p /app/data
 VOLUME ["/app/data"]
 
-# Set environment variables
-ENV USE_REAL_DOCKER=true
-ENV DATABASE_PATH=/app/data/database.sqlite
 
 EXPOSE 3002
 

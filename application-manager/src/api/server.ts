@@ -18,7 +18,7 @@ import * as db from '../db';
 // ============================================================================
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.APP_MANAGER_PORT_EXT || 3002;
 
 // Middleware
 app.use(cors());
@@ -464,14 +464,14 @@ initializeServer().then(() => {
 	});
 
 	containerManager.on('state-applied', () => {
-		console.log('✅ State successfully applied');
+		console.log('State successfully applied');
 		isReconciling = false;
 	});
 
 	// Start Express server
 	app.listen(PORT, () => {
 		console.log('='.repeat(80));
-		console.log('🚀 Simple Container Manager API');
+		console.log('Simple Container Manager API');
 		console.log('='.repeat(80));
 		console.log(`Server running on http://localhost:${PORT}`);
 		console.log(`Documentation: http://localhost:${PORT}/api/docs`);
@@ -489,7 +489,7 @@ initializeServer().then(() => {
 		console.log('='.repeat(80) + '\n');
 	});
 }).catch((error) => {
-	console.error('❌ Failed to initialize server:', error);
+	console.error('Failed to initialize server:', error);
 	process.exit(1);
 });
 
