@@ -38,7 +38,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache/${{ matrix.board }}
-          key: buildx-api-${{ matrix.board }}-${{ github.sha }}
+          key: buildx-manager-${{ matrix.board }}-${{ github.sha }}
           restore-keys: |
             buildx-manager-${{ matrix.board }}-
 
