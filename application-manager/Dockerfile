@@ -1,36 +1,42 @@
-# Use slim Debian base
+# ---- Build stage ----
 FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install build tools
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+# Install build tools for native deps
+RUN apt-get update && apt-get install -y python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json ./
-COPY tsconfig.json ./
+COPY package*.json tsconfig.json ./
+
+# Install all deps (including dev)
 RUN npm ci
 
 COPY src ./src
 RUN npm run build
 
-# Production stage
-FROM node:20-slim
+
+# ---- Production stage ----
+FROM node:20-slim AS runtime
 
 WORKDIR /app
-COPY package*.json ./
 
-# Install production dependencies
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
-RUN npm ci --omit=dev
+COPY package*.json package-lock.json ./
 
+# Install only production deps, then remove build tools in same layer
+RUN apt-get update \
+    && apt-get install -y python3 make g++ \
+    && npm ci --omit=dev \
+    && apt-get purge -y --auto-remove python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy built app
 COPY --from=builder /app/dist ./dist
 
-# Remove build tools to shrink image
-RUN apt-get purge -y python3 make g++ && apt-get autoremove -y && rm -rf /var/lib/apt/lists/*
-
-# Create data directory and declare volume
+# Data volume
 RUN mkdir -p /app/data
 VOLUME ["/app/data"]
 
+EXPOSE 3002
 
 CMD ["npm", "run", "start:docker"]
