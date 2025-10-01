@@ -2,7 +2,7 @@
 
 ## Quick Start
 
-### Option 1: Simple Test (Recommended)td
+### Option 1: Simple Test (Recommended)tdf
 
 ```bash
 npm install -D tsx
