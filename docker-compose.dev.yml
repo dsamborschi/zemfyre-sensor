@@ -16,6 +16,7 @@ services:
             - NODE_ENV=production
             - DATABASE_PATH=/app/data/database.sqlite
             - MQTT_BROKER=mqtt://mosquitto:1883
+            - ENABLE_FILE_LOGGING=false
     nginx:
         image: nginx
         ports:
