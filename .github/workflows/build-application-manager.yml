@@ -47,20 +47,24 @@ jobs:
         with:
           context: ./application-manager
           file: ./application-manager/Dockerfile
-          load: true   # makes image available to docker run
+          load: true
           platforms: ${{ matrix.platform }}
           cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
           cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
           tags: |
             iotistic/application-manager:test-${{ matrix.board }}
 
-      # Start container in background
+      # Create a custom network for testing
+      - name: Create Docker network
+        run: docker network create app-test-net || true
+
+      # Start app container on the custom network
       - name: Start app container for testing
         run: |
           docker run -d --rm \
             --name app-under-test-${{ matrix.board }} \
             --platform ${{ matrix.platform }} \
-            -p 3002:3002 \
+            --network app-test-net \
             iotistic/application-manager:test-${{ matrix.board }}
 
       # Run tests against the running container
@@ -69,7 +73,8 @@ jobs:
           docker run --rm \
             --platform ${{ matrix.platform }} \
             -v ${{ github.workspace }}/application-manager/test:/app/test \
-            --network host \
+            -e API_URL="http://app-under-test-${{ matrix.board }}:3002" \
+            --network app-test-net \
             iotistic/application-manager:test-${{ matrix.board }} \
             bash /app/test/ci-test.sh
 
