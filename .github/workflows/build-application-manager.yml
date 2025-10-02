@@ -9,7 +9,7 @@ on:
 
 jobs:
   buildx:
-    name: Build & Test & Push Application Manager
+    name: Build, Test & Push Application Manager
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -54,14 +54,31 @@ jobs:
           tags: |
             iotistic/application-manager:test-${{ matrix.board }}
 
+      # Start container in background
+      - name: Start app container for testing
+        run: |
+          docker run -d --rm \
+            --name app-under-test-${{ matrix.board }} \
+            --platform ${{ matrix.platform }} \
+            -p 3002:3002 \
+            iotistic/application-manager:test-${{ matrix.board }}
+
+      # Run tests against the running container
       - name: Run tests
         run: |
           docker run --rm \
             --platform ${{ matrix.platform }} \
             -v ${{ github.workspace }}/application-manager/test:/app/test \
+            --network host \
             iotistic/application-manager:test-${{ matrix.board }} \
             bash /app/test/ci-test.sh
 
+      # Stop the background container
+      - name: Stop test container
+        if: always()
+        run: docker stop app-under-test-${{ matrix.board }} || true
+
+      # Login to Docker Hub (only if tests passed)
       - name: Login to Docker Hub
         if: success()
         uses: docker/login-action@v3
