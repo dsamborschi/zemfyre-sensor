@@ -25,7 +25,7 @@ WORKDIR /app
 
 COPY package*.json package-lock.json ./
 
-# Install only production deps, then remove build tools in same layer
+# Install only production deps, then remove build tools in same layert
 RUN apt-get update \
     && apt-get install -y python3 make g++ curl jq \
     && npm ci --omit=dev \
