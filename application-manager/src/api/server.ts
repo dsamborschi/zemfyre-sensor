@@ -55,9 +55,9 @@ async function initializeServer() {
 	
 	// Local backend (always enabled)
 	logBackend = new LocalLogBackend({
-		maxLogs: 10000,
+		maxLogs: parseInt(process.env.MAX_LOGS || '1000', 10),
 		maxAge: 24 * 60 * 60 * 1000, // 24 hours
-		enableFilePersistence: false,
+		enableFilePersistence: process.env.ENABLE_FILE_LOGGING !== 'false', // Can disable via env
 		logDir: './data/logs',
 	});
 	await logBackend.initialize();

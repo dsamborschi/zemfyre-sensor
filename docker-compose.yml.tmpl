@@ -18,6 +18,7 @@ services:
           - DATABASE_PATH=/app/data/database.sqlite
           - MQTT_BROKER=mqtt://mosquitto:1883
           - ENABLE_FILE_LOGGING=false
+          - MAX_LOGS=500
 
     nginx:
         image: nginx
