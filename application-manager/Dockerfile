@@ -24,7 +24,6 @@ FROM node:20-slim AS runtime
 WORKDIR /app
 
 COPY package*.json package-lock.json ./
-COPY test ./test
 
 # Install only production deps, then remove build tools in same layer
 RUN apt-get update \
