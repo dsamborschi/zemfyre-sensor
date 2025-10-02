@@ -420,7 +420,7 @@ The application software was expertly crafted by the IoT software specialists at
 ### Looking for tailored IoT solutions?
 Our expert IoT consulting and development services are designed to help you optimize your systems and drive innovation. Contact us today to discuss how we can support your next project!
 
-
+# 
 
 curl -X POST http://localhost:3002/api/v1/state/target \
   -H "Content-Type: application/json" \
@@ -449,5 +449,71 @@ curl -X POST http://localhost:3002/api/v1/state/target \
     }
   }'
 
+# apply target state
 
 curl -X POST http://localhost:3002/api/v1/state/apply
+
+# remove a specific app
+curl -X POST http://localhost:3002/api/v1/state/target \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apps": {
+      "1002": {
+        "appId": 1002,
+        "appName": "other-app",
+        "services": [...]
+      }
+    }
+  }'
+
+  # get current state
+
+  curl http://localhost:3002/api/v1/state
+
+
+  # add new apps
+
+  curl -X POST http://localhost:3002/api/v1/state/target \
+  -H "Content-Type: application/json" \
+  -d '{
+    "apps": {
+      "1001": {
+        "appId": 1001,
+        "appName": "my-nginx-test",
+        "services": [
+          {
+            "serviceId": 1,
+            "serviceName": "nginx",
+            "imageName": "nginx:alpine",
+            "appId": 1001,
+            "appName": "my-nginx-test",
+            "config": {
+              "image": "nginx:alpine",
+              "ports": ["8085:80"]
+            }
+          }
+        ]
+      },
+      "1002": {
+        "appId": 1002,
+        "appName": "database",
+        "services": [
+          {
+            "serviceId": 1,
+            "serviceName": "postgres",
+            "imageName": "postgres:15-alpine",
+            "appId": 1002,
+            "appName": "database",
+            "config": {
+              "image": "postgres:15-alpine",
+              "ports": ["5432:5432"],
+              "environment": {
+                "POSTGRES_PASSWORD": "mysecretpassword",
+                "POSTGRES_DB": "mydb"
+              }
+            }
+          }
+        ]
+      }
+    }
+  }'

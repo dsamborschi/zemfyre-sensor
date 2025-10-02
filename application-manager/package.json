@@ -35,6 +35,7 @@
     "lodash": "^4.17.21",
     "sqlite3": "^5.1.6",
     "strict-event-emitter-types": "^2.0.0",
+     "systeminformation": "^5.23.5",
     "typed-error": "^3.2.1"
   },
   "devDependencies": {

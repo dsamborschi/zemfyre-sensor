@@ -12,6 +12,7 @@ import bodyParser from 'body-parser';
 import ContainerManager from '../container-manager';
 import type { SimpleState, SimpleApp, SimpleService } from '../container-manager';
 import * as db from '../db';
+import * as systemMetrics from '../system-metrics';
 
 // ============================================================================
 // SERVER SETUP
@@ -87,6 +88,7 @@ app.get('/api/docs', (req: Request, res: Response) => {
 			'POST /api/v1/state/target': 'Set target state',
 			'POST /api/v1/state/apply': 'Apply target state (reconcile)',
 			'GET /api/v1/status': 'Get manager status',
+			'GET /api/v1/metrics': 'Get system hardware metrics',
 			'GET /api/v1/apps': 'List all apps in current state',
 			'GET /api/v1/apps/:appId': 'Get specific app',
 			'POST /api/v1/apps/:appId': 'Set app (update or create)',
@@ -273,6 +275,29 @@ app.get('/api/v1/status', (req: Request, res: Response) => {
 	} catch (error) {
 		res.status(500).json({
 			error: 'Failed to get status',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+/**
+ * GET /api/v1/metrics
+ * Get system hardware metrics (CPU, memory, storage, temperature)
+ */
+app.get('/api/v1/metrics', async (req: Request, res: Response) => {
+	try {
+		const metrics = await systemMetrics.getSystemMetrics();
+		
+		// Add formatted uptime for convenience
+		const response = {
+			...metrics,
+			uptime_formatted: systemMetrics.formatUptime(metrics.uptime),
+		};
+
+		res.json(response);
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to get system metrics',
 			message: error instanceof Error ? error.message : String(error),
 		});
 	}
