@@ -13,13 +13,16 @@ import ContainerManager from '../container-manager';
 import type { SimpleState, SimpleApp, SimpleService } from '../container-manager';
 import * as db from '../db';
 import * as systemMetrics from '../system-metrics';
+import { LocalLogBackend } from '../logging/local-backend';
+import { ContainerLogMonitor } from '../logging/monitor';
+import type { LogFilter } from '../logging/types';
 
 // ============================================================================
 // SERVER SETUP
 // ============================================================================
 
 const app = express();
-const PORT = process.env.PORT || 3002;
+const PORT = process.env.PORT || 3000;
 
 // Middleware
 app.use(cors());
@@ -29,6 +32,8 @@ app.use(bodyParser.json());
 // Set USE_REAL_DOCKER=true to use real Docker instead of simulation
 const USE_REAL_DOCKER = process.env.USE_REAL_DOCKER === 'true';
 let containerManager: ContainerManager;
+let logBackend: LocalLogBackend;
+let logMonitor: ContainerLogMonitor;
 
 // Initialize database and container manager
 async function initializeServer() {
@@ -37,9 +42,28 @@ async function initializeServer() {
 	// Initialize database
 	await db.initialized();
 	
+	// Initialize logging
+	logBackend = new LocalLogBackend({
+		maxLogs: 10000,
+		maxAge: 24 * 60 * 60 * 1000, // 24 hours
+		enableFilePersistence: true,
+		logDir: './data/logs',
+	});
+	await logBackend.initialize();
+	console.log('✅ Log backend initialized');
+	
 	// Create and initialize container manager
 	containerManager = new ContainerManager(USE_REAL_DOCKER);
 	await containerManager.init();
+	
+	// Initialize log monitor
+	if (USE_REAL_DOCKER) {
+		const docker = containerManager.getDocker();
+		if (docker) {
+			logMonitor = new ContainerLogMonitor(docker, logBackend);
+			console.log('✅ Log monitor initialized');
+		}
+	}
 	
 	// Enable auto-reconciliation if using real Docker
 	if (USE_REAL_DOCKER) {
@@ -89,6 +113,10 @@ app.get('/api/docs', (req: Request, res: Response) => {
 			'POST /api/v1/state/apply': 'Apply target state (reconcile)',
 			'GET /api/v1/status': 'Get manager status',
 			'GET /api/v1/metrics': 'Get system hardware metrics',
+			'GET /api/v1/logs': 'Get container and system logs with filtering',
+			'GET /api/v1/logs/count': 'Get total number of stored logs',
+			'POST /api/v1/logs/:containerId/attach': 'Attach to container logs',
+			'DELETE /api/v1/logs/:containerId/attach': 'Detach from container logs',
 			'GET /api/v1/apps': 'List all apps in current state',
 			'GET /api/v1/apps/:appId': 'Get specific app',
 			'POST /api/v1/apps/:appId': 'Set app (update or create)',
@@ -298,6 +326,154 @@ app.get('/api/v1/metrics', async (req: Request, res: Response) => {
 	} catch (error) {
 		res.status(500).json({
 			error: 'Failed to get system metrics',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+/**
+ * GET /api/v1/logs
+ * Get container and system logs with filtering
+ * 
+ * Query parameters:
+ *   serviceId - Filter by service ID
+ *   serviceName - Filter by service name
+ *   containerId - Filter by container ID
+ *   level - Filter by log level (debug/info/warn/error)
+ *   sourceType - Filter by source type (container/system/manager)
+ *   since - Timestamp (ms) - logs after this time
+ *   until - Timestamp (ms) - logs before this time
+ *   limit - Maximum number of logs to return
+ */
+app.get('/api/v1/logs', async (req: Request, res: Response) => {
+	try {
+		const filter: LogFilter = {};
+
+		// Parse query parameters
+		if (req.query.serviceId) {
+			filter.serviceId = parseInt(req.query.serviceId as string, 10);
+		}
+		if (req.query.serviceName) {
+			filter.serviceName = req.query.serviceName as string;
+		}
+		if (req.query.containerId) {
+			filter.containerId = req.query.containerId as string;
+		}
+		if (req.query.level) {
+			filter.level = req.query.level as any;
+		}
+		if (req.query.sourceType) {
+			filter.sourceType = req.query.sourceType as any;
+		}
+		if (req.query.since) {
+			filter.since = parseInt(req.query.since as string, 10);
+		}
+		if (req.query.until) {
+			filter.until = parseInt(req.query.until as string, 10);
+		}
+		if (req.query.limit) {
+			filter.limit = parseInt(req.query.limit as string, 10);
+		}
+
+		const logs = await logBackend.getLogs(filter);
+
+		res.json({
+			count: logs.length,
+			logs,
+		});
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to get logs',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+/**
+ * GET /api/v1/logs/count
+ * Get total number of stored logs
+ */
+app.get('/api/v1/logs/count', async (req: Request, res: Response) => {
+	try {
+		const count = await logBackend.getLogCount();
+
+		res.json({ count });
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to get log count',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+/**
+ * POST /api/v1/logs/:containerId/attach
+ * Attach to a container's logs
+ */
+app.post('/api/v1/logs/:containerId/attach', async (req: Request, res: Response) => {
+	try {
+		if (!logMonitor) {
+			return res.status(503).json({
+				error: 'Log monitor not available',
+				message: 'Log monitoring is only available in real Docker mode',
+			});
+		}
+
+		const containerId = req.params.containerId;
+		const { serviceId, serviceName } = req.body;
+
+		if (!serviceId || !serviceName) {
+			return res.status(400).json({
+				error: 'Missing required fields',
+				message: 'serviceId and serviceName are required',
+			});
+		}
+
+		await logMonitor.attach({
+			containerId,
+			serviceId: parseInt(serviceId, 10),
+			serviceName,
+			follow: true,
+			stdout: true,
+			stderr: true,
+		});
+
+		res.json({
+			message: 'Successfully attached to container logs',
+			containerId,
+			serviceName,
+		});
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to attach to logs',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+/**
+ * DELETE /api/v1/logs/:containerId/attach
+ * Detach from a container's logs
+ */
+app.delete('/api/v1/logs/:containerId/attach', async (req: Request, res: Response) => {
+	try {
+		if (!logMonitor) {
+			return res.status(503).json({
+				error: 'Log monitor not available',
+				message: 'Log monitoring is only available in real Docker mode',
+			});
+		}
+
+		const containerId = req.params.containerId;
+		await logMonitor.detach(containerId);
+
+		res.json({
+			message: 'Successfully detached from container logs',
+			containerId,
+		});
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to detach from logs',
 			message: error instanceof Error ? error.message : String(error),
 		});
 	}

@@ -15,6 +15,7 @@
 
 import { EventEmitter } from 'events';
 import _ from 'lodash';
+import type Docker from 'dockerode';
 import { DockerManager } from './docker-manager';
 import * as db from './db';
 
@@ -757,6 +758,16 @@ export class ContainerManager extends EventEmitter {
 	 */
 	public isAutoReconciliationEnabled(): boolean {
 		return this.isReconciliationEnabled;
+	}
+
+	/**
+	 * Get the Docker instance (for logging and advanced operations)
+	 */
+	public getDocker(): Docker | undefined {
+		if (this.useRealDocker && this.dockerManager) {
+			return this.dockerManager.getDockerInstance();
+		}
+		return undefined;
 	}
 }
 

@@ -39,7 +39,7 @@ export class DockerManager {
 		return new Promise((resolve, reject) => {
 			this.docker.pull(imageName, (err: any, stream: NodeJS.ReadableStream) => {
 				if (err) {
-					console.error(`    ❌ Failed to pull ${imageName}:`, err.message);
+					console.error(`Failed to pull ${imageName}:`, err.message);
 					return reject(err);
 				}
 
@@ -48,7 +48,7 @@ export class DockerManager {
 					stream,
 					(err: any, output: any) => {
 						if (err) {
-							console.error(`    ❌ Pull failed:`, err.message);
+							console.error(`Pull failed:`, err.message);
 							return reject(err);
 						}
 						console.log(`    Successfully pulled ${imageName}`);
@@ -165,7 +165,7 @@ export class DockerManager {
 			console.log(`    Container started: ${containerId.substring(0, 12)}`);
 			return containerId;
 		} catch (error: any) {
-			console.error(`    ❌ Failed to start container:`, error.message);
+			console.error(`    Failed to start container:`, error.message);
 			throw error;
 		}
 	}
@@ -185,7 +185,7 @@ export class DockerManager {
 			if (error.statusCode === 304) {
 				console.log(`    Container already stopped`);
 			} else {
-				console.error(`    ❌ Failed to stop container:`, error.message);
+				console.error(`    Failed to stop container:`, error.message);
 				throw error;
 			}
 		}
@@ -206,7 +206,7 @@ export class DockerManager {
 			if (error.statusCode === 404) {
 				console.log(`    Container already removed`);
 			} else {
-				console.error(`    ❌ Failed to remove container:`, error.message);
+				console.error(`    Failed to remove container:`, error.message);
 				throw error;
 			}
 		}
@@ -367,6 +367,13 @@ export class DockerManager {
 	 */
 	async getInfo(): Promise<any> {
 		return this.docker.info();
+	}
+
+	/**
+	 * Get the Docker instance (for advanced operations)
+	 */
+	public getDockerInstance(): Docker {
+		return this.docker;
 	}
 }
 
