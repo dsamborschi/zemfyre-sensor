@@ -110,7 +110,7 @@ fi
 echo ""
 
 # Test 9: MQTT Configuration (if MQTT_BROKER is set)
-if [ -n "$MQTT_BROKER" ]  then
+if [ -n "$MQTT_BROKER" ]; then
     echo "Test 9: MQTT Configuration"
     
     # Just verify container started with MQTT config
