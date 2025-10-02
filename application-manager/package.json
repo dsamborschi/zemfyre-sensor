@@ -26,6 +26,7 @@
   "license": "Apache-2.0",
   "dependencies": {
     "@types/mqtt": "^0.0.34",
+    "@types/uuid": "^10.0.0",
     "bluebird": "^3.7.2",
     "body-parser": "^1.20.2",
     "chokidar": "^3.5.3",
@@ -41,7 +42,8 @@
     "sqlite3": "^5.1.6",
     "strict-event-emitter-types": "^2.0.0",
     "systeminformation": "^5.23.5",
-    "typed-error": "^3.2.1"
+    "typed-error": "^3.2.1",
+    "uuid": "^13.0.0"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",

@@ -17,6 +17,8 @@ import { LocalLogBackend } from '../logging/local-backend';
 import { MqttLogBackend } from '../logging/mqtt-backend';
 import { ContainerLogMonitor } from '../logging/monitor';
 import type { LogFilter, LogBackend } from '../logging/types';
+import { DeviceManager } from '../provisioning';
+import type { ProvisioningConfig, ProvisionRequest } from '../provisioning';
 
 // ============================================================================
 // SERVER SETUP
@@ -35,6 +37,7 @@ const USE_REAL_DOCKER = process.env.USE_REAL_DOCKER === 'true';
 let containerManager: ContainerManager;
 let logBackend: LocalLogBackend;
 let logMonitor: ContainerLogMonitor;
+let deviceManager: DeviceManager;
 
 // Initialize database and container manager
 async function initializeServer() {
@@ -43,6 +46,10 @@ async function initializeServer() {
 	// Initialize database
 	await db.initialized();
 	
+	// Initialize device manager (provisioning)
+	deviceManager = new DeviceManager();
+	await deviceManager.initialize();
+	
 	// Initialize logging backends
 	const backends: LogBackend[] = [];
 	
@@ -50,7 +57,7 @@ async function initializeServer() {
 	logBackend = new LocalLogBackend({
 		maxLogs: 10000,
 		maxAge: 24 * 60 * 60 * 1000, // 24 hours
-		enableFilePersistence: true,
+		enableFilePersistence: false,
 		logDir: './data/logs',
 	});
 	await logBackend.initialize();
@@ -150,6 +157,12 @@ app.get('/api/docs', (req: Request, res: Response) => {
 			'GET /api/v1/logs/count': 'Get total number of stored logs',
 			'POST /api/v1/logs/:containerId/attach': 'Attach to container logs',
 			'DELETE /api/v1/logs/:containerId/attach': 'Detach from container logs',
+			'GET /api/v1/device': 'Get device information',
+			'GET /api/v1/device/provisioned': 'Check if device is provisioned',
+			'POST /api/v1/device/provision': 'Provision device (local config)',
+			'POST /api/v1/device/register': 'Register device with remote API',
+			'PATCH /api/v1/device': 'Update device information',
+			'POST /api/v1/device/reset': 'Reset device (unprovision)',
 			'GET /api/v1/apps': 'List all apps in current state',
 			'GET /api/v1/apps/:appId': 'Get specific app',
 			'POST /api/v1/apps/:appId': 'Set app (update or create)',
@@ -511,6 +524,170 @@ app.delete('/api/v1/logs/:containerId/attach', async (req: Request, res: Respons
 		});
 	}
 });
+
+// ============================================================================
+// DEVICE PROVISIONING ROUTES
+// ============================================================================
+
+/**
+ * GET /api/v1/device
+ * Get device information
+ */
+app.get('/api/v1/device', (req: Request, res: Response) => {
+	try {
+		const deviceInfo = deviceManager.getDeviceInfo();
+		res.json(deviceInfo);
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to get device info',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+/**
+ * GET /api/v1/device/provisioned
+ * Check if device is provisioned
+ */
+app.get('/api/v1/device/provisioned', (req: Request, res: Response) => {
+	try {
+		const provisioned = deviceManager.isProvisioned();
+		res.json({ provisioned });
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to check provisioning status',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+/**
+ * POST /api/v1/device/provision
+ * Provision device with local configuration
+ * 
+ * Body: ProvisioningConfig
+ */
+app.post('/api/v1/device/provision', async (req: Request, res: Response) => {
+	try {
+		const config: ProvisioningConfig = req.body;
+		
+		const deviceInfo = await deviceManager.provision(config);
+		
+		res.json({
+			status: 'success',
+			message: 'Device provisioned successfully',
+			device: deviceInfo,
+		});
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to provision device',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+/**
+ * POST /api/v1/device/register
+ * Register device with remote API
+ * 
+ * Body: { apiEndpoint, deviceName, deviceType, ... }
+ */
+app.post('/api/v1/device/register', async (req: Request, res: Response) => {
+	try {
+		const { apiEndpoint, deviceName, deviceType, macAddress, osVersion, supervisorVersion } = req.body;
+		
+		if (!apiEndpoint) {
+			return res.status(400).json({
+				error: 'Missing required field',
+				message: 'apiEndpoint is required',
+			});
+		}
+		
+		const deviceInfo = deviceManager.getDeviceInfo();
+		
+		const provisionRequest: ProvisionRequest = {
+			uuid: deviceInfo.uuid,
+			deviceName: deviceName || deviceInfo.deviceName || `device-${deviceInfo.uuid.slice(0, 8)}`,
+			deviceType: deviceType || deviceInfo.deviceType || 'generic',
+			macAddress,
+			osVersion,
+			supervisorVersion,
+		};
+		
+		const response = await deviceManager.registerWithAPI(apiEndpoint, provisionRequest);
+		
+		res.json({
+			status: 'success',
+			message: 'Device registered with API',
+			response,
+		});
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to register device',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+/**
+ * PATCH /api/v1/device
+ * Update device information
+ * 
+ * Body: { deviceName?, apiEndpoint? }
+ */
+app.patch('/api/v1/device', async (req: Request, res: Response) => {
+	try {
+		const { deviceName, apiEndpoint } = req.body;
+		
+		if (deviceName) {
+			await deviceManager.updateDeviceName(deviceName);
+		}
+		
+		if (apiEndpoint) {
+			await deviceManager.updateAPIEndpoint(apiEndpoint);
+		}
+		
+		const deviceInfo = deviceManager.getDeviceInfo();
+		
+		res.json({
+			status: 'success',
+			message: 'Device updated',
+			device: deviceInfo,
+		});
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to update device',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+/**
+ * POST /api/v1/device/reset
+ * Reset device (unprovision)
+ */
+app.post('/api/v1/device/reset', async (req: Request, res: Response) => {
+	try {
+		await deviceManager.reset();
+		
+		const deviceInfo = deviceManager.getDeviceInfo();
+		
+		res.json({
+			status: 'success',
+			message: 'Device reset successfully',
+			device: deviceInfo,
+		});
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to reset device',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+// ============================================================================
+// APPLICATION MANAGEMENT ROUTES
+// ============================================================================
 
 /**
  * GET /api/v1/apps

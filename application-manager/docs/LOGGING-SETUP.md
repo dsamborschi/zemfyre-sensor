@@ -184,7 +184,7 @@ Default settings (can be customized in `server.ts`):
 {
   maxLogs: 10000,                    // Max logs in memory
   maxAge: 24 * 60 * 60 * 1000,      // 24 hours retention
-  enableFilePersistence: true,       // Save to files
+  enableFilePersistence: false,       // Save to files
   logDir: './data/logs',             // Log directory
   maxFileSize: 10 * 1024 * 1024,    // 10MB per file
 }
