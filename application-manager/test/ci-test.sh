@@ -109,6 +109,45 @@ else
 fi
 echo ""
 
+# Test 9: MQTT Logging (optional - only if MQTT_BROKER is set)
+if [ -n "$MQTT_BROKER" ]; then
+    echo "Test 9: MQTT Logging"
+    
+    # Check if mosquitto_sub is available
+    if command -v mosquitto_sub &> /dev/null; then
+        # Subscribe to MQTT topic in background
+        timeout 10 mosquitto_sub -h "${MQTT_BROKER}" -t "${MQTT_TOPIC:-container-manager/logs/#}" -C 1 > /tmp/mqtt_test.log 2>&1 &
+        MQTT_PID=$!
+        
+        # Wait a bit for subscription
+        sleep 2
+        
+        # Trigger some activity to generate logs
+        curl -s "$API_URL/api/v1/status" > /dev/null
+        
+        # Wait for message or timeout
+        sleep 3
+        
+        # Check if we got any MQTT messages
+        if [ -s /tmp/mqtt_test.log ]; then
+            pass "MQTT logging working (broker: $MQTT_BROKER)"
+        else
+            fail "No MQTT messages received"
+        fi
+        
+        # Cleanup
+        kill $MQTT_PID 2>/dev/null || true
+        rm -f /tmp/mqtt_test.log
+    else
+        echo "⚠️  Skipping MQTT test (mosquitto_sub not installed)"
+        echo "   Install with: sudo apt-get install mosquitto-clients"
+    fi
+    echo ""
+else
+    echo "ℹ️  Skipping MQTT test (MQTT_BROKER not set)"
+    echo ""
+fi
+
 # Summary
 echo "================================"
 echo "Test Results"
