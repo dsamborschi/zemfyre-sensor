@@ -314,5 +314,3 @@ To make this production-ready:
    - Handle edge cases
 
 ## Support
-
-For questions about the original Balena Supervisor, visit [Balena Forums](https://forums.balena.io/).
