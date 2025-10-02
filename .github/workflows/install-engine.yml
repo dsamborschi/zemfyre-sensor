@@ -3,7 +3,7 @@ name: Sync install-appengine.sh to Azure Blob
 on:
   push:
     paths:
-      - "bin/install_appEngine.sh"   # Only run if this file changes
+      - "bin/install_engine.sh"   # Only run if this file changes
     branches:
       - master
 
@@ -19,13 +19,13 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: Upload install-appengine.sh
+      - name: Upload install_appengine.sh
         run: |
           az storage blob upload \
             --account-name ${{ secrets.AZURE_STORAGE_ACCOUNT }} \
             --container-name scripts \
-            --name install_appEngine.sh \
-            --file bin/install_appEngine.sh \
+            --name install_engine.sh \
+            --file bin/install_engine.sh \
             --overwrite true \
             --content-type application/octet-stream \
-            --content-disposition "attachment; filename=install_appEngine.sh"
+            --content-disposition "attachment; filename=install_engine.sh"
