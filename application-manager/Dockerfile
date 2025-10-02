@@ -18,7 +18,7 @@ RUN npm run build
 # Copy migration files (they're .js, not compiled by TypeScript)
 COPY src/migrations ./dist/migrations
 
-# ---- Production stage ----
+# ---- Production stage ------
 FROM node:20-slim AS runtime
 
 WORKDIR /app
