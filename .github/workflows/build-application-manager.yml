@@ -59,6 +59,7 @@ jobs:
         run: |
           docker run --rm \
             --platform ${{ matrix.platform }} \
+            -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${{ github.workspace }}/application-manager/test:/app/test \
             -e API_URL="http://localhost:3002" \
             iotistic/application-manager:test-${{ matrix.board }} \

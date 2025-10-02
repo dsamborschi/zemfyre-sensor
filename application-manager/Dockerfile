@@ -15,7 +15,7 @@ RUN npm ci
 COPY src ./src
 RUN npm run build
 
-# Copy migration files (they're .js, not compfiled by TypeScript)
+# Copy migration files (they're .js, not compfiled by TypeScript)d
 COPY src/migrations ./dist/migrations
 
 # ---- Production stage ------
