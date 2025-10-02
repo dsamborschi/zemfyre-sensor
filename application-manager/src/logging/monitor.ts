@@ -6,17 +6,17 @@
  */
 
 import type Docker from 'dockerode';
-import type { LogMessage, LogStreamOptions, ContainerLogAttachment } from './types';
-import type { LocalLogBackend } from './local-backend';
+import type { LogMessage, LogStreamOptions, ContainerLogAttachment, LogBackend } from './types';
 
 export class ContainerLogMonitor {
 	private attachments: Map<string, ContainerLogAttachment> = new Map();
 	private docker: Docker;
-	private logBackend: LocalLogBackend;
+	private logBackends: LogBackend[];
 
-	constructor(docker: Docker, logBackend: LocalLogBackend) {
+	constructor(docker: Docker, logBackend: LogBackend | LogBackend[]) {
 		this.docker = docker;
-		this.logBackend = logBackend;
+		// Support both single backend and multiple backends
+		this.logBackends = Array.isArray(logBackend) ? logBackend : [logBackend];
 	}
 
 	/**
@@ -178,8 +178,10 @@ export class ContainerLogMonitor {
 						isSystem: false,
 					};
 
-					// Store log
-					this.logBackend.log(logMessage).catch((error) => {
+					// Send to all backends
+					Promise.all(
+						this.logBackends.map((backend) => backend.log(logMessage)),
+					).catch((error: Error) => {
 						console.error('[LogMonitor] Failed to store log:', error);
 					});
 				}
@@ -205,7 +207,7 @@ export class ContainerLogMonitor {
 			isSystem: true,
 		};
 
-		await this.logBackend.log(logMessage);
+		await Promise.all(this.logBackends.map((backend) => backend.log(logMessage)));
 	}
 
 	/**
@@ -226,11 +228,13 @@ export class ContainerLogMonitor {
 			level,
 			source: {
 				type: 'manager',
-				name: 'container-manager',
-			},
-			isSystem: true,
-		};
+			name: 'container-manager',
+		},
+		isSystem: true,
+	};
 
-		await this.logBackend.log(logMessage);
-	}
+	await Promise.all(
+		this.logBackends.map((backend) => backend.log(logMessage)),
+	);
+}
 }

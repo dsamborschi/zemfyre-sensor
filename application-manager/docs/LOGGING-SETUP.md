@@ -199,6 +199,40 @@ Default settings (can be customized in `server.ts`):
 | POST | `/api/v1/logs/:containerId/attach` | Manually attach to container |
 | DELETE | `/api/v1/logs/:containerId/attach` | Detach from container |
 
+## MQTT Streaming (Optional Enhancement)
+
+Want **real-time log push** instead of polling? You can add an MQTT backend!
+
+### Benefits
+- ✅ **Real-time** - Logs pushed instantly (< 100ms latency)
+- ✅ **Multiple subscribers** - Dashboard, alerts, analytics
+- ✅ **Low bandwidth** - Only sends when logs exist
+- ✅ **Topic filtering** - Subscribe to specific services/levels
+
+### Quick Example
+```typescript
+// Send logs to BOTH local storage AND MQTT
+const localBackend = new LocalLogBackend({...});
+const mqttBackend = new MqttLogBackend({
+  brokerUrl: 'mqtt://localhost:1883',
+  qos: 1,
+});
+
+const logMonitor = new ContainerLogMonitor(
+  [localBackend, mqttBackend], // Multiple backends!
+  docker
+);
+```
+
+### Topics
+```
+container-manager/logs/1001/web/info
+container-manager/logs/1001/web/error
+container-manager/logs/system/warn
+```
+
+**Full guide**: See `docs/MQTT-LOGGING.md` for complete implementation
+
 ## Comparison with Balena
 
 | Feature | Balena Supervisor | Your Container-Manager |
