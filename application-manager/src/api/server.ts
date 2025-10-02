@@ -62,6 +62,12 @@ async function initializeServer() {
 		if (docker) {
 			logMonitor = new ContainerLogMonitor(docker, logBackend);
 			console.log('✅ Log monitor initialized');
+			
+			// Attach log monitor to container manager
+			containerManager.setLogMonitor(logMonitor);
+			
+			// Attach to any existing running containers
+			await containerManager.attachLogsToAllContainers();
 		}
 	}
 	

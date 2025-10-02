@@ -18,6 +18,7 @@ import _ from 'lodash';
 import type Docker from 'dockerode';
 import { DockerManager } from './docker-manager';
 import * as db from './db';
+import type { ContainerLogMonitor } from './logging/monitor';
 
 // ============================================================================
 // TYPES (Simplified)
@@ -91,6 +92,7 @@ export class ContainerManager extends EventEmitter {
 	private useRealDocker: boolean;
 	private reconciliationInterval?: NodeJS.Timeout;
 	private isReconciliationEnabled = false;
+	private logMonitor?: ContainerLogMonitor;
 
 	constructor(useRealDocker: boolean = false) {
 		super();
@@ -534,13 +536,13 @@ export class ContainerManager extends EventEmitter {
 				this.removeServiceFromCurrentState(step.appId, step.serviceId);
 				break;
 
-			case 'startContainer':
-				const containerId = await this.startContainer(step.service);
-				// Update current state
-				this.addServiceToCurrentState(step.appId, step.service, containerId);
-				break;
-
-			case 'noop':
+		case 'startContainer':
+			const containerId = await this.startContainer(step.service);
+			// Update current state
+			this.addServiceToCurrentState(step.appId, step.service, containerId);
+			// Attach logs automatically
+			await this.attachLogsToContainer(containerId, step.service);
+			break;			case 'noop':
 				// Do nothing
 				break;
 		}
@@ -768,6 +770,65 @@ export class ContainerManager extends EventEmitter {
 			return this.dockerManager.getDockerInstance();
 		}
 		return undefined;
+	}
+
+	/**
+	 * Set the log monitor (called by API server after initialization)
+	 */
+	public setLogMonitor(monitor: ContainerLogMonitor): void {
+		this.logMonitor = monitor;
+		console.log('✅ Log monitor attached to ContainerManager');
+	}
+
+	/**
+	 * Attach log monitor to a container
+	 */
+	private async attachLogsToContainer(
+		containerId: string,
+		service: SimpleService,
+	): Promise<void> {
+		if (!this.logMonitor) {
+			return;
+		}
+
+		try {
+			// Check if already attached
+			if (this.logMonitor.isAttached(containerId)) {
+				return;
+			}
+
+			await this.logMonitor.attach({
+				containerId,
+				serviceId: service.serviceId,
+				serviceName: service.serviceName,
+				follow: true,
+				stdout: true,
+				stderr: true,
+			});
+
+			console.log(`📝 Attached logs: ${service.serviceName} (${containerId.substring(0, 12)})`);
+		} catch (error) {
+			console.error(`Failed to attach logs for ${service.serviceName}:`, error);
+		}
+	}
+
+	/**
+	 * Attach logs to all running containers
+	 */
+	public async attachLogsToAllContainers(): Promise<void> {
+		if (!this.logMonitor || !this.useRealDocker) {
+			return;
+		}
+
+		console.log('📝 Attaching logs to existing containers...');
+
+		for (const app of Object.values(this.currentState.apps)) {
+			for (const service of app.services) {
+				if (service.containerId && service.status === 'running') {
+					await this.attachLogsToContainer(service.containerId, service);
+				}
+			}
+		}
 	}
 }
 
