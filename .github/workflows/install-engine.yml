@@ -1,4 +1,4 @@
-name: Sync install-appengine.sh to Azure Blob
+name: Sync install_engine.sh to Azure Blob
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
       - master
 
 jobs:
-  upload-server-bat:
+  upload-install-engine:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
