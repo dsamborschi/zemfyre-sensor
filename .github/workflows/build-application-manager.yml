@@ -54,34 +54,28 @@ jobs:
           tags: |
             iotistic/application-manager:test-${{ matrix.board }}
 
-      # Create a custom network for testing
-      - name: Create Docker network
-        run: docker network create app-test-net || true
-
-      # Start app container on the custom network
-      - name: Start app container for testing
-        run: |
-          docker run -d --rm \
-            --name app-under-test-${{ matrix.board }} \
-            --platform ${{ matrix.platform }} \
-            --network app-test-net \
-            iotistic/application-manager:test-${{ matrix.board }}
-
-      # Run tests against the running container
-      - name: Run tests
+      # Run app and tests in same container
+      - name: Run tests inside container
         run: |
           docker run --rm \
             --platform ${{ matrix.platform }} \
             -v ${{ github.workspace }}/application-manager/test:/app/test \
-            -e API_URL="http://app-under-test-${{ matrix.board }}:3002" \
-            --network app-test-net \
+            -e API_URL="http://localhost:3002" \
             iotistic/application-manager:test-${{ matrix.board }} \
-            bash /app/test/ci-test.sh
-
-      # Stop the background container
-      - name: Stop test container
-        if: always()
-        run: docker stop app-under-test-${{ matrix.board }} || true
+            bash -c "
+              # Start app in background
+              npm run start:docker &
+              APP_PID=\$!
+              echo 'Waiting for app to start...'
+              for i in {1..15}; do
+                if curl -fs http://localhost:3002/health >/dev/null; then break; fi
+                sleep 1
+              done
+              # Run CI tests
+              bash /app/test/ci-test.sh
+              # Stop app
+              kill \$APP_PID
+            "
 
       # Login to Docker Hub (only if tests passed)
       - name: Login to Docker Hub
