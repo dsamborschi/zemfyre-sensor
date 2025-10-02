@@ -14,8 +14,9 @@ import type { SimpleState, SimpleApp, SimpleService } from '../container-manager
 import * as db from '../db';
 import * as systemMetrics from '../system-metrics';
 import { LocalLogBackend } from '../logging/local-backend';
+import { MqttLogBackend } from '../logging/mqtt-backend';
 import { ContainerLogMonitor } from '../logging/monitor';
-import type { LogFilter } from '../logging/types';
+import type { LogFilter, LogBackend } from '../logging/types';
 
 // ============================================================================
 // SERVER SETUP
@@ -42,7 +43,10 @@ async function initializeServer() {
 	// Initialize database
 	await db.initialized();
 	
-	// Initialize logging
+	// Initialize logging backends
+	const backends: LogBackend[] = [];
+	
+	// Local backend (always enabled)
 	logBackend = new LocalLogBackend({
 		maxLogs: 10000,
 		maxAge: 24 * 60 * 60 * 1000, // 24 hours
@@ -50,18 +54,41 @@ async function initializeServer() {
 		logDir: './data/logs',
 	});
 	await logBackend.initialize();
-	console.log('✅ Log backend initialized');
+	backends.push(logBackend);
+	console.log('✅ Local log backend initialized');
+	
+	// MQTT backend (optional - enabled if MQTT_BROKER env var is set)
+	if (process.env.MQTT_BROKER) {
+		try {
+			const mqttBackend = new MqttLogBackend({
+				brokerUrl: process.env.MQTT_BROKER,
+				baseTopic: process.env.MQTT_TOPIC || 'container-manager/logs',
+				qos: process.env.MQTT_QOS ? parseInt(process.env.MQTT_QOS) as 0 | 1 | 2 : 1,
+				enableBatching: process.env.MQTT_BATCH !== 'false',
+				batchInterval: parseInt(process.env.MQTT_BATCH_INTERVAL || '1000'),
+				maxBatchSize: parseInt(process.env.MQTT_BATCH_SIZE || '50'),
+				debug: process.env.MQTT_DEBUG === 'true',
+			});
+			
+			await mqttBackend.connect();
+			backends.push(mqttBackend);
+			console.log('✅ MQTT log backend connected:', process.env.MQTT_BROKER);
+		} catch (error) {
+			console.error('❌ Failed to connect to MQTT broker:', error);
+			console.log('   Continuing with local backend only');
+		}
+	}
 	
 	// Create and initialize container manager
 	containerManager = new ContainerManager(USE_REAL_DOCKER);
 	await containerManager.init();
 	
-	// Initialize log monitor
+	// Initialize log monitor with all backends
 	if (USE_REAL_DOCKER) {
 		const docker = containerManager.getDocker();
 		if (docker) {
-			logMonitor = new ContainerLogMonitor(docker, logBackend);
-			console.log('✅ Log monitor initialized');
+			logMonitor = new ContainerLogMonitor(docker, backends);
+			console.log(`✅ Log monitor initialized with ${backends.length} backend(s)`);
 			
 			// Attach log monitor to container manager
 			containerManager.setLogMonitor(logMonitor);
