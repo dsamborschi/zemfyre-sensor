@@ -1,7 +1,7 @@
 #!/bin/bash
 # Simple API test script for container-manager
 
-set -e
+# set -e
 
 API_URL="${API_URL:-http://localhost:3002}"
 PASSED=0
