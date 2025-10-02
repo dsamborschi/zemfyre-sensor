@@ -82,7 +82,7 @@ Installation successful!
   the container engine for the IoT
 
 To use appEngine you need to start iotitic-engine-daemon as a background process...
-This can be done manually or using the init system scripts provided here:
+This can be done manually or using the init system scripts provided here :
 
     https://github.com/balena-os/balena-engine/tree/$tag/contrib/init
 
