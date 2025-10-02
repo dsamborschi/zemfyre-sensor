@@ -265,6 +265,7 @@ function cleanup() {
     sudo apt-get autoclean
     sudo apt-get clean
     sudo docker system prune -f
+    sudo docker volume prune -f
     sudo apt autoremove -y
     sudo find /usr/share/doc \
         -depth \
@@ -381,34 +382,47 @@ function set_custom_version() {
 
 function main() {
     install_prerequisites && clear
-
     display_banner "${TITLE_TEXT}"
 
-    gum format "${INTRO_MESSAGE[@]}"
-    echo
-    gum confirm "Do you still want to continue?" || exit 0
-    gum confirm "${MANAGE_NETWORK_PROMPT[@]}" && \
-        export MANAGE_NETWORK="Yes" || \
-        export MANAGE_NETWORK="No"
+    # If version is passed as first argument, use it
+    if [ $# -gt 0 ]; then
+        VERSION="$1"
+    else
+        # Otherwise show interactive gum prompt
+        gum format "${INTRO_MESSAGE[@]}"
+        echo
+        gum confirm "Do you still want to continue?" || exit 0
+        gum confirm "${MANAGE_NETWORK_PROMPT[@]}" && \
+            export MANAGE_NETWORK="Yes" || \
+            export MANAGE_NETWORK="No"
 
-    VERSION=$(
-        gum choose \
-            --header "${VERSION_PROMPT}" \
-            -- "${VERSION_PROMPT_CHOICES[@]}"
-    )
+        VERSION=$(
+            gum choose \
+                --header "${VERSION_PROMPT}" \
+                -- "${VERSION_PROMPT_CHOICES[@]}"
+        )
+    fi
 
     if [ "$VERSION" == "latest" ]; then
         BRANCH="master"
     else
+        BRANCH="$VERSION"
         set_custom_version
     fi
 
-    gum confirm "${SYSTEM_UPGRADE_PROMPT[@]}" && {
-        SYSTEM_UPGRADE="Yes"
-    } || {
+    # If VERSION was passed non-interactively, set defaults
+    if [ $# -gt 0 ]; then
+        MANAGE_NETWORK="No"
         SYSTEM_UPGRADE="No"
         ANSIBLE_PLAYBOOK_ARGS+=("--skip-tags" "system-upgrade")
-    }
+    else
+        gum confirm "${SYSTEM_UPGRADE_PROMPT[@]}" && {
+            SYSTEM_UPGRADE="Yes"
+        } || {
+            SYSTEM_UPGRADE="No"
+            ANSIBLE_PLAYBOOK_ARGS+=("--skip-tags" "system-upgrade")
+        }
+    fi
 
     display_section "User Input Summary"
     gum format "**Manage Network:**     ${MANAGE_NETWORK}"
