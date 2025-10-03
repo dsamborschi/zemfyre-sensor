@@ -1,9 +1,9 @@
 /**
  * Application Manager Data Layer
- * 
+ *
  * This module handles data operations for the Application Manager.
  * Applications contain Services (Docker containers).
- * 
+ *
  * Key Concepts:
  * - Application: A logical grouping of services (e.g., "Web Stack", "Database Cluster")
  * - Service: A Docker container running specific software (e.g., "nginx", "postgres")
@@ -120,7 +120,7 @@ export const getApplicationState = async (): Promise<ApplicationState> => {
 
 /**
  * Deploy a new application with its services
- * 
+ *
  * Example:
  * ```
  * deployApplication({
@@ -210,10 +210,7 @@ export const applyState = async (): Promise<void> => {
 /**
  * Add a service to an existing application
  */
-export const addServiceToApplication = async (
-  appId: number,
-  service: ServiceConfig,
-): Promise<void> => {
+export const addServiceToApplication = async (appId: number, service: ServiceConfig): Promise<void> => {
   const app = await getApplication(appId)
   app.services.push(service)
   await updateApplication(app)
@@ -222,10 +219,7 @@ export const addServiceToApplication = async (
 /**
  * Remove a service from an application
  */
-export const removeServiceFromApplication = async (
-  appId: number,
-  serviceId: number,
-): Promise<void> => {
+export const removeServiceFromApplication = async (appId: number, serviceId: number): Promise<void> => {
   const app = await getApplication(appId)
   app.services = app.services.filter((s) => s.serviceId !== serviceId)
   await updateApplication(app)
@@ -305,4 +299,3 @@ export const getManagerLogs = async (limit: number = 100): Promise<any[]> => {
   }
   return response.json()
 }
-

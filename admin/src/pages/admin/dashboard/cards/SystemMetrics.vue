@@ -9,7 +9,7 @@ const refreshInterval = ref<NodeJS.Timeout | null>(null)
 onMounted(async () => {
   // Initial fetch
   await applicationStore.fetchSystemMetrics()
-  
+
   // Auto-refresh every 5 seconds
   refreshInterval.value = setInterval(() => {
     applicationStore.fetchSystemMetrics()
@@ -55,9 +55,7 @@ const getProgressColor = (percent: number): string => {
             :color="getProgressColor(applicationStore.systemMetrics.cpu.usage)"
             size="large"
           />
-          <div class="text-xs text-gray-600 mt-1">
-            {{ applicationStore.systemMetrics.cpu.cores }} cores available
-          </div>
+          <div class="text-xs text-gray-600 mt-1">{{ applicationStore.systemMetrics.cpu.cores }} cores available</div>
         </div>
 
         <!-- Memory Section -->
@@ -75,7 +73,7 @@ const getProgressColor = (percent: number): string => {
             size="large"
           />
           <div class="text-xs text-gray-600 mt-1">
-            {{ formatBytes(applicationStore.systemMetrics.memory.used) }} / 
+            {{ formatBytes(applicationStore.systemMetrics.memory.used) }} /
             {{ formatBytes(applicationStore.systemMetrics.memory.total) }}
           </div>
         </div>
@@ -95,7 +93,7 @@ const getProgressColor = (percent: number): string => {
             size="large"
           />
           <div class="text-xs text-gray-600 mt-1">
-            {{ formatBytes(applicationStore.systemMetrics.disk.used) }} / 
+            {{ formatBytes(applicationStore.systemMetrics.disk.used) }} /
             {{ formatBytes(applicationStore.systemMetrics.disk.total) }}
           </div>
         </div>
@@ -110,12 +108,14 @@ const getProgressColor = (percent: number): string => {
               size="large"
             >
               <div class="flex flex-col items-center justify-center p-2">
-                <span class="text-2xl font-bold leading-none">{{ applicationStore.systemMetrics.cpu.usage.toFixed(0) }}%</span>
+                <span class="text-2xl font-bold leading-none"
+                  >{{ applicationStore.systemMetrics.cpu.usage.toFixed(0) }}%</span
+                >
               </div>
             </VaProgressCircle>
             <span class="text-sm font-semibold text-gray-700 mt-3">CPU</span>
           </div>
-          
+
           <div class="flex flex-col items-center">
             <VaProgressCircle
               :model-value="applicationStore.systemMetrics.memory.usedPercent"
@@ -124,12 +124,14 @@ const getProgressColor = (percent: number): string => {
               size="large"
             >
               <div class="flex flex-col items-center justify-center p-2">
-                <span class="text-2xl font-bold leading-none">{{ applicationStore.systemMetrics.memory.usedPercent.toFixed(0) }}%</span>
+                <span class="text-2xl font-bold leading-none"
+                  >{{ applicationStore.systemMetrics.memory.usedPercent.toFixed(0) }}%</span
+                >
               </div>
             </VaProgressCircle>
             <span class="text-sm font-semibold text-gray-700 mt-3">Memory</span>
           </div>
-          
+
           <div class="flex flex-col items-center">
             <VaProgressCircle
               :model-value="applicationStore.systemMetrics.disk.usedPercent"
@@ -138,7 +140,9 @@ const getProgressColor = (percent: number): string => {
               size="large"
             >
               <div class="flex flex-col items-center justify-center p-2">
-                <span class="text-2xl font-bold leading-none">{{ applicationStore.systemMetrics.disk.usedPercent.toFixed(0) }}%</span>
+                <span class="text-2xl font-bold leading-none"
+                  >{{ applicationStore.systemMetrics.disk.usedPercent.toFixed(0) }}%</span
+                >
               </div>
             </VaProgressCircle>
             <span class="text-sm font-semibold text-gray-700 mt-3">Disk</span>

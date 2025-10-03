@@ -17,7 +17,7 @@ import {
 // ============================================================================
 // MOCK DATA FOR DEVELOPMENT
 // ============================================================================
-const USE_MOCK_DATA = true // Set to false when API is available
+const USE_MOCK_DATA = false // Set to false when API is available
 
 const MOCK_APPLICATIONS: Application[] = [
   {
@@ -122,26 +122,10 @@ const MOCK_APPLICATIONS: Application[] = [
 ]
 
 const MOCK_METRICS: SystemMetrics = {
-  cpu: {
-    usage: 45.8,
-    cores: 4,
-  },
-  memory: {
-    total: 8192,
-    used: 3584,
-    free: 4608,
-    usedPercent: 43.75,
-  },
-  disk: {
-    total: 51200,
-    used: 18432,
-    free: 32768,
-    usedPercent: 36.0,
-  },
-  network: {
-    bytesReceived: 1073741824, // 1 GB
-    bytesSent: 536870912, // 512 MB
-  },
+  cpu: { usage: 45.8, cores: 4 },
+  memory: { total: 8192, used: 3584, free: 4608, usedPercent: 43.75 },
+  disk: { total: 51200, used: 18432, free: 32768, usedPercent: 36.0 },
+  network: { bytesReceived: 1073741824, bytesSent: 536870912 },
 }
 
 const MOCK_DEVICE_INFO: DeviceInfo = {
@@ -159,82 +143,33 @@ const mockDelay = (ms: number = 500) => new Promise((resolve) => setTimeout(reso
 
 export const useApplicationManagerStore = defineStore('applicationManager', {
   state: () => ({
-    // Applications data
     applications: [] as Application[],
     currentApplication: null as Application | null,
-
-    // State management
     currentState: null as ApplicationState | null,
-
-    // System metrics
     systemMetrics: null as SystemMetrics | null,
-
-    // Device information
     deviceInfo: null as DeviceInfo | null,
-
-    // Loading states
     isLoadingApplications: false,
     isLoadingState: false,
     isLoadingMetrics: false,
     isDeploying: false,
-
-    // Error handling
     error: null as string | null,
     lastError: null as { message: string; timestamp: Date } | null,
   }),
 
   getters: {
-    /**
-     * Get application by ID
-     */
-    getApplicationById: (state) => (appId: number) => {
-      return state.applications.find((app) => app.appId === appId)
-    },
-
-    /**
-     * Get total number of deployed applications
-     */
+    getApplicationById: (state) => (appId: number) => state.applications.find((app) => app.appId === appId),
     totalApplications: (state) => state.applications.length,
-
-    /**
-     * Get total number of services across all applications
-     */
-    totalServices: (state) => {
-      return state.applications.reduce((total, app) => total + app.services.length, 0)
-    },
-
-    /**
-     * Get running applications
-     */
-    runningApplications: (state) => {
-      return state.applications.filter((app) => app.status === 'running')
-    },
-
-    /**
-     * Check if device is provisioned
-     */
-    isDeviceProvisioned: (state) => {
-      return state.deviceInfo?.provisioned ?? false
-    },
-
-    /**
-     * Check if any operation is in progress
-     */
-    isLoading: (state) => {
-      return (
-        state.isLoadingApplications || state.isLoadingState || state.isLoadingMetrics || state.isDeploying
-      )
-    },
+    totalServices: (state) => state.applications.reduce((total, app) => total + app.services.length, 0),
+    runningApplications: (state) => state.applications.filter((app) => app.status === 'running'),
+    isDeviceProvisioned: (state) => state.deviceInfo?.provisioned ?? false,
+    isLoading: (state) =>
+      state.isLoadingApplications || state.isLoadingState || state.isLoadingMetrics || state.isDeploying,
   },
 
   actions: {
-    /**
-     * Fetch all deployed applications
-     */
     async fetchApplications() {
       this.isLoadingApplications = true
       this.error = null
-
       try {
         if (USE_MOCK_DATA) {
           await mockDelay()
@@ -252,13 +187,9 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
       }
     },
 
-    /**
-     * Fetch a specific application by ID
-     */
     async fetchApplication(appId: number) {
       this.isLoadingApplications = true
       this.error = null
-
       try {
         this.currentApplication = await getApplication(appId)
       } catch (error: any) {
@@ -271,13 +202,9 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
       }
     },
 
-    /**
-     * Fetch current and target state
-     */
     async fetchState() {
       this.isLoadingState = true
       this.error = null
-
       try {
         this.currentState = await getApplicationState()
       } catch (error: any) {
@@ -290,25 +217,15 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
       }
     },
 
-    /**
-     * Deploy a new application with its services
-     */
     async deployNewApplication(application: Application) {
       this.isDeploying = true
       this.error = null
-
       try {
         if (USE_MOCK_DATA) {
           await mockDelay(1000)
-          // Add to mock applications list
-          this.applications.push({
-            ...application,
-            status: 'running',
-            createdAt: new Date().toISOString(),
-          })
+          this.applications.push({ ...application, status: 'running', createdAt: new Date().toISOString() })
         } else {
           await deployApplication(application)
-          // Refresh applications list after deployment
           await this.fetchApplications()
         }
         return true
@@ -322,16 +239,11 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
       }
     },
 
-    /**
-     * Update an existing application
-     */
     async updateExistingApplication(application: Application) {
       this.isDeploying = true
       this.error = null
-
       try {
         await updateApplication(application)
-        // Refresh applications list after update
         await this.fetchApplications()
         return true
       } catch (error: any) {
@@ -344,24 +256,16 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
       }
     },
 
-    /**
-     * Remove an application and all its services
-     */
     async removeExistingApplication(appId: number) {
       this.isDeploying = true
       this.error = null
-
       try {
         if (USE_MOCK_DATA) {
           await mockDelay(800)
-          // Remove from local state
           this.applications = this.applications.filter((app) => app.appId !== appId)
         } else {
           const success = await removeApplication(appId)
-          if (success) {
-            // Remove from local state
-            this.applications = this.applications.filter((app) => app.appId !== appId)
-          }
+          if (success) this.applications = this.applications.filter((app) => app.appId !== appId)
         }
         return true
       } catch (error: any) {
@@ -374,18 +278,13 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
       }
     },
 
-    /**
-     * Fetch system metrics
-     */
     async fetchSystemMetrics() {
       this.isLoadingMetrics = true
       this.error = null
-
       try {
         if (USE_MOCK_DATA) {
           await mockDelay(300)
-          // Simulate dynamic metrics with small variations
-          const variation = () => Math.random() * 10 - 5 // +/- 5%
+          const variation = () => Math.random() * 10 - 5
           this.systemMetrics = {
             cpu: {
               usage: Math.max(0, Math.min(100, MOCK_METRICS.cpu.usage + variation())),
@@ -414,12 +313,8 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
       }
     },
 
-    /**
-     * Fetch device information
-     */
     async fetchDeviceInfo() {
       this.error = null
-
       try {
         if (USE_MOCK_DATA) {
           await mockDelay(200)
@@ -435,9 +330,6 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
       }
     },
 
-    /**
-     * Initialize store - fetch all necessary data
-     */
     async initialize() {
       try {
         await Promise.all([this.fetchApplications(), this.fetchDeviceInfo()])
@@ -446,16 +338,10 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
       }
     },
 
-    /**
-     * Clear error state
-     */
     clearError() {
       this.error = null
     },
 
-    /**
-     * Refresh all data
-     */
     async refresh() {
       await Promise.all([this.fetchApplications(), this.fetchState(), this.fetchSystemMetrics()])
     },

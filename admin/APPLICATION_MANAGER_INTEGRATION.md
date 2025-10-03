@@ -115,7 +115,7 @@ const appStore = useApplicationManagerStore()
 onMounted(async () => {
   // Initialize: fetches applications and device info
   await appStore.initialize()
-  
+
   // Or fetch specific data
   await appStore.fetchApplications()
   await appStore.fetchSystemMetrics()
@@ -155,10 +155,10 @@ const removeApp = async (appId: number) => {
     <h3>{{ app.appName }}</h3>
     <p>Services: {{ app.services.length }}</p>
   </div>
-  
+
   <!-- Show loading state -->
   <VaProgressCircle v-if="appStore.isLoading" indeterminate />
-  
+
   <!-- Show errors -->
   <VaAlert v-if="appStore.error" color="danger">
     {{ appStore.error }}
@@ -176,39 +176,39 @@ All endpoints are prefixed with `http://localhost:3002/api/v1`
 
 #### State Management
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/state` | Get current and target state |
-| POST | `/state/target` | Set target state (what to deploy) |
-| POST | `/state/apply` | Apply target state (trigger deployment) |
+| Method | Endpoint        | Description                             |
+| ------ | --------------- | --------------------------------------- |
+| GET    | `/state`        | Get current and target state            |
+| POST   | `/state/target` | Set target state (what to deploy)       |
+| POST   | `/state/apply`  | Apply target state (trigger deployment) |
 
 #### Application Management
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/apps` | Get all deployed applications |
-| GET | `/apps/:appId` | Get specific application |
-| POST | `/apps/:appId` | Create/update application |
+| Method | Endpoint       | Description                     |
+| ------ | -------------- | ------------------------------- |
+| GET    | `/apps`        | Get all deployed applications   |
+| GET    | `/apps/:appId` | Get specific application        |
+| POST   | `/apps/:appId` | Create/update application       |
 | DELETE | `/apps/:appId` | Remove application and services |
 
 #### Device Management
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/device` | Get device info (UUID, name, etc.) |
-| GET | `/device/provisioned` | Check if device is provisioned |
-| POST | `/device/provision` | Provision device locally |
-| PATCH | `/device` | Update device information |
-| POST | `/device/reset` | Reset device (unprovision) |
+| Method | Endpoint              | Description                        |
+| ------ | --------------------- | ---------------------------------- |
+| GET    | `/device`             | Get device info (UUID, name, etc.) |
+| GET    | `/device/provisioned` | Check if device is provisioned     |
+| POST   | `/device/provision`   | Provision device locally           |
+| PATCH  | `/device`             | Update device information          |
+| POST   | `/device/reset`       | Reset device (unprovision)         |
 
 #### Metrics & Monitoring
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| GET | `/metrics/system` | System metrics (CPU, memory, disk) |
-| GET | `/metrics/docker` | Docker-specific metrics |
-| GET | `/logs?limit=100` | Application manager logs |
-| GET | `/status` | Manager status and health |
+| Method | Endpoint          | Description                        |
+| ------ | ----------------- | ---------------------------------- |
+| GET    | `/metrics/system` | System metrics (CPU, memory, disk) |
+| GET    | `/metrics/docker` | Docker-specific metrics            |
+| GET    | `/logs?limit=100` | Application manager logs           |
+| GET    | `/status`         | Manager status and health          |
 
 ---
 
@@ -228,7 +228,7 @@ const appStore = useApplicationManagerStore()
 
 onMounted(async () => {
   await appStore.fetchSystemMetrics()
-  
+
   // Auto-refresh every 5 seconds
   setInterval(() => {
     appStore.fetchSystemMetrics()
@@ -243,19 +243,13 @@ onMounted(async () => {
       <div class="grid grid-cols-2 gap-4">
         <div>
           <p class="text-sm text-gray-600">CPU Usage</p>
-          <VaProgressBar 
-            :model-value="appStore.systemMetrics.cpu.usage" 
-            color="primary"
-          >
+          <VaProgressBar :model-value="appStore.systemMetrics.cpu.usage" color="primary">
             {{ appStore.systemMetrics.cpu.usage.toFixed(1) }}%
           </VaProgressBar>
         </div>
         <div>
           <p class="text-sm text-gray-600">Memory Usage</p>
-          <VaProgressBar 
-            :model-value="appStore.systemMetrics.memory.usedPercent" 
-            color="info"
-          >
+          <VaProgressBar :model-value="appStore.systemMetrics.memory.usedPercent" color="info">
             {{ appStore.systemMetrics.memory.usedPercent.toFixed(1) }}%
           </VaProgressBar>
         </div>
@@ -286,44 +280,37 @@ import SystemMetricsCard from './cards/SystemMetricsCard.vue'
 ```typescript
 // src/data/pages/applications.ts
 
-export const restartService = async (
-  appId: number, 
-  serviceId: number
-): Promise<void> => {
+export const restartService = async (appId: number, serviceId: number): Promise<void> => {
   // Get current application
   const app = await getApplication(appId)
-  
+
   // Find the service
-  const service = app.services.find(s => s.serviceId === serviceId)
+  const service = app.services.find((s) => s.serviceId === serviceId)
   if (!service) throw new Error('Service not found')
-  
+
   // Add restart: always policy
   service.config.restart = 'always'
-  
+
   // Update application
   await updateApplication(app)
 }
 
-export const scaleService = async (
-  appId: number,
-  serviceName: string,
-  replicas: number
-): Promise<void> => {
+export const scaleService = async (appId: number, serviceName: string, replicas: number): Promise<void> => {
   const app = await getApplication(appId)
-  
+
   // Create multiple service instances
-  const baseService = app.services.find(s => s.serviceName === serviceName)
+  const baseService = app.services.find((s) => s.serviceName === serviceName)
   if (!baseService) throw new Error('Service not found')
-  
+
   const newServices = []
   for (let i = 0; i < replicas; i++) {
     newServices.push({
       ...baseService,
       serviceId: baseService.serviceId + i,
-      serviceName: `${serviceName}-${i}`
+      serviceName: `${serviceName}-${i}`,
     })
   }
-  
+
   app.services = newServices
   await updateApplication(app)
 }
@@ -409,11 +396,11 @@ interface ServiceConfig {
   appName: string
   config: {
     image: string
-    ports?: string[]                  // e.g., ["8080:80"]
+    ports?: string[] // e.g., ["8080:80"]
     environment?: Record<string, string>
     volumes?: string[]
     networks?: string[]
-    restart?: string                  // "always", "unless-stopped", etc.
+    restart?: string // "always", "unless-stopped", etc.
     command?: string[]
     labels?: Record<string, string>
   }
@@ -469,6 +456,7 @@ interface DeviceInfo {
 ## 🔐 Security Considerations
 
 ### Current State (Development)
+
 - ✅ Environment-based API endpoints
 - ✅ CORS enabled for local development
 - ⚠️ No authentication on API endpoints
@@ -505,7 +493,7 @@ httpClient.interceptors.response.use(
       router.push('/auth/login')
     }
     return Promise.reject(error)
-  }
+  },
 )
 
 export default httpClient
@@ -525,13 +513,13 @@ VITE_APP_MANAGER_API=https://your-domain.com/api/v1
 const validateApplication = (app: Application): boolean => {
   if (!app.appName || app.appName.length < 3) return false
   if (app.services.length === 0) return false
-  
+
   for (const service of app.services) {
     if (!service.imageName || !service.serviceName) return false
     // Validate image name format
     if (!/^[\w\-\.\/]+:[\w\-\.]+$/.test(service.imageName)) return false
   }
-  
+
   return true
 }
 ```
@@ -591,20 +579,24 @@ USE_REAL_DOCKER=true npm run dev
 ### Common Issues
 
 **1. "Failed to fetch applications"**
+
 - Check if application-manager is running: `docker logs application-manager`
 - Verify API URL in `.env`
 - Check network connectivity: `curl http://localhost:3002/api/v1/apps`
 
 **2. "CORS Error"**
+
 - Application-manager needs CORS headers enabled
 - Check application-manager configuration
 
 **3. "Cannot deploy application"**
+
 - Check Docker daemon is running
 - Verify application-manager has Docker socket access
 - Check logs: `docker logs -f application-manager`
 
 **4. Line Ending Errors (CRLF vs LF)**
+
 - Run: `npm run format` to auto-fix
 - Or configure git: `git config core.autocrlf true`
 
@@ -613,16 +605,19 @@ USE_REAL_DOCKER=true npm run dev
 ## 📖 Additional Resources
 
 ### Official Documentation
+
 - [Vuestic UI Components](https://ui.vuestic.dev/ui-elements/button)
 - [Vue 3 Composition API](https://vuejs.org/guide/extras/composition-api-faq.html)
 - [Pinia State Management](https://pinia.vuejs.org/)
 - [Vite Configuration](https://vitejs.dev/config/)
 
 ### Application Manager Docs
+
 - `application-manager/README.md` - Main documentation
 - `application-manager/docs/` - Feature-specific guides
 
 ### Project Documentation
+
 - `.github/copilot-instructions.md` - AI coding agent guide
 - `SENSOR.md` - Hardware and sensor setup
 - `README.md` - Project overview
@@ -684,7 +679,7 @@ You now have a complete integration with the Application Manager API! The system
 ✅ **State Management** - Pinia store with getters and actions  
 ✅ **UI Components** - Full-featured application management page  
 ✅ **Routing** - Integrated into navigation  
-✅ **Types** - Complete TypeScript definitions  
+✅ **Types** - Complete TypeScript definitions
 
 **Access the Application Manager** at: http://localhost:5173/applications
 

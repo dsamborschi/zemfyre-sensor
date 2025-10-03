@@ -44,7 +44,7 @@ const stats = ref([
           <div class="text-sm text-gray-600">{{ stat.title }}</div>
         </div>
       </div>
-      
+
       <div v-if="applicationStore.deviceInfo" class="mt-6 pt-4 border-t">
         <div class="flex items-center justify-between">
           <div>
