@@ -38,7 +38,7 @@ docker build -t iotistic-admin:latest .
 # Run the container
 docker run -d -p 51850:80 --name iotistic-admin iotistic-admin:latest
 
-# Or use Docker Compose
+# Or use Docker Composett
 cd ..
 docker-compose -f docker-compose.dev.yml up -d admin
 ```
