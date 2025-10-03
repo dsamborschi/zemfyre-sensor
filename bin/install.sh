@@ -351,78 +351,57 @@ function post_installation() {
 }
 
 function set_custom_version() {
-    BRANCH=$(
-        gum input \
-            --header "Enter the tag name you want to install" \
-    )
+    local TAG="$1"
+    BRANCH="$TAG"
 
+    # Verify that the tag exists on GitHub
     local STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
         "${GITHUB_API_REPO_URL}/git/refs/tags/$BRANCH")
 
     if [ "$STATUS_CODE" -ne 200 ]; then
-        gum style "Invalid tag name." \
-            | gum format
-        echo
+        echo "Invalid tag name: $BRANCH"
         exit 1
     fi
 
+    # Verify that the release has a docker-tag file
     local DOCKER_TAG_FILE_URL="${GITHUB_RELEASES_URL}/download/${BRANCH}/docker-tag"
     STATUS_CODE=$(curl -sL -o /dev/null -w "%{http_code}" \
         "$DOCKER_TAG_FILE_URL")
 
     if [ "$STATUS_CODE" -ne 200 ]; then
-        gum style "This version doesn't have a \`docker-tag\` file." \
-            | gum format
-        echo
+        echo "This version does not have a docker-tag file."
         exit 1
     fi
 
     DOCKER_TAG=$(curl -sL "$DOCKER_TAG_FILE_URL")
 }
 
+
 function main() {
     install_prerequisites && clear
     display_banner "${TITLE_TEXT}"
 
-    # If version is passed as first argument, use it
-    if [ $# -gt 0 ]; then
-        VERSION="$1"
-    else
-        # Otherwise show interactive gum prompt
-        gum format "${INTRO_MESSAGE[@]}"
-        echo
-        gum confirm "Do you still want to continue?" || exit 0
-        gum confirm "${MANAGE_NETWORK_PROMPT[@]}" && \
-            export MANAGE_NETWORK="Yes" || \
-            export MANAGE_NETWORK="No"
-
-        VERSION=$(
-            gum choose \
-                --header "${VERSION_PROMPT}" \
-                -- "${VERSION_PROMPT_CHOICES[@]}"
-        )
-    fi
-
-    if [ "$VERSION" == "latest" ]; then
-        BRANCH="master"
-    else
-        BRANCH="$VERSION"
+    # 🔹 Version handling: argument wins, otherwise default to master
+    if [ -n "${1:-}" ]; then
+        BRANCH="$1"
+        # optional: verify if tag exists
         set_custom_version
+    else
+        BRANCH="master"
+        DOCKER_TAG="latest"
     fi
 
-    # If VERSION was passed non-interactively, set defaults
-    if [ $# -gt 0 ]; then
-        MANAGE_NETWORK="No"
+    # (You can still ask for MANAGE_NETWORK or SYSTEM_UPGRADE if you want)
+    gum confirm "${MANAGE_NETWORK_PROMPT[@]}" && \
+        export MANAGE_NETWORK="Yes" || \
+        export MANAGE_NETWORK="No"
+
+    gum confirm "${SYSTEM_UPGRADE_PROMPT[@]}" && {
+        SYSTEM_UPGRADE="Yes"
+    } || {
         SYSTEM_UPGRADE="No"
         ANSIBLE_PLAYBOOK_ARGS+=("--skip-tags" "system-upgrade")
-    else
-        gum confirm "${SYSTEM_UPGRADE_PROMPT[@]}" && {
-            SYSTEM_UPGRADE="Yes"
-        } || {
-            SYSTEM_UPGRADE="No"
-            ANSIBLE_PLAYBOOK_ARGS+=("--skip-tags" "system-upgrade")
-        }
-    fi
+    }
 
     display_section "User Input Summary"
     gum format "**Manage Network:**     ${MANAGE_NETWORK}"
@@ -437,16 +416,14 @@ function main() {
     initialize_ansible
     initialize_locales
     install_packages
-
     install_ansible
     run_ansible_playbook
-
     upgrade_docker_containers
     cleanup
     modify_permissions
-
     write_iotistic_version
     post_installation
 }
+
 
 main
