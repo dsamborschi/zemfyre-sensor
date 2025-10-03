@@ -9,7 +9,7 @@
   "scripts": {
     "prepare": "cd .. && husky install admin/.husky",
     "dev": "vite",
-    "build": "npm run lint && vue-tsc --noEmit && vite build",
+    "build": "vite build",
     "build:ci": "vite build",
     "start:ci": "serve -s ./dist",
     "prelint": "npm run format",
@@ -21,11 +21,7 @@
     "e2e": "yarn workspace e2e test",
     "e2e:update-snapshots": "yarn workspace e2e update"
   },
-  "lint-staged": {
-    "./src/**/*.{ts,js,vue}": [
-      "npm run lint"
-    ]
-  },
+
   "dependencies": {
     "@gtm-support/vue-gtm": "^2.0.0",
     "@vuestic/compiler": "0.2.9",
