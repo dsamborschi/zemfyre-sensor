@@ -10,10 +10,10 @@ RUN corepack enable && corepack prepare yarn@4.9.2 --activate
 WORKDIR /app
 
 # Copy only package files to leverage Docker cache
-COPY package.json yarn.lock .yarnrc.yml ./
+COPY package.json yarn.lock ./
 
-# Install dependencies (frozen lockfile ensures reproducible builds)
-RUN yarn install --immutable --immutable-cache
+# Install dependencies
+RUN yarn install
 
 # Copy rest of the source code
 COPY . .
