@@ -80,23 +80,23 @@ Get container and system logs with optional filtering.
 
 ```bash
 # Get all logs
-curl http://localhost:3000/api/v1/logs
+curl http://localhost:3002/api/v1/logs
 
 # Get last 100 logs
-curl "http://localhost:3000/api/v1/logs?limit=100"
+curl "http://localhost:3002/api/v1/logs?limit=100"
 
 # Get logs for specific service
-curl "http://localhost:3000/api/v1/logs?serviceName=web&limit=50"
+curl "http://localhost:3002/api/v1/logs?serviceName=web&limit=50"
 
 # Get error logs only
-curl "http://localhost:3000/api/v1/logs?level=error"
+curl "http://localhost:3002/api/v1/logs?level=error"
 
 # Get logs from last hour
 SINCE=$(($(date +%s)*1000 - 3600000))
-curl "http://localhost:3000/api/v1/logs?since=$SINCE"
+curl "http://localhost:3002/api/v1/logs?since=$SINCE"
 
 # Get container logs only
-curl "http://localhost:3000/api/v1/logs?sourceType=container"
+curl "http://localhost:3002/api/v1/logs?sourceType=container"
 ```
 
 **Response:**
