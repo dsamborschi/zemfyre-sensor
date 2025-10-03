@@ -2,6 +2,9 @@
 # Stage 1: Build the Vue application
 FROM node:20-alpine AS builder
 
+# Enable Corepack for Yarn 4.x support
+RUN corepack enable && corepack prepare yarn@4.9.2 --activate
+
 # Set working directory
 WORKDIR /app
 
@@ -9,7 +12,7 @@ WORKDIR /app
 COPY package.json yarn.lock ./
 
 # Install dependencies
-RUN yarn install --frozen-lockfile
+RUN yarn install --immutable
 
 # Copy source code
 COPY . .
