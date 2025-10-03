@@ -225,6 +225,16 @@ const removeEnvironmentVariable = (key: string) => {
   }
 }
 
+const cancelCurrentServiceEdit = () => {
+  resetServiceForm()
+  currentServiceIndex.value = -1
+}
+
+const cancelApplicationEdit = () => {
+  showEditDialog.value = false
+  isEditMode.value = false
+}
+
 const deployApplication = async () => {
   try {
     if (services.value.length === 0) {
@@ -741,14 +751,7 @@ const saveServiceChanges = async () => {
           <VaIcon name="add" class="mr-2" />
           Add Service to Application
         </VaButton>
-        <VaButton
-          v-if="isEditingService"
-          preset="secondary"
-          @click="
-            resetServiceForm()
-            currentServiceIndex = -1
-          "
-        >
+        <VaButton v-if="isEditingService" preset="secondary" @click="cancelCurrentServiceEdit">
           Cancel Edit
         </VaButton>
       </div>
@@ -879,14 +882,7 @@ const saveServiceChanges = async () => {
           <VaIcon name="add" class="mr-2" />
           Add Service to Application
         </VaButton>
-        <VaButton
-          v-if="isEditingService"
-          preset="secondary"
-          @click="
-            resetServiceForm()
-            currentServiceIndex = -1
-          "
-        >
+        <VaButton v-if="isEditingService" preset="secondary" @click="cancelCurrentServiceEdit">
           Cancel Edit
         </VaButton>
       </div>
@@ -894,14 +890,7 @@ const saveServiceChanges = async () => {
 
     <template #footer>
       <div class="flex gap-3 justify-end">
-        <VaButton
-          preset="secondary"
-          :disabled="applicationStore.isDeploying"
-          @click="
-            showEditDialog = false
-            isEditMode = false
-          "
-        >
+        <VaButton preset="secondary" :disabled="applicationStore.isDeploying" @click="cancelApplicationEdit">
           Cancel
         </VaButton>
         <VaButton
