@@ -48,3 +48,10 @@ logs
 README.md
 *.md
 !docs/*.md
+
+# Yarn Berry
+!.yarn/cache
+!.yarn/releases
+!.yarn/plugins
+!.yarn/sdks
+.yarn/*
