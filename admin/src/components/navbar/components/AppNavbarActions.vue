@@ -1,5 +1,16 @@
 <template>
   <div class="app-navbar-actions">
+    <!-- Devices toggle button -->
+    <VaButton
+      preset="secondary"
+      color="textPrimary"
+      class="app-navbar-actions__item flex-shrink-0 mx-0"
+      @click="toggleDeviceSidebar"
+      aria-label="Toggle devices sidebar"
+    >
+      <VaIcon size="large" :name="isDeviceSidebarVisible ? 'devices' : 'devices_other'" />
+      <span v-if="!isMobile" class="ml-1">Devices</span>
+    </VaButton>
     <!-- Support button removed for Iotistic rebranding -->
     <VaButton
       v-if="!isMobile"
@@ -19,6 +30,8 @@
 </template>
 
 <script lang="ts" setup>
+import { storeToRefs } from 'pinia'
+import { useGlobalStore } from '../../../stores/global-store'
 import ProfileDropdown from './dropdowns/ProfileDropdown.vue'
 import NotificationDropdown from './dropdowns/NotificationDropdown.vue'
 import GithubButton from './GitHubButton.vue'
@@ -26,6 +39,13 @@ import GithubButton from './GitHubButton.vue'
 defineProps({
   isMobile: { type: Boolean, default: false },
 })
+
+const globalStore = useGlobalStore()
+const { isDeviceSidebarVisible } = storeToRefs(globalStore)
+
+const toggleDeviceSidebar = () => {
+  globalStore.toggleDeviceSidebar()
+}
 </script>
 
 <style lang="scss">

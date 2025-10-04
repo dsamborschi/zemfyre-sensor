@@ -10,7 +10,34 @@
  * - Each application has a unique appId and can have multiple service instances
  */
 
-const managerApiUrl = import.meta.env.APP_MANAGER_API || 'http://localhost:3002/api/v1'
+const defaultApiUrl = import.meta.env.VITE_APP_MANAGER_API || 'http://localhost:3002/api/v1'
+
+/**
+ * Current API URL - can be changed for multi-device support
+ */
+let currentApiUrl = defaultApiUrl
+
+/**
+ * Set the API URL for communicating with a specific device
+ * @param url - Full API URL including protocol and path
+ */
+export function setApiUrl(url: string): void {
+  currentApiUrl = url
+}
+
+/**
+ * Get the current API URL
+ */
+export function getApiUrl(): string {
+  return currentApiUrl
+}
+
+/**
+ * Reset API URL to default value
+ */
+export function resetApiUrl(): void {
+  currentApiUrl = defaultApiUrl
+}
 
 export const applicationManagerApi = {
   // ==================== State Management ====================
@@ -19,19 +46,19 @@ export const applicationManagerApi = {
    * Get current and target state of all applications
    * Returns: { current: ApplicationState, target: TargetState }
    */
-  getState: () => `${managerApiUrl}/state`,
+  getState: () => `${currentApiUrl}/state`,
 
   /**
    * Set target state for applications
    * POST body: { apps: { [appId]: AppConfig } }
    */
-  setTargetState: () => `${managerApiUrl}/state/target`,
+  setTargetState: () => `${currentApiUrl}/state/target`,
 
   /**
    * Apply target state (reconcile current state with target)
    * POST - triggers deployment/updates
    */
-  applyState: () => `${managerApiUrl}/state/apply`,
+  applyState: () => `${currentApiUrl}/state/apply`,
 
   // ==================== Application Management ====================
 
@@ -39,62 +66,62 @@ export const applicationManagerApi = {
    * Get all deployed applications
    * Returns: Array of applications with their services
    */
-  getAllApps: () => `${managerApiUrl}/apps`,
+  getAllApps: () => `${currentApiUrl}/apps`,
 
   /**
    * Get specific application by ID
    * Returns: Application details with all services
    */
-  getApp: (appId: number) => `${managerApiUrl}/apps/${appId}`,
+  getApp: (appId: number) => `${currentApiUrl}/apps/${appId}`,
 
   /**
    * Create or update an application
    * POST/PUT body: AppConfig with services array
    */
-  setApp: (appId: number) => `${managerApiUrl}/apps/${appId}`,
+  setApp: (appId: number) => `${currentApiUrl}/apps/${appId}`,
 
   /**
    * Remove/undeploy an application and all its services
    * DELETE - stops and removes all services
    */
-  removeApp: (appId: number) => `${managerApiUrl}/apps/${appId}`,
+  removeApp: (appId: number) => `${currentApiUrl}/apps/${appId}`,
 
   // ==================== Device Management ====================
 
   /**
    * Get device information (UUID, provisioning status, etc.)
    */
-  getDevice: () => `${managerApiUrl}/device`,
+  getDevice: () => `${currentApiUrl}/device`,
 
   /**
    * Check if device is provisioned
    * Returns: { provisioned: boolean }
    */
-  getDeviceStatus: () => `${managerApiUrl}/device/provisioned`,
+  getDeviceStatus: () => `${currentApiUrl}/device/provisioned`,
 
   /**
    * Provision device locally (set name and type)
    * POST body: { deviceName: string, deviceType: string }
    */
-  provisionDevice: () => `${managerApiUrl}/device/provision`,
+  provisionDevice: () => `${currentApiUrl}/device/provision`,
 
   /**
    * Register device with remote API
    * POST body: { apiEndpoint: string, deviceName: string, deviceType: string }
    */
-  registerDevice: () => `${managerApiUrl}/device/register`,
+  registerDevice: () => `${currentApiUrl}/device/register`,
 
   /**
    * Update device information
    * PATCH body: { deviceName?: string, apiEndpoint?: string }
    */
-  updateDevice: () => `${managerApiUrl}/device`,
+  updateDevice: () => `${currentApiUrl}/device`,
 
   /**
    * Reset device (unprovision)
    * POST - clears deviceId, apiKey, marks as unprovisioned
    */
-  resetDevice: () => `${managerApiUrl}/device/reset`,
+  resetDevice: () => `${currentApiUrl}/device/reset`,
 
   // ==================== Metrics & Monitoring ====================
 
@@ -102,13 +129,13 @@ export const applicationManagerApi = {
    * Get system metrics (CPU, memory, disk, network)
    * Returns: System resource utilization data
    */
-  getSystemMetrics: () => `${managerApiUrl}/metrics/system`,
+  getSystemMetrics: () => `${currentApiUrl}/metrics/system`,
 
   /**
    * Get Docker-specific metrics
    * Returns: Container resource usage, image info
    */
-  getDockerMetrics: () => `${managerApiUrl}/metrics/docker`,
+  getDockerMetrics: () => `${currentApiUrl}/metrics/docker`,
 
   /**
    * Get application manager logs
@@ -116,7 +143,7 @@ export const applicationManagerApi = {
    */
   getLogs: (params?: { limit?: number; since?: string }) => {
     const query = params ? `?${new URLSearchParams(params as any).toString()}` : ''
-    return `${managerApiUrl}/logs${query}`
+    return `${currentApiUrl}/logs${query}`
   },
 
   // ==================== Status & Health ====================
@@ -125,7 +152,7 @@ export const applicationManagerApi = {
    * Get application manager status
    * Returns: { status: string, version: string, uptime: number }
    */
-  getStatus: () => `${managerApiUrl}/status`,
+  getStatus: () => `${currentApiUrl}/status`,
 }
 
 export default applicationManagerApi

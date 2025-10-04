@@ -1,8 +1,10 @@
 <template>
   <VaLayout
-    :top="{ fixed: true, order: 2 }"
+    :top="{ fixed: true, order: 3 }"
     :left="{ fixed: true, absolute: breakpoints.mdDown, order: 1, overlay: breakpoints.mdDown && !isSidebarMinimized }"
+    :right="{ fixed: true, absolute: breakpoints.mdDown, order: 2, overlay: breakpoints.mdDown && !isDeviceSidebarVisible }"
     @leftOverlayClick="isSidebarMinimized = true"
+    @rightOverlayClick="isDeviceSidebarVisible = false"
   >
     <template #top>
       <AppNavbar :is-mobile="isMobile" />
@@ -10,6 +12,10 @@
 
     <template #left>
       <AppSidebar :minimized="isSidebarMinimized" :animated="!isMobile" :mobile="isMobile" />
+    </template>
+
+    <template #right>
+      <DeviceSidebar :visible="isDeviceSidebarVisible" :mobile="isMobile" @update:visible="isDeviceSidebarVisible = $event" />
     </template>
 
     <template #content>
@@ -39,6 +45,7 @@ import { useGlobalStore } from '../stores/global-store'
 import AppLayoutNavigation from '../components/app-layout-navigation/AppLayoutNavigation.vue'
 import AppNavbar from '../components/navbar/AppNavbar.vue'
 import AppSidebar from '../components/sidebar/AppSidebar.vue'
+import DeviceSidebar from '../components/sidebar/DeviceSidebar.vue'
 
 const GlobalStore = useGlobalStore()
 
@@ -49,7 +56,7 @@ const sidebarMinimizedWidth = ref(undefined)
 
 const isMobile = ref(false)
 const isTablet = ref(false)
-const { isSidebarMinimized } = storeToRefs(GlobalStore)
+const { isSidebarMinimized, isDeviceSidebarVisible } = storeToRefs(GlobalStore)
 
 const onResize = () => {
   isSidebarMinimized.value = breakpoints.mdDown
@@ -57,6 +64,10 @@ const onResize = () => {
   isTablet.value = breakpoints.mdDown
   sidebarMinimizedWidth.value = isMobile.value ? '0' : '4.5rem'
   sidebarWidth.value = isTablet.value ? '100%' : '16rem'
+  // Hide device sidebar on mobile by default
+  if (isMobile.value && !isDeviceSidebarVisible.value) {
+    isDeviceSidebarVisible.value = false
+  }
 }
 
 onMounted(() => {

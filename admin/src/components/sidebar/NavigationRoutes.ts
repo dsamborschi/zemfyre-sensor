@@ -41,6 +41,13 @@ export default {
       },
     },
     {
+      name: 'devices',
+      displayName: 'menu.devices',
+      meta: {
+        icon: 'devices',
+      },
+    },
+    {
       name: 'payments',
       displayName: 'menu.payments',
       meta: {

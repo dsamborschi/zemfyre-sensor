@@ -1,4 +1,5 @@
 import { defineStore } from 'pinia'
+import { watch } from 'vue'
 import {
   getApplications,
   getApplication,
@@ -13,6 +14,8 @@ import {
   type SystemMetrics,
   type DeviceInfo,
 } from '../data/pages/applications'
+import { setApiUrl } from '../services/application-manager-api'
+import { useDevicesStore } from './devices'
 
 // ===============================================`=============================
 // MOCK DATA FOR DEVELOPMENT
@@ -334,6 +337,28 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
 
     async initialize() {
       try {
+        // Initialize devices store first
+        const devicesStore = useDevicesStore()
+        await devicesStore.initialize()
+
+        // Set initial API URL from active device
+        if (devicesStore.activeDeviceApiUrl) {
+          setApiUrl(devicesStore.activeDeviceApiUrl)
+        }
+
+        // Watch for device changes and update API URL
+        watch(
+          () => devicesStore.activeDeviceApiUrl,
+          (newApiUrl) => {
+            if (newApiUrl) {
+              console.log(`[ApplicationManager] Switching to device API: ${newApiUrl}`)
+              setApiUrl(newApiUrl)
+              // Refresh data from the new device
+              this.refresh()
+            }
+          }
+        )
+
         await Promise.all([this.fetchApplications(), this.fetchDeviceInfo()])
       } catch (error) {
         console.error('Failed to initialize application manager store:', error)

@@ -55,7 +55,8 @@
     "faq": "FAQ",
     "users": "Users",
     "projects": "Projects",
-    "applications": "Applications"
+    "applications": "Applications",
+    "devices": "Devices"
   },
   "messages": {
     "all": "See all messages",
