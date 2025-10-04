@@ -110,6 +110,7 @@ services:
         restart: always
         environment:
             - VITE_APP_MANAGER_API=http://localhost:3002/api/v1
+            - USE_MOCK_DATA=true
         ports:
             - "${ADMIN_PORT_EXT:-51850}:80"
         networks:

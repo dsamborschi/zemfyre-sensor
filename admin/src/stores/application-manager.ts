@@ -14,10 +14,10 @@ import {
   type DeviceInfo,
 } from '../data/pages/applications'
 
-// ============================================================================
+// ===============================================`=============================
 // MOCK DATA FOR DEVELOPMENT
 // ============================================================================
-const USE_MOCK_DATA = false // Set to false when API is available
+const USE_MOCK_DATA = process.env.USE_MOCK_DATA == 'true' // Set to false when API is available
 
 const MOCK_APPLICATIONS: Application[] = [
   {
