@@ -1,7 +1,7 @@
 # Iotistic Admin - Optimized Multi-stage Docker Build
 
 # Stage 1: Build the Vue application
-FROM node:20-alpine AS builder
+FROM node:20-bullseye-slim AS builder
 
 # Enable Corepack for Yarn 4.x
 RUN corepack enable && corepack prepare yarn@4.9.2 --activate
@@ -9,10 +9,15 @@ RUN corepack enable && corepack prepare yarn@4.9.2 --activate
 # Set working directory
 WORKDIR /app
 
+# Install dependencies needed for building (build tools, python, etc.)
+RUN apt-get update && apt-get install -y \
+    python3 make g++ \
+    && rm -rf /var/lib/apt/lists/*
+
 # Copy only package files to leverage Docker cache
 COPY package.json yarn.lock .yarnrc.yml ./
 
-# Install dependencies (workspaces will be ignored if not present)
+# Install dependencies
 RUN yarn install --mode=skip-build
 
 # Copy rest of the source code
@@ -22,7 +27,7 @@ COPY . .
 RUN yarn build:ci
 
 # Stage 2: Serve with Nginx
-FROM nginx:alpine
+FROM nginx:stable-bullseye
 
 # Copy custom nginx configuration
 COPY nginx.conf /etc/nginx/conf.d/default.conf
