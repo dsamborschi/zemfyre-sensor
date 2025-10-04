@@ -17,7 +17,7 @@ import {
 // ===============================================`=============================
 // MOCK DATA FOR DEVELOPMENT
 // ============================================================================
-const USE_MOCK_DATA = process.env.USE_MOCK_DATA == 'true' // Set to false when API is available
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false' // Defaults to true unless explicitly set to false
 
 const MOCK_APPLICATIONS: Application[] = [
   {
@@ -122,10 +122,20 @@ const MOCK_APPLICATIONS: Application[] = [
 ]
 
 const MOCK_METRICS: SystemMetrics = {
-  cpu: { usage: 45.8, cores: 4 },
-  memory: { total: 8192, used: 3584, free: 4608, usedPercent: 43.75 },
-  disk: { total: 51200, used: 18432, free: 32768, usedPercent: 36.0 },
-  network: { bytesReceived: 1073741824, bytesSent: 536870912 },
+  cpu_usage: 45.8,
+  cpu_temp: 52,
+  cpu_cores: 4,
+  memory_usage: 3584,
+  memory_total: 8192,
+  memory_percent: 43.75,
+  storage_usage: 18432,
+  storage_total: 51200,
+  storage_percent: 36.0,
+  uptime: 86400,
+  uptime_formatted: '1d',
+  hostname: 'raspberrypi-mock',
+  is_undervolted: false,
+  timestamp: new Date().toISOString(),
 }
 
 const MOCK_DEVICE_INFO: DeviceInfo = {
@@ -286,19 +296,11 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
           await mockDelay(300)
           const variation = () => Math.random() * 10 - 5
           this.systemMetrics = {
-            cpu: {
-              usage: Math.max(0, Math.min(100, MOCK_METRICS.cpu.usage + variation())),
-              cores: MOCK_METRICS.cpu.cores,
-            },
-            memory: {
-              ...MOCK_METRICS.memory,
-              usedPercent: Math.max(0, Math.min(100, MOCK_METRICS.memory.usedPercent + variation())),
-            },
-            disk: {
-              ...MOCK_METRICS.disk,
-              usedPercent: Math.max(0, Math.min(100, MOCK_METRICS.disk.usedPercent + variation())),
-            },
-            network: MOCK_METRICS.network,
+            ...MOCK_METRICS,
+            cpu_usage: Math.max(0, Math.min(100, MOCK_METRICS.cpu_usage + variation())),
+            memory_percent: Math.max(0, Math.min(100, MOCK_METRICS.memory_percent + variation())),
+            storage_percent: Math.max(0, Math.min(100, MOCK_METRICS.storage_percent + variation())),
+            timestamp: new Date().toISOString(),
           }
         } else {
           this.systemMetrics = await getSystemMetrics()

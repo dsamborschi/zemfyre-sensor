@@ -560,52 +560,65 @@ const saveServiceChanges = async () => {
   </div>
 
   <!-- System Metrics -->
-  <VaCard
-    v-if="applicationStore.systemMetrics"
-    class="mb-6"
-  >
-    <VaCardTitle>System Metrics</VaCardTitle>
+  <VaCard v-if="applicationStore.systemMetrics" class="mb-6">
+    <VaCardTitle>
+      <div class="flex items-center justify-between">
+        <span>System Metrics</span>
+        <div class="flex items-center gap-4 text-sm">
+          <span class="text-gray-600">{{ applicationStore.systemMetrics.hostname }}</span>
+          <VaBadge v-if="applicationStore.systemMetrics.is_undervolted" color="warning" text="Undervolted" />
+          <span class="text-gray-500">Uptime: {{ applicationStore.systemMetrics.uptime_formatted }}</span>
+        </div>
+      </div>
+    </VaCardTitle>
     <VaCardContent>
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <!-- Performance Metrics -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         <div>
-          <p class="text-sm text-gray-600">
-            CPU Usage
-          </p>
-          <VaProgressBar
-            :model-value="applicationStore.systemMetrics.cpu.usage"
-            color="primary"
-          >
-            {{ applicationStore.systemMetrics.cpu.usage.toFixed(1) }}%
+          <p class="text-sm text-gray-600">CPU Usage</p>
+          <VaProgressBar :model-value="applicationStore.systemMetrics.cpu_usage" color="primary">
+            {{ applicationStore.systemMetrics.cpu_usage.toFixed(1) }}%
           </VaProgressBar>
         </div>
         <div>
-          <p class="text-sm text-gray-600">
-            Memory Usage
-          </p>
+          <p class="text-sm text-gray-600">CPU Temperature</p>
           <VaProgressBar
-            :model-value="applicationStore.systemMetrics.memory.usedPercent"
-            color="info"
+            :model-value="(applicationStore.systemMetrics.cpu_temp / 85) * 100"
+            :color="applicationStore.systemMetrics.cpu_temp > 70 ? 'danger' : applicationStore.systemMetrics.cpu_temp > 60 ? 'warning' : 'success'"
           >
-            {{ applicationStore.systemMetrics.memory.usedPercent.toFixed(1) }}%
+            {{ applicationStore.systemMetrics.cpu_temp }}°C
           </VaProgressBar>
         </div>
         <div>
-          <p class="text-sm text-gray-600">
-            Disk Usage
-          </p>
-          <VaProgressBar
-            :model-value="applicationStore.systemMetrics.disk.usedPercent"
-            color="warning"
-          >
-            {{ applicationStore.systemMetrics.disk.usedPercent.toFixed(1) }}%
+          <p class="text-sm text-gray-600">Memory Usage</p>
+          <VaProgressBar :model-value="applicationStore.systemMetrics.memory_percent" color="info">
+            {{ applicationStore.systemMetrics.memory_percent.toFixed(1) }}%
           </VaProgressBar>
         </div>
         <div>
-          <p class="text-sm text-gray-600">
-            CPU Cores
+          <p class="text-sm text-gray-600">Storage Usage</p>
+          <VaProgressBar :model-value="applicationStore.systemMetrics.storage_percent" color="warning">
+            {{ applicationStore.systemMetrics.storage_percent.toFixed(1) }}%
+          </VaProgressBar>
+        </div>
+      </div>
+
+      <!-- Detailed Information -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div class="p-3 bg-gray-50 rounded">
+          <p class="text-xs text-gray-600 mb-1">CPU Cores</p>
+          <p class="text-xl font-bold">{{ applicationStore.systemMetrics.cpu_cores }}</p>
+        </div>
+        <div class="p-3 bg-gray-50 rounded">
+          <p class="text-xs text-gray-600 mb-1">Memory</p>
+          <p class="text-xl font-bold">
+            {{ applicationStore.systemMetrics.memory_usage }} MB / {{ applicationStore.systemMetrics.memory_total }} MB
           </p>
-          <p class="text-2xl font-bold">
-            {{ applicationStore.systemMetrics.cpu.cores }}
+        </div>
+        <div class="p-3 bg-gray-50 rounded">
+          <p class="text-xs text-gray-600 mb-1">Storage</p>
+          <p class="text-xl font-bold">
+            {{ applicationStore.systemMetrics.storage_usage }} MB / {{ applicationStore.systemMetrics.storage_total }} MB
           </p>
         </div>
       </div>

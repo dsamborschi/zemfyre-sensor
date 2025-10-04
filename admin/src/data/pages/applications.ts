@@ -60,26 +60,20 @@ export interface DeviceInfo {
 }
 
 export interface SystemMetrics {
-  cpu: {
-    usage: number
-    cores: number
-  }
-  memory: {
-    total: number
-    used: number
-    free: number
-    usedPercent: number
-  }
-  disk: {
-    total: number
-    used: number
-    free: number
-    usedPercent: number
-  }
-  network: {
-    bytesReceived: number
-    bytesSent: number
-  }
+  cpu_usage: number
+  cpu_temp: number
+  cpu_cores: number
+  memory_usage: number
+  memory_total: number
+  memory_percent: number
+  storage_usage: number
+  storage_total: number
+  storage_percent: number
+  uptime: number
+  uptime_formatted: string
+  hostname: string
+  is_undervolted: boolean
+  timestamp: string
 }
 
 // ==================== Application Operations ====================
