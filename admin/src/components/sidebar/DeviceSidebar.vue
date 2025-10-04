@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useDevicesStore } from '../../stores/devices'
+import { useToast } from 'vuestic-ui'
 import type { AddDeviceRequest } from '../../data/types/device'
 
 const devicesStore = useDevicesStore()
@@ -72,6 +73,16 @@ const refreshDevices = async () => {
 const cancelAddDialog = () => {
   showAddDialog.value = false
   resetForm()
+}
+
+// Copy install command to clipboard
+const copyInstallCommand = async () => {
+  try {
+    await navigator.clipboard.writeText("bash <(curl -H 'Cache-Control: no-cache' -sL --proto '=https' https://scripts.iotistic.ca/install)")
+    useToast().init({ message: 'Command copied to clipboard', color: 'success' })
+  } catch (err) {
+    console.error('Failed to copy:', err)
+  }
 }
 </script>
 
@@ -164,6 +175,33 @@ const cancelAddDialog = () => {
           placeholder="Additional notes about this device"
           :min-rows="3"
         />
+
+        <VaDivider />
+
+        <!-- Installation Instructions -->
+        <div class="install-instructions">
+          <div class="flex items-center gap-2 mb-2">
+            <VaIcon name="terminal" size="small" color="primary" />
+            <span class="font-semibold text-sm">Device Setup Required</span>
+          </div>
+          <p class="text-sm text-gray-600 mb-2">
+            Before adding this device, ensure the Iotistic agent is installed. Run this command on your device:
+          </p>
+          <VaInput
+            model-value="bash <(curl -H 'Cache-Control: no-cache' -sL --proto '=https' https://scripts.iotistic.ca/install)"
+            readonly
+            class="mb-2"
+          >
+            <template #appendInner>
+              <VaButton
+                preset="plain"
+                icon="content_copy"
+                size="small"
+                @click="copyInstallCommand"
+              />
+            </template>
+          </VaInput>
+        </div>
 
         <VaDivider />
 

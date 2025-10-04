@@ -152,3 +152,11 @@ const beforeEditFormModalClose = async (hide: () => unknown) => {
     />
   </VaModal>
 </template>
+
+<style scoped>
+.page-title {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-bottom: 1.5rem;
+}
+</style>

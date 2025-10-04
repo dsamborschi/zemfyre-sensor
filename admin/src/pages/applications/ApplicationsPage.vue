@@ -1716,6 +1716,8 @@ const saveServiceChanges = async () => {
 
 <style scoped>
 .page-title {
+  font-size: 2rem;
+  font-weight: bold;
   margin-bottom: 1.5rem;
 }
 

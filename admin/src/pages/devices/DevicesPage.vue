@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 import { useDevicesStore } from '../../stores/devices'
+import { useToast } from 'vuestic-ui'
 import type { AddDeviceRequest } from '../../data/types/device'
 
 const devicesStore = useDevicesStore()
@@ -47,6 +48,16 @@ const addDevice = async () => {
 const cancelAddDialog = () => {
   showAddDialog.value = false
   resetForm()
+}
+
+// Copy install command to clipboard
+const copyInstallCommand = async () => {
+  try {
+    await navigator.clipboard.writeText("bash <(curl -H 'Cache-Control: no-cache' -sL --proto '=https' https://scripts.iotistic.ca/install)")
+    useToast().init({ message: 'Command copied to clipboard', color: 'success' })
+  } catch (err) {
+    console.error('Failed to copy:', err)
+  }
 }
 
 // Switch device
@@ -141,6 +152,27 @@ const refreshDevices = async () => {
             />
           </div>
 
+          <!-- System Metrics -->
+          <div v-if="device.status === 'online'" class="metrics-section mb-3">
+            <div v-if="device.metrics" class="metrics-grid">
+              <div class="metric-item">
+                <span class="metric-value-large">{{ Math.round(device.metrics.cpu_usage || 0) }}%</span>
+                <span class="metric-label">CPU</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-value-large">{{ Math.round(device.metrics.memory_percent || 0) }}%</span>
+                <span class="metric-label">RAM</span>
+              </div>
+              <div class="metric-item">
+                <span class="metric-value-large">{{ Math.round(device.metrics.storage_percent || 0) }}%</span>
+                <span class="metric-label">Disk</span>
+              </div>
+            </div>
+            <div v-else class="text-sm text-gray-500">
+              <VaIcon name="refresh" size="small" /> Loading metrics...
+            </div>
+          </div>
+
           <!-- Device Info -->
           <div class="device-info">
             <div class="info-row">
@@ -223,6 +255,33 @@ const refreshDevices = async () => {
           placeholder="Additional notes about this device"
           :min-rows="3"
         />
+
+        <VaDivider />
+
+        <!-- Installation Instructions -->
+        <div class="install-instructions">
+          <div class="flex items-center gap-2 mb-2">
+            <VaIcon name="terminal" size="small" color="primary" />
+            <span class="font-semibold text-sm">Device Setup Required</span>
+          </div>
+          <p class="text-sm text-gray-600 mb-2">
+            Before adding this device, ensure the Iotistic agent is installed. Run this command on your device:
+          </p>
+          <VaInput
+            model-value="bash <(curl -H 'Cache-Control: no-cache' -sL --proto '=https' https://scripts.iotistic.ca/install)"
+            readonly
+            class="mb-2"
+          >
+            <template #appendInner>
+              <VaButton
+                preset="plain"
+                icon="content_copy"
+                size="small"
+                @click="copyInstallCommand"
+              />
+            </template>
+          </VaInput>
+        </div>
 
         <VaDivider />
 
@@ -342,6 +401,43 @@ const refreshDevices = async () => {
 
 .empty-state-card {
   margin-top: 2rem;
+}
+
+.metrics-section {
+  padding: 0.75rem;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.metric-value {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #333;
+}
+
+.metric-value-large {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.metric-label {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 500;
 }
 
 .space-y-4 > * + * {

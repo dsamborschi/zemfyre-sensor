@@ -101,7 +101,7 @@ export const useDevicesStore = defineStore('devices', {
     /**
      * Initialize devices from localStorage
      */
-    initialize() {
+    async initialize() {
       try {
         // Load devices
         const stored = localStorage.getItem(STORAGE_KEY)
@@ -123,6 +123,10 @@ export const useDevicesStore = defineStore('devices', {
         if (this.devices.length === 0) {
           this.addDefaultDevice()
         }
+
+        // Refresh all devices status and metrics
+        console.log('[Devices] Initializing and refreshing all devices...')
+        await this.refreshAllDevicesStatus()
       } catch (error) {
         console.error('Failed to initialize devices:', error)
         this.addDefaultDevice()
@@ -185,6 +189,9 @@ export const useDevicesStore = defineStore('devices', {
         if (this.devices.length === 1) {
           this.setActiveDevice(device.id)
         }
+
+        // Refresh device status to fetch metrics
+        await this.refreshDeviceStatus(device.id)
 
         return device
       } catch (error: any) {
@@ -256,9 +263,29 @@ export const useDevicesStore = defineStore('devices', {
 
       const testResult = await testDeviceConnection(device.apiUrl)
       
+      // If device is online, fetch metrics
+      let metrics = undefined
+      if (testResult.success) {
+        try {
+          console.log(`[Devices] Fetching metrics for ${device.name} from ${device.apiUrl}/metrics`)
+          const metricsResponse = await fetch(`${device.apiUrl}/metrics`, {
+            signal: AbortSignal.timeout(5000)
+          })
+          if (metricsResponse.ok) {
+            metrics = await metricsResponse.json()
+            console.log(`[Devices] Metrics received for ${device.name}:`, metrics)
+          } else {
+            console.warn(`[Devices] Metrics request failed for ${device.name}: ${metricsResponse.status}`)
+          }
+        } catch (error) {
+          console.error(`[Devices] Failed to fetch metrics for ${device.name}:`, error)
+        }
+      }
+      
       await this.updateDevice(id, {
         status: testResult.success ? 'online' : 'offline',
         lastSeen: testResult.success ? new Date().toISOString() : device.lastSeen,
+        metrics,
       })
     },
 

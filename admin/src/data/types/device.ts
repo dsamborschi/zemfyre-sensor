@@ -18,6 +18,16 @@ export interface Device {
   isDefault?: boolean           // Whether this is the default device
   createdAt: string             // ISO timestamp when added
   updatedAt?: string            // ISO timestamp of last update
+  metrics?: DeviceMetrics       // System metrics (CPU, RAM, Disk)
+}
+
+export interface DeviceMetrics {
+  cpu_usage: number             // CPU usage percentage (0-100)
+  memory_percent: number        // Memory usage percentage (0-100)
+  storage_percent: number       // Storage usage percentage (0-100)
+  cpu_temp?: number             // CPU temperature in Celsius
+  hostname?: string             // Device hostname
+  uptime?: number               // Uptime in seconds
 }
 
 export interface DeviceConnectionTest {
