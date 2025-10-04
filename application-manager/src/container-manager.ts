@@ -7,7 +7,14 @@
  * Purpose: Control containers on a device and update state
  * 
  * Core concept:
- *   currentState  = what containers are running now
+ *   currentState  = what co				config: {
+					image: container.image,
+					ports: container.ports && container.ports.length > 0
+						? Array.from(new Set(container.ports
+							.filter(p => p.PublicPort && p.PrivatePort)
+							.map(p => `${p.PublicPort}:${p.PrivatePort}`)))
+						: undefined,
+				}, are running now
  *   targetState   = what containers should be running
  *   → Generate steps to transform current → target
  *   → Execute steps
