@@ -129,6 +129,10 @@ export class ContainerManager extends EventEmitter {
 
 			if (snapshots.length > 0) {
 				this.targetState = JSON.parse(snapshots[0].state);
+				
+				// Sanitize loaded state to ensure ports are strings
+				this.sanitizeState(this.targetState);
+				
 				console.log('✅ Loaded target state from database');
 				this.emit('target-state-changed', this.targetState);
 			}
@@ -191,6 +195,9 @@ export class ContainerManager extends EventEmitter {
 	public async setTarget(target: SimpleState): Promise<void> {
 		console.log('Setting target state...');
 		this.targetState = _.cloneDeep(target);
+		
+		// Sanitize the target state to ensure correct data types
+		this.sanitizeState(this.targetState);
 		
 		// Persist to database
 		await this.saveTargetStateToDB();
@@ -647,6 +654,40 @@ export class ContainerManager extends EventEmitter {
 
 	private sleep(ms: number): Promise<void> {
 		return new Promise((resolve) => setTimeout(resolve, ms));
+	}
+
+	/**
+	 * Sanitize state to ensure all data is in correct format
+	 * Fixes issues with data loaded from database that may have wrong types
+	 */
+	private sanitizeState(state: SimpleState): void {
+		for (const app of Object.values(state.apps)) {
+			for (const service of app.services) {
+				// Ensure ports are strings
+				if (service.config.ports) {
+					service.config.ports = service.config.ports.map(port => {
+						// Convert any non-string port to string
+						return typeof port === 'string' ? port : String(port);
+					});
+				}
+				
+				// Ensure environment values are strings
+				if (service.config.environment) {
+					const sanitizedEnv: Record<string, string> = {};
+					for (const [key, value] of Object.entries(service.config.environment)) {
+						sanitizedEnv[key] = typeof value === 'string' ? value : String(value);
+					}
+					service.config.environment = sanitizedEnv;
+				}
+				
+				// Ensure volumes are strings
+				if (service.config.volumes) {
+					service.config.volumes = service.config.volumes.map(vol => {
+						return typeof vol === 'string' ? vol : String(vol);
+					});
+				}
+			}
+		}
 	}
 
 	// ========================================================================

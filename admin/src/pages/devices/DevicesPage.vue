@@ -17,6 +17,9 @@ const newDevice = ref<AddDeviceRequest>({
   description: '',
 })
 
+// Track which devices are applying state
+const applyingDevices = ref<Set<string>>(new Set())
+
 onMounted(async () => {
   await devicesStore.initialize()
 })
@@ -57,6 +60,52 @@ const copyInstallCommand = async () => {
     useToast().init({ message: 'Command copied to clipboard', color: 'success' })
   } catch (err) {
     console.error('Failed to copy:', err)
+  }
+}
+
+// Check if device needs state to be applied
+const needsApply = (device: any) => {
+  if (!device.managerStatus) return false
+  return device.managerStatus.currentApps !== device.managerStatus.targetApps ||
+         device.managerStatus.currentServices !== device.managerStatus.targetServices
+}
+
+// Reconcile device state
+const reconcileState = async (deviceId: string, deviceName: string) => {
+  const device = devicesStore.devices.find(d => d.id === deviceId)
+  if (!device) return
+
+  applyingDevices.value.add(deviceId)
+  
+  try {
+    console.log(`[DevicesPage] Reconciling state for ${deviceName}...`)
+    const response = await fetch(`${device.apiUrl}/state/apply`, {
+      method: 'POST',
+      signal: AbortSignal.timeout(30000) // 30 second timeout
+    })
+    
+    if (response.ok) {
+      useToast().init({ 
+        message: `State reconciled successfully for ${deviceName}`, 
+        color: 'success' 
+      })
+      
+      // Refresh device status after a short delay to get updated state
+      setTimeout(() => {
+        devicesStore.refreshDeviceStatus(deviceId)
+      }, 2000)
+    } else {
+      const errorText = await response.text()
+      throw new Error(`Failed to reconcile: ${response.status} - ${errorText}`)
+    }
+  } catch (error: any) {
+    console.error(`[DevicesPage] Failed to reconcile state for ${deviceName}:`, error)
+    useToast().init({ 
+      message: `Failed to reconcile: ${error.message}`, 
+      color: 'danger' 
+    })
+  } finally {
+    applyingDevices.value.delete(deviceId)
   }
 }
 
@@ -229,6 +278,19 @@ const refreshDevices = async () => {
             <div v-if="device.managerStatus.lastError" class="status-error">
               <VaIcon name="error" size="small" color="danger" />
               <span class="error-text">{{ device.managerStatus.lastError }}</span>
+            </div>
+            
+            <!-- Reconcile Button -->
+            <div v-if="needsApply(device)" class="apply-state-section">
+              <VaButton
+                size="small"
+                preset="secondary"
+                :loading="applyingDevices.has(device.id)"
+                @click="reconcileState(device.id, device.name)"
+              >
+                <VaIcon name="sync" size="small" />
+                Reconcile
+              </VaButton>
             </div>
           </div>
 
@@ -536,5 +598,21 @@ const refreshDevices = async () => {
   font-weight: 500;
   word-break: break-word;
   flex: 1;
+}
+
+.apply-state-section {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid #d0deff;
+}
+
+.apply-hint {
+  font-size: 0.75rem;
+  color: #666;
+  font-style: italic;
 }
 </style>
