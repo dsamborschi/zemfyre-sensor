@@ -2,6 +2,7 @@
 import { onMounted, ref, computed } from 'vue'
 import { useApplicationManagerStore } from '../../stores/application-manager'
 import type { Application, ServiceConfig } from '../../data/pages/applications'
+import { applyState } from '../../data/pages/applications'
 
 const applicationStore = useApplicationManagerStore()
 
@@ -478,6 +479,39 @@ const saveServiceChanges = async () => {
     alert('Failed to update service. Please try again.')
   }
 }
+
+// Computed property to get pending applications (in target but not in current)
+const pendingApplications = computed(() => {
+  if (!applicationStore.currentState) return []
+  
+  const currentApps = applicationStore.currentState.current?.apps || {}
+  const targetApps = applicationStore.currentState.target?.apps || {}
+  
+  // Find apps that are in target but not in current (or differ from current)
+  const pending: Application[] = []
+  
+  for (const [appIdStr, targetApp] of Object.entries(targetApps)) {
+    const appId = Number(appIdStr)
+    const currentApp = currentApps[appId]
+    
+    // If app doesn't exist in current state, it's pending
+    if (!currentApp) {
+      pending.push(targetApp)
+    }
+  }
+  
+  return pending
+})
+
+// Apply pending application
+const applyPendingApp = async (appId: number) => {
+  try {
+    await applyState()
+    await refreshData()
+  } catch (error) {
+    console.error('Failed to apply pending application:', error)
+  }
+}
 </script>
 
 <template>
@@ -497,7 +531,7 @@ const saveServiceChanges = async () => {
   </VaAlert>
 
   <!-- Summary Cards -->
-  <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+  <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
     <VaCard>
       <VaCardContent>
         <div class="flex items-center justify-between">
@@ -553,6 +587,26 @@ const saveServiceChanges = async () => {
             name="check_circle"
             size="large"
             color="success"
+          />
+        </div>
+      </VaCardContent>
+    </VaCard>
+
+    <VaCard>
+      <VaCardContent>
+        <div class="flex items-center justify-between">
+          <div>
+            <p class="text-sm text-gray-600">
+              Pending Applications
+            </p>
+            <p class="text-3xl font-bold">
+              {{ pendingApplications.length }}
+            </p>
+          </div>
+          <VaIcon
+            name="schedule"
+            size="large"
+            color="secondary"
           />
         </div>
       </VaCardContent>
@@ -782,6 +836,104 @@ const saveServiceChanges = async () => {
                   <VaIcon
                     name="arrow_forward"
                     size="small"
+                    color="secondary"
+                  />
+                </div>
+              </div>
+            </div>
+          </VaCardContent>
+        </VaCard>
+      </div>
+    </VaCardContent>
+  </VaCard>
+
+  <!-- Pending Applications (Target State Not Applied) -->
+  <VaCard v-if="pendingApplications.length > 0" class="mt-6" style="background-color: #f8f9fa; border: 1px solid #dee2e6;">
+    <VaCardTitle>
+      <div class="flex items-center justify-between">
+        <span>Pending Applications</span>
+        <VaBadge :text="`${pendingApplications.length} awaiting deployment`" color="info" />
+      </div>
+    </VaCardTitle>
+    <VaCardContent>
+      <VaAlert color="info" class="mb-4" border="left">
+        <p>These applications are configured but not yet deployed. Click "Apply Now" to deploy them.</p>
+      </VaAlert>
+
+      <div class="space-y-4">
+        <VaCard
+          v-for="app in pendingApplications"
+          :key="app.appId"
+          outlined
+          style="border-color: #ced4da; background-color: #ffffff;"
+        >
+          <VaCardTitle>
+            <div class="flex items-start justify-between w-full">
+              <div class="flex flex-col gap-2">
+                <div class="flex items-center gap-2">
+                  <VaIcon
+                    name="schedule"
+                    size="small"
+                    color="secondary"
+                  />
+                  <span class="font-semibold text-lg">{{ app.appName }}</span>
+                  <VaBadge text="Not Deployed" color="info" outline />
+                </div>
+                <div class="flex items-center gap-2">
+                  <VaBadge
+                    :text="`ID: ${app.appId}`"
+                    color="secondary"
+                  />
+                </div>
+              </div>
+              <div class="flex gap-2 ml-auto">
+                <VaButton
+                  color="primary"
+                  @click="applyPendingApp(app.appId)"
+                >
+                  <VaIcon name="play_arrow" class="mr-1" />
+                  Apply Now
+                </VaButton>
+              </div>
+            </div>
+          </VaCardTitle>
+          <VaCardContent>
+            <p class="text-sm text-gray-600 mb-2">
+              Services ({{ app.services.length }})
+            </p>
+            <div class="space-y-2">
+              <div
+                v-for="service in app.services"
+                :key="service.serviceId"
+                class="p-3 rounded flex items-center justify-between"
+                style="background-color: #f1f3f5;"
+              >
+                <div class="flex-1">
+                  <p class="font-semibold">
+                    {{ service.serviceName }}
+                  </p>
+                  <p class="text-sm text-gray-600">
+                    {{ typeof service.imageName === 'object' && service.imageName !== null ? (service.imageName as any).value : service.imageName }}
+                  </p>
+                  <div
+                    v-if="service.config.ports && service.config.ports.length > 0"
+                    class="mt-1"
+                  >
+                    <VaChip
+                      v-for="port in service.config.ports"
+                      :key="port"
+                      size="small"
+                      color="secondary"
+                      outline
+                      class="mr-1"
+                    >
+                      {{ port }}
+                    </VaChip>
+                  </div>
+                </div>
+                <div class="flex items-center gap-2">
+                  <VaBadge
+                    :text="`Service ${service.serviceId}`"
                     color="secondary"
                   />
                 </div>

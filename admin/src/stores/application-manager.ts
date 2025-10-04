@@ -343,13 +343,18 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
             if (newApiUrl) {
               console.log(`[ApplicationManager] Switching to device API: ${newApiUrl}`)
               setApiUrl(newApiUrl)
+              // Clear old device's state to prevent showing stale data
+              this.currentState = null
+              this.applications = []
+              this.deviceInfo = null
+              this.systemMetrics = null
               // Refresh data from the new device
               this.refresh()
             }
           }
         )
 
-        await Promise.all([this.fetchApplications(), this.fetchDeviceInfo()])
+        await Promise.all([this.fetchApplications(), this.fetchDeviceInfo(), this.fetchState()])
       } catch (error) {
         console.error('Failed to initialize application manager store:', error)
       }
