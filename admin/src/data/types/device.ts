@@ -19,6 +19,7 @@ export interface Device {
   createdAt: string             // ISO timestamp when added
   updatedAt?: string            // ISO timestamp of last update
   metrics?: DeviceMetrics       // System metrics (CPU, RAM, Disk)
+  managerStatus?: ApplicationManagerStatus  // Application manager status
 }
 
 export interface DeviceMetrics {
@@ -51,4 +52,14 @@ export interface DeviceStats {
   onlineDevices: number
   offlineDevices: number
   lastSyncTime?: string
+}
+
+export interface ApplicationManagerStatus {
+  isApplying: boolean
+  currentApps: number
+  targetApps: number
+  currentServices: number
+  targetServices: number
+  isReconciling: boolean
+  lastError?: string | null
 }

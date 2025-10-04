@@ -202,6 +202,36 @@ const refreshDevices = async () => {
             </div>
           </div>
 
+          <!-- Manager Status -->
+          <div v-if="device.managerStatus" class="manager-status mt-4">
+            <div class="status-header">
+              <VaIcon name="settings" size="small" />
+              <span class="status-title">Application Manager</span>
+            </div>
+            <div class="status-grid">
+              <div class="status-item">
+                <span class="status-label">Apps:</span>
+                <span class="status-value">{{ device.managerStatus.currentApps }}/{{ device.managerStatus.targetApps }}</span>
+              </div>
+              <div class="status-item">
+                <span class="status-label">Services:</span>
+                <span class="status-value">{{ device.managerStatus.currentServices }}/{{ device.managerStatus.targetServices }}</span>
+              </div>
+              <div class="status-item">
+                <span class="status-label">Applying:</span>
+                <VaBadge :text="device.managerStatus.isApplying ? 'Yes' : 'No'" :color="device.managerStatus.isApplying ? 'warning' : 'success'" />
+              </div>
+              <div class="status-item">
+                <span class="status-label">Reconciling:</span>
+                <VaBadge :text="device.managerStatus.isReconciling ? 'Yes' : 'No'" :color="device.managerStatus.isReconciling ? 'info' : 'success'" />
+              </div>
+            </div>
+            <div v-if="device.managerStatus.lastError" class="status-error">
+              <VaIcon name="error" size="small" color="danger" />
+              <span class="error-text">{{ device.managerStatus.lastError }}</span>
+            </div>
+          </div>
+
           <!-- Device Actions -->
           <div class="mt-4 flex gap-2">
             <VaButton
@@ -442,5 +472,69 @@ const refreshDevices = async () => {
 
 .space-y-4 > * + * {
   margin-top: 1rem;
+}
+
+.manager-status {
+  padding: 0.75rem;
+  background: #f0f4ff;
+  border-radius: 8px;
+  border: 1px solid #d0deff;
+}
+
+.status-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.75rem;
+}
+
+.status-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--va-primary);
+}
+
+.status-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.status-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.status-label {
+  font-size: 0.75rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.status-value {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--va-primary);
+}
+
+.status-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: #fff3f3;
+  border-left: 3px solid var(--va-danger);
+  border-radius: 4px;
+  margin-top: 0.75rem;
+}
+
+.error-text {
+  font-size: 0.75rem;
+  color: var(--va-danger);
+  font-weight: 500;
+  word-break: break-word;
+  flex: 1;
 }
 </style>

@@ -263,8 +263,9 @@ export const useDevicesStore = defineStore('devices', {
 
       const testResult = await testDeviceConnection(device.apiUrl)
       
-      // If device is online, fetch metrics
+      // If device is online, fetch metrics and manager status
       let metrics = undefined
+      let managerStatus = undefined
       if (testResult.success) {
         try {
           console.log(`[Devices] Fetching metrics for ${device.name} from ${device.apiUrl}/metrics`)
@@ -280,12 +281,29 @@ export const useDevicesStore = defineStore('devices', {
         } catch (error) {
           console.error(`[Devices] Failed to fetch metrics for ${device.name}:`, error)
         }
+
+        // Fetch application manager status
+        try {
+          console.log(`[Devices] Fetching manager status for ${device.name} from ${device.apiUrl}/status`)
+          const statusResponse = await fetch(`${device.apiUrl}/status`, {
+            signal: AbortSignal.timeout(5000)
+          })
+          if (statusResponse.ok) {
+            managerStatus = await statusResponse.json()
+            console.log(`[Devices] Manager status received for ${device.name}:`, managerStatus)
+          } else {
+            console.warn(`[Devices] Status request failed for ${device.name}: ${statusResponse.status}`)
+          }
+        } catch (error) {
+          console.error(`[Devices] Failed to fetch manager status for ${device.name}:`, error)
+        }
       }
       
       await this.updateDevice(id, {
         status: testResult.success ? 'online' : 'offline',
         lastSeen: testResult.success ? new Date().toISOString() : device.lastSeen,
         metrics,
+        managerStatus,
       })
     },
 
