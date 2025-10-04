@@ -166,7 +166,9 @@ export const updateApplication = async (application: Application): Promise<void>
     throw new Error(`Failed to update application: ${response.statusText}`)
   }
 
-  await applyState()
+  // Don't auto-apply state - let user trigger reconciliation manually
+  // This prevents conflicts when multiple updates are made in quick succession
+  // await applyState()
 }
 
 /**
@@ -181,7 +183,8 @@ export const removeApplication = async (appId: number): Promise<boolean> => {
     throw new Error(`Failed to remove application: ${response.statusText}`)
   }
 
-  await applyState()
+  // Don't auto-apply state - let user trigger reconciliation manually
+  // await applyState()
   return true
 }
 
@@ -195,6 +198,11 @@ export const applyState = async (): Promise<{ status: string; message: string }>
   })
 
   if (!response.ok) {
+    // Handle 409 Conflict (already reconciling) gracefully
+    if (response.status === 409) {
+      const data = await response.json()
+      throw new Error(data.message || 'State reconciliation is already in progress')
+    }
     throw new Error(`Failed to apply state: ${response.statusText}`)
   }
 

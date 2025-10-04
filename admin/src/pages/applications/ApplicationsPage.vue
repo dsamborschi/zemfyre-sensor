@@ -596,7 +596,7 @@ const saveServiceChanges = async () => {
       editedService.value = null
 
       notify({
-        message: 'Service updated successfully! Changes will be applied on next reconciliation.',
+        message: 'Service updated successfully in target state. Click "Apply Changes" to deploy.',
         color: 'success',
       })
     }

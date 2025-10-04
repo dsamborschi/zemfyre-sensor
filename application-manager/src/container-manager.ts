@@ -261,10 +261,10 @@ export class ContainerManager extends EventEmitter {
 					config: {
 						image: container.image,
 						ports: container.ports && container.ports.length > 0
-							? container.ports
-								.filter(p => p.PublicPort && p.PrivatePort)
-								.map(p => `${p.PublicPort}:${p.PrivatePort}`)
-							: undefined,
+						? Array.from(new Set(container.ports
+							.filter(p => p.PublicPort && p.PrivatePort)
+							.map(p => `${p.PublicPort}:${p.PrivatePort}`)))
+						: undefined,
 					},
 				});
 			}
