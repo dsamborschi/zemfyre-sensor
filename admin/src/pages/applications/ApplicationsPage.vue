@@ -283,16 +283,16 @@ const removeApplication = async (appId: number) => {
 
 const getStatusColor = (status?: string) => {
   switch (status) {
-    case 'running':
-      return 'success'
-    case 'stopped':
-      return 'danger'
-    case 'deploying':
-      return 'info'
-    case 'error':
-      return 'danger'
-    default:
-      return 'secondary'
+  case 'running':
+    return 'success'
+  case 'stopped':
+    return 'danger'
+  case 'deploying':
+    return 'info'
+  case 'error':
+    return 'danger'
+  default:
+    return 'secondary'
   }
 }
 
@@ -481,10 +481,18 @@ const saveServiceChanges = async () => {
 </script>
 
 <template>
-  <h1 class="page-title">Application Manager</h1>
+  <h1 class="page-title">
+    Application Manager
+  </h1>
 
   <!-- Error Display -->
-  <VaAlert v-if="applicationStore.error" color="danger" class="mb-4" closeable @close="applicationStore.clearError()">
+  <VaAlert
+    v-if="applicationStore.error"
+    color="danger"
+    class="mb-4"
+    closeable
+    @close="applicationStore.clearError()"
+  >
     {{ applicationStore.error }}
   </VaAlert>
 
@@ -494,10 +502,18 @@ const saveServiceChanges = async () => {
       <VaCardContent>
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm text-gray-600">Total Applications</p>
-            <p class="text-3xl font-bold">{{ applicationStore.totalApplications }}</p>
+            <p class="text-sm text-gray-600">
+              Total Applications
+            </p>
+            <p class="text-3xl font-bold">
+              {{ applicationStore.totalApplications }}
+            </p>
           </div>
-          <VaIcon name="deployed_code" size="large" color="primary" />
+          <VaIcon
+            name="deployed_code"
+            size="large"
+            color="primary"
+          />
         </div>
       </VaCardContent>
     </VaCard>
@@ -506,10 +522,18 @@ const saveServiceChanges = async () => {
       <VaCardContent>
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm text-gray-600">Total Services</p>
-            <p class="text-3xl font-bold">{{ applicationStore.totalServices }}</p>
+            <p class="text-sm text-gray-600">
+              Total Services
+            </p>
+            <p class="text-3xl font-bold">
+              {{ applicationStore.totalServices }}
+            </p>
           </div>
-          <VaIcon name="dns" size="large" color="info" />
+          <VaIcon
+            name="dns"
+            size="large"
+            color="info"
+          />
         </div>
       </VaCardContent>
     </VaCard>
@@ -518,41 +542,71 @@ const saveServiceChanges = async () => {
       <VaCardContent>
         <div class="flex items-center justify-between">
           <div>
-            <p class="text-sm text-gray-600">Running Applications</p>
-            <p class="text-3xl font-bold">{{ applicationStore.runningApplications.length }}</p>
+            <p class="text-sm text-gray-600">
+              Running Applications
+            </p>
+            <p class="text-3xl font-bold">
+              {{ applicationStore.runningApplications.length }}
+            </p>
           </div>
-          <VaIcon name="check_circle" size="large" color="success" />
+          <VaIcon
+            name="check_circle"
+            size="large"
+            color="success"
+          />
         </div>
       </VaCardContent>
     </VaCard>
   </div>
 
   <!-- System Metrics -->
-  <VaCard v-if="applicationStore.systemMetrics" class="mb-6">
+  <VaCard
+    v-if="applicationStore.systemMetrics"
+    class="mb-6"
+  >
     <VaCardTitle>System Metrics</VaCardTitle>
     <VaCardContent>
       <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div>
-          <p class="text-sm text-gray-600">CPU Usage</p>
-          <VaProgressBar :model-value="applicationStore.systemMetrics.cpu.usage" color="primary">
+          <p class="text-sm text-gray-600">
+            CPU Usage
+          </p>
+          <VaProgressBar
+            :model-value="applicationStore.systemMetrics.cpu.usage"
+            color="primary"
+          >
             {{ applicationStore.systemMetrics.cpu.usage.toFixed(1) }}%
           </VaProgressBar>
         </div>
         <div>
-          <p class="text-sm text-gray-600">Memory Usage</p>
-          <VaProgressBar :model-value="applicationStore.systemMetrics.memory.usedPercent" color="info">
+          <p class="text-sm text-gray-600">
+            Memory Usage
+          </p>
+          <VaProgressBar
+            :model-value="applicationStore.systemMetrics.memory.usedPercent"
+            color="info"
+          >
             {{ applicationStore.systemMetrics.memory.usedPercent.toFixed(1) }}%
           </VaProgressBar>
         </div>
         <div>
-          <p class="text-sm text-gray-600">Disk Usage</p>
-          <VaProgressBar :model-value="applicationStore.systemMetrics.disk.usedPercent" color="warning">
+          <p class="text-sm text-gray-600">
+            Disk Usage
+          </p>
+          <VaProgressBar
+            :model-value="applicationStore.systemMetrics.disk.usedPercent"
+            color="warning"
+          >
             {{ applicationStore.systemMetrics.disk.usedPercent.toFixed(1) }}%
           </VaProgressBar>
         </div>
         <div>
-          <p class="text-sm text-gray-600">CPU Cores</p>
-          <p class="text-2xl font-bold">{{ applicationStore.systemMetrics.cpu.cores }}</p>
+          <p class="text-sm text-gray-600">
+            CPU Cores
+          </p>
+          <p class="text-2xl font-bold">
+            {{ applicationStore.systemMetrics.cpu.cores }}
+          </p>
         </div>
       </div>
     </VaCardContent>
@@ -560,16 +614,35 @@ const saveServiceChanges = async () => {
 
   <!-- Actions -->
   <div class="flex gap-2 mb-4">
-    <VaButton :disabled="applicationStore.isDeploying" @click="openDeployDialog">
-      <VaIcon name="add" class="mr-2" />
+    <VaButton
+      :disabled="applicationStore.isDeploying"
+      @click="openDeployDialog"
+    >
+      <VaIcon
+        name="add"
+        class="mr-2"
+      />
       Deploy Application
     </VaButton>
-    <VaButton preset="secondary" :loading="applicationStore.isLoading" @click="refreshData">
-      <VaIcon name="refresh" class="mr-2" />
+    <VaButton
+      preset="secondary"
+      :loading="applicationStore.isLoading"
+      @click="refreshData"
+    >
+      <VaIcon
+        name="refresh"
+        class="mr-2"
+      />
       Refresh
     </VaButton>
-    <VaButton preset="secondary" @click="applicationStore.fetchSystemMetrics()">
-      <VaIcon name="monitoring" class="mr-2" />
+    <VaButton
+      preset="secondary"
+      @click="applicationStore.fetchSystemMetrics()"
+    >
+      <VaIcon
+        name="monitoring"
+        class="mr-2"
+      />
       Update Metrics
     </VaButton>
   </div>
@@ -578,39 +651,87 @@ const saveServiceChanges = async () => {
   <VaCard>
     <VaCardTitle>Deployed Applications</VaCardTitle>
     <VaCardContent>
-      <div v-if="applicationStore.isLoadingApplications" class="text-center py-8">
+      <div
+        v-if="applicationStore.isLoadingApplications"
+        class="text-center py-8"
+      >
         <VaProgressCircle indeterminate />
-        <p class="mt-4">Loading applications...</p>
+        <p class="mt-4">
+          Loading applications...
+        </p>
       </div>
 
-      <div v-else-if="applicationStore.applications.length === 0" class="text-center py-8">
-        <VaIcon name="deployed_code" size="large" color="secondary" class="mb-4" />
-        <p class="text-gray-600">No applications deployed yet</p>
-        <VaButton class="mt-4" @click="openDeployDialog">Deploy Your First Application</VaButton>
+      <div
+        v-else-if="applicationStore.applications.length === 0"
+        class="text-center py-8"
+      >
+        <VaIcon
+          name="deployed_code"
+          size="large"
+          color="secondary"
+          class="mb-4"
+        />
+        <p class="text-gray-600">
+          No applications deployed yet
+        </p>
+        <VaButton
+          class="mt-4"
+          @click="openDeployDialog"
+        >
+          Deploy Your First Application
+        </VaButton>
       </div>
 
-      <div v-else class="space-y-4">
-        <VaCard v-for="app in applicationStore.applications" :key="app.appId" outlined>
+      <div
+        v-else
+        class="space-y-4"
+      >
+        <VaCard
+          v-for="app in applicationStore.applications"
+          :key="app.appId"
+          outlined
+        >
           <VaCardTitle>
             <div class="flex items-start justify-between w-full">
               <div class="flex flex-col gap-2">
                 <div class="flex items-center gap-2">
-                  <VaIcon name="apps" size="small" />
+                  <VaIcon
+                    name="apps"
+                    size="small"
+                  />
                   <span class="font-semibold text-lg">{{ app.appName }}</span>
                 </div>
                 <div class="flex items-center gap-2">
-                  <VaBadge :text="`ID: ${app.appId}`" color="secondary" />
-                  <VaBadge v-if="app.status" :text="app.status" :color="getStatusColor(app.status)" />
+                  <VaBadge
+                    :text="`ID: ${app.appId}`"
+                    color="secondary"
+                  />
+                  <VaBadge
+                    v-if="app.status"
+                    :text="app.status"
+                    :color="getStatusColor(app.status)"
+                  />
                 </div>
               </div>
               <div class="flex gap-2 ml-auto">
-                <VaButton preset="plain" icon="edit" @click="openEditDialog(app)" />
-                <VaButton preset="plain" icon="delete" color="danger" @click="removeApplication(app.appId)" />
+                <VaButton
+                  preset="plain"
+                  icon="edit"
+                  @click="openEditDialog(app)"
+                />
+                <VaButton
+                  preset="plain"
+                  icon="delete"
+                  color="danger"
+                  @click="removeApplication(app.appId)"
+                />
               </div>
             </div>
           </VaCardTitle>
           <VaCardContent>
-            <p class="text-sm text-gray-600 mb-2">Services ({{ app.services.length }})</p>
+            <p class="text-sm text-gray-600 mb-2">
+              Services ({{ app.services.length }})
+            </p>
             <div class="space-y-2">
               <div
                 v-for="service in app.services"
@@ -619,17 +740,37 @@ const saveServiceChanges = async () => {
                 @click="openServiceDetails(service, app)"
               >
                 <div class="flex-1">
-                  <p class="font-semibold">{{ service.serviceName }}</p>
-                  <p class="text-sm text-gray-600">{{ service.imageName }}</p>
-                  <div v-if="service.config.ports && service.config.ports.length > 0" class="mt-1">
-                    <VaChip v-for="port in service.config.ports" :key="port" size="small" color="primary" class="mr-1">
+                  <p class="font-semibold">
+                    {{ service.serviceName }}
+                  </p>
+                  <p class="text-sm text-gray-600">
+                    {{ service.imageName }}
+                  </p>
+                  <div
+                    v-if="service.config.ports && service.config.ports.length > 0"
+                    class="mt-1"
+                  >
+                    <VaChip
+                      v-for="port in service.config.ports"
+                      :key="port"
+                      size="small"
+                      color="primary"
+                      class="mr-1"
+                    >
                       {{ port }}
                     </VaChip>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
-                  <VaBadge :text="`Service ${service.serviceId}`" color="info" />
-                  <VaIcon name="arrow_forward" size="small" color="secondary" />
+                  <VaBadge
+                    :text="`Service ${service.serviceId}`"
+                    color="info"
+                  />
+                  <VaIcon
+                    name="arrow_forward"
+                    size="small"
+                    color="secondary"
+                  />
                 </div>
               </div>
             </div>
@@ -650,30 +791,67 @@ const saveServiceChanges = async () => {
     <div class="space-y-4">
       <!-- Application Details -->
       <div>
-        <h3 class="text-lg font-semibold mb-2">Application Details</h3>
-        <VaInput v-model="newApplication.appName" label="Application Name" placeholder="e.g., web-stack" />
+        <h3 class="text-lg font-semibold mb-2">
+          Application Details
+        </h3>
+        <VaInput
+          v-model="newApplication.appName"
+          label="Application Name"
+          placeholder="e.g., web-stack"
+        />
       </div>
 
       <VaDivider />
 
       <!-- Added Services List -->
       <div v-if="services.length > 0">
-        <h3 class="text-lg font-semibold mb-2">Services in Application ({{ services.length }})</h3>
+        <h3 class="text-lg font-semibold mb-2">
+          Services in Application ({{ services.length }})
+        </h3>
         <div class="space-y-2 mb-4">
-          <VaCard v-for="(service, index) in services" :key="index" outlined class="p-3">
+          <VaCard
+            v-for="(service, index) in services"
+            :key="index"
+            outlined
+            class="p-3"
+          >
             <div class="flex items-center justify-between">
               <div class="flex-1">
-                <p class="font-semibold">{{ service.serviceName }}</p>
-                <p class="text-sm text-gray-600">{{ service.imageName }}</p>
-                <div v-if="service.config.ports && service.config.ports.length > 0" class="mt-1">
-                  <VaChip v-for="port in service.config.ports" :key="port" size="small" color="primary" class="mr-1">
+                <p class="font-semibold">
+                  {{ service.serviceName }}
+                </p>
+                <p class="text-sm text-gray-600">
+                  {{ service.imageName }}
+                </p>
+                <div
+                  v-if="service.config.ports && service.config.ports.length > 0"
+                  class="mt-1"
+                >
+                  <VaChip
+                    v-for="port in service.config.ports"
+                    :key="port"
+                    size="small"
+                    color="primary"
+                    class="mr-1"
+                  >
                     {{ port }}
                   </VaChip>
                 </div>
               </div>
               <div class="flex gap-2">
-                <VaButton preset="plain" icon="edit" size="small" @click="editService(index)" />
-                <VaButton preset="plain" icon="delete" color="danger" size="small" @click="removeService(index)" />
+                <VaButton
+                  preset="plain"
+                  icon="edit"
+                  size="small"
+                  @click="editService(index)"
+                />
+                <VaButton
+                  preset="plain"
+                  icon="delete"
+                  color="danger"
+                  size="small"
+                  @click="removeService(index)"
+                />
               </div>
             </div>
           </VaCard>
@@ -686,7 +864,11 @@ const saveServiceChanges = async () => {
           {{ isEditingService ? 'Edit Service' : 'Add New Service' }}
         </h3>
         <div class="grid grid-cols-1 gap-4">
-          <VaInput v-model="newService.serviceName" label="Service Name" placeholder="e.g., nginx" />
+          <VaInput
+            v-model="newService.serviceName"
+            label="Service Name"
+            placeholder="e.g., nginx"
+          />
           <VaSelect
             v-model="newService.imageName"
             label="Docker Image"
@@ -700,12 +882,27 @@ const saveServiceChanges = async () => {
 
       <!-- Port Mappings -->
       <div>
-        <h3 class="text-sm font-semibold mb-2">Port Mappings</h3>
+        <h3 class="text-sm font-semibold mb-2">
+          Port Mappings
+        </h3>
         <div class="flex gap-2 mb-2">
-          <VaInput v-model="portInput" placeholder="e.g., 8080:80" style="flex: 1" @keyup.enter="addPort" />
-          <VaButton size="small" @click="addPort">Add Port</VaButton>
+          <VaInput
+            v-model="portInput"
+            placeholder="e.g., 8080:80"
+            style="flex: 1"
+            @keyup.enter="addPort"
+          />
+          <VaButton
+            size="small"
+            @click="addPort"
+          >
+            Add Port
+          </VaButton>
         </div>
-        <div v-if="newService.config.ports && newService.config.ports.length > 0" class="flex gap-2 flex-wrap">
+        <div
+          v-if="newService.config.ports && newService.config.ports.length > 0"
+          class="flex gap-2 flex-wrap"
+        >
           <VaChip
             v-for="port in newService.config.ports"
             :key="port"
@@ -720,38 +917,77 @@ const saveServiceChanges = async () => {
 
       <!-- Environment Variables -->
       <div>
-        <h3 class="text-sm font-semibold mb-2">Environment Variables</h3>
+        <h3 class="text-sm font-semibold mb-2">
+          Environment Variables
+        </h3>
         <div class="flex gap-2 mb-2">
-          <VaInput v-model="envKeyInput" placeholder="Key" style="flex: 1" />
-          <VaInput v-model="envValueInput" placeholder="Value" style="flex: 1" @keyup.enter="addEnvironmentVariable" />
-          <VaButton size="small" @click="addEnvironmentVariable">Add</VaButton>
+          <VaInput
+            v-model="envKeyInput"
+            placeholder="Key"
+            style="flex: 1"
+          />
+          <VaInput
+            v-model="envValueInput"
+            placeholder="Value"
+            style="flex: 1"
+            @keyup.enter="addEnvironmentVariable"
+          />
+          <VaButton
+            size="small"
+            @click="addEnvironmentVariable"
+          >
+            Add
+          </VaButton>
         </div>
-        <div v-if="environmentEntries.length > 0" class="space-y-1">
+        <div
+          v-if="environmentEntries.length > 0"
+          class="space-y-1"
+        >
           <div
             v-for="[key, value] in environmentEntries"
             :key="key"
             class="flex items-center justify-between p-2 bg-gray-50 rounded"
           >
-            <span class="text-sm"
-              ><strong>{{ key }}</strong
-              >: {{ value }}</span
-            >
-            <VaButton preset="plain" icon="close" size="small" @click="removeEnvironmentVariable(key)" />
+            <span class="text-sm"><strong>{{ key }}</strong>: {{ value }}</span>
+            <VaButton
+              preset="plain"
+              icon="close"
+              size="small"
+              @click="removeEnvironmentVariable(key)"
+            />
           </div>
         </div>
       </div>
 
       <!-- Add/Update Service Button -->
       <div class="flex gap-2 mb-6">
-        <VaButton v-if="isEditingService" color="success" @click="updateService">
-          <VaIcon name="check" class="mr-2" />
+        <VaButton
+          v-if="isEditingService"
+          color="success"
+          @click="updateService"
+        >
+          <VaIcon
+            name="check"
+            class="mr-2"
+          />
           Update Service
         </VaButton>
-        <VaButton v-else :disabled="!newService.serviceName || !newService.imageName" @click="addService">
-          <VaIcon name="add" class="mr-2" />
+        <VaButton
+          v-else
+          :disabled="!newService.serviceName || !newService.imageName"
+          @click="addService"
+        >
+          <VaIcon
+            name="add"
+            class="mr-2"
+          />
           Add Service to Application
         </VaButton>
-        <VaButton v-if="isEditingService" preset="secondary" @click="cancelCurrentServiceEdit">
+        <VaButton
+          v-if="isEditingService"
+          preset="secondary"
+          @click="cancelCurrentServiceEdit"
+        >
           Cancel Edit
         </VaButton>
       </div>
@@ -759,10 +995,18 @@ const saveServiceChanges = async () => {
 
     <template #footer>
       <div class="flex gap-3 justify-end">
-        <VaButton preset="secondary" :disabled="applicationStore.isDeploying" @click="showDeployDialog = false">
+        <VaButton
+          preset="secondary"
+          :disabled="applicationStore.isDeploying"
+          @click="showDeployDialog = false"
+        >
           Cancel
         </VaButton>
-        <VaButton :loading="applicationStore.isDeploying" :disabled="services.length === 0" @click="deployApplication">
+        <VaButton
+          :loading="applicationStore.isDeploying"
+          :disabled="services.length === 0"
+          @click="deployApplication"
+        >
           Deploy Application ({{ services.length }} service{{ services.length !== 1 ? 's' : '' }})
         </VaButton>
       </div>
@@ -780,31 +1024,70 @@ const saveServiceChanges = async () => {
     <div class="space-y-4">
       <!-- Application Details -->
       <div>
-        <h3 class="text-lg font-semibold mb-2">Application Details</h3>
-        <VaInput v-model="newApplication.appName" label="Application Name" placeholder="e.g., web-stack" />
-        <div class="mt-2 text-sm text-gray-600">Application ID: {{ newApplication.appId }}</div>
+        <h3 class="text-lg font-semibold mb-2">
+          Application Details
+        </h3>
+        <VaInput
+          v-model="newApplication.appName"
+          label="Application Name"
+          placeholder="e.g., web-stack"
+        />
+        <div class="mt-2 text-sm text-gray-600">
+          Application ID: {{ newApplication.appId }}
+        </div>
       </div>
 
       <VaDivider />
 
       <!-- Added Services List -->
       <div v-if="services.length > 0">
-        <h3 class="text-lg font-semibold mb-2">Services in Application ({{ services.length }})</h3>
+        <h3 class="text-lg font-semibold mb-2">
+          Services in Application ({{ services.length }})
+        </h3>
         <div class="space-y-2 mb-4">
-          <VaCard v-for="(service, index) in services" :key="index" outlined class="p-3">
+          <VaCard
+            v-for="(service, index) in services"
+            :key="index"
+            outlined
+            class="p-3"
+          >
             <div class="flex items-center justify-between">
               <div class="flex-1">
-                <p class="font-semibold">{{ service.serviceName }}</p>
-                <p class="text-sm text-gray-600">{{ service.imageName }}</p>
-                <div v-if="service.config.ports && service.config.ports.length > 0" class="mt-1">
-                  <VaChip v-for="port in service.config.ports" :key="port" size="small" color="primary" class="mr-1">
+                <p class="font-semibold">
+                  {{ service.serviceName }}
+                </p>
+                <p class="text-sm text-gray-600">
+                  {{ service.imageName }}
+                </p>
+                <div
+                  v-if="service.config.ports && service.config.ports.length > 0"
+                  class="mt-1"
+                >
+                  <VaChip
+                    v-for="port in service.config.ports"
+                    :key="port"
+                    size="small"
+                    color="primary"
+                    class="mr-1"
+                  >
                     {{ port }}
                   </VaChip>
                 </div>
               </div>
               <div class="flex gap-2">
-                <VaButton preset="plain" icon="edit" size="small" @click="editService(index)" />
-                <VaButton preset="plain" icon="delete" color="danger" size="small" @click="removeService(index)" />
+                <VaButton
+                  preset="plain"
+                  icon="edit"
+                  size="small"
+                  @click="editService(index)"
+                />
+                <VaButton
+                  preset="plain"
+                  icon="delete"
+                  color="danger"
+                  size="small"
+                  @click="removeService(index)"
+                />
               </div>
             </div>
           </VaCard>
@@ -817,7 +1100,11 @@ const saveServiceChanges = async () => {
           {{ isEditingService ? 'Edit Service' : 'Add New Service' }}
         </h3>
         <div class="grid grid-cols-1 gap-4">
-          <VaInput v-model="newService.serviceName" label="Service Name" placeholder="e.g., nginx" />
+          <VaInput
+            v-model="newService.serviceName"
+            label="Service Name"
+            placeholder="e.g., nginx"
+          />
           <VaSelect
             v-model="newService.imageName"
             label="Docker Image"
@@ -831,12 +1118,27 @@ const saveServiceChanges = async () => {
 
       <!-- Port Mappings -->
       <div>
-        <h3 class="text-sm font-semibold mb-2">Port Mappings</h3>
+        <h3 class="text-sm font-semibold mb-2">
+          Port Mappings
+        </h3>
         <div class="flex gap-2 mb-2">
-          <VaInput v-model="portInput" placeholder="e.g., 8080:80" style="flex: 1" @keyup.enter="addPort" />
-          <VaButton size="small" @click="addPort">Add Port</VaButton>
+          <VaInput
+            v-model="portInput"
+            placeholder="e.g., 8080:80"
+            style="flex: 1"
+            @keyup.enter="addPort"
+          />
+          <VaButton
+            size="small"
+            @click="addPort"
+          >
+            Add Port
+          </VaButton>
         </div>
-        <div v-if="newService.config.ports && newService.config.ports.length > 0" class="flex gap-2 flex-wrap">
+        <div
+          v-if="newService.config.ports && newService.config.ports.length > 0"
+          class="flex gap-2 flex-wrap"
+        >
           <VaChip
             v-for="port in newService.config.ports"
             :key="port"
@@ -851,38 +1153,77 @@ const saveServiceChanges = async () => {
 
       <!-- Environment Variables -->
       <div>
-        <h3 class="text-sm font-semibold mb-2">Environment Variables</h3>
+        <h3 class="text-sm font-semibold mb-2">
+          Environment Variables
+        </h3>
         <div class="flex gap-2 mb-2">
-          <VaInput v-model="envKeyInput" placeholder="Key" style="flex: 1" />
-          <VaInput v-model="envValueInput" placeholder="Value" style="flex: 1" @keyup.enter="addEnvironmentVariable" />
-          <VaButton size="small" @click="addEnvironmentVariable">Add</VaButton>
+          <VaInput
+            v-model="envKeyInput"
+            placeholder="Key"
+            style="flex: 1"
+          />
+          <VaInput
+            v-model="envValueInput"
+            placeholder="Value"
+            style="flex: 1"
+            @keyup.enter="addEnvironmentVariable"
+          />
+          <VaButton
+            size="small"
+            @click="addEnvironmentVariable"
+          >
+            Add
+          </VaButton>
         </div>
-        <div v-if="environmentEntries.length > 0" class="space-y-1">
+        <div
+          v-if="environmentEntries.length > 0"
+          class="space-y-1"
+        >
           <div
             v-for="[key, value] in environmentEntries"
             :key="key"
             class="flex items-center justify-between p-2 bg-gray-50 rounded"
           >
-            <span class="text-sm"
-              ><strong>{{ key }}</strong
-              >: {{ value }}</span
-            >
-            <VaButton preset="plain" icon="close" size="small" @click="removeEnvironmentVariable(key)" />
+            <span class="text-sm"><strong>{{ key }}</strong>: {{ value }}</span>
+            <VaButton
+              preset="plain"
+              icon="close"
+              size="small"
+              @click="removeEnvironmentVariable(key)"
+            />
           </div>
         </div>
       </div>
 
       <!-- Add/Update Service Button -->
       <div class="flex gap-2 mb-6">
-        <VaButton v-if="isEditingService" color="success" @click="updateService">
-          <VaIcon name="check" class="mr-2" />
+        <VaButton
+          v-if="isEditingService"
+          color="success"
+          @click="updateService"
+        >
+          <VaIcon
+            name="check"
+            class="mr-2"
+          />
           Update Service
         </VaButton>
-        <VaButton v-else :disabled="!newService.serviceName || !newService.imageName" @click="addService">
-          <VaIcon name="add" class="mr-2" />
+        <VaButton
+          v-else
+          :disabled="!newService.serviceName || !newService.imageName"
+          @click="addService"
+        >
+          <VaIcon
+            name="add"
+            class="mr-2"
+          />
           Add Service to Application
         </VaButton>
-        <VaButton v-if="isEditingService" preset="secondary" @click="cancelCurrentServiceEdit">
+        <VaButton
+          v-if="isEditingService"
+          preset="secondary"
+          @click="cancelCurrentServiceEdit"
+        >
           Cancel Edit
         </VaButton>
       </div>
@@ -890,7 +1231,11 @@ const saveServiceChanges = async () => {
 
     <template #footer>
       <div class="flex gap-3 justify-end">
-        <VaButton preset="secondary" :disabled="applicationStore.isDeploying" @click="cancelApplicationEdit">
+        <VaButton
+          preset="secondary"
+          :disabled="applicationStore.isDeploying"
+          @click="cancelApplicationEdit"
+        >
           Cancel
         </VaButton>
         <VaButton
@@ -899,7 +1244,10 @@ const saveServiceChanges = async () => {
           color="primary"
           @click="updateApplication"
         >
-          <VaIcon name="save" class="mr-2" />
+          <VaIcon
+            name="save"
+            class="mr-2"
+          />
           Update Application ({{ services.length }} service{{ services.length !== 1 ? 's' : '' }})
         </VaButton>
       </div>
@@ -918,8 +1266,12 @@ const saveServiceChanges = async () => {
       <div class="mb-4 p-4 bg-gray-50 rounded-lg">
         <div class="flex items-center justify-between mb-2">
           <div>
-            <h3 class="text-lg font-semibold">{{ selectedService.serviceName }}</h3>
-            <p class="text-sm text-gray-600">{{ selectedService.imageName }}</p>
+            <h3 class="text-lg font-semibold">
+              {{ selectedService.serviceName }}
+            </h3>
+            <p class="text-sm text-gray-600">
+              {{ selectedService.imageName }}
+            </p>
           </div>
           <div class="flex gap-2">
             <VaButton
@@ -929,11 +1281,24 @@ const saveServiceChanges = async () => {
               color="primary"
               @click="enableServiceEdit"
             >
-              <VaIcon name="edit" size="small" class="mr-1" />
+              <VaIcon
+                name="edit"
+                size="small"
+                class="mr-1"
+              />
               Edit
             </VaButton>
-            <VaButton v-if="!isEditingServiceDetails" size="small" preset="secondary" @click="restartService">
-              <VaIcon name="restart_alt" size="small" class="mr-1" />
+            <VaButton
+              v-if="!isEditingServiceDetails"
+              size="small"
+              preset="secondary"
+              @click="restartService"
+            >
+              <VaIcon
+                name="restart_alt"
+                size="small"
+                class="mr-1"
+              />
               Restart
             </VaButton>
             <VaButton
@@ -943,31 +1308,59 @@ const saveServiceChanges = async () => {
               color="danger"
               @click="stopService"
             >
-              <VaIcon name="stop" size="small" class="mr-1" />
+              <VaIcon
+                name="stop"
+                size="small"
+                class="mr-1"
+              />
               Stop
             </VaButton>
           </div>
         </div>
         <div class="flex items-center gap-2 text-sm">
-          <VaBadge text="Running" color="success" />
-          <VaBadge :text="`App: ${selectedServiceApp.appName}`" color="primary" />
-          <VaBadge :text="`Service ID: ${selectedService.serviceId}`" color="info" />
+          <VaBadge
+            text="Running"
+            color="success"
+          />
+          <VaBadge
+            :text="`App: ${selectedServiceApp.appName}`"
+            color="primary"
+          />
+          <VaBadge
+            :text="`Service ID: ${selectedService.serviceId}`"
+            color="info"
+          />
         </div>
       </div>
 
       <!-- Tabs -->
-      <VaTabs v-model="serviceDetailsTab" class="mb-4">
+      <VaTabs
+        v-model="serviceDetailsTab"
+        class="mb-4"
+      >
         <template #tabs>
           <VaTab name="details">
-            <VaIcon name="info" size="small" class="mr-1" />
+            <VaIcon
+              name="info"
+              size="small"
+              class="mr-1"
+            />
             Details
           </VaTab>
           <VaTab name="logs">
-            <VaIcon name="description" size="small" class="mr-1" />
+            <VaIcon
+              name="description"
+              size="small"
+              class="mr-1"
+            />
             Logs
           </VaTab>
           <VaTab name="console">
-            <VaIcon name="terminal" size="small" class="mr-1" />
+            <VaIcon
+              name="terminal"
+              size="small"
+              class="mr-1"
+            />
             Console
           </VaTab>
         </template>
@@ -976,22 +1369,39 @@ const saveServiceChanges = async () => {
       <!-- Tab Content -->
       <div class="min-h-[400px]">
         <!-- Details Tab -->
-        <div v-if="serviceDetailsTab === 'details'" class="space-y-4">
+        <div
+          v-if="serviceDetailsTab === 'details'"
+          class="space-y-4"
+        >
           <!-- View Mode -->
           <template v-if="!isEditingServiceDetails">
             <div>
-              <h4 class="font-semibold mb-2">Image Information</h4>
+              <h4 class="font-semibold mb-2">
+                Image Information
+              </h4>
               <div class="p-3 bg-gray-50 rounded">
-                <p class="text-sm"><strong>Image:</strong> {{ selectedService.imageName }}</p>
-                <p class="text-sm mt-1"><strong>Service Name:</strong> {{ selectedService.serviceName }}</p>
-                <p class="text-sm mt-1"><strong>App ID:</strong> {{ selectedService.appId }}</p>
+                <p class="text-sm">
+                  <strong>Image:</strong> {{ selectedService.imageName }}
+                </p>
+                <p class="text-sm mt-1">
+                  <strong>Service Name:</strong> {{ selectedService.serviceName }}
+                </p>
+                <p class="text-sm mt-1">
+                  <strong>App ID:</strong> {{ selectedService.appId }}
+                </p>
               </div>
             </div>
 
             <div v-if="selectedService.config.ports && selectedService.config.ports.length > 0">
-              <h4 class="font-semibold mb-2">Port Mappings</h4>
+              <h4 class="font-semibold mb-2">
+                Port Mappings
+              </h4>
               <div class="flex flex-wrap gap-2">
-                <VaChip v-for="port in selectedService.config.ports" :key="port" color="primary">
+                <VaChip
+                  v-for="port in selectedService.config.ports"
+                  :key="port"
+                  color="primary"
+                >
                   {{ port }}
                 </VaChip>
               </div>
@@ -1000,7 +1410,9 @@ const saveServiceChanges = async () => {
             <div
               v-if="selectedService.config.environment && Object.keys(selectedService.config.environment).length > 0"
             >
-              <h4 class="font-semibold mb-2">Environment Variables</h4>
+              <h4 class="font-semibold mb-2">
+                Environment Variables
+              </h4>
               <div class="space-y-2">
                 <div
                   v-for="[key, value] in Object.entries(selectedService.config.environment)"
@@ -1014,7 +1426,9 @@ const saveServiceChanges = async () => {
             </div>
 
             <div v-if="selectedService.config.volumes && selectedService.config.volumes.length > 0">
-              <h4 class="font-semibold mb-2">Volumes</h4>
+              <h4 class="font-semibold mb-2">
+                Volumes
+              </h4>
               <div class="space-y-2">
                 <div
                   v-for="volume in selectedService.config.volumes"
@@ -1030,9 +1444,14 @@ const saveServiceChanges = async () => {
           <!-- Edit Mode -->
           <template v-else-if="editedService">
             <div>
-              <h4 class="font-semibold mb-2">Service Information</h4>
+              <h4 class="font-semibold mb-2">
+                Service Information
+              </h4>
               <div class="grid grid-cols-1 gap-4">
-                <VaInput v-model="editedService.serviceName" label="Service Name" />
+                <VaInput
+                  v-model="editedService.serviceName"
+                  label="Service Name"
+                />
                 <VaSelect
                   v-model="editedService.imageName"
                   label="Docker Image"
@@ -1046,8 +1465,13 @@ const saveServiceChanges = async () => {
             <VaDivider />
 
             <div>
-              <h4 class="font-semibold mb-2">Port Mappings</h4>
-              <div v-if="editedService.config.ports && editedService.config.ports.length > 0" class="mb-3">
+              <h4 class="font-semibold mb-2">
+                Port Mappings
+              </h4>
+              <div
+                v-if="editedService.config.ports && editedService.config.ports.length > 0"
+                class="mb-3"
+              >
                 <div class="flex flex-wrap gap-2">
                   <VaChip
                     v-for="port in editedService.config.ports"
@@ -1067,7 +1491,10 @@ const saveServiceChanges = async () => {
                   class="flex-1"
                   @keyup.enter="addEditPort"
                 />
-                <VaButton :disabled="!editPortInput" @click="addEditPort">
+                <VaButton
+                  :disabled="!editPortInput"
+                  @click="addEditPort"
+                >
                   <VaIcon name="add" />
                 </VaButton>
               </div>
@@ -1076,7 +1503,9 @@ const saveServiceChanges = async () => {
             <VaDivider />
 
             <div>
-              <h4 class="font-semibold mb-2">Environment Variables</h4>
+              <h4 class="font-semibold mb-2">
+                Environment Variables
+              </h4>
               <div
                 v-if="editedService.config.environment && Object.keys(editedService.config.environment).length > 0"
                 class="space-y-2 mb-3"
@@ -1091,11 +1520,20 @@ const saveServiceChanges = async () => {
                     <span class="mx-2">=</span>
                     <span class="font-mono text-sm text-gray-600">{{ value }}</span>
                   </div>
-                  <VaButton preset="plain" icon="close" size="small" @click="removeEditEnvironmentVariable(key)" />
+                  <VaButton
+                    preset="plain"
+                    icon="close"
+                    size="small"
+                    @click="removeEditEnvironmentVariable(key)"
+                  />
                 </div>
               </div>
               <div class="grid grid-cols-2 gap-2">
-                <VaInput v-model="editEnvKeyInput" placeholder="Key" @keyup.enter="addEditEnvironmentVariable" />
+                <VaInput
+                  v-model="editEnvKeyInput"
+                  placeholder="Key"
+                  @keyup.enter="addEditEnvironmentVariable"
+                />
                 <div class="flex gap-2">
                   <VaInput
                     v-model="editEnvValueInput"
@@ -1103,7 +1541,10 @@ const saveServiceChanges = async () => {
                     class="flex-1"
                     @keyup.enter="addEditEnvironmentVariable"
                   />
-                  <VaButton :disabled="!editEnvKeyInput || !editEnvValueInput" @click="addEditEnvironmentVariable">
+                  <VaButton
+                    :disabled="!editEnvKeyInput || !editEnvValueInput"
+                    @click="addEditEnvironmentVariable"
+                  >
                     <VaIcon name="add" />
                   </VaButton>
                 </div>
@@ -1115,19 +1556,36 @@ const saveServiceChanges = async () => {
         <!-- Logs Tab -->
         <div v-if="serviceDetailsTab === 'logs'">
           <div class="flex justify-between items-center mb-3">
-            <h4 class="font-semibold">Service Logs</h4>
-            <VaButton size="small" :loading="isLoadingLogs" @click="fetchServiceLogs">
-              <VaIcon name="refresh" size="small" class="mr-1" />
+            <h4 class="font-semibold">
+              Service Logs
+            </h4>
+            <VaButton
+              size="small"
+              :loading="isLoadingLogs"
+              @click="fetchServiceLogs"
+            >
+              <VaIcon
+                name="refresh"
+                size="small"
+                class="mr-1"
+              />
               Refresh Logs
             </VaButton>
           </div>
 
           <div class="bg-gray-900 text-green-400 p-4 rounded font-mono text-sm h-96 overflow-y-auto">
-            <div v-if="serviceLogs.length === 0" class="text-gray-500">
+            <div
+              v-if="serviceLogs.length === 0"
+              class="text-gray-500"
+            >
               Click "Refresh Logs" to load service logs...
             </div>
             <div v-else>
-              <div v-for="(log, index) in serviceLogs" :key="index" class="mb-1">
+              <div
+                v-for="(log, index) in serviceLogs"
+                :key="index"
+                class="mb-1"
+              >
                 {{ log }}
               </div>
             </div>
@@ -1137,19 +1595,36 @@ const saveServiceChanges = async () => {
         <!-- Console Tab -->
         <div v-if="serviceDetailsTab === 'console'">
           <div class="flex justify-between items-center mb-3">
-            <h4 class="font-semibold">Interactive Console (SSH)</h4>
-            <VaButton size="small" preset="secondary" @click="clearConsole">
-              <VaIcon name="delete_sweep" size="small" class="mr-1" />
+            <h4 class="font-semibold">
+              Interactive Console (SSH)
+            </h4>
+            <VaButton
+              size="small"
+              preset="secondary"
+              @click="clearConsole"
+            >
+              <VaIcon
+                name="delete_sweep"
+                size="small"
+                class="mr-1"
+              />
               Clear
             </VaButton>
           </div>
 
           <div class="bg-gray-900 text-green-400 p-4 rounded font-mono text-sm h-80 overflow-y-auto mb-3">
-            <div v-if="consoleOutput.length === 0" class="text-gray-500">
+            <div
+              v-if="consoleOutput.length === 0"
+              class="text-gray-500"
+            >
               Enter a command below to execute in the container...
             </div>
             <div v-else>
-              <div v-for="(line, index) in consoleOutput" :key="index" class="mb-1">
+              <div
+                v-for="(line, index) in consoleOutput"
+                :key="index"
+                class="mb-1"
+              >
                 {{ line }}
               </div>
             </div>
@@ -1167,14 +1642,26 @@ const saveServiceChanges = async () => {
                 <span class="text-green-400 font-mono">$</span>
               </template>
             </VaInput>
-            <VaButton :loading="isExecutingCommand" :disabled="!consoleCommand.trim()" @click="executeConsoleCommand">
-              <VaIcon name="play_arrow" class="mr-1" />
+            <VaButton
+              :loading="isExecutingCommand"
+              :disabled="!consoleCommand.trim()"
+              @click="executeConsoleCommand"
+            >
+              <VaIcon
+                name="play_arrow"
+                class="mr-1"
+              />
               Execute
             </VaButton>
           </div>
 
           <div class="mt-3 p-3 bg-blue-50 rounded text-sm">
-            <VaIcon name="info" size="small" color="info" class="mr-1" />
+            <VaIcon
+              name="info"
+              size="small"
+              color="info"
+              class="mr-1"
+            />
             <strong>Note:</strong> Commands are executed inside the container. Common commands: ls, ps, pwd, cat, grep,
             top
           </div>
@@ -1184,12 +1671,29 @@ const saveServiceChanges = async () => {
 
     <template #footer>
       <div class="flex justify-end gap-3">
-        <VaButton v-if="isEditingServiceDetails" preset="secondary" @click="cancelServiceEdit"> Cancel </VaButton>
-        <VaButton v-if="isEditingServiceDetails" color="primary" @click="saveServiceChanges">
-          <VaIcon name="save" class="mr-1" />
+        <VaButton
+          v-if="isEditingServiceDetails"
+          preset="secondary"
+          @click="cancelServiceEdit"
+        >
+          Cancel
+        </VaButton>
+        <VaButton
+          v-if="isEditingServiceDetails"
+          color="primary"
+          @click="saveServiceChanges"
+        >
+          <VaIcon
+            name="save"
+            class="mr-1"
+          />
           Save Changes
         </VaButton>
-        <VaButton v-if="!isEditingServiceDetails" preset="secondary" @click="showServiceDetailsDialog = false">
+        <VaButton
+          v-if="!isEditingServiceDetails"
+          preset="secondary"
+          @click="showServiceDetailsDialog = false"
+        >
           Close
         </VaButton>
       </div>

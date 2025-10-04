@@ -18,19 +18,30 @@ module.exports = {
     'plugin:@typescript-eslint/recommended',
     'plugin:vue/vue3-recommended',
     '@vue/typescript/recommended',
-    '@vue/prettier',
     'plugin:storybook/recommended',
   ],
 
   rules: {
+    // General
     'no-console': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
     'no-debugger': process.env.NODE_ENV === 'production' ? 'warn' : 'off',
-    '@typescript-eslint/no-non-null-assertion': 0,
-    '@typescript-eslint/no-explicit-any': 0, // allow explicit any's because of the legacy code and ts-less deps, but still prohibit IMplicit any's
-    'vue/multi-word-component-names': 0,
-    'vue/no-lone-template': 0,
+
+    // TypeScript
+    '@typescript-eslint/no-non-null-assertion': 'off',
+    '@typescript-eslint/no-explicit-any': 'off',
+
+    // Vue
+    'vue/multi-word-component-names': 'off',
+    'vue/no-lone-template': 'off',
     'vue/v-on-event-hyphenation': ['warn', 'never', { autofix: true }],
-    'vue/component-name-in-template-casing': ['warn', 'PascalCase', { registeredComponentsOnly: false }],
-    'vue/script-indent': ['warn', 2], // , { baseIndent: 0 } - we should use that, but it didn't work for me for some reason.
+    'vue/component-name-in-template-casing': [
+      'warn',
+      'PascalCase',
+      { registeredComponentsOnly: false },
+    ],
+    'vue/script-indent': ['warn', 2, { baseIndent: 0 }],
+
+    // JS indent
+    indent: ['warn', 2, { SwitchCase: 1 }],
   },
-}
+};
