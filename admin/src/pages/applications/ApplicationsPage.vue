@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref, computed } from 'vue'
+import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { useApplicationManagerStore } from '../../stores/application-manager'
 import { useDevicesStore } from '../../stores/devices'
-import type { Application, ServiceConfig } from '../../data/pages/applications'
-import { applyState } from '../../data/pages/applications'
+import type { Application, ServiceConfig, LogEntry } from '../../data/pages/applications'
+import { applyState, getServiceLogs, executeContainerCommand } from '../../data/pages/applications'
 
 const applicationStore = useApplicationManagerStore()
 const devicesStore = useDevicesStore()
@@ -19,7 +19,7 @@ const showServiceDetailsDialog = ref(false)
 const selectedService = ref<ServiceConfig | null>(null)
 const selectedServiceApp = ref<Application | null>(null)
 const serviceDetailsTab = ref('details')
-const serviceLogs = ref<string[]>([])
+const serviceLogs = ref<LogEntry[]>([])
 const consoleCommand = ref('')
 const consoleOutput = ref<string[]>([])
 const isLoadingLogs = ref(false)
@@ -245,8 +245,22 @@ const deployApplication = async () => {
       return
     }
 
-    // Add all services to application
-    newApplication.value.services = services.value
+    // Normalize services - ensure imageName is a string
+    const normalizedServices = services.value.map(service => ({
+      ...service,
+      imageName: typeof service.imageName === 'object' && service.imageName !== null 
+        ? (service.imageName as any).value 
+        : service.imageName,
+      config: {
+        ...service.config,
+        image: typeof service.imageName === 'object' && service.imageName !== null 
+          ? (service.imageName as any).value 
+          : service.imageName,
+      }
+    }))
+
+    // Add normalized services to application
+    newApplication.value.services = normalizedServices
 
     await applicationStore.deployNewApplication(newApplication.value)
     showDeployDialog.value = false
@@ -262,8 +276,22 @@ const updateApplication = async () => {
       return
     }
 
+    // Normalize services - ensure imageName is a string
+    const normalizedServices = services.value.map(service => ({
+      ...service,
+      imageName: typeof service.imageName === 'object' && service.imageName !== null 
+        ? (service.imageName as any).value 
+        : service.imageName,
+      config: {
+        ...service.config,
+        image: typeof service.imageName === 'object' && service.imageName !== null 
+          ? (service.imageName as any).value 
+          : service.imageName,
+      }
+    }))
+
     // Update services in application
-    newApplication.value.services = services.value
+    newApplication.value.services = normalizedServices
 
     await applicationStore.updateExistingApplication(newApplication.value)
     showEditDialog.value = false
@@ -323,49 +351,73 @@ const fetchServiceLogs = async () => {
 
   isLoadingLogs.value = true
   try {
-    // Simulate fetching logs - replace with actual API call
-    await new Promise((resolve) => setTimeout(resolve, 500))
-    serviceLogs.value = [
-      `[${new Date().toISOString()}] Service ${selectedService.value.serviceName} started`,
-      `[${new Date().toISOString()}] Container ID: ${Math.random().toString(36).substring(7)}`,
-      `[${new Date().toISOString()}] Image: ${selectedService.value.imageName}`,
-      `[${new Date().toISOString()}] Status: Running`,
-      `[${new Date().toISOString()}] Memory usage: 45.2 MB`,
-      `[${new Date().toISOString()}] CPU usage: 2.3%`,
-      `[${new Date().toISOString()}] Network: eth0 connected`,
-      `[${new Date().toISOString()}] Listening on configured ports...`,
-    ]
+    // Fetch logs from API using containerId if available, otherwise use serviceId
+    const filter: any = {
+      limit: 100,
+      sourceType: 'container'
+    }
+    
+    if ((selectedService.value as any).containerId) {
+      filter.containerId = (selectedService.value as any).containerId
+    } else if (selectedService.value.serviceId) {
+      filter.serviceId = selectedService.value.serviceId
+    } else if (selectedService.value.serviceName) {
+      filter.serviceName = selectedService.value.serviceName
+    }
+    
+    const logs = await getServiceLogs(filter)
+    serviceLogs.value = logs
   } catch (error) {
-    serviceLogs.value = [`Error fetching logs: ${error}`]
+    console.error('Error fetching logs:', error)
+    serviceLogs.value = []
   } finally {
     isLoadingLogs.value = false
   }
 }
 
+// Auto-fetch logs when logs tab is selected
+watch(serviceDetailsTab, (newTab) => {
+  if (newTab === 'logs' && selectedService.value && serviceLogs.value.length === 0) {
+    fetchServiceLogs()
+  }
+})
+
 const executeConsoleCommand = async () => {
   if (!consoleCommand.value.trim() || !selectedService.value) return
+
+  // Check if container is running
+  if (!selectedService.value.containerId) {
+    consoleOutput.value.push(`Error: No container ID available for ${selectedService.value.serviceName}`)
+    return
+  }
+
+  if (selectedService.value.status !== 'Running') {
+    consoleOutput.value.push(`Error: Container is not running (status: ${selectedService.value.status})`)
+    return
+  }
 
   isExecutingCommand.value = true
   const cmd = consoleCommand.value
   consoleOutput.value.push(`$ ${cmd}`)
 
   try {
-    // Simulate command execution - replace with actual SSH/exec API call
-    await new Promise((resolve) => setTimeout(resolve, 300))
-
-    // Mock responses based on command
-    if (cmd.includes('ls')) {
-      consoleOutput.value.push('bin  etc  lib  usr  var')
-    } else if (cmd.includes('ps')) {
-      consoleOutput.value.push('PID   USER     TIME  COMMAND')
-      consoleOutput.value.push('1     root     0:00  /bin/sh')
-    } else if (cmd.includes('pwd')) {
-      consoleOutput.value.push('/app')
-    } else {
-      consoleOutput.value.push(`Command executed: ${cmd}`)
+    // Execute command via API
+    const result = await executeContainerCommand(selectedService.value.containerId, cmd)
+    
+    if (result.output) {
+      // Split output by lines and add each line
+      const lines = result.output.trim().split('\n')
+      lines.forEach(line => {
+        consoleOutput.value.push(line)
+      })
+    }
+    
+    if (!result.success) {
+      consoleOutput.value.push(`[Exit code: ${result.exitCode}]`)
     }
   } catch (error) {
-    consoleOutput.value.push(`Error: ${error}`)
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    consoleOutput.value.push(`Error: ${errorMessage}`)
   } finally {
     consoleCommand.value = ''
     isExecutingCommand.value = false
@@ -407,8 +459,15 @@ const stopService = async () => {
 const enableServiceEdit = () => {
   if (!selectedService.value) return
 
-  // Create a deep copy of the service for editing
-  editedService.value = JSON.parse(JSON.stringify(selectedService.value))
+  // Create a deep copy of the service for editing with enhanced config
+  const serviceToEdit = JSON.parse(JSON.stringify(selectedService.value))
+  
+  // Merge with enhanced config to get full configuration including ports
+  if (enhancedServiceConfig.value) {
+    serviceToEdit.config = JSON.parse(JSON.stringify(enhancedServiceConfig.value))
+  }
+  
+  editedService.value = serviceToEdit
   isEditingServiceDetails.value = true
   serviceDetailsTab.value = 'details'
 }
@@ -458,29 +517,55 @@ const saveServiceChanges = async () => {
   if (!editedService.value || !selectedServiceApp.value) return
 
   try {
-    // Find the application and update the service
-    const app = selectedServiceApp.value
-    const serviceIndex = app.services.findIndex((s) => s.serviceId === editedService.value!.serviceId)
+    // Get the app from TARGET state (not current state) to update configuration
+    const targetApps = applicationStore.currentState?.target?.apps || {}
+    const targetApp = targetApps[selectedServiceApp.value.appId]
+    
+    if (!targetApp) {
+      alert('Application not found in target state. Cannot update.')
+      return
+    }
+    
+    // Create a copy of the target app to modify
+    const appToUpdate = JSON.parse(JSON.stringify(targetApp))
+    
+    // Find and update the service
+    const serviceIndex = appToUpdate.services.findIndex(
+      (s: ServiceConfig) => s.serviceId === editedService.value!.serviceId
+    )
 
     if (serviceIndex !== -1) {
-      // Update the service in the application
-      app.services[serviceIndex] = { ...editedService.value }
+      // Update the service in the application with edited values
+      appToUpdate.services[serviceIndex] = { ...editedService.value }
 
-      // Update the application
-      await applicationStore.updateExistingApplication(app)
+      // Update the application in target state
+      await applicationStore.updateExistingApplication(appToUpdate)
+      
+      // Refresh state to get updated data
+      await applicationStore.fetchState()
 
       // Update local references
       selectedService.value = { ...editedService.value }
       isEditingServiceDetails.value = false
       editedService.value = null
 
-      alert('Service updated successfully!')
+      alert('Service updated successfully! Changes will be applied on next reconciliation.')
     }
   } catch (error) {
     console.error('Failed to update service:', error)
     alert('Failed to update service. Please try again.')
   }
 }
+
+// Computed property to get deployed applications from current state
+const deployedApplications = computed(() => {
+  if (!applicationStore.currentState) return []
+  
+  const currentApps = applicationStore.currentState.current?.apps || {}
+  
+  // Convert the apps object to an array
+  return Object.values(currentApps)
+})
 
 // Computed property to get pending applications (in target but not in current)
 const pendingApplications = computed(() => {
@@ -545,6 +630,53 @@ const applyPendingApp = async (appId: number) => {
   }
 }
 
+// Clear target state (emergency reset)
+const clearTargetState = async () => {
+  const confirmMessage = 'Are you sure you want to CLEAR the entire target state?\n\n' +
+    'This will:\n' +
+    '• Remove all pending applications from target state\n' +
+    '• Allow you to start fresh if something went wrong\n' +
+    '• NOT affect currently running containers (current state)\n\n' +
+    'You will need to apply state after clearing to stop containers.'
+  
+  if (!confirm(confirmMessage)) return
+  
+  try {
+    isReconciling.value = true
+    reconciliationStatus.value = null
+    
+    // Set target state to empty
+    const response = await fetch(devicesStore.activeDeviceApiUrl + '/state/target', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ apps: {} })
+    })
+    
+    if (!response.ok) {
+      throw new Error(`Failed to clear target state: ${response.statusText}`)
+    }
+    
+    reconciliationStatus.value = {
+      status: 'success',
+      message: 'Target state cleared successfully',
+      timestamp: Date.now()
+    }
+    
+    // Refresh data
+    await refreshData()
+    isReconciling.value = false
+  } catch (error) {
+    console.error('Failed to clear target state:', error)
+    reconciliationStatus.value = {
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Failed to clear target state',
+      timestamp: Date.now()
+    }
+    isReconciling.value = false
+    alert('Failed to clear target state. Check console for details.')
+  }
+}
+
 // Check if active device is offline
 const isActiveDeviceOffline = computed(() => {
   return devicesStore.activeDevice?.status === 'offline'
@@ -562,6 +694,123 @@ const isReconciliationInProgress = computed(() => {
 const isApplicationActionsDisabled = computed(() => {
   return isActiveDeviceOffline.value || isReconciling.value || isReconciliationInProgress.value
 })
+
+// Computed property to get enhanced service config by merging target state
+const enhancedServiceConfig = computed(() => {
+  if (!selectedService.value || !selectedServiceApp.value) return null
+  
+  // Try to get the target state config for this service
+  const targetApps = applicationStore.currentState?.target?.apps || {}
+  const targetApp = targetApps[selectedServiceApp.value.appId]
+  
+  if (targetApp) {
+    const targetService = targetApp.services.find(
+      (s: ServiceConfig) => s.serviceId === selectedService.value!.serviceId
+    )
+    
+    if (targetService && targetService.config) {
+      // Merge current service config with target service config
+      return {
+        ...selectedService.value.config,
+        ...targetService.config,
+      }
+    }
+  }
+  
+  return selectedService.value.config
+})
+
+// Helper function to get status color
+const getServiceStatusColor = (status?: string) => {
+  if (!status) return 'secondary'
+  const statusLower = status.toLowerCase()
+  
+  if (statusLower === 'running') return 'success'
+  if (statusLower === 'stopped' || statusLower === 'exited') return 'danger'
+  if (statusLower === 'restarting' || statusLower === 'starting') return 'warning'
+  if (statusLower === 'paused') return 'info'
+  
+  return 'secondary'
+}
+
+// Helper function to format status text
+const getServiceStatusText = (status?: string) => {
+  if (!status) return 'Unknown'
+  return status.charAt(0).toUpperCase() + status.slice(1)
+}
+
+// ==================== Auto-Refresh Functionality ====================
+
+const autoRefreshEnabled = ref(true)
+const autoRefreshInterval = ref(5000) // 5 seconds
+let refreshTimer: NodeJS.Timeout | null = null
+
+const performAutoRefresh = async () => {
+  // Don't refresh if disabled, offline, or during active editing
+  if (!autoRefreshEnabled.value || isActiveDeviceOffline.value) return
+  if (showDeployDialog.value || showEditDialog.value || isEditingServiceDetails.value) return
+  if (applicationStore.isDeploying || isReconciling.value) return
+  
+  try {
+    // Refresh state and applications
+    await applicationStore.fetchState()
+    // Optionally refresh metrics less frequently
+    if (Math.random() > 0.7) { // 30% of the time
+      await applicationStore.fetchSystemMetrics()
+    }
+  } catch (error) {
+    console.error('Auto-refresh failed:', error)
+  }
+}
+
+const startAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+  }
+  
+  refreshTimer = setInterval(performAutoRefresh, autoRefreshInterval.value)
+}
+
+const stopAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+}
+
+// Pause auto-refresh when page is hidden (tab switching, minimize)
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    stopAutoRefresh()
+  } else {
+    startAutoRefresh()
+    performAutoRefresh() // Immediate refresh when coming back
+  }
+}
+
+// Initialize auto-refresh on mount
+onMounted(() => {
+  if (autoRefreshEnabled.value) {
+    startAutoRefresh()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+  }
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  stopAutoRefresh()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+})
+
+// Toggle auto-refresh
+const toggleAutoRefresh = () => {
+  autoRefreshEnabled.value = !autoRefreshEnabled.value
+  if (autoRefreshEnabled.value) {
+    startAutoRefresh()
+  } else {
+    stopAutoRefresh()
+  }
+}
 </script>
 
 <template>
@@ -590,7 +839,7 @@ const isApplicationActionsDisabled = computed(() => {
               Total Applications
             </p>
             <p class="text-3xl font-bold">
-              {{ applicationStore.totalApplications }}
+              {{ deployedApplications.length }}
             </p>
           </div>
           <VaIcon
@@ -610,7 +859,7 @@ const isApplicationActionsDisabled = computed(() => {
               Total Services
             </p>
             <p class="text-3xl font-bold">
-              {{ applicationStore.totalServices }}
+              {{ deployedApplications.reduce((sum, app) => sum + app.services.length, 0) }}
             </p>
           </div>
           <VaIcon
@@ -630,7 +879,7 @@ const isApplicationActionsDisabled = computed(() => {
               Running Applications
             </p>
             <p class="text-3xl font-bold">
-              {{ applicationStore.runningApplications.length }}
+              {{ deployedApplications.filter(app => app.status === 'running').length }}
             </p>
           </div>
           <VaIcon
@@ -730,7 +979,7 @@ const isApplicationActionsDisabled = computed(() => {
   </VaCard>
 
   <!-- Actions -->
-  <div class="flex gap-2 mb-4">
+  <div class="flex gap-2 mb-4 items-center">
     <VaButton
       :disabled="applicationStore.isDeploying || isActiveDeviceOffline"
       @click="openDeployDialog"
@@ -753,15 +1002,30 @@ const isApplicationActionsDisabled = computed(() => {
       Refresh
     </VaButton>
     <VaButton
-      preset="secondary"
-      @click="applicationStore.fetchSystemMetrics()"
+      v-if="pendingApplications.length > 0"
+      color="danger"
+      preset="plain"
+      :disabled="isActiveDeviceOffline || isReconciling"
+      @click="clearTargetState"
     >
       <VaIcon
-        name="monitoring"
+        name="clear_all"
         class="mr-2"
       />
-      Update Metrics
+      Clear Target State
     </VaButton>
+    
+    <!-- Auto-Refresh Toggle -->
+    <div class="ml-auto flex items-center gap-2">
+      <VaSwitch
+        v-model="autoRefreshEnabled"
+        size="small"
+        @update:modelValue="toggleAutoRefresh"
+      />
+      <span class="text-sm text-gray-600">
+        Auto-refresh ({{ (autoRefreshInterval / 1000).toFixed(0) }}s)
+      </span>
+    </div>
   </div>
 
   <!-- Applications List -->
@@ -805,7 +1069,7 @@ const isApplicationActionsDisabled = computed(() => {
       </div>
 
       <div
-        v-else-if="applicationStore.applications.length === 0"
+        v-else-if="deployedApplications.length === 0"
         class="text-center py-8 flex flex-col items-center"
       >
         <div class="flex justify-center items-center mb-4" style="width: 48px; height: 48px;">
@@ -835,7 +1099,7 @@ const isApplicationActionsDisabled = computed(() => {
         class="space-y-4"
       >
         <VaCard
-          v-for="app in applicationStore.applications"
+          v-for="app in deployedApplications"
           :key="app.appId"
           outlined
         >
@@ -895,7 +1159,7 @@ const isApplicationActionsDisabled = computed(() => {
                     {{ service.imageName }}
                   </p>
                   <div
-                    v-if="service.config.ports && service.config.ports.length > 0"
+                    v-if="service.config && service.config.ports && service.config.ports.length > 0"
                     class="mt-1"
                   >
                     <VaChip
@@ -910,6 +1174,11 @@ const isApplicationActionsDisabled = computed(() => {
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
+                  <VaBadge
+                    v-if="service.status"
+                    :text="getServiceStatusText(service.status)"
+                    :color="getServiceStatusColor(service.status)"
+                  />
                   <VaBadge
                     :text="`Service ${service.serviceId}`"
                     color="info"
@@ -1033,7 +1302,7 @@ const isApplicationActionsDisabled = computed(() => {
                     {{ typeof service.imageName === 'object' && service.imageName !== null ? (service.imageName as any).value : service.imageName }}
                   </p>
                   <div
-                    v-if="service.config.ports && service.config.ports.length > 0"
+                    v-if="service.config && service.config.ports && service.config.ports.length > 0"
                     class="mt-1"
                   >
                     <VaChip
@@ -1106,7 +1375,7 @@ const isApplicationActionsDisabled = computed(() => {
                   {{ service.imageName }}
                 </p>
                 <div
-                  v-if="service.config.ports && service.config.ports.length > 0"
+                  v-if="service.config && service.config.ports && service.config.ports.length > 0"
                   class="mt-1"
                 >
                   <VaChip
@@ -1342,7 +1611,7 @@ const isApplicationActionsDisabled = computed(() => {
                   {{ service.imageName }}
                 </p>
                 <div
-                  v-if="service.config.ports && service.config.ports.length > 0"
+                  v-if="service.config && service.config.ports && service.config.ports.length > 0"
                   class="mt-1"
                 >
                   <VaChip
@@ -1601,8 +1870,8 @@ const isApplicationActionsDisabled = computed(() => {
         </div>
         <div class="flex items-center gap-2 text-sm">
           <VaBadge
-            text="Running"
-            color="success"
+            :text="getServiceStatusText(selectedService.status)"
+            :color="getServiceStatusColor(selectedService.status)"
           />
           <VaBadge
             :text="`App: ${selectedServiceApp.appName}`"
@@ -1663,24 +1932,24 @@ const isApplicationActionsDisabled = computed(() => {
               </h4>
               <div class="p-3 bg-gray-50 rounded">
                 <p class="text-sm">
-                  <strong>Image:</strong> {{ selectedService.imageName }}
+                  <strong>Image:</strong> {{ selectedService?.imageName || 'N/A' }}
                 </p>
                 <p class="text-sm mt-1">
-                  <strong>Service Name:</strong> {{ selectedService.serviceName }}
+                  <strong>Service Name:</strong> {{ selectedService?.serviceName || 'N/A' }}
                 </p>
                 <p class="text-sm mt-1">
-                  <strong>App ID:</strong> {{ selectedService.appId }}
+                  <strong>App ID:</strong> {{ selectedService?.appId || 'N/A' }}
                 </p>
               </div>
             </div>
 
-            <div v-if="selectedService.config.ports && selectedService.config.ports.length > 0">
+            <div v-if="enhancedServiceConfig && enhancedServiceConfig.ports && enhancedServiceConfig.ports.length > 0">
               <h4 class="font-semibold mb-2">
                 Port Mappings
               </h4>
               <div class="flex flex-wrap gap-2">
                 <VaChip
-                  v-for="port in selectedService.config.ports"
+                  v-for="port in enhancedServiceConfig.ports"
                   :key="port"
                   color="primary"
                 >
@@ -1690,14 +1959,14 @@ const isApplicationActionsDisabled = computed(() => {
             </div>
 
             <div
-              v-if="selectedService.config.environment && Object.keys(selectedService.config.environment).length > 0"
+              v-if="enhancedServiceConfig && enhancedServiceConfig.environment && Object.keys(enhancedServiceConfig.environment).length > 0"
             >
               <h4 class="font-semibold mb-2">
                 Environment Variables
               </h4>
               <div class="space-y-2">
                 <div
-                  v-for="[key, value] in Object.entries(selectedService.config.environment)"
+                  v-for="[key, value] in Object.entries(enhancedServiceConfig.environment)"
                   :key="key"
                   class="p-2 bg-gray-50 rounded flex justify-between items-center"
                 >
@@ -1707,13 +1976,13 @@ const isApplicationActionsDisabled = computed(() => {
               </div>
             </div>
 
-            <div v-if="selectedService.config.volumes && selectedService.config.volumes.length > 0">
+            <div v-if="enhancedServiceConfig && enhancedServiceConfig.volumes && enhancedServiceConfig.volumes.length > 0">
               <h4 class="font-semibold mb-2">
                 Volumes
               </h4>
               <div class="space-y-2">
                 <div
-                  v-for="volume in selectedService.config.volumes"
+                  v-for="volume in enhancedServiceConfig.volumes"
                   :key="volume"
                   class="p-2 bg-gray-50 rounded font-mono text-sm"
                 >
@@ -1855,12 +2124,18 @@ const isApplicationActionsDisabled = computed(() => {
             </VaButton>
           </div>
 
-          <div class="bg-gray-900 text-green-400 p-4 rounded font-mono text-sm h-96 overflow-y-auto">
+          <div class="bg-gray-900 text-gray-300 p-4 rounded font-mono text-sm h-96 overflow-y-auto">
             <div
-              v-if="serviceLogs.length === 0"
+              v-if="serviceLogs.length === 0 && !isLoadingLogs"
               class="text-gray-500"
             >
               Click "Refresh Logs" to load service logs...
+            </div>
+            <div
+              v-else-if="isLoadingLogs"
+              class="text-gray-500"
+            >
+              Loading logs...
             </div>
             <div v-else>
               <div
@@ -1868,7 +2143,18 @@ const isApplicationActionsDisabled = computed(() => {
                 :key="index"
                 class="mb-1"
               >
-                {{ log }}
+                <span
+                  :class="{
+                    'text-red-400': log.level === 'error',
+                    'text-yellow-400': log.level === 'warn',
+                    'text-blue-400': log.level === 'debug',
+                    'text-green-400': log.level === 'info'
+                  }"
+                >
+                  [{{ new Date(log.timestamp).toISOString() }}]
+                </span>
+                <span class="text-gray-400 ml-2">[{{ log.level.toUpperCase() }}]</span>
+                <span class="ml-2">{{ log.message }}</span>
               </div>
             </div>
           </div>

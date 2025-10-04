@@ -700,12 +700,7 @@ app.get('/api/v1/apps', async (req: Request, res: Response) => {
 
 		res.json({
 			count: apps.length,
-			apps: apps.map((app) => ({
-				appId: app.appId,
-				appName: app.appName,
-				serviceCount: app.services.length,
-				services: app.services.map((s) => s.serviceName),
-			})),
+			apps: apps,
 		});
 	} catch (error) {
 		res.status(500).json({
@@ -847,6 +842,103 @@ app.delete('/api/v1/apps/:appId', async (req: Request, res: Response) => {
 });
 
 // ============================================================================
+// CONTAINER EXEC
+// ============================================================================
+
+/**
+ * POST /api/v1/containers/:containerId/exec
+ * Execute a command in a container
+ * 
+ * Body: { command: string[] } - Array of command parts (e.g., ["ls", "-la"])
+ */
+app.post('/api/v1/containers/:containerId/exec', async (req: Request, res: Response) => {
+	try {
+		const { containerId } = req.params;
+		const { command } = req.body;
+
+		if (!containerId) {
+			return res.status(400).json({
+				error: 'Invalid request',
+				message: 'Container ID is required',
+			});
+		}
+
+		if (!command || !Array.isArray(command) || command.length === 0) {
+			return res.status(400).json({
+				error: 'Invalid request',
+				message: 'Command must be a non-empty array of strings',
+			});
+		}
+
+		console.log(`Executing command in container ${containerId}:`, command);
+
+		const docker = containerManager.getDocker();
+		if (!docker) {
+			return res.status(500).json({
+				error: 'Docker not available',
+				message: 'Docker manager is not initialized',
+			});
+		}
+
+		const container = docker.getContainer(containerId);
+
+		// Check if container exists and is running
+		const containerInfo = await container.inspect();
+		if (!containerInfo.State.Running) {
+			return res.status(400).json({
+				error: 'Container not running',
+				message: `Container ${containerId} is not running (state: ${containerInfo.State.Status})`,
+			});
+		}
+
+		// Create exec instance
+		const exec = await container.exec({
+			Cmd: command,
+			AttachStdout: true,
+			AttachStderr: true,
+			AttachStdin: false,
+		});
+
+		// Start exec and collect output
+		const stream = await exec.start({});
+		
+		let output = '';
+
+		// Handle stream data
+		if (stream && typeof stream.on === 'function') {
+			stream.on('data', (chunk: Buffer) => {
+				// Docker stream format includes headers, extract the actual content
+				const str = chunk.toString('utf8');
+				output += str;
+			});
+
+			await new Promise<void>((resolve, reject) => {
+				stream.on('end', resolve);
+				stream.on('error', reject);
+			});
+		}
+
+		// Get exit code
+		const execInfo = await exec.inspect();
+		const exitCode = execInfo.ExitCode || 0;
+
+		console.log(`Command completed with exit code ${exitCode}`);
+
+		res.json({
+			output: output,
+			exitCode: exitCode,
+			success: exitCode === 0,
+		});
+	} catch (error) {
+		console.error('Failed to execute command:', error);
+		res.status(500).json({
+			error: 'Failed to execute command',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+// ============================================================================
 // ERROR HANDLING
 // ============================================================================
 
@@ -896,14 +988,16 @@ initializeServer().then(() => {
 		console.log(`Docker mode: ${USE_REAL_DOCKER ? 'REAL' : 'SIMULATED'}`);
 		console.log('='.repeat(80));
 		console.log('\nEndpoints:');
-		console.log(`  GET    /api/v1/state           - Get current and target state`);
-		console.log(`  POST   /api/v1/state/target    - Set target state`);
-		console.log(`  POST   /api/v1/state/apply     - Apply target state`);
-		console.log(`  GET    /api/v1/status          - Get manager status`);
-		console.log(`  GET    /api/v1/apps            - List all apps`);
-		console.log(`  GET    /api/v1/apps/:appId     - Get specific app`);
-		console.log(`  POST   /api/v1/apps/:appId     - Set app`);
-		console.log(`  DELETE /api/v1/apps/:appId     - Remove app`);
+		console.log(`  GET    /api/v1/state                      - Get current and target state`);
+		console.log(`  POST   /api/v1/state/target               - Set target state`);
+		console.log(`  POST   /api/v1/state/apply                - Apply target state`);
+		console.log(`  GET    /api/v1/status                     - Get manager status`);
+		console.log(`  GET    /api/v1/apps                       - List all apps`);
+		console.log(`  GET    /api/v1/apps/:appId                - Get specific app`);
+		console.log(`  POST   /api/v1/apps/:appId                - Set app`);
+		console.log(`  DELETE /api/v1/apps/:appId                - Remove app`);
+		console.log(`  GET    /api/v1/logs                       - Get container logs`);
+		console.log(`  POST   /api/v1/containers/:id/exec        - Execute command in container`);
 		console.log('='.repeat(80) + '\n');
 	});
 }).catch((error) => {

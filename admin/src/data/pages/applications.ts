@@ -295,3 +295,102 @@ export const getManagerLogs = async (limit: number = 100): Promise<any[]> => {
   }
   return response.json()
 }
+
+// ==================== Service Logs Operations ====================
+
+export interface LogEntry {
+  timestamp: number
+  level: string
+  message: string
+  sourceType: string
+  containerId?: string
+  serviceId?: number
+  serviceName?: string
+}
+
+export interface LogFilter {
+  serviceId?: number
+  serviceName?: string
+  containerId?: string
+  level?: string
+  sourceType?: string
+  since?: number
+  until?: number
+  limit?: number
+}
+
+/**
+ * Get service/container logs with filtering
+ */
+export const getServiceLogs = async (filter: LogFilter): Promise<LogEntry[]> => {
+  const queryParams = new URLSearchParams()
+  
+  if (filter.serviceId !== undefined) queryParams.append('serviceId', filter.serviceId.toString())
+  if (filter.serviceName) queryParams.append('serviceName', filter.serviceName)
+  if (filter.containerId) queryParams.append('containerId', filter.containerId)
+  if (filter.level) queryParams.append('level', filter.level)
+  if (filter.sourceType) queryParams.append('sourceType', filter.sourceType)
+  if (filter.since) queryParams.append('since', filter.since.toString())
+  if (filter.until) queryParams.append('until', filter.until.toString())
+  if (filter.limit) queryParams.append('limit', filter.limit.toString())
+
+  // Construct the API URL - use /api/v1/logs endpoint
+  const baseUrl = applicationManagerApi.getStatus().replace('/status', '/logs')
+  const url = queryParams.toString() ? `${baseUrl}?${queryParams.toString()}` : baseUrl
+  
+  const response = await fetch(url)
+  
+  if (!response.ok) {
+    throw new Error(`Failed to fetch service logs: ${response.statusText}`)
+  }
+  
+  const data = await response.json()
+  return data.logs || []
+}
+
+export interface ExecResult {
+  output: string
+  exitCode: number
+  success: boolean
+}
+
+/**
+ * Execute a command in a container
+ */
+export const executeContainerCommand = async (
+  containerId: string,
+  command: string
+): Promise<ExecResult> => {
+  // Parse command string into array (simple split by spaces)
+  // For more complex commands with quotes, you might need a proper parser
+  const commandArray = command.trim().split(/\s+/)
+  
+  if (commandArray.length === 0) {
+    throw new Error('Command cannot be empty')
+  }
+
+  // Construct the API URL - use /api/v1/containers/:containerId/exec endpoint
+  const baseUrl = applicationManagerApi.getStatus().replace('/status', `/containers/${containerId}/exec`)
+  
+  const response = await fetch(baseUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      command: commandArray,
+    }),
+  })
+  
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: response.statusText }))
+    throw new Error(error.message || `Failed to execute command: ${response.statusText}`)
+  }
+  
+  const data = await response.json()
+  return {
+    output: data.output || '',
+    exitCode: data.exitCode || 0,
+    success: data.success || false,
+  }
+}

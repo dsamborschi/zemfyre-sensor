@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { useDevicesStore } from '../../stores/devices'
 import { useToast } from 'vuestic-ui'
 import type { AddDeviceRequest } from '../../data/types/device'
@@ -19,10 +19,6 @@ const newDevice = ref<AddDeviceRequest>({
 
 // Track which devices are applying state
 const applyingDevices = ref<Set<string>>(new Set())
-
-onMounted(async () => {
-  await devicesStore.initialize()
-})
 
 // Reset form
 const resetForm = () => {
@@ -137,6 +133,75 @@ const getStatusColor = (status: string) => {
 const refreshDevices = async () => {
   await devicesStore.refreshAllDevicesStatus()
 }
+
+// ==================== Auto-Refresh Functionality ====================
+
+const autoRefreshEnabled = ref(true)
+const autoRefreshInterval = ref(10000) // 10 seconds for devices (less frequent)
+let refreshTimer: NodeJS.Timeout | null = null
+
+const performAutoRefresh = async () => {
+  // Don't refresh if disabled or during active editing
+  if (!autoRefreshEnabled.value || showAddDialog.value) return
+  if (applyingDevices.value.size > 0) return // Don't refresh during state reconciliation
+  
+  try {
+    await devicesStore.refreshAllDevicesStatus()
+  } catch (error) {
+    console.error('Auto-refresh failed:', error)
+  }
+}
+
+const startAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+  }
+  
+  refreshTimer = setInterval(performAutoRefresh, autoRefreshInterval.value)
+}
+
+const stopAutoRefresh = () => {
+  if (refreshTimer) {
+    clearInterval(refreshTimer)
+    refreshTimer = null
+  }
+}
+
+// Pause auto-refresh when page is hidden
+const handleVisibilityChange = () => {
+  if (document.hidden) {
+    stopAutoRefresh()
+  } else {
+    startAutoRefresh()
+    performAutoRefresh() // Immediate refresh when coming back
+  }
+}
+
+// Initialize auto-refresh on mount
+onMounted(async () => {
+  await devicesStore.initialize()
+  
+  if (autoRefreshEnabled.value) {
+    startAutoRefresh()
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+  }
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  stopAutoRefresh()
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+})
+
+// Toggle auto-refresh
+const toggleAutoRefresh = () => {
+  autoRefreshEnabled.value = !autoRefreshEnabled.value
+  if (autoRefreshEnabled.value) {
+    startAutoRefresh()
+  } else {
+    stopAutoRefresh()
+  }
+}
 </script>
 
 <template>
@@ -164,11 +229,23 @@ const refreshDevices = async () => {
               <span class="stat-value">{{ devicesStore.stats.offlineDevices }}</span>
             </div>
           </div>
-          <div class="flex gap-2">
+          <div class="flex gap-2 items-center">
             <VaButton preset="secondary" icon="refresh" :loading="devicesStore.isLoading" @click="refreshDevices">
               Refresh
             </VaButton>
             <VaButton icon="add" @click="showAddDialog = true"> Add Device </VaButton>
+            
+            <!-- Auto-Refresh Toggle -->
+            <div class="flex items-center gap-2 ml-4">
+              <VaSwitch
+                v-model="autoRefreshEnabled"
+                size="small"
+                @update:modelValue="toggleAutoRefresh"
+              />
+              <span class="text-sm text-gray-600">
+                Auto-refresh ({{ (autoRefreshInterval / 1000).toFixed(0) }}s)
+              </span>
+            </div>
           </div>
         </div>
       </VaCardContent>
