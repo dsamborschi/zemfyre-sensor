@@ -10,7 +10,7 @@
  * - Each application has a unique appId and can have multiple service instances
  */
 
-const managerApiUrl = import.meta.env.VITE_APP_MANAGER_API || 'http://localhost:3002/api/v1'
+const managerApiUrl = import.meta.env.APP_MANAGER_API || 'http://localhost:3002/api/v1'
 
 export const applicationManagerApi = {
   // ==================== State Management ====================
