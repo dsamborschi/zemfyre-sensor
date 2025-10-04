@@ -1,10 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref, computed } from 'vue'
 import { useApplicationManagerStore } from '../../stores/application-manager'
+import { useDevicesStore } from '../../stores/devices'
 import type { Application, ServiceConfig } from '../../data/pages/applications'
 import { applyState } from '../../data/pages/applications'
 
 const applicationStore = useApplicationManagerStore()
+const devicesStore = useDevicesStore()
 
 // Deployment dialog state
 const showDeployDialog = ref(false)
@@ -512,6 +514,11 @@ const applyPendingApp = async (appId: number) => {
     console.error('Failed to apply pending application:', error)
   }
 }
+
+// Check if active device is offline
+const isActiveDeviceOffline = computed(() => {
+  return devicesStore.activeDevice?.status === 'offline'
+})
 </script>
 
 <template>
@@ -682,7 +689,7 @@ const applyPendingApp = async (appId: number) => {
   <!-- Actions -->
   <div class="flex gap-2 mb-4">
     <VaButton
-      :disabled="applicationStore.isDeploying"
+      :disabled="applicationStore.isDeploying || isActiveDeviceOffline"
       @click="openDeployDialog"
     >
       <VaIcon
@@ -718,8 +725,34 @@ const applyPendingApp = async (appId: number) => {
   <VaCard>
     <VaCardTitle>Deployed Applications</VaCardTitle>
     <VaCardContent>
+      <!-- Offline Device Message -->
       <div
-        v-if="applicationStore.isLoadingApplications"
+        v-if="isActiveDeviceOffline"
+        class="text-center py-8"
+      >
+        <VaIcon
+          name="cloud_off"
+          size="large"
+          color="danger"
+          class="mb-4"
+        />
+        <p class="text-xl font-semibold mb-2">
+          Device is Offline
+        </p>
+        <p class="text-gray-600 mb-4">
+          The selected device is currently offline. Application management features will become available once the device comes online.
+        </p>
+        <VaButton
+          color="secondary"
+          @click="refreshData"
+        >
+          <VaIcon name="refresh" class="mr-2" />
+          Check Connection
+        </VaButton>
+      </div>
+
+      <div
+        v-else-if="applicationStore.isLoadingApplications"
         class="text-center py-8"
       >
         <VaProgressCircle indeterminate />
@@ -730,23 +763,28 @@ const applyPendingApp = async (appId: number) => {
 
       <div
         v-else-if="applicationStore.applications.length === 0"
-        class="text-center py-8"
+        class="text-center py-8 flex flex-col items-center"
       >
-        <VaIcon
-          name="deployed_code"
-          size="large"
-          color="secondary"
-          class="mb-4"
-        />
+        <div class="flex justify-center items-center mb-4" style="width: 48px; height: 48px;">
+          <VaIcon
+            name="inbox"
+            color="secondary"
+            size="48px"
+          />
+        </div>
         <p class="text-gray-600">
-          No applications deployed yet
+          No active applications yet
         </p>
         <VaButton
+          v-if="pendingApplications.length === 0"
           class="mt-4"
           @click="openDeployDialog"
         >
           Deploy Your First Application
         </VaButton>
+        <p v-else class="text-sm text-gray-500 mt-4">
+          You have {{ pendingApplications.length }} pending application{{ pendingApplications.length > 1 ? 's' : '' }} waiting to be deployed below
+        </p>
       </div>
 
       <div
@@ -780,7 +818,7 @@ const applyPendingApp = async (appId: number) => {
                   />
                 </div>
               </div>
-              <div class="flex gap-2 ml-auto">
+              <div v-if="!isActiveDeviceOffline" class="flex gap-2 ml-auto">
                 <VaButton
                   preset="plain"
                   icon="edit"
@@ -856,7 +894,10 @@ const applyPendingApp = async (appId: number) => {
       </div>
     </VaCardTitle>
     <VaCardContent>
-      <VaAlert color="info" class="mb-4" border="left">
+      <VaAlert v-if="isActiveDeviceOffline" color="danger" class="mb-4" border="left">
+        <p>These applications are configured but cannot be deployed while the device is offline. Please wait for the device to come online.</p>
+      </VaAlert>
+      <VaAlert v-else color="info" class="mb-4" border="left">
         <p>These applications are configured but not yet deployed. Click "Apply Now" to deploy them.</p>
       </VaAlert>
 
@@ -889,6 +930,7 @@ const applyPendingApp = async (appId: number) => {
               <div class="flex gap-2 ml-auto">
                 <VaButton
                   color="primary"
+                  :disabled="isActiveDeviceOffline"
                   @click="applyPendingApp(app.appId)"
                 >
                   <VaIcon name="play_arrow" class="mr-1" />
