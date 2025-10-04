@@ -25,6 +25,9 @@ const serviceDetailsTab = ref('details')
 const serviceLogs = ref<LogEntry[]>([])
 const consoleCommand = ref('')
 const consoleOutput = ref<string[]>([])
+const vulnerabilities = ref<any[]>([])
+const loadingVulnerabilities = ref(false)
+const vulnerabilityError = ref<string | null>(null)
 const isLoadingLogs = ref(false)
 const isExecutingCommand = ref(false)
 const isEditingServiceDetails = ref(false)
@@ -388,6 +391,11 @@ const fetchServiceLogs = async () => {
 watch(serviceDetailsTab, (newTab) => {
   if (newTab === 'logs' && selectedService.value && serviceLogs.value.length === 0) {
     fetchServiceLogs()
+  }
+  
+  // Auto-scan vulnerabilities when vulnerabilities tab is selected
+  if (newTab === 'vulnerabilities' && selectedService.value && vulnerabilities.value.length === 0) {
+    scanImageVulnerabilities(selectedService.value.imageName)
   }
 })
 
@@ -795,6 +803,110 @@ const getServiceStatusColor = (status?: string) => {
 const getServiceStatusText = (status?: string) => {
   if (!status) return 'Unknown'
   return status.charAt(0).toUpperCase() + status.slice(1)
+}
+
+// Helper function to get severity color
+const getSeverityColor = (severity: string) => {
+  const severityLower = severity.toLowerCase()
+  if (severityLower === 'critical') return 'danger'
+  if (severityLower === 'high') return 'warning'
+  if (severityLower === 'medium') return 'info'
+  if (severityLower === 'low') return 'secondary'
+  return 'secondary'
+}
+
+// Scan image for vulnerabilities using mock data (replace with real API)
+const scanImageVulnerabilities = async (imageName: string) => {
+  loadingVulnerabilities.value = true
+  vulnerabilityError.value = null
+  vulnerabilities.value = []
+
+  try {
+    // For demo purposes, generate mock vulnerability data
+    // In production, integrate with Trivy, Grype, or Docker Scout API
+    
+    // Simulate API delay
+    await new Promise(resolve => setTimeout(resolve, 1500))
+
+    // Mock data based on image name
+    const mockVulnerabilities = [
+      {
+        id: 'CVE-2025-7783',
+        severity: 'CRITICAL',
+        package: 'npm / form-data / 2.3.3',
+        fixable: true,
+      },
+      {
+        id: 'CVE-2024-21538',
+        severity: 'HIGH',
+        package: 'npm / cross-spawn / 7.0.3',
+        fixable: true,
+      },
+      {
+        id: 'CVE-2025-9086',
+        severity: 'HIGH',
+        package: 'apk / alpine/curl / 8.12.1-r1',
+        fixable: false,
+      },
+      {
+        id: 'CVE-2025-5399',
+        severity: 'HIGH',
+        package: 'apk / alpine/curl / 8.12.1-r1',
+        fixable: false,
+      },
+      {
+        id: 'CVE-2025-9230',
+        severity: 'HIGH',
+        package: 'apk / alpine/openssl / 3.3.3-r0',
+        fixable: true,
+      },
+      {
+        id: 'CVE-2025-59375',
+        severity: 'HIGH',
+        package: 'apk / alpine/expat / 2.7.0-r0',
+        fixable: false,
+      },
+      {
+        id: 'CVE-2025-4947',
+        severity: 'MEDIUM',
+        package: 'apk / alpine/curl / 8.12.1-r1',
+        fixable: false,
+      },
+      {
+        id: 'CVE-2025-9231',
+        severity: 'MEDIUM',
+        package: 'apk / alpine/openssl / 3.3.3-r0',
+        fixable: true,
+      },
+      {
+        id: 'CVE-2023-26136',
+        severity: 'MEDIUM',
+        package: 'npm / tough-cookie / 2.5.0',
+        fixable: true,
+      },
+      {
+        id: 'CVE-2023-28155',
+        severity: 'LOW',
+        package: 'npm / request / 2.88.2',
+        fixable: false,
+      },
+    ]
+
+    // Filter vulnerabilities based on image name for variation
+    if (imageName.includes('nginx') || imageName.includes('alpine')) {
+      vulnerabilities.value = mockVulnerabilities.filter(v => v.package.includes('apk'))
+    } else if (imageName.includes('node')) {
+      vulnerabilities.value = mockVulnerabilities.filter(v => v.package.includes('npm'))
+    } else {
+      vulnerabilities.value = mockVulnerabilities
+    }
+
+  } catch (error) {
+    console.error('Error scanning vulnerabilities:', error)
+    vulnerabilityError.value = 'Failed to scan for vulnerabilities. Please try again.'
+  } finally {
+    loadingVulnerabilities.value = false
+  }
 }
 
 // ==================== Auto-Refresh Functionality ====================
@@ -1977,6 +2089,14 @@ const toggleAutoRefresh = () => {
             />
             Console
           </VaTab>
+          <VaTab name="vulnerabilities">
+            <VaIcon
+              name="security"
+              size="small"
+              class="mr-1"
+            />
+            Vulnerabilities
+          </VaTab>
         </template>
       </VaTabs>
 
@@ -2297,6 +2417,153 @@ const toggleAutoRefresh = () => {
             />
             <strong>Note:</strong> Commands are executed inside the container. Common commands: ls, ps, pwd, cat, grep,
             top
+          </div>
+        </div>
+
+        <!-- Vulnerabilities Tab -->
+        <div v-if="serviceDetailsTab === 'vulnerabilities'">
+          <div
+            v-if="loadingVulnerabilities"
+            class="flex justify-center items-center py-8"
+          >
+            <VaProgressCircle indeterminate />
+            <span class="ml-3">Scanning for vulnerabilities...</span>
+          </div>
+
+          <div
+            v-else-if="vulnerabilityError"
+            class="p-4 bg-red-50 text-red-700 rounded"
+          >
+            <VaIcon
+              name="error"
+              class="mr-2"
+            />
+            {{ vulnerabilityError }}
+          </div>
+
+          <div
+            v-else-if="vulnerabilities.length === 0"
+            class="text-center py-8"
+          >
+            <VaIcon
+              name="verified_user"
+              size="large"
+              color="success"
+              class="mb-2"
+            />
+            <p class="text-lg font-semibold text-gray-700">
+              No vulnerabilities found
+            </p>
+            <p class="text-sm text-gray-500 mt-1">
+              This image appears to be secure
+            </p>
+          </div>
+
+          <div
+            v-else
+            class="space-y-4"
+          >
+            <!-- Vulnerability Summary -->
+            <div class="grid grid-cols-4 gap-4">
+              <div class="p-4 bg-red-50 rounded text-center">
+                <div class="text-2xl font-bold text-red-700">
+                  {{ vulnerabilities.filter(v => v.severity === 'CRITICAL').length }}
+                </div>
+                <div class="text-sm text-red-600">
+                  Critical
+                </div>
+              </div>
+              <div class="p-4 bg-orange-50 rounded text-center">
+                <div class="text-2xl font-bold text-orange-700">
+                  {{ vulnerabilities.filter(v => v.severity === 'HIGH').length }}
+                </div>
+                <div class="text-sm text-orange-600">
+                  High
+                </div>
+              </div>
+              <div class="p-4 bg-yellow-50 rounded text-center">
+                <div class="text-2xl font-bold text-yellow-700">
+                  {{ vulnerabilities.filter(v => v.severity === 'MEDIUM').length }}
+                </div>
+                <div class="text-sm text-yellow-600">
+                  Medium
+                </div>
+              </div>
+              <div class="p-4 bg-blue-50 rounded text-center">
+                <div class="text-2xl font-bold text-blue-700">
+                  {{ vulnerabilities.filter(v => v.severity === 'LOW').length }}
+                </div>
+                <div class="text-sm text-blue-600">
+                  Low
+                </div>
+              </div>
+            </div>
+
+            <!-- Vulnerability List -->
+            <div
+              class="overflow-y-auto"
+              style="max-height: 400px;"
+            >
+              <table class="w-full text-sm">
+                <thead class="bg-gray-100 sticky top-0">
+                  <tr>
+                    <th class="p-2 text-left">
+                      CVE ID
+                    </th>
+                    <th class="p-2 text-left">
+                      Severity
+                    </th>
+                    <th class="p-2 text-left">
+                      Package
+                    </th>
+                    <th class="p-2 text-left">
+                      Fixable
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="vuln in vulnerabilities"
+                    :key="vuln.id"
+                    class="border-b hover:bg-gray-50"
+                  >
+                    <td class="p-2">
+                      <a
+                        :href="`https://nvd.nist.gov/vuln/detail/${vuln.id}`"
+                        target="_blank"
+                        class="text-blue-600 hover:underline"
+                      >
+                        {{ vuln.id }}
+                      </a>
+                    </td>
+                    <td class="p-2">
+                      <VaBadge
+                        :text="vuln.severity"
+                        :color="getSeverityColor(vuln.severity)"
+                        size="small"
+                      />
+                    </td>
+                    <td class="p-2 font-mono text-xs">
+                      {{ vuln.package }}
+                    </td>
+                    <td class="p-2">
+                      <VaIcon
+                        v-if="vuln.fixable"
+                        name="check_circle"
+                        color="success"
+                        size="small"
+                      />
+                      <VaIcon
+                        v-else
+                        name="cancel"
+                        color="danger"
+                        size="small"
+                      />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>
