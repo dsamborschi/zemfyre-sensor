@@ -189,7 +189,7 @@ export const removeApplication = async (appId: number): Promise<boolean> => {
  * Apply state changes (reconcile current with target)
  * This triggers the actual deployment/update/removal of services
  */
-export const applyState = async (): Promise<void> => {
+export const applyState = async (): Promise<{ status: string; message: string }> => {
   const response = await fetch(applicationManagerApi.applyState(), {
     method: 'POST',
   })
@@ -197,6 +197,8 @@ export const applyState = async (): Promise<void> => {
   if (!response.ok) {
     throw new Error(`Failed to apply state: ${response.statusText}`)
   }
+
+  return await response.json()
 }
 
 // ==================== Service Operations ====================

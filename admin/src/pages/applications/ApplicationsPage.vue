@@ -505,19 +505,62 @@ const pendingApplications = computed(() => {
   return pending
 })
 
+// Reconciliation status tracking
+const reconciliationStatus = ref<{ status: string; message: string; timestamp: number } | null>(null)
+const isReconciling = ref(false)
+
 // Apply pending application
 const applyPendingApp = async (appId: number) => {
   try {
-    await applyState()
-    await refreshData()
+    isReconciling.value = true
+    reconciliationStatus.value = null
+    
+    const result = await applyState()
+    reconciliationStatus.value = {
+      status: result.status,
+      message: result.message,
+      timestamp: Date.now()
+    }
+    
+    // Auto-hide status after 10 seconds
+    setTimeout(() => {
+      if (reconciliationStatus.value && reconciliationStatus.value.timestamp === reconciliationStatus.value.timestamp) {
+        reconciliationStatus.value = null
+      }
+    }, 10000)
+    
+    // Refresh data after a short delay to allow reconciliation to start
+    setTimeout(async () => {
+      await refreshData()
+      isReconciling.value = false
+    }, 2000)
   } catch (error) {
     console.error('Failed to apply pending application:', error)
+    reconciliationStatus.value = {
+      status: 'error',
+      message: error instanceof Error ? error.message : 'Failed to apply pending application',
+      timestamp: Date.now()
+    }
+    isReconciling.value = false
   }
 }
 
 // Check if active device is offline
 const isActiveDeviceOffline = computed(() => {
   return devicesStore.activeDevice?.status === 'offline'
+})
+
+// Check if reconciliation is in progress (flexible for multiple states)
+const isReconciliationInProgress = computed(() => {
+  if (!reconciliationStatus.value) return false
+  
+  const inProgressStates = ['started', 'starting', 'in-progress', 'in_progress', 'pending', 'reconciling', 'deploying']
+  return inProgressStates.includes(reconciliationStatus.value.status.toLowerCase())
+})
+
+// Check if application actions should be disabled
+const isApplicationActionsDisabled = computed(() => {
+  return isActiveDeviceOffline.value || isReconciling.value || isReconciliationInProgress.value
 })
 </script>
 
@@ -927,14 +970,46 @@ const isActiveDeviceOffline = computed(() => {
                   />
                 </div>
               </div>
-              <div class="flex gap-2 ml-auto">
+              <div class="flex gap-3 ml-auto items-center">
+                <div v-if="reconciliationStatus" class="flex items-center gap-2">
+                  <VaIcon
+                    v-if="isReconciliationInProgress"
+                    name="autorenew"
+                    class="va-icon-spin"
+                    color="info"
+                    size="small"
+                  />
+                  <VaIcon
+                    v-else-if="reconciliationStatus.status === 'error' || reconciliationStatus.status === 'failed'"
+                    name="error"
+                    color="danger"
+                    size="small"
+                  />
+                  <VaIcon
+                    v-else
+                    name="check_circle"
+                    color="success"
+                    size="small"
+                  />
+                  <span
+                    class="text-sm"
+                    :class="{
+                      'text-blue-600': isReconciliationInProgress,
+                      'text-red-600': reconciliationStatus.status === 'error' || reconciliationStatus.status === 'failed',
+                      'text-green-600': !isReconciliationInProgress && reconciliationStatus.status !== 'error' && reconciliationStatus.status !== 'failed'
+                    }"
+                  >
+                    {{ reconciliationStatus.message }}
+                  </span>
+                </div>
                 <VaButton
                   color="primary"
-                  :disabled="isActiveDeviceOffline"
+                  :disabled="isApplicationActionsDisabled"
+                  :loading="isReconciling || isReconciliationInProgress"
                   @click="applyPendingApp(app.appId)"
                 >
-                  <VaIcon name="play_arrow" class="mr-1" />
-                  Apply Now
+                  <VaIcon v-if="!isReconciling && !isReconciliationInProgress" name="play_arrow" class="mr-1" />
+                  {{ isReconciliationInProgress ? 'Deploying...' : isReconciling ? 'Applying...' : 'Apply Now' }}
                 </VaButton>
               </div>
             </div>
