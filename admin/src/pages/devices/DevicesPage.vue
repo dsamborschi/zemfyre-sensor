@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useDevicesStore } from '../../stores/devices'
-import { useToast } from 'vuestic-ui'
+import { useModal, useToast } from 'vuestic-ui'
 import type { AddDeviceRequest } from '../../data/types/device'
 
 const devicesStore = useDevicesStore()
+const { confirm } = useModal()
 
 // Add device dialog state
 const showAddDialog = ref(false)
@@ -111,8 +112,15 @@ const setActiveDevice = (deviceId: string) => {
 }
 
 // Remove device
-const confirmRemoveDevice = (deviceId: string, deviceName: string) => {
-  if (confirm(`Are you sure you want to remove device "${deviceName}"?`)) {
+const confirmRemoveDevice = async (deviceId: string, deviceName: string) => {
+  const agreed = await confirm({
+    maxWidth: '380px',
+    message: `Are you sure you want to remove device "${deviceName}"?`,
+    title: 'Remove Device',
+    size: 'small',
+  })
+  
+  if (agreed) {
     devicesStore.removeDevice(deviceId)
   }
 }
@@ -206,7 +214,11 @@ const toggleAutoRefresh = () => {
 
 <template>
   <div class="devices-page">
-    <h1 class="page-title">Device Manager</h1>
+    <!-- Page Header with Title and Actions -->
+    <div class="flex items-center justify-between mb-6">
+      <h1 class="page-title mb-0">Device Manager</h1>
+      <VaButton icon="add" @click="showAddDialog = true"> Add Device </VaButton>
+    </div>
 
     <!-- Page Actions -->
     <VaCard class="mb-4">
@@ -233,7 +245,6 @@ const toggleAutoRefresh = () => {
             <VaButton preset="secondary" icon="refresh" :loading="devicesStore.isLoading" @click="refreshDevices">
               Refresh
             </VaButton>
-            <VaButton icon="add" @click="showAddDialog = true"> Add Device </VaButton>
             
             <!-- Auto-Refresh Toggle -->
             <div class="flex items-center gap-2 ml-4">

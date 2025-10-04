@@ -2,11 +2,14 @@
 import { onMounted, onUnmounted, ref, computed, watch } from 'vue'
 import { useApplicationManagerStore } from '../../stores/application-manager'
 import { useDevicesStore } from '../../stores/devices'
+import { useModal, useToast } from 'vuestic-ui'
 import type { Application, ServiceConfig, LogEntry } from '../../data/pages/applications'
 import { applyState, getServiceLogs, executeContainerCommand } from '../../data/pages/applications'
 
 const applicationStore = useApplicationManagerStore()
 const devicesStore = useDevicesStore()
+const { confirm } = useModal()
+const { init: notify } = useToast()
 
 // Deployment dialog state
 const showDeployDialog = ref(false)
@@ -294,11 +297,26 @@ const updateApplication = async () => {
 }
 
 const removeApplication = async (appId: number) => {
-  if (confirm('Are you sure you want to remove this application and all its services?')) {
+  const agreed = await confirm({
+    maxWidth: '380px',
+    message: 'Are you sure you want to remove this application and all its services?',
+    title: 'Remove Application',
+    size: 'small',
+  })
+  
+  if (agreed) {
     try {
       await applicationStore.removeExistingApplication(appId)
+      notify({
+        message: 'Application removed successfully',
+        color: 'success',
+      })
     } catch (error) {
       console.error('Failed to remove application:', error)
+      notify({
+        message: 'Failed to remove application',
+        color: 'danger',
+      })
     }
   }
 }
@@ -382,7 +400,7 @@ const executeConsoleCommand = async () => {
     return
   }
 
-  if (selectedService.value.status !== 'Running') {
+  if (selectedService.value.status?.toLowerCase() !== 'running') {
     consoleOutput.value.push(`Error: Container is not running (status: ${selectedService.value.status})`)
     return
   }
@@ -422,13 +440,26 @@ const clearConsole = () => {
 const restartService = async () => {
   if (!selectedService.value) return
 
-  if (confirm(`Are you sure you want to restart ${selectedService.value.serviceName}?`)) {
+  const agreed = await confirm({
+    maxWidth: '380px',
+    message: `Are you sure you want to restart ${selectedService.value.serviceName}?`,
+    title: 'Restart Service',
+    size: 'small',
+  })
+  
+  if (agreed) {
     try {
       // Simulate restart - replace with actual API call
       await new Promise((resolve) => setTimeout(resolve, 1000))
-      alert(`Service ${selectedService.value.serviceName} restarted successfully`)
+      notify({
+        message: `Service ${selectedService.value.serviceName} restarted successfully`,
+        color: 'success',
+      })
     } catch (error) {
-      alert(`Failed to restart service: ${error}`)
+      notify({
+        message: `Failed to restart service: ${error}`,
+        color: 'danger',
+      })
     }
   }
 }
@@ -436,13 +467,26 @@ const restartService = async () => {
 const stopService = async () => {
   if (!selectedService.value) return
 
-  if (confirm(`Are you sure you want to stop ${selectedService.value.serviceName}?`)) {
+  const agreed = await confirm({
+    maxWidth: '380px',
+    message: `Are you sure you want to stop ${selectedService.value.serviceName}?`,
+    title: 'Stop Service',
+    size: 'small',
+  })
+  
+  if (agreed) {
     try {
       // Simulate stop - replace with actual API call
       await new Promise((resolve) => setTimeout(resolve, 1000))
-      alert(`Service ${selectedService.value.serviceName} stopped successfully`)
+      notify({
+        message: `Service ${selectedService.value.serviceName} stopped successfully`,
+        color: 'success',
+      })
     } catch (error) {
-      alert(`Failed to stop service: ${error}`)
+      notify({
+        message: `Failed to stop service: ${error}`,
+        color: 'danger',
+      })
     }
   }
 }
@@ -513,7 +557,10 @@ const saveServiceChanges = async () => {
     const targetApp = targetApps[selectedServiceApp.value.appId]
     
     if (!targetApp) {
-      alert('Application not found in target state. Cannot update.')
+      notify({
+        message: 'Application not found in target state. Cannot update.',
+        color: 'warning',
+      })
       return
     }
     
@@ -540,11 +587,17 @@ const saveServiceChanges = async () => {
       isEditingServiceDetails.value = false
       editedService.value = null
 
-      alert('Service updated successfully! Changes will be applied on next reconciliation.')
+      notify({
+        message: 'Service updated successfully! Changes will be applied on next reconciliation.',
+        color: 'success',
+      })
     }
   } catch (error) {
     console.error('Failed to update service:', error)
-    alert('Failed to update service. Please try again.')
+    notify({
+      message: 'Failed to update service. Please try again.',
+      color: 'danger',
+    })
   }
 }
 
@@ -634,14 +687,14 @@ const applyPendingApp = async (appId: number) => {
 
 // Clear target state (emergency reset)
 const clearTargetState = async () => {
-  const confirmMessage = 'Are you sure you want to CLEAR the entire target state?\n\n' +
-    'This will:\n' +
-    '• Remove all pending applications from target state\n' +
-    '• Allow you to start fresh if something went wrong\n' +
-    '• NOT affect currently running containers (current state)\n\n' +
-    'You will need to apply state after clearing to stop containers.'
+  const agreed = await confirm({
+    maxWidth: '480px',
+    message: 'Are you sure you want to CLEAR the entire target state?\n\nThis will:\n• Remove all pending applications from target state\n• Allow you to start fresh if something went wrong\n• NOT affect currently running containers (current state)\n\nYou will need to apply state after clearing to stop containers.',
+    title: 'Clear Target State',
+    size: 'small',
+  })
   
-  if (!confirm(confirmMessage)) return
+  if (!agreed) return
   
   try {
     isReconciling.value = true
@@ -675,7 +728,10 @@ const clearTargetState = async () => {
       timestamp: Date.now()
     }
     isReconciling.value = false
-    alert('Failed to clear target state. Check console for details.')
+    notify({
+      message: 'Failed to clear target state. Check console for details.',
+      color: 'danger',
+    })
   }
 }
 
@@ -816,9 +872,22 @@ const toggleAutoRefresh = () => {
 </script>
 
 <template>
-  <h1 class="page-title">
-    Application Manager
-  </h1>
+  <!-- Page Header with Title and Actions -->
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="page-title mb-0">
+      Application Manager
+    </h1>
+    <VaButton
+      :disabled="applicationStore.isDeploying || isActiveDeviceOffline"
+      @click="openDeployDialog"
+    >
+      <VaIcon
+        name="add"
+        class="mr-2"
+      />
+      Add Application
+    </VaButton>
+  </div>
 
   <!-- Error Display -->
   <VaAlert
@@ -983,27 +1052,6 @@ const toggleAutoRefresh = () => {
   <!-- Actions -->
   <div class="flex gap-2 mb-4 items-center">
     <VaButton
-      :disabled="applicationStore.isDeploying || isActiveDeviceOffline"
-      @click="openDeployDialog"
-    >
-      <VaIcon
-        name="add"
-        class="mr-2"
-      />
-      Deploy Application
-    </VaButton>
-    <VaButton
-      preset="secondary"
-      :loading="applicationStore.isLoading"
-      @click="refreshData"
-    >
-      <VaIcon
-        name="refresh"
-        class="mr-2"
-      />
-      Refresh
-    </VaButton>
-    <VaButton
       v-if="pendingApplications.length > 0"
       color="danger"
       preset="plain"
@@ -1017,16 +1065,27 @@ const toggleAutoRefresh = () => {
       Clear Target State
     </VaButton>
     
-    <!-- Auto-Refresh Toggle -->
-    <div class="ml-auto flex items-center gap-2">
-      <VaSwitch
-        v-model="autoRefreshEnabled"
-        size="small"
-        @update:modelValue="toggleAutoRefresh"
-      />
-      <span class="text-sm text-gray-600">
-        Auto-refresh ({{ (autoRefreshInterval / 1000).toFixed(0) }}s)
-      </span>
+    <!-- Refresh and Auto-Refresh Toggle -->
+    <div class="ml-auto flex gap-2 items-center">
+      <VaButton
+        preset="secondary"
+        icon="refresh"
+        :loading="applicationStore.isLoading"
+        @click="refreshData"
+      >
+        Refresh
+      </VaButton>
+      
+      <div class="flex items-center gap-2 ml-4">
+        <VaSwitch
+          v-model="autoRefreshEnabled"
+          size="small"
+          @update:modelValue="toggleAutoRefresh"
+        />
+        <span class="text-sm text-gray-600">
+          Auto-refresh ({{ (autoRefreshInterval / 1000).toFixed(0) }}s)
+        </span>
+      </div>
     </div>
   </div>
 
@@ -1333,7 +1392,7 @@ const toggleAutoRefresh = () => {
     </VaCardContent>
   </VaCard>
 
-  <!-- Deploy Application Modal -->
+  <!-- Add Application Modal -->
   <VaModal
     v-model="showDeployDialog"
     title="Deploy New Application"
@@ -1561,7 +1620,7 @@ const toggleAutoRefresh = () => {
           :loading="applicationStore.isDeploying"
           @click="deployApplication"
         >
-          Deploy Application ({{ services.length }} service{{ services.length !== 1 ? 's' : '' }})
+          Add Application ({{ services.length }} service{{ services.length !== 1 ? 's' : '' }})
         </VaButton>
       </div>
     </template>

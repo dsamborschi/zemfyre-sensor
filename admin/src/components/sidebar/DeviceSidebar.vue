@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { useDevicesStore } from '../../stores/devices'
-import { useToast } from 'vuestic-ui'
+import { useModal, useToast } from 'vuestic-ui'
 import type { AddDeviceRequest } from '../../data/types/device'
 
 const devicesStore = useDevicesStore()
+const { confirm } = useModal()
 
 // Add device dialog state
 const showAddDialog = ref(false)
@@ -46,8 +47,15 @@ const switchDevice = (deviceId: string) => {
 }
 
 // Remove device
-const confirmRemoveDevice = (deviceId: string, deviceName: string) => {
-  if (confirm(`Are you sure you want to remove device "${deviceName}"?`)) {
+const confirmRemoveDevice = async (deviceId: string, deviceName: string) => {
+  const agreed = await confirm({
+    maxWidth: '380px',
+    message: `Are you sure you want to remove device "${deviceName}"?`,
+    title: 'Remove Device',
+    size: 'small',
+  })
+  
+  if (agreed) {
     devicesStore.removeDevice(deviceId)
   }
 }

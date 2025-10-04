@@ -16,6 +16,7 @@ export interface DockerContainerInfo {
 	state: string; // "running", "exited", etc.
 	status: string;
 	labels: Record<string, string>;
+	ports?: Docker.Port[];
 }
 
 export class DockerManager {
@@ -259,6 +260,7 @@ export class DockerManager {
 			state: c.State,
 			status: c.Status,
 			labels: c.Labels,
+			ports: c.Ports || [],
 		}));
 	}
 
