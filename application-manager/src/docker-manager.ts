@@ -109,7 +109,21 @@ export class DockerManager {
 
 			if (service.config.ports) {
 				for (const portMapping of service.config.ports) {
-					const [hostPort, containerPort] = portMapping.split(':');
+					// Ensure portMapping is a string
+					const portStr = typeof portMapping === 'string' ? portMapping : String(portMapping);
+					
+					if (!portStr || typeof portStr.split !== 'function') {
+						console.error(`Invalid port mapping format: ${JSON.stringify(portMapping)}`);
+						continue;
+					}
+					
+					const [hostPort, containerPort] = portStr.split(':');
+					
+					if (!hostPort || !containerPort) {
+						console.error(`Invalid port mapping (missing host or container port): ${portStr}`);
+						continue;
+					}
+					
 					const port = `${containerPort}/tcp`;
 					exposedPorts[port] = {};
 					portBindings[port] = [{ HostPort: hostPort }];

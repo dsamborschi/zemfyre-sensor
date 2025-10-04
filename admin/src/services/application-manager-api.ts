@@ -129,13 +129,13 @@ export const applicationManagerApi = {
    * Get system metrics (CPU, memory, disk, network)
    * Returns: System resource utilization data
    */
-  getSystemMetrics: () => `${currentApiUrl}/metrics/system`,
+  getSystemMetrics: () => `${currentApiUrl}/metrics`,
 
   /**
    * Get Docker-specific metrics
    * Returns: Container resource usage, image info
    */
-  getDockerMetrics: () => `${currentApiUrl}/metrics/docker`,
+  getDockerMetrics: () => `${currentApiUrl}/metrics`,
 
   /**
    * Get application manager logs

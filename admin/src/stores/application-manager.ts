@@ -20,7 +20,7 @@ import { useDevicesStore } from './devices'
 // ===============================================`=============================
 // MOCK DATA FOR DEVELOPMENT
 // ============================================================================
-const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA !== 'false' // Defaults to true unless explicitly set to false
+const USE_MOCK_DATA = import.meta.env.VITE_USE_MOCK_DATA === 'true' // Defaults to false unless explicitly set to true
 
 const MOCK_APPLICATIONS: Application[] = [
   {
@@ -185,15 +185,18 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
       this.error = null
       try {
         if (USE_MOCK_DATA) {
+          console.log('[ApplicationManager] Using MOCK DATA')
           await mockDelay()
           this.applications = [...MOCK_APPLICATIONS]
         } else {
+          console.log('[ApplicationManager] Fetching applications from API...')
           this.applications = await getApplications()
+          console.log('[ApplicationManager] Fetched applications:', this.applications)
         }
       } catch (error: any) {
         this.error = error.message
         this.lastError = { message: error.message, timestamp: new Date() }
-        console.error('Failed to fetch applications:', error)
+        console.error('[ApplicationManager] Failed to fetch applications:', error)
         throw error
       } finally {
         this.isLoadingApplications = false

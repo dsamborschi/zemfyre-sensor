@@ -269,7 +269,7 @@ All device API calls use the Application Manager REST API:
 - `GET /status` - Test device connection
 - `GET /device` - Get device information
 - `GET /apps` - Get applications
-- `GET /metrics/system` - Get system metrics
+- `GET /metrics` - Get system metrics
 - (All other Application Manager endpoints)
 
 See `application-manager/README.md` for complete API documentation.
