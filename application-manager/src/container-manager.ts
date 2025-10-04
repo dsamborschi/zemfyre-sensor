@@ -479,10 +479,16 @@ export class ContainerManager extends EventEmitter {
 
 			// Service updated (image or config changed) OR container is not running
 			if (currentSvc && targetSvc) {
-				const needsUpdate =
-					currentSvc.imageName !== targetSvc.imageName ||
-					!_.isEqual(currentSvc.config, targetSvc.config) ||
-					currentSvc.status !== 'running'; // Check if container is not running
+				// Check if image changed (this requires container recreation)
+				const imageChanged = currentSvc.imageName !== targetSvc.imageName;
+				
+				// Only check if container is stopped/exited (not just "not running")
+				// Don't restart containers that are already running
+				const containerStopped = currentSvc.status?.toLowerCase() === 'exited' || 
+				                        currentSvc.status?.toLowerCase() === 'stopped' ||
+				                        currentSvc.status?.toLowerCase() === 'dead';
+				
+				const needsUpdate = imageChanged || containerStopped;
 
 				if (needsUpdate && currentSvc.containerId) {
 					// Download new image
