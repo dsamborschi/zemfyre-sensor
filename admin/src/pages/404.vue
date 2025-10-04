@@ -1,12 +1,12 @@
 <script lang="ts" setup>
-import VuesticLogo from '../components/VuesticLogo.vue'
+import IotisticLogo from '../components/IotisticLogo.vue'
 import NotFoundImage from '../components/NotFoundImage.vue'
 </script>
 
 <template>
   <div class="flex flex-col justify-between h-screen items-center bg-[var(--va-background-secondary)]">
     <RouterLink to="/">
-      <VuesticLogo :gradient="false" class="my-8 h-5" />
+      <IotisticLogo :height="24" class="my-8" />
     </RouterLink>
 
     <div class="flex flex-col items-center gap-6 px-4 my-8">

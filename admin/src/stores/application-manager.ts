@@ -298,19 +298,9 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
       this.isLoadingMetrics = true
       this.error = null
       try {
-        if (USE_MOCK_DATA) {
-          await mockDelay(300)
-          const variation = () => Math.random() * 10 - 5
-          this.systemMetrics = {
-            ...MOCK_METRICS,
-            cpu_usage: Math.max(0, Math.min(100, MOCK_METRICS.cpu_usage + variation())),
-            memory_percent: Math.max(0, Math.min(100, MOCK_METRICS.memory_percent + variation())),
-            storage_percent: Math.max(0, Math.min(100, MOCK_METRICS.storage_percent + variation())),
-            timestamp: new Date().toISOString(),
-          }
-        } else {
-          this.systemMetrics = await getSystemMetrics()
-        }
+        console.log('[ApplicationManager] Fetching system metrics from API...')
+        this.systemMetrics = await getSystemMetrics()
+        console.log('[ApplicationManager] Fetched system metrics:', this.systemMetrics)
       } catch (error: any) {
         this.error = error.message
         this.lastError = { message: error.message, timestamp: new Date() }
@@ -324,12 +314,9 @@ export const useApplicationManagerStore = defineStore('applicationManager', {
     async fetchDeviceInfo() {
       this.error = null
       try {
-        if (USE_MOCK_DATA) {
-          await mockDelay(200)
-          this.deviceInfo = { ...MOCK_DEVICE_INFO }
-        } else {
-          this.deviceInfo = await getDeviceInfo()
-        }
+        console.log('[ApplicationManager] Fetching device info from API...')
+        this.deviceInfo = await getDeviceInfo()
+        console.log('[ApplicationManager] Fetched device info:', this.deviceInfo)
       } catch (error: any) {
         this.error = error.message
         this.lastError = { message: error.message, timestamp: new Date() }
