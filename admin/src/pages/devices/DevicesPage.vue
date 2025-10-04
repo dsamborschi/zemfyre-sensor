@@ -337,19 +337,19 @@ const toggleAutoRefresh = () => {
             <div class="status-grid">
               <div class="status-item">
                 <span class="status-label">Apps:</span>
-                <span class="status-value">{{ device.managerStatus.currentApps }}/{{ device.managerStatus.targetApps }}</span>
+                <span class="status-value">{{ device.managerStatus.currentApps }}</span>
               </div>
               <div class="status-item">
                 <span class="status-label">Services:</span>
-                <span class="status-value">{{ device.managerStatus.currentServices }}/{{ device.managerStatus.targetServices }}</span>
+                <span class="status-value">{{ device.managerStatus.currentServices }}</span>
               </div>
               <div class="status-item">
                 <span class="status-label">Applying:</span>
-                <VaBadge :text="device.managerStatus.isApplying ? 'Yes' : 'No'" :color="device.managerStatus.isApplying ? 'warning' : 'success'" />
+                <VaBadge :text="device.managerStatus.isApplying ? 'YES' : 'NO'" :color="device.managerStatus.isApplying ? 'warning' : 'success'" />
               </div>
               <div class="status-item">
                 <span class="status-label">Reconciling:</span>
-                <VaBadge :text="device.managerStatus.isReconciling ? 'Yes' : 'No'" :color="device.managerStatus.isReconciling ? 'info' : 'success'" />
+                <VaBadge :text="device.managerStatus.isReconciling ? 'YES' : 'NO'" :color="device.managerStatus.isReconciling ? 'info' : 'success'" />
               </div>
             </div>
             <div v-if="device.managerStatus.lastError" class="status-error">

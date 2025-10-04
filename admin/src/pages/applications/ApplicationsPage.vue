@@ -63,6 +63,7 @@ const envValueInput = ref('')
 
 // Popular Docker images
 const popularImages = [
+  { text: 'BusyBox (Minimal)', value: 'busybox:latest' },
   { text: 'NGINX (Web Server)', value: 'nginx:alpine' },
   { text: 'NGINX (Latest)', value: 'nginx:latest' },
   { text: 'PostgreSQL 16', value: 'postgres:16-alpine' },
@@ -240,11 +241,6 @@ const cancelApplicationEdit = () => {
 
 const deployApplication = async () => {
   try {
-    if (services.value.length === 0) {
-      alert('Please add at least one service to the application')
-      return
-    }
-
     // Normalize services - ensure imageName is a string
     const normalizedServices = services.value.map(service => ({
       ...service,
@@ -271,11 +267,6 @@ const deployApplication = async () => {
 
 const updateApplication = async () => {
   try {
-    if (services.value.length === 0) {
-      alert('Please add at least one service to the application')
-      return
-    }
-
     // Normalize services - ensure imageName is a string
     const normalizedServices = services.value.map(service => ({
       ...service,
@@ -565,6 +556,17 @@ const deployedApplications = computed(() => {
   
   // Convert the apps object to an array
   return Object.values(currentApps)
+})
+
+// Computed property to count running applications
+// An application is considered "running" if at least one of its services is running
+const runningApplicationsCount = computed(() => {
+  return deployedApplications.value.filter(app => {
+    // Check if the app has at least one running service
+    return app.services?.some((service: any) => 
+      service.status?.toLowerCase() === 'running'
+    )
+  }).length
 })
 
 // Computed property to get pending applications (in target but not in current)
@@ -879,7 +881,7 @@ const toggleAutoRefresh = () => {
               Running Applications
             </p>
             <p class="text-3xl font-bold">
-              {{ deployedApplications.filter(app => app.status === 'running').length }}
+              {{ runningApplicationsCount }}
             </p>
           </div>
           <VaIcon
@@ -1425,6 +1427,8 @@ const toggleAutoRefresh = () => {
             label="Docker Image"
             placeholder="Select an image or type custom"
             :options="popularImages"
+            text-by="text"
+            value-by="value"
             searchable
             allow-create
           />
@@ -1555,7 +1559,6 @@ const toggleAutoRefresh = () => {
         </VaButton>
         <VaButton
           :loading="applicationStore.isDeploying"
-          :disabled="services.length === 0"
           @click="deployApplication"
         >
           Deploy Application ({{ services.length }} service{{ services.length !== 1 ? 's' : '' }})
@@ -1661,6 +1664,8 @@ const toggleAutoRefresh = () => {
             label="Docker Image"
             placeholder="Select an image or type custom"
             :options="popularImages"
+            text-by="text"
+            value-by="value"
             searchable
             allow-create
           />
@@ -1791,7 +1796,6 @@ const toggleAutoRefresh = () => {
         </VaButton>
         <VaButton
           :loading="applicationStore.isDeploying"
-          :disabled="services.length === 0"
           color="primary"
           @click="updateApplication"
         >
@@ -2007,6 +2011,8 @@ const toggleAutoRefresh = () => {
                   v-model="editedService.imageName"
                   label="Docker Image"
                   :options="popularImages"
+            text-by="text"
+            value-by="value"
                   searchable
                   placeholder="Select or type image name"
                 />

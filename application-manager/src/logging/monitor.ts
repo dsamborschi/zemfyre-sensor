@@ -162,11 +162,30 @@ export class ContainerLogMonitor {
 					// Determine if stderr
 					const isStdErr = streamType === 2;
 
+					// Parse log level from message content (case-insensitive)
+					// Look for common log level patterns: [ERROR], [WARN], [INFO], [DEBUG], ERROR:, etc.
+					let level: 'debug' | 'info' | 'warn' | 'error' = 'info';
+					const lowerMessage = message.toLowerCase();
+					
+					if (lowerMessage.match(/\[error\]|error:|^\s*error\b|fatal/)) {
+						level = 'error';
+					} else if (lowerMessage.match(/\[warn\]|warn:|warning:|^\s*warn\b/)) {
+						level = 'warn';
+					} else if (lowerMessage.match(/\[debug\]|debug:|^\s*debug\b/)) {
+						level = 'debug';
+					} else if (lowerMessage.match(/\[info\]|info:|^\s*info\b|\[notice\]/)) {
+						level = 'info';
+					} else if (isStdErr) {
+						// Only treat as error if from stderr AND no log level detected
+						// Many apps log normal info to stderr
+						level = 'warn';
+					}
+
 					// Create log message
 					const logMessage: LogMessage = {
 						message,
 						timestamp: Date.now(),
-						level: isStdErr ? 'error' : 'info',
+						level,
 						source: {
 							type: 'container',
 							name: serviceName,
