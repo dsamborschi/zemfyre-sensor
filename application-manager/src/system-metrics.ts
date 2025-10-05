@@ -226,13 +226,18 @@ export async function isUndervolted(): Promise<boolean> {
  */
 export async function getTopProcesses(): Promise<ProcessInfo[]> {
 	try {
+		console.log('[Metrics] Fetching process list...');
 		const processes = await systeminformation.processes();
+		
+		console.log(`[Metrics] Total processes found: ${processes.list.length}`);
 		
 		// Filter out kernel threads (names starting with [])
 		// Keep all user processes including those with low CPU/memory
 		const userProcesses = processes.list.filter(proc => 
 			!proc.name.startsWith('[') && proc.name !== ''
 		);
+		
+		console.log(`[Metrics] User processes after filtering: ${userProcesses.length}`);
 		
 		// Sort by combined CPU and memory score (weighted)
 		// CPU gets 60% weight, memory gets 40% weight
@@ -245,16 +250,22 @@ export async function getTopProcesses(): Promise<ProcessInfo[]> {
 		// Take top 10
 		const topProcs = sortedProcesses.slice(0, 10);
 		
+		console.log(`[Metrics] Returning top ${topProcs.length} processes`);
+		
 		// Format for our interface
-		return topProcs.map(proc => ({
+		const formattedProcs = topProcs.map(proc => ({
 			pid: proc.pid,
 			name: proc.name,
 			cpu: Math.round(proc.cpu * 10) / 10, // Round to 1 decimal
 			mem: Math.round(proc.mem * 10) / 10, // Round to 1 decimal
 			command: proc.command || proc.name,
 		}));
+		
+		console.log('[Metrics] Sample processes:', formattedProcs.slice(0, 3));
+		
+		return formattedProcs;
 	} catch (error) {
-		console.error('Failed to get top processes:', error);
+		console.error('[Metrics] Failed to get top processes:', error);
 		return [];
 	}
 }
