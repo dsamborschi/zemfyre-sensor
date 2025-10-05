@@ -27,34 +27,85 @@ export interface ProcessInfo {
 	command: string;
 }
 
+export interface NetworkInterfaceInfo {
+	name: string;
+	ip4: string | null;
+	ip6: string | null;
+	mac: string | null;
+	type: string | null;
+	default: boolean;
+	virtual: boolean;
+	operstate: string | null;
+	ssid?: string;
+	signalLevel?: number;
+}
+
 export interface SystemMetrics {
 	// CPU metrics
 	cpu_usage: number;
 	cpu_temp: number | null;
 	cpu_cores: number;
-	
+
 	// Memory metrics
 	memory_usage: number;
 	memory_total: number;
 	memory_percent: number;
-	
+
 	// Storage metrics
 	storage_usage: number | null;
 	storage_total: number | null;
 	storage_percent: number | null;
-	
+
 	// System info
 	uptime: number;
 	hostname: string;
-	
+
 	// Health checks
 	is_undervolted: boolean;
-	
+
 	// Process info
 	top_processes: ProcessInfo[];
-	
+
+	// Networking
+	network_interfaces: NetworkInterfaceInfo[];
+
 	// Timestamp
 	timestamp: Date;
+}
+// NETWORK METRICS
+// ============================================================================
+
+/**
+ * Get network interfaces and their details
+ */
+export async function getNetworkInterfaces(): Promise<NetworkInterfaceInfo[]> {
+	try {
+		const interfaces = await systeminformation.networkInterfaces();
+		const defaultIface = await systeminformation.networkInterfaceDefault();
+			return interfaces.map((iface) => {
+				const base: NetworkInterfaceInfo = {
+					name: iface.iface,
+					ip4: iface.ip4 || null,
+					ip6: iface.ip6 || null,
+					mac: iface.mac || null,
+					type: iface.type || null,
+					default: iface.iface === defaultIface,
+					virtual: iface.virtual || false,
+					operstate: iface.operstate || null,
+				};
+				// Only add ssid/signalLevel if present (for wifi)
+				if ('ssid' in iface && typeof iface.ssid === 'string') {
+					(base as any).ssid = iface.ssid;
+				}
+				if ('signalLevel' in iface && typeof iface.signalLevel === 'number') {
+					(base as any).signalLevel = iface.signalLevel;
+				}
+				return base;
+			});
+	} catch (error) {
+		console.error('Failed to get network interfaces:', error);
+		return [];
+	}
 }
 
 // ============================================================================
@@ -350,58 +401,64 @@ async function getTopProcessesFallback(): Promise<ProcessInfo[]> {
  */
 export async function getSystemMetrics(): Promise<SystemMetrics> {
 	// Gather all metrics in parallel for speed
-	const [
-		cpuUsage,
-		cpuTemp,
-		cpuCores,
-		memoryInfo,
-		storageInfo,
-		uptime,
-		hostname,
-		undervolted,
-		topProcesses,
-	] = await Promise.all([
-		getCpuUsage(),
-		getCpuTemp(),
-		getCpuCores(),
-		getMemoryInfo(),
-		getStorageInfo(),
-		getUptime(),
-		getHostname(),
-		isUndervolted(),
-		getTopProcesses(),
-	]);
+		const [
+			cpuUsage,
+			cpuTemp,
+			cpuCores,
+			memoryInfo,
+			storageInfo,
+			uptime,
+			hostname,
+			undervolted,
+			topProcesses,
+			networkInterfaces,
+		] = await Promise.all([
+			getCpuUsage(),
+			getCpuTemp(),
+			getCpuCores(),
+			getMemoryInfo(),
+			getStorageInfo(),
+			getUptime(),
+			getHostname(),
+			isUndervolted(),
+			getTopProcesses(),
+			getNetworkInterfaces(),
+		]);
 
-	return {
-		// CPU
-		cpu_usage: cpuUsage,
-		cpu_temp: cpuTemp,
-		cpu_cores: cpuCores,
-		
-		// Memory
-		memory_usage: memoryInfo.used,
-		memory_total: memoryInfo.total,
-		memory_percent: memoryInfo.percent,
-		
-		// Storage
-		storage_usage: storageInfo.used,
-		storage_total: storageInfo.total,
-		storage_percent: storageInfo.percent,
-		
-		// System
-		uptime,
-		hostname,
-		
-		// Health
-		is_undervolted: undervolted,
-		
-		// Processes
-		top_processes: topProcesses,
-		
-		// Metadata
-		timestamp: new Date(),
-	};
-}
+		return {
+			// CPU
+			cpu_usage: cpuUsage,
+			cpu_temp: cpuTemp,
+			cpu_cores: cpuCores,
+
+			// Memory
+			memory_usage: memoryInfo.used,
+			memory_total: memoryInfo.total,
+			memory_percent: memoryInfo.percent,
+
+			// Storage
+			storage_usage: storageInfo.used,
+			storage_total: storageInfo.total,
+			storage_percent: storageInfo.percent,
+
+			// System
+			uptime,
+			hostname,
+
+			// Health
+			is_undervolted: undervolted,
+
+			// Processes
+			top_processes: topProcesses,
+
+			// Networking
+			network_interfaces: networkInterfaces,
+
+			// Metadata
+			timestamp: new Date(),
+		};
+	}
+
 
 // ============================================================================
 // UTILITIES

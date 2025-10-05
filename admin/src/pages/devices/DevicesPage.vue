@@ -1,3 +1,9 @@
+/* Thicker progress bars for telemetry and processes */
+.va-progress-bar__bar, .va-progress-bar__container {
+  height: 18px !important;
+  min-height: 18px !important;
+  border-radius: 8px;
+}
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref } from 'vue'
 import { useDevicesStore } from '../../stores/devices'
@@ -467,7 +473,7 @@ const toggleAutoRefresh = () => {
                       <span class="text-xs text-gray-600">CPU Usage</span>
                       <span class="text-xs font-medium">{{ devicesStore.activeDevice.metrics.cpu_usage.toFixed(1) }}%</span>
                     </div>
-                    <VaProgressBar :model-value="devicesStore.activeDevice.metrics.cpu_usage" color="primary" size="small" />
+                    <VaProgressBar :model-value="devicesStore.activeDevice.metrics.cpu_usage" color="primary" size="medium" />
                   </div>
                   <div v-if="devicesStore.activeDevice.metrics.cpu_temp">
                     <div class="flex items-center justify-between mb-1">
@@ -477,7 +483,7 @@ const toggleAutoRefresh = () => {
                     <VaProgressBar
                       :model-value="(devicesStore.activeDevice.metrics.cpu_temp / 85) * 100"
                       :color="devicesStore.activeDevice.metrics.cpu_temp > 70 ? 'danger' : devicesStore.activeDevice.metrics.cpu_temp > 60 ? 'warning' : 'success'"
-                      size="small"
+                      size="medium"
                     />
                   </div>
                   <div>
@@ -485,14 +491,14 @@ const toggleAutoRefresh = () => {
                       <span class="text-xs text-gray-600">Memory Usage</span>
                       <span class="text-xs font-medium">{{ devicesStore.activeDevice.metrics.memory_percent.toFixed(1) }}%</span>
                     </div>
-                    <VaProgressBar :model-value="devicesStore.activeDevice.metrics.memory_percent" color="info" size="small" />
+                    <VaProgressBar :model-value="devicesStore.activeDevice.metrics.memory_percent" color="info" size="medium" />
                   </div>
                   <div>
                     <div class="flex items-center justify-between mb-1">
                       <span class="text-xs text-gray-600">Storage Usage</span>
                       <span class="text-xs font-medium">{{ devicesStore.activeDevice.metrics.storage_percent.toFixed(1) }}%</span>
                     </div>
-                    <VaProgressBar :model-value="devicesStore.activeDevice.metrics.storage_percent" color="warning" size="small" />
+                    <VaProgressBar :model-value="devicesStore.activeDevice.metrics.storage_percent" color="warning" size="medium" />
                   </div>
                   <div v-if="devicesStore.activeDevice.metrics.uptime">
                     <div class="flex items-center justify-between">
@@ -512,49 +518,30 @@ const toggleAutoRefresh = () => {
           <VaCard v-if="devicesStore.activeDevice.status === 'online' && devicesStore.activeDevice.metrics?.top_processes && devicesStore.activeDevice.metrics.top_processes.length > 0" class="device-card">
             <VaCardContent>
               <div class="flex items-center gap-2 mb-4">
-                <VaIcon name="list" color="primary" />
-                <h3 class="text-lg font-semibold">Top Processes</h3>
+                <VaIcon name="memory" color="primary" />
+                <h3 class="text-lg font-semibold">Processes</h3>
               </div>
-                <div class="overflow-x-auto">
-                  <table class="min-w-full text-xs">
-                    <thead>
-                      <tr class="bg-gray-50">
-                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500">PID</th>
-                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500">Process</th>
-                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500">CPU</th>
-                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500">Mem</th>
-                      </tr>
-                    </thead>
-                    <tbody class="bg-white divide-y divide-gray-100">
-                      <tr
-                        v-for="process in devicesStore.activeDevice.metrics.top_processes.slice(0, 5)"
-                        :key="process.pid"
-                        class="hover:bg-gray-50"
-                      >
-                        <td class="px-2 py-1 text-gray-900">{{ process.pid }}</td>
-                        <td class="px-2 py-1 text-gray-900 font-medium max-w-[100px] truncate" :title="process.name">
-                          {{ process.name }}
-                        </td>
-                        <td class="px-2 py-1">
-                          <VaChip
-                            size="small"
-                            :color="process.cpu > 50 ? 'danger' : process.cpu > 25 ? 'warning' : 'success'"
-                          >
-                            {{ process.cpu.toFixed(1) }}%
-                          </VaChip>
-                        </td>
-                        <td class="px-2 py-1">
-                          <VaChip
-                            size="small"
-                            :color="process.mem > 20 ? 'danger' : process.mem > 10 ? 'warning' : 'info'"
-                          >
-                            {{ process.mem.toFixed(1) }}%
-                          </VaChip>
-                        </td>
-                      </tr>
-                    </tbody>
-                  </table>
+              <div class="space-y-4">
+                <div v-for="process in devicesStore.activeDevice.metrics.top_processes.slice(0, 5)" :key="process.pid" class="process-bar-item p-2 rounded bg-gray-50">
+                  <div class="flex items-center justify-between mb-1">
+                    <div class="flex items-center gap-2 min-w-0">
+                      <span class="text-xs text-gray-500 font-mono">#{{ process.pid }}</span>
+                      <span class="font-medium text-gray-900 truncate max-w-[120px]" :title="process.command || process.name">{{ process.name }}</span>
+                    </div>
+                    <span class="text-xs text-gray-500 font-mono" v-if="process.command && process.command !== process.name">{{ process.command }}</span>
+                  </div>
+                  <div class="flex items-center gap-2 mb-1">
+                    <span class="text-xs text-gray-600">CPU</span>
+                    <VaProgressBar :model-value="process.cpu" :color="process.cpu > 50 ? 'danger' : process.cpu > 25 ? 'warning' : 'success'" size="medium" class="flex-1" />
+                    <span class="text-xs font-medium w-10 text-right">{{ process.cpu.toFixed(1) }}%</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-600">Mem</span>
+                    <VaProgressBar :model-value="process.mem" :color="process.mem > 20 ? 'danger' : process.mem > 10 ? 'warning' : 'info'" size="medium" class="flex-1" />
+                    <span class="text-xs font-medium w-10 text-right">{{ process.mem.toFixed(1) }}%</span>
+                  </div>
                 </div>
+              </div>
             </VaCardContent>
           </VaCard>
 
@@ -860,6 +847,7 @@ const toggleAutoRefresh = () => {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
   gap: 1rem;
+  align-items: start;
 }
 
 .device-card {
