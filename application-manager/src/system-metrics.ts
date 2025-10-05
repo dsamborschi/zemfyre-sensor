@@ -78,32 +78,52 @@ export interface SystemMetrics {
 /**
  * Get network interfaces and their details
  */
+/**
+ * Get network interfaces and their details
+ */
 export async function getNetworkInterfaces(): Promise<NetworkInterfaceInfo[]> {
 	try {
+		console.log('[Metrics] Fetching network interfaces...');
 		const interfaces = await systeminformation.networkInterfaces();
+		console.log(`[Metrics] Total interfaces found: ${interfaces.length}`);
+		if (interfaces.length > 0) {
+			console.log('[Metrics] First interface sample:', JSON.stringify(interfaces[0], null, 2));
+		}
+
 		const defaultIface = await systeminformation.networkInterfaceDefault();
-			return interfaces.map((iface) => {
-				const base: NetworkInterfaceInfo = {
-					name: iface.iface,
-					ip4: iface.ip4 || null,
-					ip6: iface.ip6 || null,
-					mac: iface.mac || null,
-					type: iface.type || null,
-					default: iface.iface === defaultIface,
-					virtual: iface.virtual || false,
-					operstate: iface.operstate || null,
-				};
-				// Only add ssid/signalLevel if present (for wifi)
-				if ('ssid' in iface && typeof iface.ssid === 'string') {
-					(base as any).ssid = iface.ssid;
-				}
-				if ('signalLevel' in iface && typeof iface.signalLevel === 'number') {
-					(base as any).signalLevel = iface.signalLevel;
-				}
-				return base;
-			});
+		console.log('[Metrics] Default interface:', defaultIface);
+
+		const formatted = interfaces.map((iface) => {
+			const base: NetworkInterfaceInfo = {
+				name: iface.iface,
+				ip4: iface.ip4 || null,
+				ip6: iface.ip6 || null,
+				mac: iface.mac || null,
+				type: iface.type || null,
+				default: iface.iface === defaultIface,
+				virtual: iface.virtual || false,
+				operstate: iface.operstate || null,
+			};
+
+			// Only add ssid/signalLevel if present (for wifi)
+			if ('ssid' in iface && typeof iface.ssid === 'string') {
+				(base as any).ssid = iface.ssid;
+			}
+			if ('signalLevel' in iface && typeof iface.signalLevel === 'number') {
+				(base as any).signalLevel = iface.signalLevel;
+			}
+
+			return base;
+		});
+
+		console.log(`[Metrics] Returning ${formatted.length} network interfaces`);
+		if (formatted.length > 0) {
+			console.log('[Metrics] Sample network interface:', formatted[0]);
+		}
+
+		return formatted;
 	} catch (error) {
-		console.error('Failed to get network interfaces:', error);
+		console.error('[Metrics] Failed to get network interfaces:', error);
 		return [];
 	}
 }
