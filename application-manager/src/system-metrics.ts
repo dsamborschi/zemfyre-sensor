@@ -289,14 +289,29 @@ async function getTopProcessesFallback(): Promise<ProcessInfo[]> {
 	try {
 		// Use ps command to get process info
 		// Format: PID %CPU %MEM COMMAND
-		const { stdout } = await exec('ps aux --sort=-%cpu | head -n 11 | tail -n +2');
+		const { stdout, stderr } = await exec('ps aux --sort=-%cpu | head -n 11 | tail -n +2');
+		
+		console.log('[Metrics] ps command stdout length:', stdout.length);
+		console.log('[Metrics] ps command stderr:', stderr);
+		
+		if (stdout.length === 0) {
+			console.log('[Metrics] ps command returned empty output');
+			// Try simpler ps command
+			const { stdout: simpleOut } = await exec('ps aux');
+			console.log('[Metrics] Simple ps output length:', simpleOut.length);
+			console.log('[Metrics] Simple ps first 500 chars:', simpleOut.substring(0, 500));
+		}
 		
 		const lines = stdout.trim().split('\n');
+		console.log('[Metrics] ps output lines:', lines.length);
+		
 		const processes: ProcessInfo[] = [];
 		
 		for (const line of lines) {
 			// Parse ps output: USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND
 			const parts = line.trim().split(/\s+/);
+			console.log('[Metrics] Parsing line with', parts.length, 'parts:', parts.slice(0, 5));
+			
 			if (parts.length >= 11) {
 				const pid = parseInt(parts[1]);
 				const cpu = parseFloat(parts[2]);
@@ -315,6 +330,9 @@ async function getTopProcessesFallback(): Promise<ProcessInfo[]> {
 		}
 		
 		console.log(`[Metrics] Fallback found ${processes.length} processes`);
+		if (processes.length > 0) {
+			console.log('[Metrics] First process:', processes[0]);
+		}
 		return processes;
 	} catch (error) {
 		console.error('[Metrics] Fallback method also failed:', error);
