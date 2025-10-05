@@ -1454,61 +1454,63 @@ const toggleAutoRefresh = () => {
 
       <div
         v-else
-        class="space-y-4"
+        class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
       >
         <VaCard
           v-for="app in deployedApplications"
           :key="app.appId"
           outlined
+          class="application-card"
         >
-          <VaCardTitle>
-            <div class="flex items-start justify-between w-full">
-              <div class="flex flex-col gap-2">
-                <div class="flex items-center gap-2">
-                  <VaIcon
-                    name="apps"
-                    size="small"
-                  />
-                  <span class="font-semibold text-lg">{{ app.appName }}</span>
-                </div>
-                <div class="flex items-center gap-2">
-                  <VaBadge
-                    :text="`ID: ${app.appId}`"
-                    color="secondary"
-                  />
+          <VaCardContent>
+            <!-- App Header -->
+            <div class="flex items-start justify-between mb-3">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
                   <VaBadge
                     v-if="app.status"
-                    :text="app.status"
                     :color="getStatusColor(app.status)"
+                    dot
                   />
-                  <!-- App-level reconciliation status -->
-                  <VaBadge
-                    v-if="getAppReconciliationSummary(app.appId)"
-                    :text="getAppReconciliationSummary(app.appId).text"
-                    :color="getAppReconciliationSummary(app.appId).color"
-                  />
+                  <h3 class="font-semibold text-lg">
+                    <VaIcon name="apps" size="small" class="mr-1" />
+                    {{ app.appName }}
+                  </h3>
                 </div>
+                <p class="text-sm text-gray-600">ID: {{ app.appId }}</p>
               </div>
-              <div v-if="!isActiveDeviceOffline" class="flex gap-2 ml-auto">
-                <VaButton
-                  preset="plain"
-                  icon="edit"
-                  @click="openEditDialog(app)"
-                />
-                <VaButton
-                  preset="plain"
-                  icon="delete"
-                  color="danger"
-                  @click="removeApplication(app.appId)"
-                />
-              </div>
+              <VaButton
+                v-if="!isActiveDeviceOffline"
+                preset="plain"
+                icon="delete"
+                size="small"
+                color="danger"
+                @click.stop="removeApplication(app.appId)"
+              />
             </div>
-          </VaCardTitle>
-          <VaCardContent>
-            <p class="text-sm text-gray-600 mb-2">
-              Services ({{ app.services.length }})
-            </p>
-            <div class="space-y-2">
+
+            <!-- Status Badges -->
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+              <VaBadge
+                v-if="app.status"
+                :text="app.status"
+                :color="getStatusColor(app.status)"
+              />
+              <!-- App-level reconciliation status -->
+              <VaBadge
+                v-if="getAppReconciliationSummary(app.appId)"
+                :text="getAppReconciliationSummary(app.appId).text"
+                :color="getAppReconciliationSummary(app.appId).color"
+              />
+            </div>
+
+            <!-- Services Section -->
+            <div class="border-t pt-3">
+              <p class="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <VaIcon name="dns" size="small" />
+                Services ({{ app.services.length }})
+              </p>
+              <div class="space-y-2">
               <div
                 v-for="service in app.services"
                 :key="service.serviceId"
@@ -1522,48 +1524,6 @@ const toggleAutoRefresh = () => {
                   <p class="text-sm text-gray-600">
                     {{ service.imageName }}
                   </p>
-                  <div
-                    v-if="service.config && service.config.ports && service.config.ports.length > 0"
-                    class="mt-1"
-                  >
-                    <VaChip
-                      v-for="port in service.config.ports"
-                      :key="port"
-                      size="small"
-                      color="primary"
-                      class="mr-1"
-                    >
-                      {{ port }}
-                    </VaChip>
-                  </div>
-                  <div
-                    v-if="service.config && service.config.networks && service.config.networks.length > 0"
-                    class="mt-1"
-                  >
-                    <VaChip
-                      v-for="network in service.config.networks"
-                      :key="network"
-                      size="small"
-                      color="success"
-                      class="mr-1"
-                    >
-                      {{ network }}
-                    </VaChip>
-                  </div>
-                  <div
-                    v-if="service.config && service.config.volumes && service.config.volumes.length > 0"
-                    class="mt-1"
-                  >
-                    <VaChip
-                      v-for="volume in service.config.volumes"
-                      :key="volume"
-                      size="small"
-                      color="warning"
-                      class="mr-1"
-                    >
-                      {{ volume }}
-                    </VaChip>
-                  </div>
                 </div>
                 <div class="flex items-center gap-2">
                   <VaBadge
@@ -1594,6 +1554,29 @@ const toggleAutoRefresh = () => {
                 </div>
               </div>
             </div>
+            </div>
+
+            <!-- App Actions -->
+            <div v-if="!isActiveDeviceOffline" class="mt-4 pt-3 border-t flex gap-2">
+              <VaButton
+                size="small"
+                preset="secondary"
+                @click="openEditDialog(app)"
+              >
+                <VaIcon name="edit" size="small" class="mr-1" />
+                Edit
+              </VaButton>
+              <VaButton
+                v-if="getAppReconciliationSummary(app.appId) && getAppReconciliationSummary(app.appId).needsReconcile"
+                size="small"
+                preset="secondary"
+                color="warning"
+                @click="applyState"
+              >
+                <VaIcon name="sync" size="small" class="mr-1" />
+                Reconcile
+              </VaButton>
+            </div>
           </VaCardContent>
         </VaCard>
       </div>
@@ -1616,81 +1599,72 @@ const toggleAutoRefresh = () => {
         <p>These applications are configured but not yet deployed. Click "Apply Now" to deploy them.</p>
       </VaAlert>
 
-      <div class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <VaCard
           v-for="app in pendingApplications"
           :key="app.appId"
           outlined
           style="border-color: #ced4da; background-color: #ffffff;"
+          class="application-card"
         >
-          <VaCardTitle>
-            <div class="flex items-start justify-between w-full">
-              <div class="flex flex-col gap-2">
-                <div class="flex items-center gap-2">
-                  <VaIcon
-                    name="schedule"
-                    size="small"
-                    color="secondary"
-                  />
-                  <span class="font-semibold text-lg">{{ app.appName }}</span>
-                  <VaBadge text="Not Deployed" color="info" outline />
+          <VaCardContent>
+            <!-- App Header -->
+            <div class="flex items-start justify-between mb-3">
+              <div class="flex-1">
+                <div class="flex items-center gap-2 mb-1">
+                  <VaBadge color="info" dot />
+                  <h3 class="font-semibold text-lg">
+                    <VaIcon name="schedule" size="small" class="mr-1" />
+                    {{ app.appName }}
+                  </h3>
                 </div>
-                <div class="flex items-center gap-2">
-                  <VaBadge
-                    :text="`ID: ${app.appId}`"
-                    color="secondary"
-                  />
-                </div>
-              </div>
-              <div class="flex gap-3 ml-auto items-center">
-                <div v-if="reconciliationStatus" class="flex items-center gap-2">
-                  <VaIcon
-                    v-if="isReconciliationInProgress"
-                    name="autorenew"
-                    class="va-icon-spin"
-                    color="info"
-                    size="small"
-                  />
-                  <VaIcon
-                    v-else-if="reconciliationStatus.status === 'error' || reconciliationStatus.status === 'failed'"
-                    name="error"
-                    color="danger"
-                    size="small"
-                  />
-                  <VaIcon
-                    v-else
-                    name="check_circle"
-                    color="success"
-                    size="small"
-                  />
-                  <span
-                    class="text-sm"
-                    :class="{
-                      'text-blue-600': isReconciliationInProgress,
-                      'text-red-600': reconciliationStatus.status === 'error' || reconciliationStatus.status === 'failed',
-                      'text-green-600': !isReconciliationInProgress && reconciliationStatus.status !== 'error' && reconciliationStatus.status !== 'failed'
-                    }"
-                  >
-                    {{ reconciliationStatus.message }}
-                  </span>
-                </div>
-                <VaButton
-                  color="primary"
-                  :disabled="isApplicationActionsDisabled"
-                  :loading="isReconciling || isReconciliationInProgress"
-                  @click="applyPendingApp(app.appId)"
-                >
-                  <VaIcon v-if="!isReconciling && !isReconciliationInProgress" name="play_arrow" class="mr-1" />
-                  {{ isReconciliationInProgress ? 'Deploying...' : isReconciling ? 'Applying...' : 'Apply Now' }}
-                </VaButton>
+                <p class="text-sm text-gray-600">ID: {{ app.appId }}</p>
               </div>
             </div>
-          </VaCardTitle>
-          <VaCardContent>
-            <p class="text-sm text-gray-600 mb-2">
-              Services ({{ app.services.length }})
-            </p>
-            <div class="space-y-2">
+
+            <!-- Status Badges -->
+            <div class="flex flex-wrap items-center gap-2 mb-3">
+              <VaBadge text="Not Deployed" color="info" outline />
+              <div v-if="reconciliationStatus" class="flex items-center gap-1">
+                <VaIcon
+                  v-if="isReconciliationInProgress"
+                  name="autorenew"
+                  class="va-icon-spin"
+                  color="info"
+                  size="small"
+                />
+                <VaIcon
+                  v-else-if="reconciliationStatus.status === 'error' || reconciliationStatus.status === 'failed'"
+                  name="error"
+                  color="danger"
+                  size="small"
+                />
+                <VaIcon
+                  v-else
+                  name="check_circle"
+                  color="success"
+                  size="small"
+                />
+                <span
+                  class="text-xs"
+                  :class="{
+                    'text-blue-600': isReconciliationInProgress,
+                    'text-red-600': reconciliationStatus.status === 'error' || reconciliationStatus.status === 'failed',
+                    'text-green-600': !isReconciliationInProgress && reconciliationStatus.status !== 'error' && reconciliationStatus.status !== 'failed'
+                  }"
+                >
+                  {{ reconciliationStatus.message }}
+                </span>
+              </div>
+            </div>
+
+            <!-- Services Section -->
+            <div class="border-t pt-3">
+              <p class="text-sm font-semibold text-gray-700 mb-2 flex items-center gap-2">
+                <VaIcon name="dns" size="small" />
+                Services ({{ app.services.length }})
+              </p>
+              <div class="space-y-2">
               <div
                 v-for="service in app.services"
                 :key="service.serviceId"
@@ -1704,21 +1678,6 @@ const toggleAutoRefresh = () => {
                   <p class="text-sm text-gray-600">
                     {{ typeof service.imageName === 'object' && service.imageName !== null ? (service.imageName as any).value : service.imageName }}
                   </p>
-                  <div
-                    v-if="service.config && service.config.ports && service.config.ports.length > 0"
-                    class="mt-1"
-                  >
-                    <VaChip
-                      v-for="port in service.config.ports"
-                      :key="port"
-                      size="small"
-                      color="secondary"
-                      outline
-                      class="mr-1"
-                    >
-                      {{ port }}
-                    </VaChip>
-                  </div>
                 </div>
                 <div class="flex items-center gap-2">
                   <VaBadge
@@ -1727,6 +1686,22 @@ const toggleAutoRefresh = () => {
                   />
                 </div>
               </div>
+            </div>
+            </div>
+
+            <!-- App Actions -->
+            <div class="mt-4 pt-3 border-t">
+              <VaButton
+                color="primary"
+                size="small"
+                :disabled="isApplicationActionsDisabled"
+                :loading="isReconciling || isReconciliationInProgress"
+                @click="applyPendingApp(app.appId)"
+                block
+              >
+                <VaIcon v-if="!isReconciling && !isReconciliationInProgress" name="play_arrow" class="mr-1" />
+                {{ isReconciliationInProgress ? 'Deploying...' : isReconciling ? 'Applying...' : 'Deploy Now' }}
+              </VaButton>
             </div>
           </VaCardContent>
         </VaCard>
@@ -3024,6 +2999,16 @@ const toggleAutoRefresh = () => {
   font-size: 2rem;
   font-weight: bold;
   margin-bottom: 1.5rem;
+}
+
+.application-card {
+  transition: all 0.2s;
+  height: 100%;
+}
+
+.application-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-2px);
 }
 
 /* Custom scrollbar for console/logs */

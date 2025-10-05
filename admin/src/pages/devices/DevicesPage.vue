@@ -142,6 +142,22 @@ const refreshDevices = async () => {
   await devicesStore.refreshAllDevicesStatus()
 }
 
+// Refresh single device
+const refreshDevice = async (deviceId: string) => {
+  try {
+    await devicesStore.refreshDeviceStatus(deviceId)
+    useToast().init({ 
+      message: 'Device refreshed successfully', 
+      color: 'success' 
+    })
+  } catch (error: any) {
+    useToast().init({ 
+      message: `Failed to refresh device: ${error.message}`, 
+      color: 'danger' 
+    })
+  }
+}
+
 // ==================== Auto-Refresh Functionality ====================
 
 const autoRefreshEnabled = ref(true)
@@ -214,40 +230,19 @@ const toggleAutoRefresh = () => {
 
 <template>
   <div class="devices-page">
-    <!-- Page Header with Title and Actions -->
-    <div class="flex items-center justify-between mb-6">
-      <h1 class="page-title mb-0">Device Manager</h1>
-      <VaButton icon="add" @click="showAddDialog = true"> Add Device </VaButton>
-    </div>
+    <div class="flex gap-4">
+   
 
-    <!-- Page Actions -->
-    <VaCard class="mb-4">
-      <VaCardContent>
-        <div class="flex items-center justify-between">
-          <div class="flex items-center gap-4">
-            <div class="stat-item">
-              <VaIcon name="devices" size="small" color="primary" />
-              <span class="stat-label">Total Devices:</span>
-              <span class="stat-value">{{ devicesStore.stats.totalDevices }}</span>
-            </div>
-            <div class="stat-item">
-              <VaIcon name="check_circle" size="small" color="success" />
-              <span class="stat-label">Online:</span>
-              <span class="stat-value">{{ devicesStore.stats.onlineDevices }}</span>
-            </div>
-            <div class="stat-item">
-              <VaIcon name="cancel" size="small" color="danger" />
-              <span class="stat-label">Offline:</span>
-              <span class="stat-value">{{ devicesStore.stats.offlineDevices }}</span>
-            </div>
-          </div>
+      <!-- Main Content -->
+      <div class="device-main-content">
+        <!-- Page Header -->
+        <div class="flex items-center justify-between mb-6">
+          <h1 class="page-title mb-0">Device Manager</h1>
           <div class="flex gap-2 items-center">
             <VaButton preset="secondary" icon="refresh" :loading="devicesStore.isLoading" @click="refreshDevices">
               Refresh
             </VaButton>
-            
-            <!-- Auto-Refresh Toggle -->
-            <div class="flex items-center gap-2 ml-4">
+            <div class="flex items-center gap-2">
               <VaSwitch
                 v-model="autoRefreshEnabled"
                 size="small"
@@ -259,267 +254,310 @@ const toggleAutoRefresh = () => {
             </div>
           </div>
         </div>
-      </VaCardContent>
-    </VaCard>
 
-    <!-- Active Device Detailed Metrics -->
-    <VaCard v-if="devicesStore.activeDevice && devicesStore.activeDevice.status === 'online' && devicesStore.activeDevice.metrics" class="mb-6">
-      <VaCardTitle>
-        <div class="flex flex-col gap-2">
-          <span>System Metrics</span>
-          <div class="flex items-center gap-4 text-sm font-normal">
-            <span class="text-gray-700">
-              <VaIcon name="devices" size="small" class="mr-1" />
-              {{ devicesStore.activeDevice.name }}
-            </span>
-            <span v-if="devicesStore.activeDevice.metrics.hostname" class="text-gray-600">
-              <VaIcon name="dns" size="small" class="mr-1" />
-              {{ devicesStore.activeDevice.metrics.hostname }}
-            </span>
-            <span v-if="devicesStore.activeDevice.metrics.uptime" class="text-gray-500">
-              <VaIcon name="schedule" size="small" class="mr-1" />
-              {{ Math.floor(devicesStore.activeDevice.metrics.uptime / 3600) }}h {{ Math.floor((devicesStore.activeDevice.metrics.uptime % 3600) / 60) }}m uptime
-            </span>
-          </div>
-        </div>
-      </VaCardTitle>
-      <VaCardContent>
-        <!-- Performance Metrics -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-          <div>
-            <p class="text-sm text-gray-600">CPU Usage</p>
-            <VaProgressBar :model-value="devicesStore.activeDevice.metrics.cpu_usage" color="primary">
-              {{ devicesStore.activeDevice.metrics.cpu_usage.toFixed(1) }}%
-            </VaProgressBar>
-          </div>
-          <div v-if="devicesStore.activeDevice.metrics.cpu_temp">
-            <p class="text-sm text-gray-600">CPU Temperature</p>
-            <VaProgressBar
-              :model-value="(devicesStore.activeDevice.metrics.cpu_temp / 85) * 100"
-              :color="devicesStore.activeDevice.metrics.cpu_temp > 70 ? 'danger' : devicesStore.activeDevice.metrics.cpu_temp > 60 ? 'warning' : 'success'"
-            >
-              {{ devicesStore.activeDevice.metrics.cpu_temp }}°C
-            </VaProgressBar>
-          </div>
-          <div>
-            <p class="text-sm text-gray-600">Memory Usage</p>
-            <VaProgressBar :model-value="devicesStore.activeDevice.metrics.memory_percent" color="info">
-              {{ devicesStore.activeDevice.metrics.memory_percent.toFixed(1) }}%
-            </VaProgressBar>
-          </div>
-          <div>
-            <p class="text-sm text-gray-600">Storage Usage</p>
-            <VaProgressBar :model-value="devicesStore.activeDevice.metrics.storage_percent" color="warning">
-              {{ devicesStore.activeDevice.metrics.storage_percent.toFixed(1) }}%
-            </VaProgressBar>
-          </div>
-        </div>
-
-        <!-- Top Processes Section -->
-        <div v-if="devicesStore.activeDevice.metrics.top_processes && devicesStore.activeDevice.metrics.top_processes.length > 0" class="mt-6">
-          <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
-            <VaIcon name="list" />
-            Top Processes
-          </h3>
-          <div class="overflow-x-auto">
-            <table class="min-w-full divide-y divide-gray-200">
-              <thead>
-                <tr class="bg-gray-50">
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    PID
-                  </th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Process
-                  </th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    CPU %
-                  </th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Memory %
-                  </th>
-                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Command
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="bg-white divide-y divide-gray-200">
-                <tr
-                  v-for="process in devicesStore.activeDevice.metrics.top_processes"
-                  :key="process.pid"
-                  class="hover:bg-gray-50"
-                >
-                  <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-mono">
-                    {{ process.pid }}
-                  </td>
-                  <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
-                    {{ process.name }}
-                  </td>
-                  <td class="px-4 py-2 whitespace-nowrap text-sm">
-                    <VaChip
-                      :color="process.cpu > 50 ? 'danger' : process.cpu > 25 ? 'warning' : 'success'"
-                      size="small"
-                    >
-                      {{ process.cpu.toFixed(1) }}%
-                    </VaChip>
-                  </td>
-                  <td class="px-4 py-2 whitespace-nowrap text-sm">
-                    <VaChip
-                      :color="process.mem > 20 ? 'danger' : process.mem > 10 ? 'warning' : 'info'"
-                      size="small"
-                    >
-                      {{ process.mem.toFixed(1) }}%
-                    </VaChip>
-                  </td>
-                  <td class="px-4 py-2 text-sm text-gray-600 font-mono truncate max-w-xs" :title="process.command">
-                    {{ process.command }}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </VaCardContent>
-    </VaCard>
-
-    <!-- Devices Grid -->
-    <div v-if="devicesStore.hasDevices" class="devices-grid">
-      <VaCard
-        v-for="device in devicesStore.devices"
-        :key="device.id"
-        :class="['device-card', { active: device.id === devicesStore.activeDeviceId }]"
-      >
+        <!-- Summary Cards -->
+        <div v-if="devicesStore.hasDevices" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+      <VaCard>
         <VaCardContent>
-          <!-- Device Header -->
-          <div class="flex items-start justify-between mb-3">
-            <div class="flex-1">
-              <div class="flex items-center gap-2 mb-1">
-                <VaBadge :color="getStatusColor(device.status)" dot />
-                <h3 class="device-name">{{ device.name }}</h3>
-              </div>
-              <p class="device-hostname">{{ device.hostname }}</p>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600">
+                Total Devices
+              </p>
+              <p class="text-3xl font-bold">
+                {{ devicesStore.stats.totalDevices }}
+              </p>
             </div>
-            <VaButton
-              v-if="!device.isDefault"
-              preset="plain"
-              icon="delete"
-              size="small"
-              color="danger"
-              @click.stop="confirmRemoveDevice(device.id, device.name)"
+            <VaIcon
+              name="devices"
+              size="large"
+              color="primary"
             />
           </div>
+        </VaCardContent>
+      </VaCard>
+
+      <VaCard>
+        <VaCardContent>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600">
+                Online Devices
+              </p>
+              <p class="text-3xl font-bold">
+                {{ devicesStore.stats.onlineDevices }}
+              </p>
+            </div>
+            <VaIcon
+              name="check_circle"
+              size="large"
+              color="success"
+            />
+          </div>
+        </VaCardContent>
+      </VaCard>
+
+      <VaCard>
+        <VaCardContent>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-sm text-gray-600">
+                Offline Devices
+              </p>
+              <p class="text-3xl font-bold">
+                {{ devicesStore.stats.offlineDevices }}
+              </p>
+            </div>
+            <VaIcon
+              name="cancel"
+              size="large"
+              color="danger"
+            />
+          </div>
+        </VaCardContent>
+      </VaCard>
+
+
+    </div>
+
+        <!-- Device Cards Grid -->
+        <div v-if="devicesStore.activeDevice" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          
+          <!-- Device Info Card -->
+          <VaCard class="device-card">
+            <VaCardContent>
+              <div class="flex items-center gap-2 mb-4">
+                <VaIcon name="info" color="primary" />
+                <h3 class="text-lg font-semibold">General Info</h3>
+              </div>
+              
+              <div class="flex items-center gap-2 mb-3">
+                <VaBadge :color="getStatusColor(devicesStore.activeDevice.status)" dot />
+                <div>
+                  <h4 class="font-semibold">{{ devicesStore.activeDevice.name }}</h4>
+                  <p class="text-sm text-gray-600">{{ devicesStore.activeDevice.hostname }}</p>
+                </div>
+              </div>
+
+              <div class="space-y-2">
+                <div class="info-row">
+                  <VaIcon name="link" size="small" />
+                  <span class="info-label">API URL:</span>
+                  <span class="info-value text-xs">{{ devicesStore.activeDevice.apiUrl }}</span>
+                </div>
+                <div v-if="devicesStore.activeDevice.location" class="info-row">
+                  <VaIcon name="location_on" size="small" />
+                  <span class="info-label">Location:</span>
+                  <span class="info-value">{{ devicesStore.activeDevice.location }}</span>
+                </div>
+                <div v-if="devicesStore.activeDevice.deviceType" class="info-row">
+                  <VaIcon name="devices_other" size="small" />
+                  <span class="info-label">Type:</span>
+                  <span class="info-value">{{ devicesStore.activeDevice.deviceType }}</span>
+                </div>
+                <div v-if="devicesStore.activeDevice.description" class="info-row">
+                  <VaIcon name="description" size="small" />
+                  <span class="info-label">Description:</span>
+                  <span class="info-value">{{ devicesStore.activeDevice.description }}</span>
+                </div>
+                <div v-if="devicesStore.activeDevice.lastSeen" class="info-row">
+                  <VaIcon name="access_time" size="small" />
+                  <span class="info-label">Last Seen:</span>
+                  <span class="info-value text-xs">{{ new Date(devicesStore.activeDevice.lastSeen).toLocaleString() }}</span>
+                </div>
+              </div>
+
+              <div class="mt-4">
+                <VaButton
+                  preset="secondary"
+                  icon="refresh"
+                  size="small"
+                  block
+                  @click="refreshDevice(devicesStore.activeDevice.id)"
+                >
+                  Refresh Device
+                </VaButton>
+              </div>
+            </VaCardContent>
+          </VaCard>
+
+          <!-- System Metrics Card -->
+          <VaCard class="device-card">
+            <VaCardContent>
+              <div class="flex items-center gap-2 mb-4">
+                <VaIcon name="speed" color="primary" />
+                <h3 class="text-lg font-semibold">Telemetry</h3>
+              </div>
 
           <!-- System Metrics -->
-          <div v-if="device.status === 'online'" class="metrics-section mb-3">
-            <div v-if="device.metrics" class="metrics-grid">
+          <div v-if="devicesStore.activeDevice.status === 'online'" class="metrics-section mb-3">
+            <div v-if="devicesStore.activeDevice.metrics" class="metrics-grid">
               <div class="metric-item">
-                <span class="metric-value-large">{{ Math.round(device.metrics.cpu_usage || 0) }}%</span>
+                <span class="metric-value-large">{{ Math.round(devicesStore.activeDevice.metrics.cpu_usage || 0) }}%</span>
                 <span class="metric-label">CPU</span>
               </div>
               <div class="metric-item">
-                <span class="metric-value-large">{{ Math.round(device.metrics.memory_percent || 0) }}%</span>
+                <span class="metric-value-large">{{ Math.round(devicesStore.activeDevice.metrics.memory_percent || 0) }}%</span>
                 <span class="metric-label">RAM</span>
               </div>
               <div class="metric-item">
-                <span class="metric-value-large">{{ Math.round(device.metrics.storage_percent || 0) }}%</span>
+                <span class="metric-value-large">{{ Math.round(devicesStore.activeDevice.metrics.storage_percent || 0) }}%</span>
                 <span class="metric-label">Disk</span>
               </div>
             </div>
             <div v-else class="text-sm text-gray-500">
               <VaIcon name="refresh" size="small" /> Loading metrics...
             </div>
-          </div>
 
-          <!-- Device Info -->
-          <div class="device-info">
-            <div class="info-row">
-              <VaIcon name="link" size="small" />
-              <span class="info-label">API URL:</span>
-              <span class="info-value">{{ device.apiUrl }}</span>
+            <!-- Detailed Metrics Section -->
+            <div v-if="devicesStore.activeDevice.metrics" class="mt-4">
+              <div class="space-y-3">
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs text-gray-600">CPU Usage</span>
+                      <span class="text-xs font-medium">{{ devicesStore.activeDevice.metrics.cpu_usage.toFixed(1) }}%</span>
+                    </div>
+                    <VaProgressBar :model-value="devicesStore.activeDevice.metrics.cpu_usage" color="primary" size="small" />
+                  </div>
+                  <div v-if="devicesStore.activeDevice.metrics.cpu_temp">
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs text-gray-600">CPU Temperature</span>
+                      <span class="text-xs font-medium">{{ devicesStore.activeDevice.metrics.cpu_temp }}°C</span>
+                    </div>
+                    <VaProgressBar
+                      :model-value="(devicesStore.activeDevice.metrics.cpu_temp / 85) * 100"
+                      :color="devicesStore.activeDevice.metrics.cpu_temp > 70 ? 'danger' : devicesStore.activeDevice.metrics.cpu_temp > 60 ? 'warning' : 'success'"
+                      size="small"
+                    />
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs text-gray-600">Memory Usage</span>
+                      <span class="text-xs font-medium">{{ devicesStore.activeDevice.metrics.memory_percent.toFixed(1) }}%</span>
+                    </div>
+                    <VaProgressBar :model-value="devicesStore.activeDevice.metrics.memory_percent" color="info" size="small" />
+                  </div>
+                  <div>
+                    <div class="flex items-center justify-between mb-1">
+                      <span class="text-xs text-gray-600">Storage Usage</span>
+                      <span class="text-xs font-medium">{{ devicesStore.activeDevice.metrics.storage_percent.toFixed(1) }}%</span>
+                    </div>
+                    <VaProgressBar :model-value="devicesStore.activeDevice.metrics.storage_percent" color="warning" size="small" />
+                  </div>
+                  <div v-if="devicesStore.activeDevice.metrics.uptime">
+                    <div class="flex items-center justify-between">
+                      <span class="text-xs text-gray-600">Uptime</span>
+                      <span class="text-xs font-medium">
+                        {{ Math.floor(devicesStore.activeDevice.metrics.uptime / 3600) }}h {{ Math.floor((devicesStore.activeDevice.metrics.uptime % 3600) / 60) }}m
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div v-if="device.location" class="info-row">
-              <VaIcon name="location_on" size="small" />
-              <span class="info-label">Location:</span>
-              <span class="info-value">{{ device.location }}</span>
-            </div>
-            <div v-if="device.deviceType" class="info-row">
-              <VaIcon name="devices_other" size="small" />
-              <span class="info-label">Type:</span>
-              <span class="info-value">{{ device.deviceType }}</span>
-            </div>
-            <div v-if="device.description" class="info-row">
-              <VaIcon name="description" size="small" />
-              <span class="info-label">Description:</span>
-              <span class="info-value">{{ device.description }}</span>
-            </div>
-            <div v-if="device.lastSeen" class="info-row">
-              <VaIcon name="access_time" size="small" />
-              <span class="info-label">Last Seen:</span>
-              <span class="info-value">{{ new Date(device.lastSeen).toLocaleString() }}</span>
-            </div>
-          </div>
+            </VaCardContent>
+          </VaCard>
 
-          <!-- Manager Status -->
-          <div v-if="device.managerStatus" class="manager-status mt-4">
-            <div class="status-header">
-              <VaIcon name="settings" size="small" />
-              <span class="status-title">Application Manager</span>
-            </div>
+          <!-- Top Processes Card -->
+          <VaCard v-if="devicesStore.activeDevice.status === 'online' && devicesStore.activeDevice.metrics?.top_processes && devicesStore.activeDevice.metrics.top_processes.length > 0" class="device-card">
+            <VaCardContent>
+              <div class="flex items-center gap-2 mb-4">
+                <VaIcon name="list" color="primary" />
+                <h3 class="text-lg font-semibold">Top Processes</h3>
+              </div>
+                <div class="overflow-x-auto">
+                  <table class="min-w-full text-xs">
+                    <thead>
+                      <tr class="bg-gray-50">
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500">PID</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500">Process</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500">CPU</th>
+                        <th class="px-2 py-1 text-left text-xs font-medium text-gray-500">Mem</th>
+                      </tr>
+                    </thead>
+                    <tbody class="bg-white divide-y divide-gray-100">
+                      <tr
+                        v-for="process in devicesStore.activeDevice.metrics.top_processes.slice(0, 5)"
+                        :key="process.pid"
+                        class="hover:bg-gray-50"
+                      >
+                        <td class="px-2 py-1 text-gray-900">{{ process.pid }}</td>
+                        <td class="px-2 py-1 text-gray-900 font-medium max-w-[100px] truncate" :title="process.name">
+                          {{ process.name }}
+                        </td>
+                        <td class="px-2 py-1">
+                          <VaChip
+                            size="small"
+                            :color="process.cpu > 50 ? 'danger' : process.cpu > 25 ? 'warning' : 'success'"
+                          >
+                            {{ process.cpu.toFixed(1) }}%
+                          </VaChip>
+                        </td>
+                        <td class="px-2 py-1">
+                          <VaChip
+                            size="small"
+                            :color="process.mem > 20 ? 'danger' : process.mem > 10 ? 'warning' : 'info'"
+                          >
+                            {{ process.mem.toFixed(1) }}%
+                          </VaChip>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+            </VaCardContent>
+          </VaCard>
+
+          <!-- Application Manager Status Card -->
+          <VaCard v-if="devicesStore.activeDevice.managerStatus" class="device-card">
+            <VaCardContent>
+              <div class="flex items-center gap-2 mb-4">
+                <VaIcon name="settings" color="primary" />
+                <h3 class="text-lg font-semibold">Applications</h3>
+              </div>
             <div class="status-grid">
               <div class="status-item">
                 <span class="status-label">Apps:</span>
-                <span class="status-value">{{ device.managerStatus.currentApps }}</span>
+                <span class="status-value">{{ devicesStore.activeDevice.managerStatus.currentApps }}</span>
               </div>
               <div class="status-item">
                 <span class="status-label">Services:</span>
-                <span class="status-value">{{ device.managerStatus.currentServices }}</span>
+                <span class="status-value">{{ devicesStore.activeDevice.managerStatus.currentServices }}</span>
               </div>
               <div class="status-item">
                 <span class="status-label">Applying:</span>
-                <VaBadge :text="device.managerStatus.isApplying ? 'YES' : 'NO'" :color="device.managerStatus.isApplying ? 'warning' : 'success'" />
+                <VaBadge :text="devicesStore.activeDevice.managerStatus.isApplying ? 'YES' : 'NO'" :color="devicesStore.activeDevice.managerStatus.isApplying ? 'warning' : 'success'" />
               </div>
               <div class="status-item">
                 <span class="status-label">Reconciling:</span>
-                <VaBadge :text="device.managerStatus.isReconciling ? 'YES' : 'NO'" :color="device.managerStatus.isReconciling ? 'info' : 'success'" />
+                <VaBadge :text="devicesStore.activeDevice.managerStatus.isReconciling ? 'YES' : 'NO'" :color="devicesStore.activeDevice.managerStatus.isReconciling ? 'info' : 'success'" />
               </div>
             </div>
-            <div v-if="device.managerStatus.lastError" class="status-error">
+            <div v-if="devicesStore.activeDevice.managerStatus.lastError" class="status-error">
               <VaIcon name="error" size="small" color="danger" />
-              <span class="error-text">{{ device.managerStatus.lastError }}</span>
+              <span class="error-text">{{ devicesStore.activeDevice.managerStatus.lastError }}</span>
             </div>
             
             <!-- Reconcile Button -->
-            <div v-if="needsApply(device)" class="apply-state-section">
+            <div v-if="needsApply(devicesStore.activeDevice)" class="apply-state-section">
               <VaButton
                 size="small"
                 preset="secondary"
-                :loading="applyingDevices.has(device.id)"
-                @click="reconcileState(device.id, device.name)"
+                :loading="applyingDevices.has(devicesStore.activeDevice.id)"
+                @click="reconcileState(devicesStore.activeDevice.id, devicesStore.activeDevice.name)"
               >
                 <VaIcon name="sync" size="small" />
                 Reconcile
               </VaButton>
             </div>
-          </div>
+            </VaCardContent>
+          </VaCard>
 
-          <!-- Device Actions -->
-          <div class="mt-4 flex gap-2">
-            <VaButton
-              v-if="device.id !== devicesStore.activeDeviceId"
-              size="small"
-              preset="secondary"
-              @click="setActiveDevice(device.id)"
-            >
-              <VaIcon name="power_settings_new" size="small" class="mr-1" />
-              Set Active
-            </VaButton>
-            <VaBadge v-else color="success" text="Active Device" />
-          </div>
-        </VaCardContent>
-      </VaCard>
-    </div>
+        </div><!-- Close device cards grid -->
 
-    <!-- Empty State -->
-    <VaCard v-else class="empty-state-card">
+        <!-- Empty State -->
+        <div v-else class="empty-state-container">
+        <VaCard class="empty-state-card">
       <VaCardContent>
         <div class="empty-state">
           <VaIcon name="devices" size="64px" color="secondary" />
@@ -532,6 +570,7 @@ const toggleAutoRefresh = () => {
         </div>
       </VaCardContent>
     </VaCard>
+    </div><!-- Close empty-state-container -->
 
     <!-- Add Device Modal -->
     <VaModal v-model="showAddDialog" size="medium" title="Add New Device" hide-default-actions>
@@ -600,12 +639,108 @@ const toggleAutoRefresh = () => {
         </div>
       </template>
     </VaModal>
-  </div>
+      </div><!-- Close device-main-content -->
+    </div><!-- Close flex gap-4 -->
+  </div><!-- Close devices-page -->
 </template>
 
 <style scoped>
 .devices-page {
   padding: 1rem;
+}
+
+/* Sidebar Styles */
+.device-sidebar {
+  width: 280px;
+  min-width: 280px;
+  border-right: 1px solid #e0e0e0;
+  background: #f8f9fa;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 120px);
+}
+
+.sidebar-header {
+  padding: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+  background: white;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.device-list {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.device-list-item {
+  padding: 0.75rem 1rem;
+  cursor: pointer;
+  border-bottom: 1px solid #e0e0e0;
+  transition: all 0.2s;
+  position: relative;
+  background: white;
+}
+
+.device-list-item:hover {
+  background: #e8eaf6;
+}
+
+.device-list-item.active {
+  background: #3f51b5;
+  color: white;
+  border-left: 4px solid #303f9f;
+}
+
+.device-list-item.active .device-list-name,
+.device-list-item.active .device-list-hostname {
+  color: white;
+}
+
+.device-list-name {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: #333;
+}
+
+.device-list-hostname {
+  font-size: 0.75rem;
+  color: #666;
+  display: block;
+  margin-top: 0.25rem;
+}
+
+.delete-btn {
+  position: absolute;
+  right: 0.5rem;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.device-list-item:hover .delete-btn {
+  opacity: 1;
+}
+
+.sidebar-empty {
+  padding: 2rem 1rem;
+  text-align: center;
+  color: #666;
+}
+
+.device-main-content {
+  flex: 1;
+  min-width: 0;
 }
 
 .page-title {

@@ -22,6 +22,14 @@ export interface Device {
   managerStatus?: ApplicationManagerStatus  // Application manager status
 }
 
+export interface ProcessInfo {
+  pid: number                   // Process ID
+  name: string                  // Process name
+  cpu: number                   // CPU usage percentage
+  mem: number                   // Memory usage percentage
+  command: string               // Full command line
+}
+
 export interface DeviceMetrics {
   cpu_usage: number             // CPU usage percentage (0-100)
   memory_percent: number        // Memory usage percentage (0-100)
@@ -29,6 +37,7 @@ export interface DeviceMetrics {
   cpu_temp?: number             // CPU temperature in Celsius
   hostname?: string             // Device hostname
   uptime?: number               // Uptime in seconds
+  top_processes?: ProcessInfo[] // Top processes by CPU/memory usage
 }
 
 export interface DeviceConnectionTest {
