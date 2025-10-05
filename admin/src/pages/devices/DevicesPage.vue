@@ -262,6 +262,61 @@ const toggleAutoRefresh = () => {
       </VaCardContent>
     </VaCard>
 
+    <!-- Active Device Detailed Metrics -->
+    <VaCard v-if="devicesStore.activeDevice && devicesStore.activeDevice.status === 'online' && devicesStore.activeDevice.metrics" class="mb-6">
+      <VaCardTitle>
+        <div class="flex flex-col gap-2">
+          <span>System Metrics</span>
+          <div class="flex items-center gap-4 text-sm font-normal">
+            <span class="text-gray-700">
+              <VaIcon name="devices" size="small" class="mr-1" />
+              {{ devicesStore.activeDevice.name }}
+            </span>
+            <span v-if="devicesStore.activeDevice.metrics.hostname" class="text-gray-600">
+              <VaIcon name="dns" size="small" class="mr-1" />
+              {{ devicesStore.activeDevice.metrics.hostname }}
+            </span>
+            <span v-if="devicesStore.activeDevice.metrics.uptime" class="text-gray-500">
+              <VaIcon name="schedule" size="small" class="mr-1" />
+              {{ Math.floor(devicesStore.activeDevice.metrics.uptime / 3600) }}h {{ Math.floor((devicesStore.activeDevice.metrics.uptime % 3600) / 60) }}m uptime
+            </span>
+          </div>
+        </div>
+      </VaCardTitle>
+      <VaCardContent>
+        <!-- Performance Metrics -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+          <div>
+            <p class="text-sm text-gray-600">CPU Usage</p>
+            <VaProgressBar :model-value="devicesStore.activeDevice.metrics.cpu_usage" color="primary">
+              {{ devicesStore.activeDevice.metrics.cpu_usage.toFixed(1) }}%
+            </VaProgressBar>
+          </div>
+          <div v-if="devicesStore.activeDevice.metrics.cpu_temp">
+            <p class="text-sm text-gray-600">CPU Temperature</p>
+            <VaProgressBar
+              :model-value="(devicesStore.activeDevice.metrics.cpu_temp / 85) * 100"
+              :color="devicesStore.activeDevice.metrics.cpu_temp > 70 ? 'danger' : devicesStore.activeDevice.metrics.cpu_temp > 60 ? 'warning' : 'success'"
+            >
+              {{ devicesStore.activeDevice.metrics.cpu_temp }}°C
+            </VaProgressBar>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600">Memory Usage</p>
+            <VaProgressBar :model-value="devicesStore.activeDevice.metrics.memory_percent" color="info">
+              {{ devicesStore.activeDevice.metrics.memory_percent.toFixed(1) }}%
+            </VaProgressBar>
+          </div>
+          <div>
+            <p class="text-sm text-gray-600">Storage Usage</p>
+            <VaProgressBar :model-value="devicesStore.activeDevice.metrics.storage_percent" color="warning">
+              {{ devicesStore.activeDevice.metrics.storage_percent.toFixed(1) }}%
+            </VaProgressBar>
+          </div>
+        </div>
+      </VaCardContent>
+    </VaCard>
+
     <!-- Devices Grid -->
     <div v-if="devicesStore.hasDevices" class="devices-grid">
       <VaCard

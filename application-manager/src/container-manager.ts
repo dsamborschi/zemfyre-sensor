@@ -26,6 +26,8 @@ import type Docker from 'dockerode';
 import { DockerManager } from './docker-manager';
 import * as db from './db';
 import type { ContainerLogMonitor } from './logging/monitor';
+import * as networkManager from './network-manager';
+import { Network } from './network';
 
 // ============================================================================
 // TYPES (Simplified)
@@ -44,6 +46,7 @@ export interface SimpleService {
 		environment?: Record<string, string>;
 		ports?: string[]; // e.g., ["80:80", "443:443"]
 		volumes?: string[]; // e.g., ["data:/var/lib/data"]
+		networks?: string[]; // e.g., ["frontend", "backend"]
 		networkMode?: string;
 		restart?: string;
 		labels?: Record<string, string>;
@@ -57,6 +60,7 @@ export interface SimpleService {
 export interface SimpleApp {
 	appId: number;
 	appName: string;
+	appUuid?: string; // Optional UUID for network naming
 	services: SimpleService[];
 }
 
@@ -66,6 +70,7 @@ export interface SimpleState {
 
 export type SimpleStep =
 	| { action: 'downloadImage'; appId: number; imageName: string }
+	| { action: 'createNetwork'; appId: number; networkName: string }
 	| {
 			action: 'stopContainer';
 			appId: number;
@@ -79,6 +84,7 @@ export type SimpleStep =
 			containerId: string;
 	  }
 	| { action: 'startContainer'; appId: number; service: SimpleService }
+	| { action: 'removeNetwork'; appId: number; networkName: string }
 	| { action: 'noop' };
 
 // ============================================================================
@@ -249,6 +255,30 @@ export class ContainerManager extends EventEmitter {
 					};
 				}
 
+				// Get network information from container inspect
+				let networks: string[] | undefined;
+				try {
+					const containerInfo = await this.dockerManager.inspectContainer(container.id);
+					if (containerInfo.NetworkSettings?.Networks) {
+						// Extract network names, filtering out default networks
+						const networkNames = Object.keys(containerInfo.NetworkSettings.Networks)
+							.filter((name) => {
+								// Filter to only include our custom networks (appId_networkName pattern)
+								return name.startsWith(`${appId}_`);
+							})
+							.map((name) => {
+								// Remove the appId_ prefix to get the original network name
+								return name.replace(`${appId}_`, '');
+							});
+						
+						if (networkNames.length > 0) {
+							networks = networkNames;
+						}
+					}
+				} catch (error) {
+					console.error(`Warning: Failed to inspect container ${container.id}:`, error);
+				}
+
 				// Add service
 				this.currentState.apps[appId].services.push({
 					serviceId,
@@ -265,6 +295,7 @@ export class ContainerManager extends EventEmitter {
 							.filter(p => p.PublicPort && p.PrivatePort)
 							.map(p => `${p.PublicPort}:${p.PrivatePort}`)))
 						: undefined,
+						networks,
 					},
 				});
 			}
@@ -349,6 +380,66 @@ export class ContainerManager extends EventEmitter {
 	}
 
 	// ========================================================================
+	// NETWORK RECONCILIATION
+	// ========================================================================
+
+	/**
+	 * Reconcile networks for an app
+	 * Returns steps to create/remove networks based on service requirements
+	 */
+	private reconcileNetworksForApp(
+		appId: number,
+		currentApp: SimpleApp | undefined,
+		targetApp: SimpleApp | undefined,
+	): SimpleStep[] {
+		const steps: SimpleStep[] = [];
+
+		// Collect all network names from current and target services
+		const currentNetworks = new Set<string>();
+		const targetNetworks = new Set<string>();
+
+		if (currentApp) {
+			for (const service of currentApp.services) {
+				if (service.config.networks) {
+					service.config.networks.forEach((net) => currentNetworks.add(net));
+				}
+			}
+		}
+
+		if (targetApp) {
+			for (const service of targetApp.services) {
+				if (service.config.networks) {
+					service.config.networks.forEach((net) => targetNetworks.add(net));
+				}
+			}
+		}
+
+		// Networks to create (in target but not in current)
+		for (const networkName of targetNetworks) {
+			if (!currentNetworks.has(networkName)) {
+				steps.push({
+					action: 'createNetwork',
+					appId,
+					networkName,
+				});
+			}
+		}
+
+		// Networks to remove (in current but not in target)
+		for (const networkName of currentNetworks) {
+			if (!targetNetworks.has(networkName)) {
+				steps.push({
+					action: 'removeNetwork',
+					appId,
+					networkName,
+				});
+			}
+		}
+
+		return steps;
+	}
+
+	// ========================================================================
 	// STEP CALCULATION (The Brain)
 	// ========================================================================
 
@@ -367,22 +458,37 @@ export class ContainerManager extends EventEmitter {
 			const currentApp = currentApps[appId];
 			const targetApp = targetApps[appId];
 
+			// === NETWORK STEPS (BEFORE CONTAINER STEPS) ===
+			// Networks must be created before containers can use them
+			const networkCreateSteps = this.reconcileNetworksForApp(
+				appId,
+				currentApp,
+				targetApp,
+			).filter((step) => step.action === 'createNetwork');
+			steps.push(...networkCreateSteps);
+
+			// === CONTAINER STEPS ===
 			// Case 1: App should be removed (exists in current, not in target)
 			if (currentApp && !targetApp) {
 				steps.push(...this.stepsToRemoveApp(currentApp));
-				continue;
 			}
-
 			// Case 2: App should be added (exists in target, not in current)
-			if (!currentApp && targetApp) {
+			else if (!currentApp && targetApp) {
 				steps.push(...this.stepsToAddApp(targetApp));
-				continue;
 			}
-
 			// Case 3: App exists in both - check for updates
-			if (currentApp && targetApp) {
+			else if (currentApp && targetApp) {
 				steps.push(...this.stepsToUpdateApp(currentApp, targetApp));
 			}
+
+			// === NETWORK CLEANUP (AFTER CONTAINER STEPS) ===
+			// Networks should be removed after containers are stopped
+			const networkRemoveSteps = this.reconcileNetworksForApp(
+				appId,
+				currentApp,
+				targetApp,
+			).filter((step) => step.action === 'removeNetwork');
+			steps.push(...networkRemoveSteps);
 		}
 
 		return steps;
@@ -561,6 +667,10 @@ export class ContainerManager extends EventEmitter {
 				await this.downloadImage(step.imageName);
 				break;
 
+			case 'createNetwork':
+				await this.createNetwork(step.appId, step.networkName);
+				break;
+
 			case 'stopContainer':
 				await this.stopContainer(step.containerId);
 				break;
@@ -571,13 +681,19 @@ export class ContainerManager extends EventEmitter {
 				this.removeServiceFromCurrentState(step.appId, step.serviceId);
 				break;
 
-		case 'startContainer':
-			const containerId = await this.startContainer(step.service);
-			// Update current state
-			this.addServiceToCurrentState(step.appId, step.service, containerId);
-			// Attach logs automatically
-			await this.attachLogsToContainer(containerId, step.service);
-			break;			case 'noop':
+			case 'startContainer':
+				const containerId = await this.startContainer(step.service);
+				// Update current state
+				this.addServiceToCurrentState(step.appId, step.service, containerId);
+				// Attach logs automatically
+				await this.attachLogsToContainer(containerId, step.service);
+				break;
+
+			case 'removeNetwork':
+				await this.removeNetwork(step.appId, step.networkName);
+				break;
+
+			case 'noop':
 				// Do nothing
 				break;
 		}
@@ -622,7 +738,7 @@ export class ContainerManager extends EventEmitter {
 
 	private async startContainer(service: SimpleService): Promise<string> {
 		if (this.useRealDocker) {
-			// Real Docker start
+			// Real Docker start (now supports networks)
 			return await this.dockerManager.startContainer(service);
 		} else {
 			// Simulated for testing
@@ -631,6 +747,54 @@ export class ContainerManager extends EventEmitter {
 			console.log(`        Container ID: ${containerId}`);
 			await this.sleep(100);
 			return containerId;
+		}
+	}
+
+	private async createNetwork(appId: number, networkName: string): Promise<void> {
+		if (this.useRealDocker) {
+			// Get app info for UUID
+			const app = this.targetState.apps[appId] || this.currentState.apps[appId];
+			const appUuid = app?.appUuid || String(appId); // Fallback to appId if no UUID
+
+			// Create Network object
+			const network = Network.fromComposeObject(
+				networkName,
+				appId,
+				appUuid,
+				{ driver: 'bridge' }, // Simple bridge network
+			);
+
+			// Create via network-manager
+			await networkManager.create(network);
+			console.log(`✅ Created network: ${networkName} (${appId}_${networkName})`);
+		} else {
+			// Simulated for testing
+			console.log(`    [SIMULATED] Creating network: ${networkName} for app ${appId}`);
+			await this.sleep(50);
+		}
+	}
+
+	private async removeNetwork(appId: number, networkName: string): Promise<void> {
+		if (this.useRealDocker) {
+			// Get app info for UUID
+			const app = this.currentState.apps[appId];
+			const appUuid = app?.appUuid || String(appId); // Fallback to appId if no UUID
+
+			// Create Network object for removal
+			const network = Network.fromComposeObject(
+				networkName,
+				appId,
+				appUuid,
+				{ driver: 'bridge' },
+			);
+
+			// Remove via network-manager
+			await networkManager.remove(network);
+			console.log(`✅ Removed network: ${networkName} (${appId}_${networkName})`);
+		} else {
+			// Simulated for testing
+			console.log(`    [SIMULATED] Removing network: ${networkName} for app ${appId}`);
+			await this.sleep(50);
 		}
 	}
 

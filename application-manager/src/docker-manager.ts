@@ -177,6 +177,27 @@ export class DockerManager {
 			// 6. Start container
 			await container.start();
 
+			// 7. Connect to custom networks (if specified)
+			// Note: Default network already connected via NetworkMode in HostConfig
+			if (service.config.networks && service.config.networks.length > 0) {
+				for (const networkName of service.config.networks) {
+					try {
+						// Generate the Docker network name (appId_networkName)
+						const dockerNetworkName = `${service.appId}_${networkName}`;
+						const network = this.docker.getNetwork(dockerNetworkName);
+						
+						// Connect container to network
+						await network.connect({
+							Container: containerId,
+						});
+						console.log(`    Connected to network: ${dockerNetworkName}`);
+					} catch (error: any) {
+						console.error(`    Warning: Failed to connect to network ${networkName}:`, error.message);
+						// Don't fail the whole operation if network connection fails
+					}
+				}
+			}
+
 			console.log(`    Container started: ${containerId.substring(0, 12)}`);
 			return containerId;
 		} catch (error: any) {

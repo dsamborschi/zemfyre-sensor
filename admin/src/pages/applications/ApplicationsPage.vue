@@ -63,8 +63,9 @@ const newService = ref<ServiceConfig>({
   },
 })
 
-// Form inputs for ports and environment
+// Form inputs for ports, networks, and environment
 const portInput = ref('')
+const networkInput = ref('')
 const envKeyInput = ref('')
 const envValueInput = ref('')
 
@@ -118,6 +119,7 @@ const resetServiceForm = () => {
     },
   }
   portInput.value = ''
+  networkInput.value = ''
   envKeyInput.value = ''
   envValueInput.value = ''
 }
@@ -216,6 +218,27 @@ const addPort = () => {
 const removePort = (port: string) => {
   if (newService.value.config.ports) {
     newService.value.config.ports = newService.value.config.ports.filter((p) => p !== port)
+  }
+}
+
+const addNetwork = () => {
+  const network = networkInput.value.trim()
+  if (network && !newService.value.config.networks?.includes(network)) {
+    // Validate network name (alphanumeric, dashes, underscores only)
+    if (!/^[a-zA-Z0-9_-]+$/.test(network)) {
+      return // Invalid network name, silently ignore
+    }
+    if (!newService.value.config.networks) {
+      newService.value.config.networks = []
+    }
+    newService.value.config.networks.push(network)
+    networkInput.value = ''
+  }
+}
+
+const removeNetwork = (network: string) => {
+  if (newService.value.config.networks) {
+    newService.value.config.networks = newService.value.config.networks.filter((n) => n !== network)
   }
 }
 
@@ -1028,10 +1051,6 @@ const performAutoRefresh = async () => {
   try {
     // Refresh state and applications
     await applicationStore.fetchState()
-    // Optionally refresh metrics less frequently
-    if (Math.random() > 0.7) { // 30% of the time
-      await applicationStore.fetchSystemMetrics()
-    }
   } catch (error) {
     console.error('Auto-refresh failed:', error)
   }
@@ -1247,72 +1266,6 @@ const toggleAutoRefresh = () => {
       </VaCardContent>
     </VaCard>
   </div>
-
-  <!-- System Metrics -->
-  <VaCard v-if="applicationStore.systemMetrics" class="mb-6">
-    <VaCardTitle>
-      <div class="flex items-center justify-between">
-        <span>System Metrics</span>
-        <div class="flex items-center gap-4 text-sm">
-          <span class="text-gray-600">{{ applicationStore.systemMetrics.hostname }}</span>
-          <VaBadge v-if="applicationStore.systemMetrics.is_undervolted" color="warning" text="Undervolted" />
-          <span class="text-gray-500">Uptime: {{ applicationStore.systemMetrics.uptime_formatted }}</span>
-        </div>
-      </div>
-    </VaCardTitle>
-    <VaCardContent>
-      <!-- Performance Metrics -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div>
-          <p class="text-sm text-gray-600">CPU Usage</p>
-          <VaProgressBar :model-value="applicationStore.systemMetrics.cpu_usage" color="primary">
-            {{ applicationStore.systemMetrics.cpu_usage.toFixed(1) }}%
-          </VaProgressBar>
-        </div>
-        <div>
-          <p class="text-sm text-gray-600">CPU Temperature</p>
-          <VaProgressBar
-            :model-value="(applicationStore.systemMetrics.cpu_temp / 85) * 100"
-            :color="applicationStore.systemMetrics.cpu_temp > 70 ? 'danger' : applicationStore.systemMetrics.cpu_temp > 60 ? 'warning' : 'success'"
-          >
-            {{ applicationStore.systemMetrics.cpu_temp }}°C
-          </VaProgressBar>
-        </div>
-        <div>
-          <p class="text-sm text-gray-600">Memory Usage</p>
-          <VaProgressBar :model-value="applicationStore.systemMetrics.memory_percent" color="info">
-            {{ applicationStore.systemMetrics.memory_percent.toFixed(1) }}%
-          </VaProgressBar>
-        </div>
-        <div>
-          <p class="text-sm text-gray-600">Storage Usage</p>
-          <VaProgressBar :model-value="applicationStore.systemMetrics.storage_percent" color="warning">
-            {{ applicationStore.systemMetrics.storage_percent.toFixed(1) }}%
-          </VaProgressBar>
-        </div>
-      </div>
-
-      <!-- Detailed Information -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="p-3 bg-gray-50 rounded">
-          <p class="text-xs text-gray-600 mb-1">CPU Cores</p>
-          <p class="text-xl font-bold">{{ applicationStore.systemMetrics.cpu_cores }}</p>
-        </div>
-        <div class="p-3 bg-gray-50 rounded">
-          <p class="text-xs text-gray-600 mb-1">Memory</p>
-          <p class="text-xl font-bold">
-            {{ applicationStore.systemMetrics.memory_usage }} MB / {{ applicationStore.systemMetrics.memory_total }} MB
-          </p>
-        </div>
-        <div class="p-3 bg-gray-50 rounded">
-          <p class="text-xs text-gray-600 mb-1">Storage</p>
-          <p class="text-xl font-bold">
-            {{ applicationStore.systemMetrics.storage_usage }} MB / {{ applicationStore.systemMetrics.storage_total }} MB
-          </p>
-        </div>
-      </div>
-    </VaCardContent>
-  </VaCard>
 
   <!-- Actions -->
   <div class="flex gap-2 mb-4 items-center">
@@ -1808,6 +1761,44 @@ const toggleAutoRefresh = () => {
           >
             {{ port }}
           </VaChip>
+        </div>
+      </div>
+
+      <!-- Networks -->
+      <div>
+        <h3 class="text-sm font-semibold mb-2">
+          Networks
+        </h3>
+        <div class="flex gap-2 mb-2">
+          <VaInput
+            v-model="networkInput"
+            placeholder="e.g., backend, frontend"
+            style="flex: 1"
+            @keyup.enter="addNetwork"
+          />
+          <VaButton
+            size="small"
+            @click="addNetwork"
+          >
+            Add Network
+          </VaButton>
+        </div>
+        <div
+          v-if="newService.config.networks && newService.config.networks.length > 0"
+          class="flex gap-2 flex-wrap"
+        >
+          <VaChip
+            v-for="network in newService.config.networks"
+            :key="network"
+            closeable
+            color="success"
+            @update:modelValue="removeNetwork(network)"
+          >
+            {{ network }}
+          </VaChip>
+        </div>
+        <div class="text-sm text-gray-600 mt-2">
+          Networks enable service discovery. Containers on the same network can reach each other by service name.
         </div>
       </div>
 
