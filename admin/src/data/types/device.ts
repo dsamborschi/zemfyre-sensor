@@ -20,6 +20,7 @@ export interface Device {
   updatedAt?: string            // ISO timestamp of last update
   metrics?: DeviceMetrics       // System metrics (CPU, RAM, Disk)
   managerStatus?: ApplicationManagerStatus  // Application manager status
+  applications?: DeviceApplication[]  // Deployed applications
 }
 
 export interface ProcessInfo {
@@ -38,6 +39,18 @@ export interface DeviceMetrics {
   hostname?: string             // Device hostname
   uptime?: number               // Uptime in seconds
   top_processes?: ProcessInfo[] // Top processes by CPU/memory usage
+  network_interfaces?: NetworkInterface[] // List of network interfaces
+}
+
+export interface NetworkInterface {
+  name: string;
+  ip4?: string;
+  ip6?: string;
+  mac?: string;
+  type?: string;
+  default?: boolean;
+  virtual?: boolean;
+  operstate?: string;
 }
 
 export interface DeviceConnectionTest {
@@ -71,4 +84,18 @@ export interface ApplicationManagerStatus {
   targetServices: number
   isReconciling: boolean
   lastError?: string | null
+}
+
+export interface DeviceApplication {
+  appId: number
+  appName: string
+  services: DeviceService[]
+}
+
+export interface DeviceService {
+  serviceId: number
+  serviceName: string
+  imageName: string
+  status?: string
+  containerId?: string
 }

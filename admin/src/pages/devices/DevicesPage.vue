@@ -1,11 +1,5 @@
-/* Thicker progress bars for telemetry and processes */
-.va-progress-bar__bar, .va-progress-bar__container {
-  height: 18px !important;
-  min-height: 18px !important;
-  border-radius: 8px;
-}
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { useDevicesStore } from '../../stores/devices'
 import { useModal, useToast } from 'vuestic-ui'
 import type { AddDeviceRequest } from '../../data/types/device'
@@ -282,9 +276,32 @@ const toggleAutoRefresh = () => {
     stopAutoRefresh()
   }
 }
+
+// Networking card state
+const vpnEnabled = ref(false)
+const proxyEnabled = ref(false)
+
+// Helper: sort interfaces with default first and filter out Docker/noise interfaces
+const sortedInterfaces = computed(() => {
+  const ifaces = devicesStore.activeDevice?.metrics?.network_interfaces || [];
+  if (!ifaces.length) return [];
+  // Exclude interfaces by name or type
+  const noisePatterns = [/^veth/, /^br-/, /^lo$/, /^virbr/, /^vmnet/, /^tap/, /^tun/,  /^enx/];
+  const filtered = ifaces.filter((iface: any) => {
+    if (!iface.name) return false;
+    return !noisePatterns.some((pat) => pat.test(iface.name)) && !iface.virtual;
+  });
+  return [
+    ...filtered.filter((iface: any) => iface.default),
+    ...filtered.filter((iface: any) => !iface.default)
+  ];
+});
+
+
 </script>
 
 <template>
+
   <div class="devices-page">
     <div class="flex gap-4">
    
@@ -377,7 +394,7 @@ const toggleAutoRefresh = () => {
         </div>
 
         <!-- Device Cards Grid -->
-        <div v-if="devicesStore.activeDevice" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div v-if="devicesStore.activeDevice" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
           
           <!-- Device Info Card -->
           <VaCard class="device-card">
@@ -589,6 +606,46 @@ const toggleAutoRefresh = () => {
             </div>
             </VaCardContent>
           </VaCard>
+
+          <!-- Networking Card -->
+<VaCard v-if="devicesStore.activeDevice?.status === 'online' && sortedInterfaces.length" class="device-card">
+  <VaCardContent>
+    <div class="flex items-center gap-2 mb-4">
+      <VaIcon name="wifi" color="primary" />
+      <h3 class="text-lg font-semibold">Networking</h3>
+    </div>
+
+    <div class="space-y-3">
+      <div
+        v-for="iface in sortedInterfaces"
+        :key="iface.name"
+        class="p-2 rounded bg-gray-50"
+      >
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2">
+            <VaIcon name="lan" size="small" />
+            <span class="font-medium">{{ iface.name }}</span>
+            <VaBadge v-if="iface.default" text="Default" color="success" />
+          </div>
+          <VaBadge v-if="iface.operstate === 'up'" text="Up" color="success" />
+          <VaBadge v-if="iface.operstate === 'down'" text="Down" color="danger" />
+        </div>
+
+        <div class="grid grid-cols-1 gap-1 text-xs text-gray-600">
+          <div v-if="iface.ip4">
+            <span class="font-medium">IPv4:</span> {{ iface.ip4 }}
+          </div>
+          <div v-if="iface.ip6 && iface.ip6 !== '::1'">
+            <span class="font-medium">IPv6:</span> {{ iface.ip6 }}
+          </div>
+  
+         
+        </div>
+      </div>
+    </div>
+  </VaCardContent>
+</VaCard>
+
 
         </div><!-- Close device cards grid -->
 
@@ -1035,5 +1092,12 @@ const toggleAutoRefresh = () => {
   font-size: 0.75rem;
   color: #666;
   font-style: italic;
+}
+
+/* Thicker progress bars for telemetry and processes */
+.va-progress-bar__bar, .va-progress-bar__container {
+  height: 18px !important;
+  min-height: 18px !important;
+  border-radius: 8px;
 }
 </style>
