@@ -228,9 +228,10 @@ export async function getTopProcesses(): Promise<ProcessInfo[]> {
 	try {
 		const processes = await systeminformation.processes();
 		
-		// Filter out kernel threads and system processes with 0 CPU/memory
+		// Filter out kernel threads (names starting with [])
+		// Keep all user processes including those with low CPU/memory
 		const userProcesses = processes.list.filter(proc => 
-			(proc.cpu > 0 || proc.mem > 0) && proc.name !== ''
+			!proc.name.startsWith('[') && proc.name !== ''
 		);
 		
 		// Sort by combined CPU and memory score (weighted)

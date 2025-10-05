@@ -18,6 +18,18 @@ const newDevice = ref<AddDeviceRequest>({
   description: '',
 })
 
+// Edit device dialog state
+const showEditDialog = ref(false)
+const editingDeviceId = ref<string | null>(null)
+const editDevice = ref<AddDeviceRequest>({
+  name: '',
+  hostname: '',
+  port: 3002,
+  protocol: 'http',
+  location: '',
+  description: '',
+})
+
 // Track which devices are applying state
 const applyingDevices = ref<Set<string>>(new Set())
 
@@ -48,6 +60,44 @@ const addDevice = async () => {
 const cancelAddDialog = () => {
   showAddDialog.value = false
   resetForm()
+}
+
+// Open edit dialog
+const openEditDialog = () => {
+  const device = devicesStore.activeDevice
+  if (!device) return
+  
+  editingDeviceId.value = device.id
+  editDevice.value = {
+    name: device.name,
+    hostname: device.hostname,
+    port: parseInt(device.apiUrl.split(':').pop()?.split('/')[0] || '3002'),
+    protocol: device.apiUrl.startsWith('https') ? 'https' : 'http',
+    location: device.location || '',
+    description: device.description || '',
+  }
+  showEditDialog.value = true
+}
+
+// Save edited device
+const saveEditDevice = async () => {
+  if (!editingDeviceId.value) return
+  
+  try {
+    await devicesStore.updateDevice(editingDeviceId.value, editDevice.value)
+    showEditDialog.value = false
+    editingDeviceId.value = null
+    useToast().init({ message: 'Device updated successfully', color: 'success' })
+  } catch (error: any) {
+    console.error('Failed to update device:', error)
+    useToast().init({ message: `Failed to update device: ${error.message}`, color: 'danger' })
+  }
+}
+
+// Cancel edit dialog
+const cancelEditDialog = () => {
+  showEditDialog.value = false
+  editingDeviceId.value = null
 }
 
 // Copy install command to clipboard
@@ -236,23 +286,8 @@ const toggleAutoRefresh = () => {
       <!-- Main Content -->
       <div class="device-main-content">
         <!-- Page Header -->
-        <div class="flex items-center justify-between mb-6">
+        <div class="mb-6">
           <h1 class="page-title mb-0">Device Manager</h1>
-          <div class="flex gap-2 items-center">
-            <VaButton preset="secondary" icon="refresh" :loading="devicesStore.isLoading" @click="refreshDevices">
-              Refresh
-            </VaButton>
-            <div class="flex items-center gap-2">
-              <VaSwitch
-                v-model="autoRefreshEnabled"
-                size="small"
-                @update:modelValue="toggleAutoRefresh"
-              />
-              <span class="text-sm text-gray-600">
-                Auto-refresh ({{ (autoRefreshInterval / 1000).toFixed(0) }}s)
-              </span>
-            </div>
-          </div>
         </div>
 
         <!-- Summary Cards -->
@@ -316,9 +351,24 @@ const toggleAutoRefresh = () => {
           </div>
         </VaCardContent>
       </VaCard>
-
-
     </div>
+
+        <!-- Refresh Controls -->
+        <div v-if="devicesStore.hasDevices" class="flex gap-2 items-center justify-end mb-6">
+          <VaButton preset="secondary" icon="refresh" :loading="devicesStore.isLoading" @click="refreshDevices">
+            Refresh
+          </VaButton>
+          <div class="flex items-center gap-2">
+            <VaSwitch
+              v-model="autoRefreshEnabled"
+              size="small"
+              @update:modelValue="toggleAutoRefresh"
+            />
+            <span class="text-sm text-gray-600">
+              Auto-refresh ({{ (autoRefreshInterval / 1000).toFixed(0) }}s)
+            </span>
+          </div>
+        </div>
 
         <!-- Device Cards Grid -->
         <div v-if="devicesStore.activeDevice" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -367,15 +417,15 @@ const toggleAutoRefresh = () => {
                 </div>
               </div>
 
-              <div class="mt-4">
+              <!-- Device Actions -->
+              <div class="mt-4 pt-3 border-t flex gap-2">
                 <VaButton
-                  preset="secondary"
-                  icon="refresh"
                   size="small"
-                  block
-                  @click="refreshDevice(devicesStore.activeDevice.id)"
+                  preset="secondary"
+                  @click="openEditDialog"
                 >
-                  Refresh Device
+                  <VaIcon name="edit" size="small" class="mr-1" />
+                  Edit
                 </VaButton>
               </div>
             </VaCardContent>
@@ -635,6 +685,47 @@ const toggleAutoRefresh = () => {
           <VaButton :disabled="!newDevice.name || !newDevice.hostname" :loading="devicesStore.isLoading" @click="addDevice">
             <VaIcon name="add" class="mr-1" />
             Add Device
+          </VaButton>
+        </div>
+      </template>
+    </VaModal>
+
+    <!-- Edit Device Modal -->
+    <VaModal v-model="showEditDialog" size="medium" title="Edit Device" hide-default-actions>
+      <VaForm class="space-y-4">
+        <VaInput v-model="editDevice.name" label="Device Name *" placeholder="e.g., Raspberry Pi - Kitchen" required />
+
+        <VaInput v-model="editDevice.hostname" label="Hostname/IP Address *" placeholder="e.g., 192.168.1.100" required />
+
+        <div class="grid grid-cols-2 gap-4">
+          <VaInput v-model.number="editDevice.port" label="Port" placeholder="3002" type="number" />
+
+          <VaSelect v-model="editDevice.protocol" label="Protocol" :options="['http', 'https']" />
+        </div>
+
+        <VaInput v-model="editDevice.location" label="Location" placeholder="e.g., Kitchen, Office" />
+
+        <VaTextarea
+          v-model="editDevice.description"
+          label="Description"
+          placeholder="Additional notes about this device"
+          :min-rows="3"
+        />
+
+        <VaDivider />
+
+        <div class="text-sm text-gray-600">
+          <VaIcon name="info" size="small" class="mr-1" />
+          <span>Changes will be saved immediately.</span>
+        </div>
+      </VaForm>
+
+      <template #footer>
+        <div class="flex gap-3 justify-end">
+          <VaButton preset="secondary" @click="cancelEditDialog"> Cancel </VaButton>
+          <VaButton :disabled="!editDevice.name || !editDevice.hostname" :loading="devicesStore.isLoading" @click="saveEditDevice">
+            <VaIcon name="save" class="mr-1" />
+            Save Changes
           </VaButton>
         </div>
       </template>
