@@ -355,6 +355,28 @@ app.get('/api/v1/status', (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/v1/reconciliation
+ * Get detailed reconciliation status for each application/service
+ * Shows which services are in-sync, needs-update, missing, or extra
+ */
+app.get('/api/v1/reconciliation', (req: Request, res: Response) => {
+	try {
+		const reconciliationStatus = containerManager.getReconciliationStatus();
+
+		res.json({
+			status: reconciliationStatus,
+			isReconciling,
+			lastError,
+		});
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to get reconciliation status',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+/**
  * GET /api/v1/metrics
  * Get system hardware metrics (CPU, memory, storage, temperature)
  */

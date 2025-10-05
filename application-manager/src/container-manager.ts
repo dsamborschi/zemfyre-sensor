@@ -744,6 +744,129 @@ export class ContainerManager extends EventEmitter {
 		};
 	}
 
+	/**
+	 * Get reconciliation status for each service
+	 * Returns which services are out of sync and need updates
+	 */
+	public getReconciliationStatus(): {
+		[appId: number]: {
+			appName: string;
+			services: {
+				[serviceId: number]: {
+					serviceName: string;
+					status: 'in-sync' | 'needs-update' | 'missing' | 'extra';
+					reason?: string;
+				};
+			};
+		};
+	} {
+		const status: any = {};
+
+		// Get all app IDs from both states
+		const allAppIds = _.uniq([
+			...Object.keys(this.currentState.apps).map(Number),
+			...Object.keys(this.targetState.apps).map(Number),
+		]);
+
+		for (const appId of allAppIds) {
+			const currentApp = this.currentState.apps[appId];
+			const targetApp = this.targetState.apps[appId];
+
+			if (!targetApp) {
+				// App exists in current but not in target (should be removed)
+				status[appId] = {
+					appName: currentApp.appName,
+					services: {},
+				};
+				for (const svc of currentApp.services) {
+					status[appId].services[svc.serviceId] = {
+						serviceName: svc.serviceName,
+						status: 'extra',
+						reason: 'Service exists but not in target state',
+					};
+				}
+				continue;
+			}
+
+			status[appId] = {
+				appName: targetApp.appName,
+				services: {},
+			};
+
+			// Build service maps
+			const currentServices = new Map(
+				currentApp ? currentApp.services.map((s) => [s.serviceId, s]) : [],
+			);
+			const targetServices = new Map(
+				targetApp.services.map((s) => [s.serviceId, s]),
+			);
+
+			// Check all services
+			const allServiceIds = _.uniq([
+				...currentServices.keys(),
+				...targetServices.keys(),
+			]);
+
+			for (const serviceId of allServiceIds) {
+				const currentSvc = currentServices.get(serviceId);
+				const targetSvc = targetServices.get(serviceId);
+
+				if (!targetSvc) {
+					// Service in current but not target (extra)
+					status[appId].services[serviceId] = {
+						serviceName: currentSvc!.serviceName,
+						status: 'extra',
+						reason: 'Service exists but not in target state',
+					};
+				} else if (!currentSvc) {
+					// Service in target but not current (missing)
+					status[appId].services[serviceId] = {
+						serviceName: targetSvc.serviceName,
+						status: 'missing',
+						reason: 'Service not yet deployed',
+					};
+				} else {
+					// Both exist - check if they match
+					const imageChanged = currentSvc.imageName !== targetSvc.imageName;
+					const portsChanged = JSON.stringify(currentSvc.config.ports || []) !== 
+					                     JSON.stringify(targetSvc.config.ports || []);
+					const envChanged = JSON.stringify(currentSvc.config.environment || {}) !== 
+					                   JSON.stringify(targetSvc.config.environment || {});
+					const volumesChanged = JSON.stringify(currentSvc.config.volumes || []) !== 
+					                       JSON.stringify(targetSvc.config.volumes || []);
+					
+					const containerStopped = currentSvc.status?.toLowerCase() === 'exited' || 
+					                        currentSvc.status?.toLowerCase() === 'stopped' ||
+					                        currentSvc.status?.toLowerCase() === 'dead';
+
+					const needsUpdate = imageChanged || portsChanged || envChanged || volumesChanged || containerStopped;
+
+					if (needsUpdate) {
+						const reasons = [];
+						if (imageChanged) reasons.push('Image changed');
+						if (portsChanged) reasons.push('Ports changed');
+						if (envChanged) reasons.push('Environment changed');
+						if (volumesChanged) reasons.push('Volumes changed');
+						if (containerStopped) reasons.push('Container stopped');
+
+						status[appId].services[serviceId] = {
+							serviceName: currentSvc.serviceName,
+							status: 'needs-update',
+							reason: reasons.join(', '),
+						};
+					} else {
+						status[appId].services[serviceId] = {
+							serviceName: currentSvc.serviceName,
+							status: 'in-sync',
+						};
+					}
+				}
+			}
+		}
+
+		return status;
+	}
+
 	public printState(): void {
 		console.log('\n' + '='.repeat(80));
 		console.log('SYSTEM STATE');

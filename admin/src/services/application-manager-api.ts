@@ -153,6 +153,13 @@ export const applicationManagerApi = {
    * Returns: { status: string, version: string, uptime: number }
    */
   getStatus: () => `${currentApiUrl}/status`,
+
+  /**
+   * Get detailed reconciliation status for each application/service
+   * Returns per-service status: 'in-sync', 'needs-update', 'missing', or 'extra'
+   * with reason for out-of-sync services (e.g., "Image changed", "Ports changed")
+   */
+  getReconciliation: () => `${currentApiUrl}/reconciliation`,
 }
 
 export default applicationManagerApi

@@ -665,21 +665,37 @@ const reconciliationDetails = ref<{
   currentServices: number
   targetServices: number
 } | null>(null)
+
+// Per-service reconciliation status
+const serviceReconciliationStatus = ref<{
+  [appId: number]: {
+    appName: string
+    services: {
+      [serviceId: number]: {
+        serviceName: string
+        status: 'in-sync' | 'needs-update' | 'missing' | 'extra'
+        reason?: string
+      }
+    }
+  }
+} | null>(null)
+
 let statusPollTimer: NodeJS.Timeout | null = null
 
 // Fetch reconciliation status from API
 const fetchReconciliationStatus = async () => {
   try {
-    const response = await fetch(applicationManagerApi.getStatus())
-    if (response.ok) {
-      const data = await response.json()
+    // Fetch global status
+    const statusResponse = await fetch(applicationManagerApi.getStatus())
+    if (statusResponse.ok) {
+      const statusData = await statusResponse.json()
       reconciliationDetails.value = {
-        isReconciling: data.isReconciling || data.isApplying,
-        lastError: data.lastError,
-        currentApps: data.currentApps || 0,
-        targetApps: data.targetApps || 0,
-        currentServices: data.currentServices || 0,
-        targetServices: data.targetServices || 0,
+        isReconciling: statusData.isReconciling || statusData.isApplying,
+        lastError: statusData.lastError,
+        currentApps: statusData.currentApps || 0,
+        targetApps: statusData.targetApps || 0,
+        currentServices: statusData.currentServices || 0,
+        targetServices: statusData.targetServices || 0,
       }
       
       // If reconciling, refresh state to show progress
@@ -687,9 +703,50 @@ const fetchReconciliationStatus = async () => {
         await applicationStore.fetchState()
       }
     }
+
+    // Fetch per-service reconciliation status
+    const reconciliationResponse = await fetch(applicationManagerApi.getReconciliation())
+    if (reconciliationResponse.ok) {
+      const reconciliationData = await reconciliationResponse.json()
+      serviceReconciliationStatus.value = reconciliationData.status
+    }
   } catch (error) {
     console.error('Failed to fetch reconciliation status:', error)
   }
+}
+
+// Helper to get service reconciliation status
+const getServiceStatus = (appId: number, serviceId: number) => {
+  return serviceReconciliationStatus.value?.[appId]?.services?.[serviceId] || null
+}
+
+// Helper to check if an app has any services that need updates
+const appNeedsUpdate = (appId: number) => {
+  const appStatus = serviceReconciliationStatus.value?.[appId]
+  if (!appStatus) return false
+  
+  return Object.values(appStatus.services).some(
+    (service) => service.status === 'needs-update' || service.status === 'missing' || service.status === 'extra'
+  )
+}
+
+// Helper to get app-level reconciliation summary
+const getAppReconciliationSummary = (appId: number) => {
+  const appStatus = serviceReconciliationStatus.value?.[appId]
+  if (!appStatus) return null
+  
+  const services = Object.values(appStatus.services)
+  const needsUpdate = services.filter(s => s.status === 'needs-update').length
+  const missing = services.filter(s => s.status === 'missing').length
+  const extra = services.filter(s => s.status === 'extra').length
+  const inSync = services.filter(s => s.status === 'in-sync').length
+  
+  if (inSync === services.length) return { status: 'in-sync', text: 'All In Sync', color: 'success' }
+  if (needsUpdate > 0) return { status: 'needs-update', text: `${needsUpdate} Need${needsUpdate > 1 ? '' : 's'} Update`, color: 'warning' }
+  if (missing > 0) return { status: 'missing', text: `${missing} Missing`, color: 'info' }
+  if (extra > 0) return { status: 'extra', text: `${extra} Extra`, color: 'danger' }
+  
+  return null
 }
 
 // Start polling for reconciliation status
@@ -1392,6 +1449,12 @@ const toggleAutoRefresh = () => {
                     :text="app.status"
                     :color="getStatusColor(app.status)"
                   />
+                  <!-- App-level reconciliation status -->
+                  <VaBadge
+                    v-if="getAppReconciliationSummary(app.appId)"
+                    :text="getAppReconciliationSummary(app.appId).text"
+                    :color="getAppReconciliationSummary(app.appId).color"
+                  />
                 </div>
               </div>
               <div v-if="!isActiveDeviceOffline" class="flex gap-2 ml-auto">
@@ -1447,6 +1510,17 @@ const toggleAutoRefresh = () => {
                     v-if="service.status"
                     :text="getServiceStatusText(service.status)"
                     :color="getServiceStatusColor(service.status)"
+                  />
+                  <!-- Reconciliation Status Badge -->
+                  <VaBadge
+                    v-if="getServiceStatus(app.appId, service.serviceId)"
+                    :text="getServiceStatus(app.appId, service.serviceId).status === 'in-sync' ? '✓ In Sync' : 
+                           getServiceStatus(app.appId, service.serviceId).status === 'needs-update' ? '⟳ Needs Update' :
+                           getServiceStatus(app.appId, service.serviceId).status === 'missing' ? '+ Missing' : '− Extra'"
+                    :color="getServiceStatus(app.appId, service.serviceId).status === 'in-sync' ? 'success' : 
+                            getServiceStatus(app.appId, service.serviceId).status === 'needs-update' ? 'warning' :
+                            getServiceStatus(app.appId, service.serviceId).status === 'missing' ? 'info' : 'danger'"
+                    :title="getServiceStatus(app.appId, service.serviceId).reason || ''"
                   />
                   <VaBadge
                     :text="`Service ${service.serviceId}`"
