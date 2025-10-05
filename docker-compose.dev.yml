@@ -5,6 +5,7 @@ services:
                 context: ./application-manager
                 dockerfile: Dockerfile
             privileged: true
+            pid: "host"
             tty: true
             restart: always
             network_mode: host
