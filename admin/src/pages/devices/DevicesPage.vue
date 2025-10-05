@@ -314,6 +314,70 @@ const toggleAutoRefresh = () => {
             </VaProgressBar>
           </div>
         </div>
+
+        <!-- Top Processes Section -->
+        <div v-if="devicesStore.activeDevice.metrics.top_processes && devicesStore.activeDevice.metrics.top_processes.length > 0" class="mt-6">
+          <h3 class="text-lg font-semibold mb-3 flex items-center gap-2">
+            <VaIcon name="list" />
+            Top Processes
+          </h3>
+          <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+              <thead>
+                <tr class="bg-gray-50">
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    PID
+                  </th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Process
+                  </th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    CPU %
+                  </th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Memory %
+                  </th>
+                  <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Command
+                  </th>
+                </tr>
+              </thead>
+              <tbody class="bg-white divide-y divide-gray-200">
+                <tr
+                  v-for="process in devicesStore.activeDevice.metrics.top_processes"
+                  :key="process.pid"
+                  class="hover:bg-gray-50"
+                >
+                  <td class="px-4 py-2 whitespace-nowrap text-sm text-gray-900 font-mono">
+                    {{ process.pid }}
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-gray-900">
+                    {{ process.name }}
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap text-sm">
+                    <VaChip
+                      :color="process.cpu > 50 ? 'danger' : process.cpu > 25 ? 'warning' : 'success'"
+                      size="small"
+                    >
+                      {{ process.cpu.toFixed(1) }}%
+                    </VaChip>
+                  </td>
+                  <td class="px-4 py-2 whitespace-nowrap text-sm">
+                    <VaChip
+                      :color="process.mem > 20 ? 'danger' : process.mem > 10 ? 'warning' : 'info'"
+                      size="small"
+                    >
+                      {{ process.mem.toFixed(1) }}%
+                    </VaChip>
+                  </td>
+                  <td class="px-4 py-2 text-sm text-gray-600 font-mono truncate max-w-xs" :title="process.command">
+                    {{ process.command }}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </VaCardContent>
     </VaCard>
 

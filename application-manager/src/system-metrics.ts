@@ -19,6 +19,14 @@ const exec = promisify(execCallback);
 // TYPES
 // ============================================================================
 
+export interface ProcessInfo {
+	pid: number;
+	name: string;
+	cpu: number;
+	mem: number;
+	command: string;
+}
+
 export interface SystemMetrics {
 	// CPU metrics
 	cpu_usage: number;
@@ -41,6 +49,9 @@ export interface SystemMetrics {
 	
 	// Health checks
 	is_undervolted: boolean;
+	
+	// Process info
+	top_processes: ProcessInfo[];
 	
 	// Timestamp
 	timestamp: Date;
@@ -206,6 +217,48 @@ export async function isUndervolted(): Promise<boolean> {
 }
 
 // ============================================================================
+// PROCESS METRICS
+// ============================================================================
+
+/**
+ * Get top 10 processes by CPU and memory usage
+ * Returns combined list sorted by resource usage
+ */
+export async function getTopProcesses(): Promise<ProcessInfo[]> {
+	try {
+		const processes = await systeminformation.processes();
+		
+		// Filter out kernel threads and system processes with 0 CPU/memory
+		const userProcesses = processes.list.filter(proc => 
+			(proc.cpu > 0 || proc.mem > 0) && proc.name !== ''
+		);
+		
+		// Sort by combined CPU and memory score (weighted)
+		// CPU gets 60% weight, memory gets 40% weight
+		const sortedProcesses = userProcesses.sort((a, b) => {
+			const scoreA = (a.cpu * 0.6) + (a.mem * 0.4);
+			const scoreB = (b.cpu * 0.6) + (b.mem * 0.4);
+			return scoreB - scoreA;
+		});
+		
+		// Take top 10
+		const topProcs = sortedProcesses.slice(0, 10);
+		
+		// Format for our interface
+		return topProcs.map(proc => ({
+			pid: proc.pid,
+			name: proc.name,
+			cpu: Math.round(proc.cpu * 10) / 10, // Round to 1 decimal
+			mem: Math.round(proc.mem * 10) / 10, // Round to 1 decimal
+			command: proc.command || proc.name,
+		}));
+	} catch (error) {
+		console.error('Failed to get top processes:', error);
+		return [];
+	}
+}
+
+// ============================================================================
 // MAIN METRICS FUNCTION
 // ============================================================================
 
@@ -224,6 +277,7 @@ export async function getSystemMetrics(): Promise<SystemMetrics> {
 		uptime,
 		hostname,
 		undervolted,
+		topProcesses,
 	] = await Promise.all([
 		getCpuUsage(),
 		getCpuTemp(),
@@ -233,6 +287,7 @@ export async function getSystemMetrics(): Promise<SystemMetrics> {
 		getUptime(),
 		getHostname(),
 		isUndervolted(),
+		getTopProcesses(),
 	]);
 
 	return {
@@ -257,6 +312,9 @@ export async function getSystemMetrics(): Promise<SystemMetrics> {
 		
 		// Health
 		is_undervolted: undervolted,
+		
+		// Processes
+		top_processes: topProcesses,
 		
 		// Metadata
 		timestamp: new Date(),

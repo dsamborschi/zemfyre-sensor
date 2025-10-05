@@ -12,6 +12,7 @@ import type { VolumeConfig } from './types';
 import { Volume } from './volume';
 
 export interface VolumeNameOpts {
+	
 	name: string;
 	appId: number;
 }

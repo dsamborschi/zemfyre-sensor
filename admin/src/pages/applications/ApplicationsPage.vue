@@ -63,10 +63,12 @@ const newService = ref<ServiceConfig>({
   },
 })
 
-// Form inputs for ports, networks, and environment
+// Form inputs for ports, networks, volumes, and environment
 const portInput = ref('')
 const networkInput = ref('')
 const editNetworkInput = ref('')
+const volumeInput = ref('')
+const editVolumeInput = ref('')
 const envKeyInput = ref('')
 const envValueInput = ref('')
 
@@ -122,6 +124,8 @@ const resetServiceForm = () => {
   portInput.value = ''
   networkInput.value = ''
   editNetworkInput.value = ''
+  volumeInput.value = ''
+  editVolumeInput.value = ''
   envKeyInput.value = ''
   envValueInput.value = ''
 }
@@ -267,6 +271,53 @@ const addEditNetwork = () => {
 const removeEditNetwork = (network: string) => {
   if (editedService.value && editedService.value.config.networks) {
     editedService.value.config.networks = editedService.value.config.networks.filter((n) => n !== network)
+  }
+}
+
+const addVolume = () => {
+  const volume = volumeInput.value.trim()
+  if (volume && !newService.value.config.volumes?.includes(volume)) {
+    // Validate volume format: volumeName:/path or /host/path:/container/path
+    if (!/^([a-zA-Z0-9_-]+:\/|\/)/.test(volume)) {
+      return // Invalid volume format, silently ignore
+    }
+    if (!newService.value.config.volumes) {
+      newService.value.config.volumes = []
+    }
+    newService.value.config.volumes.push(volume)
+    volumeInput.value = ''
+  }
+}
+
+const removeVolume = (volume: string) => {
+  if (newService.value.config.volumes) {
+    newService.value.config.volumes = newService.value.config.volumes.filter((v) => v !== volume)
+  }
+}
+
+const addEditVolume = () => {
+  const volume = editVolumeInput.value.trim()
+  if (!volume) return
+  
+  if (!/^([a-zA-Z0-9_-]+:\/|\/)/.test(volume)) {
+    notify({ message: 'Volume must be in format "volumeName:/path" or "/host/path:/container/path"', color: 'danger' })
+    return
+  }
+  
+  if (editedService.value) {
+    if (!editedService.value.config.volumes) {
+      editedService.value.config.volumes = []
+    }
+    if (!editedService.value.config.volumes.includes(volume)) {
+      editedService.value.config.volumes.push(volume)
+      editVolumeInput.value = ''
+    }
+  }
+}
+
+const removeEditVolume = (volume: string) => {
+  if (editedService.value && editedService.value.config.volumes) {
+    editedService.value.config.volumes = editedService.value.config.volumes.filter((v) => v !== volume)
   }
 }
 
@@ -1499,6 +1550,20 @@ const toggleAutoRefresh = () => {
                       {{ network }}
                     </VaChip>
                   </div>
+                  <div
+                    v-if="service.config && service.config.volumes && service.config.volumes.length > 0"
+                    class="mt-1"
+                  >
+                    <VaChip
+                      v-for="volume in service.config.volumes"
+                      :key="volume"
+                      size="small"
+                      color="warning"
+                      class="mr-1"
+                    >
+                      {{ volume }}
+                    </VaChip>
+                  </div>
                 </div>
                 <div class="flex items-center gap-2">
                   <VaBadge
@@ -1841,6 +1906,44 @@ const toggleAutoRefresh = () => {
         </div>
         <div class="text-sm text-gray-600 mt-2">
           Networks enable service discovery. Containers on the same network can reach each other by service name.
+        </div>
+      </div>
+
+      <!-- Volumes -->
+      <div>
+        <h3 class="text-sm font-semibold mb-2">
+          Volumes
+        </h3>
+        <div class="flex gap-2 mb-2">
+          <VaInput
+            v-model="volumeInput"
+            placeholder="e.g., data:/var/lib/data or /host/path:/container/path"
+            style="flex: 1"
+            @keyup.enter="addVolume"
+          />
+          <VaButton
+            size="small"
+            @click="addVolume"
+          >
+            Add Volume
+          </VaButton>
+        </div>
+        <div
+          v-if="newService.config.volumes && newService.config.volumes.length > 0"
+          class="flex gap-2 flex-wrap"
+        >
+          <VaChip
+            v-for="volume in newService.config.volumes"
+            :key="volume"
+            closeable
+            color="warning"
+            @update:modelValue="removeVolume(volume)"
+          >
+            {{ volume }}
+          </VaChip>
+        </div>
+        <div class="text-sm text-gray-600 mt-2">
+          Volumes persist data across container restarts. Use "volumeName:/path" for named volumes or "/host/path:/container/path" for bind mounts.
         </div>
       </div>
 
@@ -2359,6 +2462,21 @@ const toggleAutoRefresh = () => {
               </div>
             </div>
 
+            <div v-if="enhancedServiceConfig && enhancedServiceConfig.volumes && enhancedServiceConfig.volumes.length > 0">
+              <h4 class="font-semibold mb-2">
+                Volumes
+              </h4>
+              <div class="flex flex-wrap gap-2">
+                <VaChip
+                  v-for="volume in enhancedServiceConfig.volumes"
+                  :key="volume"
+                  color="warning"
+                >
+                  {{ volume }}
+                </VaChip>
+              </div>
+            </div>
+
             <div
               v-if="enhancedServiceConfig && enhancedServiceConfig.environment && Object.keys(enhancedServiceConfig.environment).length > 0"
             >
@@ -2492,6 +2610,47 @@ const toggleAutoRefresh = () => {
               </div>
               <div class="text-xs text-gray-600 mt-2">
                 Networks enable service discovery. Containers on the same network can reach each other by service name.
+              </div>
+            </div>
+
+            <VaDivider />
+
+            <div>
+              <h4 class="font-semibold mb-2">
+                Volumes
+              </h4>
+              <div
+                v-if="editedService.config.volumes && editedService.config.volumes.length > 0"
+                class="mb-3"
+              >
+                <div class="flex flex-wrap gap-2">
+                  <VaChip
+                    v-for="volume in editedService.config.volumes"
+                    :key="volume"
+                    color="warning"
+                    closeable
+                    @update:modelValue="removeEditVolume(volume)"
+                  >
+                    {{ volume }}
+                  </VaChip>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <VaInput
+                  v-model="editVolumeInput"
+                  placeholder="e.g., data:/var/lib/data or /host/path:/container/path"
+                  class="flex-1"
+                  @keyup.enter="addEditVolume"
+                />
+                <VaButton
+                  :disabled="!editVolumeInput"
+                  @click="addEditVolume"
+                >
+                  <VaIcon name="add" />
+                </VaButton>
+              </div>
+              <div class="text-xs text-gray-600 mt-2">
+                Volumes persist data across container restarts. Use "volumeName:/path" for named volumes or "/host/path:/container/path" for bind mounts.
               </div>
             </div>
 
