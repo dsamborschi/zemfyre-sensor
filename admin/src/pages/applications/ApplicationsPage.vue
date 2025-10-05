@@ -1457,6 +1457,20 @@ const toggleAutoRefresh = () => {
                       {{ port }}
                     </VaChip>
                   </div>
+                  <div
+                    v-if="service.config && service.config.networks && service.config.networks.length > 0"
+                    class="mt-1"
+                  >
+                    <VaChip
+                      v-for="network in service.config.networks"
+                      :key="network"
+                      size="small"
+                      color="success"
+                      class="mr-1"
+                    >
+                      {{ network }}
+                    </VaChip>
+                  </div>
                 </div>
                 <div class="flex items-center gap-2">
                   <VaBadge
