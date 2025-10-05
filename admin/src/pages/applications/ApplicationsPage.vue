@@ -66,6 +66,7 @@ const newService = ref<ServiceConfig>({
 // Form inputs for ports, networks, and environment
 const portInput = ref('')
 const networkInput = ref('')
+const editNetworkInput = ref('')
 const envKeyInput = ref('')
 const envValueInput = ref('')
 
@@ -120,6 +121,7 @@ const resetServiceForm = () => {
   }
   portInput.value = ''
   networkInput.value = ''
+  editNetworkInput.value = ''
   envKeyInput.value = ''
   envValueInput.value = ''
 }
@@ -239,6 +241,32 @@ const addNetwork = () => {
 const removeNetwork = (network: string) => {
   if (newService.value.config.networks) {
     newService.value.config.networks = newService.value.config.networks.filter((n) => n !== network)
+  }
+}
+
+const addEditNetwork = () => {
+  const network = editNetworkInput.value.trim()
+  if (!network) return
+  
+  if (!/^[a-zA-Z0-9_-]+$/.test(network)) {
+    notify({ message: 'Network name can only contain letters, numbers, dashes, and underscores', color: 'danger' })
+    return
+  }
+  
+  if (editedService.value) {
+    if (!editedService.value.config.networks) {
+      editedService.value.config.networks = []
+    }
+    if (!editedService.value.config.networks.includes(network)) {
+      editedService.value.config.networks.push(network)
+      editNetworkInput.value = ''
+    }
+  }
+}
+
+const removeEditNetwork = (network: string) => {
+  if (editedService.value && editedService.value.config.networks) {
+    editedService.value.config.networks = editedService.value.config.networks.filter((n) => n !== network)
   }
 }
 
@@ -2316,6 +2344,21 @@ const toggleAutoRefresh = () => {
               </div>
             </div>
 
+            <div v-if="enhancedServiceConfig && enhancedServiceConfig.networks && enhancedServiceConfig.networks.length > 0">
+              <h4 class="font-semibold mb-2">
+                Networks
+              </h4>
+              <div class="flex flex-wrap gap-2">
+                <VaChip
+                  v-for="network in enhancedServiceConfig.networks"
+                  :key="network"
+                  color="success"
+                >
+                  {{ network }}
+                </VaChip>
+              </div>
+            </div>
+
             <div
               v-if="enhancedServiceConfig && enhancedServiceConfig.environment && Object.keys(enhancedServiceConfig.environment).length > 0"
             >
@@ -2408,6 +2451,47 @@ const toggleAutoRefresh = () => {
                 >
                   <VaIcon name="add" />
                 </VaButton>
+              </div>
+            </div>
+
+            <VaDivider />
+
+            <div>
+              <h4 class="font-semibold mb-2">
+                Networks
+              </h4>
+              <div
+                v-if="editedService.config.networks && editedService.config.networks.length > 0"
+                class="mb-3"
+              >
+                <div class="flex flex-wrap gap-2">
+                  <VaChip
+                    v-for="network in editedService.config.networks"
+                    :key="network"
+                    color="success"
+                    closeable
+                    @update:modelValue="removeEditNetwork(network)"
+                  >
+                    {{ network }}
+                  </VaChip>
+                </div>
+              </div>
+              <div class="flex gap-2">
+                <VaInput
+                  v-model="editNetworkInput"
+                  placeholder="e.g., backend, frontend"
+                  class="flex-1"
+                  @keyup.enter="addEditNetwork"
+                />
+                <VaButton
+                  :disabled="!editNetworkInput"
+                  @click="addEditNetwork"
+                >
+                  <VaIcon name="add" />
+                </VaButton>
+              </div>
+              <div class="text-xs text-gray-600 mt-2">
+                Networks enable service discovery. Containers on the same network can reach each other by service name.
               </div>
             </div>
 

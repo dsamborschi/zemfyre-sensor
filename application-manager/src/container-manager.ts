@@ -600,15 +600,17 @@ export class ContainerManager extends EventEmitter {
 				// Check if image changed (this requires container recreation)
 				const imageChanged = currentSvc.imageName !== targetSvc.imageName;
 				
-				// Check if configuration changed (ports, environment, volumes, etc.)
+				// Check if configuration changed (ports, environment, volumes, networks, etc.)
 				const portsChanged = JSON.stringify(currentSvc.config.ports || []) !== 
 				                     JSON.stringify(targetSvc.config.ports || []);
 				const envChanged = JSON.stringify(currentSvc.config.environment || {}) !== 
 				                   JSON.stringify(targetSvc.config.environment || {});
 				const volumesChanged = JSON.stringify(currentSvc.config.volumes || []) !== 
 				                       JSON.stringify(targetSvc.config.volumes || []);
+				const networksChanged = JSON.stringify(currentSvc.config.networks || []) !== 
+				                        JSON.stringify(targetSvc.config.networks || []);
 				
-				const configChanged = portsChanged || envChanged || volumesChanged;
+				const configChanged = portsChanged || envChanged || volumesChanged || networksChanged;
 				
 				// Only check if container is stopped/exited (not just "not running")
 				// Don't restart containers that are already running
