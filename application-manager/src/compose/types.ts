@@ -1,4 +1,10 @@
 /**
+ * Common Type Definitions
+ */
+
+export type LabelObject = Record<string, string>;
+
+/**
  * Network Type Definitions
  */
 
@@ -73,4 +79,33 @@ export interface Network {
   isEqualConfig(network: Network): boolean;
   toComposeObject(): ComposeNetworkConfig;
   toDockerConfig(): any;
+}
+
+/**
+ * Volume Type Definitions
+ */
+
+export interface ComposeVolumeConfig {
+  driver?: string;
+  driver_opts?: Record<string, string>;
+  labels?: Record<string, string>;
+}
+
+export interface VolumeConfig {
+  driver: string;
+  driverOpts?: Record<string, string>;
+  labels: Record<string, string>;
+}
+
+export interface Volume {
+  name: string;
+  appId: number;
+  appUuid: string;
+  config: VolumeConfig;
+  
+  // Methods
+  create(): Promise<void>;
+  remove(): Promise<void>;
+  isEqualConfig(volume: Volume): boolean;
+  toComposeObject(): ComposeVolumeConfig;
 }

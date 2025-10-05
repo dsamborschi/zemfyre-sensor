@@ -70,6 +70,7 @@ export interface SimpleState {
 
 export type SimpleStep =
 	| { action: 'downloadImage'; appId: number; imageName: string }
+	| { action: 'createVolume'; appId: number; volumeName: string }
 	| { action: 'createNetwork'; appId: number; networkName: string }
 	| {
 			action: 'stopContainer';
@@ -85,6 +86,7 @@ export type SimpleStep =
 	  }
 	| { action: 'startContainer'; appId: number; service: SimpleService }
 	| { action: 'removeNetwork'; appId: number; networkName: string }
+	| { action: 'removeVolume'; appId: number; volumeName: string }
 	| { action: 'noop' };
 
 // ============================================================================
@@ -439,6 +441,72 @@ export class ContainerManager extends EventEmitter {
 		return steps;
 	}
 
+	private reconcileVolumesForApp(
+		appId: number,
+		currentApp: SimpleApp | undefined,
+		targetApp: SimpleApp | undefined,
+	): SimpleStep[] {
+		const steps: SimpleStep[] = [];
+
+		// Collect all volume names from current and target services
+		const currentVolumes = new Set<string>();
+		const targetVolumes = new Set<string>();
+
+		if (currentApp) {
+			for (const service of currentApp.services) {
+				if (service.config.volumes) {
+					for (const volume of service.config.volumes) {
+						// Only track named volumes (format: "volumeName:/path")
+						// Skip bind mounts (format: "/host/path:/container/path")
+						if (!volume.startsWith('/')) {
+							const volumeName = volume.split(':')[0];
+							currentVolumes.add(volumeName);
+						}
+					}
+				}
+			}
+		}
+
+		if (targetApp) {
+			for (const service of targetApp.services) {
+				if (service.config.volumes) {
+					for (const volume of service.config.volumes) {
+						// Only track named volumes (format: "volumeName:/path")
+						// Skip bind mounts (format: "/host/path:/container/path")
+						if (!volume.startsWith('/')) {
+							const volumeName = volume.split(':')[0];
+							targetVolumes.add(volumeName);
+						}
+					}
+				}
+			}
+		}
+
+		// Volumes to create (in target but not in current)
+		for (const volumeName of targetVolumes) {
+			if (!currentVolumes.has(volumeName)) {
+				steps.push({
+					action: 'createVolume',
+					appId,
+					volumeName,
+				});
+			}
+		}
+
+		// Volumes to remove (in current but not in target)
+		for (const volumeName of currentVolumes) {
+			if (!targetVolumes.has(volumeName)) {
+				steps.push({
+					action: 'removeVolume',
+					appId,
+					volumeName,
+				});
+			}
+		}
+
+		return steps;
+	}
+
 	// ========================================================================
 	// STEP CALCULATION (The Brain)
 	// ========================================================================
@@ -457,6 +525,15 @@ export class ContainerManager extends EventEmitter {
 		for (const appId of allAppIds) {
 			const currentApp = currentApps[appId];
 			const targetApp = targetApps[appId];
+
+			// === VOLUME STEPS (BEFORE NETWORKS) ===
+			// Volumes must be created before networks/containers can use them
+			const volumeCreateSteps = this.reconcileVolumesForApp(
+				appId,
+				currentApp,
+				targetApp,
+			).filter((step) => step.action === 'createVolume');
+			steps.push(...volumeCreateSteps);
 
 			// === NETWORK STEPS (BEFORE CONTAINER STEPS) ===
 			// Networks must be created before containers can use them
@@ -489,6 +566,15 @@ export class ContainerManager extends EventEmitter {
 				targetApp,
 			).filter((step) => step.action === 'removeNetwork');
 			steps.push(...networkRemoveSteps);
+
+			// === VOLUME CLEANUP (AFTER EVERYTHING) ===
+			// Volumes should be removed last, after containers and networks
+			const volumeRemoveSteps = this.reconcileVolumesForApp(
+				appId,
+				currentApp,
+				targetApp,
+			).filter((step) => step.action === 'removeVolume');
+			steps.push(...volumeRemoveSteps);
 		}
 
 		return steps;
@@ -695,6 +781,14 @@ export class ContainerManager extends EventEmitter {
 				await this.removeNetwork(step.appId, step.networkName);
 				break;
 
+			case 'createVolume':
+				await this.createVolume(step.appId, step.volumeName);
+				break;
+
+			case 'removeVolume':
+				await this.removeVolume(step.appId, step.volumeName);
+				break;
+
 			case 'noop':
 				// Do nothing
 				break;
@@ -796,6 +890,52 @@ export class ContainerManager extends EventEmitter {
 		} else {
 			// Simulated for testing
 			console.log(`    [SIMULATED] Removing network: ${networkName} for app ${appId}`);
+			await this.sleep(50);
+		}
+	}
+
+	private async createVolume(appId: number, volumeName: string): Promise<void> {
+		if (this.useRealDocker) {
+			const { Volume } = await import('./compose/volume.js');
+			const appUuid = String(appId);
+
+			const volume = Volume.fromComposeObject(
+				volumeName,
+				appId,
+				appUuid,
+				{
+					driver: 'local',
+					labels: {
+						'iotistic.managed': 'true',
+						'iotistic.app-id': String(appId),
+					},
+				},
+			);
+
+			await volume.create();
+			console.log(`✅ Created volume: ${volumeName} (${appId}_${volumeName})`);
+		} else {
+			console.log(`    [SIMULATED] Creating volume: ${volumeName} for app ${appId}`);
+			await this.sleep(50);
+		}
+	}
+
+	private async removeVolume(appId: number, volumeName: string): Promise<void> {
+		if (this.useRealDocker) {
+			const { Volume } = await import('./compose/volume.js');
+			const appUuid = String(appId);
+
+			const volume = Volume.fromComposeObject(
+				volumeName,
+				appId,
+				appUuid,
+				{},
+			);
+
+			await volume.remove();
+			console.log(`✅ Removed volume: ${volumeName} (${appId}_${volumeName})`);
+		} else {
+			console.log(`    [SIMULATED] Removing volume: ${volumeName} for app ${appId}`);
 			await this.sleep(50);
 		}
 	}
