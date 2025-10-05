@@ -227,9 +227,18 @@ export async function isUndervolted(): Promise<boolean> {
 export async function getTopProcesses(): Promise<ProcessInfo[]> {
 	try {
 		console.log('[Metrics] Fetching process list...');
+		
+		// Try to get all processes including system processes
 		const processes = await systeminformation.processes();
 		
 		console.log(`[Metrics] Total processes found: ${processes.list.length}`);
+		console.log(`[Metrics] Process data sample:`, JSON.stringify(processes.list.slice(0, 2), null, 2));
+		
+		// If systeminformation returns empty, try fallback method
+		if (processes.list.length === 0) {
+			console.log('[Metrics] systeminformation returned 0 processes, trying ps command fallback...');
+			return await getTopProcessesFallback();
+		}
 		
 		// Filter out kernel threads (names starting with [])
 		// Keep all user processes including those with low CPU/memory
@@ -266,6 +275,49 @@ export async function getTopProcesses(): Promise<ProcessInfo[]> {
 		return formattedProcs;
 	} catch (error) {
 		console.error('[Metrics] Failed to get top processes:', error);
+		// Try fallback method
+		console.log('[Metrics] Attempting fallback method...');
+		return await getTopProcessesFallback();
+	}
+}
+
+/**
+ * Fallback method using ps command directly
+ * Used when systeminformation fails to get process list
+ */
+async function getTopProcessesFallback(): Promise<ProcessInfo[]> {
+	try {
+		// Use ps command to get process info
+		// Format: PID %CPU %MEM COMMAND
+		const { stdout } = await exec('ps aux --sort=-%cpu | head -n 11 | tail -n +2');
+		
+		const lines = stdout.trim().split('\n');
+		const processes: ProcessInfo[] = [];
+		
+		for (const line of lines) {
+			// Parse ps output: USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND
+			const parts = line.trim().split(/\s+/);
+			if (parts.length >= 11) {
+				const pid = parseInt(parts[1]);
+				const cpu = parseFloat(parts[2]);
+				const mem = parseFloat(parts[3]);
+				const command = parts.slice(10).join(' ');
+				const name = parts[10].split('/').pop() || parts[10];
+				
+				processes.push({
+					pid,
+					name,
+					cpu: Math.round(cpu * 10) / 10,
+					mem: Math.round(mem * 10) / 10,
+					command,
+				});
+			}
+		}
+		
+		console.log(`[Metrics] Fallback found ${processes.length} processes`);
+		return processes;
+	} catch (error) {
+		console.error('[Metrics] Fallback method also failed:', error);
 		return [];
 	}
 }
