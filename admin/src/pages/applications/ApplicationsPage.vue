@@ -5,6 +5,7 @@ import { useDevicesStore } from '../../stores/devices'
 import { useModal, useToast } from 'vuestic-ui'
 import type { Application, ServiceConfig, LogEntry } from '../../data/pages/applications'
 import { applyState, getServiceLogs, executeContainerCommand } from '../../data/pages/applications'
+import { applicationManagerApi } from '../../services/application-manager-api'
 
 const applicationStore = useApplicationManagerStore()
 const devicesStore = useDevicesStore()
@@ -656,6 +657,68 @@ const pendingApplications = computed(() => {
 // Reconciliation status tracking
 const reconciliationStatus = ref<{ status: string; message: string; timestamp: number } | null>(null)
 const isReconciling = ref(false)
+const reconciliationDetails = ref<{
+  isReconciling: boolean
+  lastError: string | null
+  currentApps: number
+  targetApps: number
+  currentServices: number
+  targetServices: number
+} | null>(null)
+let statusPollTimer: NodeJS.Timeout | null = null
+
+// Fetch reconciliation status from API
+const fetchReconciliationStatus = async () => {
+  try {
+    const response = await fetch(applicationManagerApi.getStatus())
+    if (response.ok) {
+      const data = await response.json()
+      reconciliationDetails.value = {
+        isReconciling: data.isReconciling || data.isApplying,
+        lastError: data.lastError,
+        currentApps: data.currentApps || 0,
+        targetApps: data.targetApps || 0,
+        currentServices: data.currentServices || 0,
+        targetServices: data.targetServices || 0,
+      }
+      
+      // If reconciling, refresh state to show progress
+      if (reconciliationDetails.value.isReconciling) {
+        await applicationStore.fetchState()
+      }
+    }
+  } catch (error) {
+    console.error('Failed to fetch reconciliation status:', error)
+  }
+}
+
+// Start polling for reconciliation status
+const startStatusPolling = () => {
+  if (statusPollTimer) return
+  
+  fetchReconciliationStatus()
+  statusPollTimer = setInterval(() => {
+    fetchReconciliationStatus()
+  }, 2000) // Poll every 2 seconds
+}
+
+// Stop polling
+const stopStatusPolling = () => {
+  if (statusPollTimer) {
+    clearInterval(statusPollTimer)
+    statusPollTimer = null
+  }
+}
+
+// Start polling when component mounts
+onMounted(() => {
+  startStatusPolling()
+})
+
+// Cleanup on unmount
+onUnmounted(() => {
+  stopStatusPolling()
+})
 
 // Apply pending application
 const applyPendingApp = async (appId: number) => {
@@ -765,24 +828,8 @@ const isApplicationActionsDisabled = computed(() => {
 const enhancedServiceConfig = computed(() => {
   if (!selectedService.value || !selectedServiceApp.value) return null
   
-  // Try to get the target state config for this service
-  const targetApps = applicationStore.currentState?.target?.apps || {}
-  const targetApp = targetApps[selectedServiceApp.value.appId]
-  
-  if (targetApp) {
-    const targetService = targetApp.services.find(
-      (s: ServiceConfig) => s.serviceId === selectedService.value!.serviceId
-    )
-    
-    if (targetService && targetService.config) {
-      // Merge current service config with target service config
-      return {
-        ...selectedService.value.config,
-        ...targetService.config,
-      }
-    }
-  }
-  
+  // Show the actual current state configuration (what's running now)
+  // This matches what's displayed on the service card
   return selectedService.value.config
 })
 
@@ -1010,6 +1057,55 @@ const toggleAutoRefresh = () => {
     @close="applicationStore.clearError()"
   >
     {{ applicationStore.error }}
+  </VaAlert>
+
+  <!-- Reconciliation Status Banner -->
+  <VaAlert
+    v-if="reconciliationDetails && reconciliationDetails.isReconciling"
+    color="info"
+    class="mb-4"
+  >
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <VaProgressCircle
+          indeterminate
+          size="small"
+        />
+        <div>
+          <div class="font-semibold">
+            Reconciliation in Progress
+          </div>
+          <div class="text-sm">
+            Updating containers: {{ reconciliationDetails.currentServices }} current → {{ reconciliationDetails.targetServices }} target
+          </div>
+        </div>
+      </div>
+      <VaBadge
+        text="Syncing..."
+        color="info"
+      />
+    </div>
+  </VaAlert>
+
+  <!-- Reconciliation Error -->
+  <VaAlert
+    v-if="reconciliationDetails && reconciliationDetails.lastError && !reconciliationDetails.isReconciling"
+    color="warning"
+    class="mb-4"
+    closeable
+    @close="reconciliationDetails.lastError = null"
+  >
+    <div class="flex items-center gap-2">
+      <VaIcon name="error" />
+      <div>
+        <div class="font-semibold">
+          Last Reconciliation Error
+        </div>
+        <div class="text-sm">
+          {{ reconciliationDetails.lastError }}
+        </div>
+      </div>
+    </div>
   </VaAlert>
 
   <!-- Summary Cards -->
