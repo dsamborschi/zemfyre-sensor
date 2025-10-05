@@ -128,12 +128,12 @@ async function getWithBothLabels() {
 	const [legacyNetworks, currentNetworks] = await Promise.all([
 		docker.listNetworks({
 			filters: {
-				label: ['io.resin.supervised'],
+				label: ['iotistic.managed'],
 			},
 		}),
 		docker.listNetworks({
 			filters: {
-				label: ['io.balena.supervised'],
+				label: ['iotistic.managed'],
 			},
 		}),
 	]);

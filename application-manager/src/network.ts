@@ -74,18 +74,18 @@ class NetworkImpl implements NetworkIface {
 		// Detect the name and appId from the inspect data
 		const { name, appId, appUuid } = Network.deconstructDockerName(
 			network.Name,
-			parseInt(labels['io.balena.app-id'], 10),
+			parseInt(labels['iotistic.app-id'], 10),
 		);
 
-		if (!appId && isNaN(parseInt(labels['io.balena.app-id'], 10))) {
-			// This should never happen as supervised networks will always have either
+		if (!appId && isNaN(parseInt(labels['iotistic.app-id'], 10))) {
+			// This should never happen as managed networks will always have either
 			// the id or the label
 			throw new InternalInconsistencyError(
 				`Could not read app id from network: ${network.Name}`,
 			);
 		}
 
-		ret.appId = appId ?? parseInt(labels['io.balena.app-id'], 10);
+		ret.appId = appId ?? parseInt(labels['iotistic.app-id'], 10);
 		ret.name = name;
 		ret.appUuid = appUuid;
 
@@ -106,7 +106,7 @@ class NetworkImpl implements NetworkIface {
 			enableIPv6: network.EnableIPv6,
 			internal: network.Internal,
 			labels: _.omit(ComposeUtils.normalizeLabels(labels), [
-				'io.balena.supervised',
+				'iotistic.managed',
 			]),
 			options: network.Options ?? {},
 			configOnly: network.ConfigOnly,
@@ -153,7 +153,7 @@ class NetworkImpl implements NetworkIface {
 			enableIPv6: network.enable_ipv6 || false,
 			internal: network.internal || false,
 			labels: {
-				'io.balena.app-id': String(appId),
+				'iotistic.app-id': String(appId),
 				...ComposeUtils.normalizeLabels(network.labels || {}),
 			},
 			options: network.driver_opts || {},
@@ -163,10 +163,10 @@ class NetworkImpl implements NetworkIface {
 		// Add label if there's non-default ipam config
 		// e.g. explicitly defined subnet or gateway.
 		// When updating between a release where the ipam config
-		// changes, this label informs the Supervisor that
+		// changes, this label informs the container manager that
 		// there's an ipam diff that requires recreating the network.
 		if (net.config.ipam.config.length > 0) {
-			net.config.labels['io.balena.private.ipam.config'] = 'true';
+			net.config.labels['iotistic.ipam.config'] = 'true';
 		}
 
 		return net;
@@ -217,7 +217,7 @@ class NetworkImpl implements NetworkIface {
 			Labels: _.merge(
 				{},
 				{
-					'io.balena.supervised': 'true',
+					'iotistic.managed': 'true',
 				},
 				this.config.labels,
 			),
