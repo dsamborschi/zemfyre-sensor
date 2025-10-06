@@ -2,8 +2,8 @@
  * Main entry point for standalone application manager
  */
 
-export * from './container-manager';
+export * from './compose/container-manager';
 
 // Re-export the default export as a named export
-import ContainerManager from './container-manager';
+import ContainerManager from './compose/container-manager';
 export default ContainerManager;

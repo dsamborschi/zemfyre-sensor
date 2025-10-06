@@ -5,7 +5,7 @@
  * trigger container recreation during reconciliation.
  */
 
-import { ContainerManager } from './src/container-manager';
+import { ContainerManager } from './src/compose/container-manager';
 
 async function testNetworkReconciliation() {
 	console.log('=== Testing Network Reconciliation Fix ===\n');

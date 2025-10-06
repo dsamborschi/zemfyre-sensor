@@ -9,8 +9,8 @@
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import bodyParser from 'body-parser';
-import ContainerManager from '../container-manager';
-import type { SimpleState, SimpleApp, SimpleService } from '../container-manager';
+import ContainerManager from '../compose/container-manager';
+import type { SimpleState, SimpleApp, SimpleService } from '../compose/container-manager';
 import * as db from '../db';
 import * as systemMetrics from '../system-metrics';
 import { LocalLogBackend } from '../logging/local-backend';

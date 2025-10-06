@@ -5,7 +5,7 @@
  * can communicate via DNS names
  */
 
-import { ContainerManager, SimpleState } from './src/container-manager';
+import { ContainerManager, SimpleState } from './src/compose/container-manager';
 
 async function testNetworkIntegration() {
 	console.log('\n🧪 Testing Network Integration\n');

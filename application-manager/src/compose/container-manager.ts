@@ -24,10 +24,10 @@ import { EventEmitter } from 'events';
 import _ from 'lodash';
 import type Docker from 'dockerode';
 import { DockerManager } from './docker-manager';
-import * as db from './db';
-import type { ContainerLogMonitor } from './logging/monitor';
-import * as networkManager from './compose/network-manager';
-import { Network } from './compose/network';
+import * as db from '../db';
+import type { ContainerLogMonitor } from '../logging/monitor';
+import * as networkManager from './network-manager';
+import { Network } from './network';
 
 // ============================================================================
 // TYPES (Simplified)
@@ -896,7 +896,7 @@ export class ContainerManager extends EventEmitter {
 
 	private async createVolume(appId: number, volumeName: string): Promise<void> {
 		if (this.useRealDocker) {
-			const { Volume } = await import('./compose/volume.js');
+			const { Volume } = await import('./volume.js');
 			const appUuid = String(appId);
 
 			const volume = Volume.fromComposeObject(
@@ -922,7 +922,7 @@ export class ContainerManager extends EventEmitter {
 
 	private async removeVolume(appId: number, volumeName: string): Promise<void> {
 		if (this.useRealDocker) {
-			const { Volume } = await import('./compose/volume.js');
+			const { Volume } = await import('./volume.js');
 			const appUuid = String(appId);
 
 			const volume = Volume.fromComposeObject(
