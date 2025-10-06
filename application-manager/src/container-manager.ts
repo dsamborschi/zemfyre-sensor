@@ -26,8 +26,8 @@ import type Docker from 'dockerode';
 import { DockerManager } from './docker-manager';
 import * as db from './db';
 import type { ContainerLogMonitor } from './logging/monitor';
-import * as networkManager from './network-manager';
-import { Network } from './network';
+import * as networkManager from './compose/network-manager';
+import { Network } from './compose/network';
 
 // ============================================================================
 // TYPES (Simplified)

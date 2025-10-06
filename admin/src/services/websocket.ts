@@ -20,7 +20,7 @@ export interface MetricsWebSocketOptions {
 
 export function useMetricsWebSocket(options: MetricsWebSocketOptions = {}) {
   // Use environment variable for dev, or device IP for production
-  const defaultUrl = `ws://192.168.2.30/ws/metrics`
+  const defaultUrl = `ws://192.168.2.30:3002/ws/metrics`
   
   const {
     url = defaultUrl,
@@ -51,11 +51,17 @@ export function useMetricsWebSocket(options: MetricsWebSocketOptions = {}) {
     }
 
     // Transform backend metrics to Device format
+    // Convert WebSocket URL to HTTP API URL
+    const apiUrl = url
+      .replace('/ws/metrics', '/api/v1')
+      .replace(/^ws:/, 'http:')
+      .replace(/^wss:/, 'https:')
+    
     const device: Device = {
       id: data.hostname || 'local',
       name: data.hostname || 'Local Device',
       hostname: data.hostname || 'localhost',
-      apiUrl: url.replace('/ws/metrics', ''),
+      apiUrl,
       status: 'online',
       lastSeen: new Date(data.timestamp).toISOString(),
       deviceType: 'Raspberry Pi',

@@ -1,21 +1,21 @@
 import _ from 'lodash';
 import type dockerode from 'dockerode';
 
-import { docker } from './lib/docker-utils';
-import logTypes = require('./lib/log-types');
-import * as logger from './logging';
-import log from './lib/supervisor-console';
-import * as ComposeUtils from './compose/utils';
+import { docker } from '../lib/docker-utils';
+import logTypes = require('../lib/log-types');
+import * as logger from '../logging';
+import log from '../lib/supervisor-console';
+import * as ComposeUtils from './utils';
 
 import type {
 	ComposeNetworkConfig,
 	NetworkConfig,
 	NetworkInspectInfo,
 	Network as NetworkIface,
-} from './compose/types';
+} from './types';
 
-import { InvalidNetworkNameError } from './errors';
-import { InternalInconsistencyError } from './lib/errors';
+import { InvalidNetworkNameError } from '../errors';
+import { InternalInconsistencyError } from '../lib/errors';
 
 export type Network = NetworkIface;
 

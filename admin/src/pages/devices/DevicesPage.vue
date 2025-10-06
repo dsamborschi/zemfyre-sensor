@@ -6,7 +6,7 @@ import { useModal, useToast } from 'vuestic-ui'
 import type { AddDeviceRequest } from '../../data/types/device'
 import ApplicationCard from '../applications/cards/ApplicationCard.vue'
 import type { Application } from '../../data/pages/applications'
-import { useMetricsWebSocket } from '../../services/metrics-websocket'
+import { useMetricsWebSocket } from '../../services/websocket'
 
 const applicationStore = useApplicationManagerStore()
 const devicesStore = useDevicesStore()
@@ -175,24 +175,6 @@ const reconcileState = async (deviceId: string, deviceName: string) => {
   }
 }
 
-// Switch device
-const setActiveDevice = (deviceId: string) => {
-  devicesStore.setActiveDevice(deviceId)
-}
-
-// Remove device
-const confirmRemoveDevice = async (deviceId: string, deviceName: string) => {
-  const agreed = await confirm({
-    maxWidth: '380px',
-    message: `Are you sure you want to remove device "${deviceName}"?`,
-    title: 'Remove Device',
-    size: 'small',
-  })
-  
-  if (agreed) {
-    devicesStore.removeDevice(deviceId)
-  }
-}
 
 // Get status color
 const getStatusColor = (status: string) => {
@@ -209,22 +191,6 @@ const getStatusColor = (status: string) => {
 // Refresh all devices
 const refreshDevices = async () => {
   await devicesStore.refreshAllDevicesStatus()
-}
-
-// Refresh single device
-const refreshDevice = async (deviceId: string) => {
-  try {
-    await devicesStore.refreshDeviceStatus(deviceId)
-    useToast().init({ 
-      message: 'Device refreshed successfully', 
-      color: 'success' 
-    })
-  } catch (error: any) {
-    useToast().init({ 
-      message: `Failed to refresh device: ${error.message}`, 
-      color: 'danger' 
-    })
-  }
 }
 
 // ==================== Auto-Refresh Functionality ====================

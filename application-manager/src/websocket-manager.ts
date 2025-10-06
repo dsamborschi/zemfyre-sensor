@@ -181,9 +181,9 @@ export class WebSocketManager {
 				}
 			}
 
-			console.log(`[WebSocket] Broadcast complete: ✅ ${successCount} successful, ❌ ${failCount} failed\n`);
+			console.log(`[WebSocket] Broadcast complete:  ${successCount} successful, ${failCount} failed\n`);
 		} catch (error) {
-			console.error('[WebSocket] ❌ Failed to get system metrics for broadcast:', error);
+			console.error('[WebSocket] Failed to get system metrics for broadcast:', error);
 		}
 	}
 
