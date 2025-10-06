@@ -59,7 +59,7 @@ export class WebSocketManager {
 			const clientId = this.generateClientId();
 			const clientIp = req.socket.remoteAddress || 'unknown';
 			
-			console.log(`📱 Client connected: ${clientId} from ${clientIp}`);
+			console.log(`Client connected: ${clientId} from ${clientIp}`);
 
 			// Create client subscription
 			const subscription: ClientSubscription = {
@@ -91,7 +91,7 @@ export class WebSocketManager {
 
 			// Handle client disconnect
 			ws.on('close', () => {
-				console.log(`📴 Client disconnected: ${clientId}`);
+				console.log(`Client disconnected: ${clientId}`);
 				this.clients.delete(clientId);
 			});
 
@@ -140,7 +140,19 @@ export class WebSocketManager {
 	 */
 	private async broadcastMetrics(): Promise<void> {
 		try {
+			console.log(`\n[WebSocket] Starting metrics broadcast...`);
+			console.log(`[WebSocket] Connected clients: ${this.clients.size}`);
+			
 			const metrics = await systemMetrics.getSystemMetrics();
+			console.log(`[WebSocket] Metrics collected:`, {
+				cpu_usage: metrics.cpu_usage?.toFixed(1) + '%',
+				memory_percent: metrics.memory_percent?.toFixed(1) + '%',
+				storage_percent: metrics.storage_percent?.toFixed(1) + '%',
+				cpu_temp: metrics.cpu_temp ? metrics.cpu_temp.toFixed(1) + '°C' : 'N/A',
+				hostname: metrics.hostname,
+				network_interfaces: metrics.network_interfaces?.length || 0,
+			});
+			
 			const message: WebSocketMessage = {
 				type: 'metrics',
 				data: metrics,
@@ -169,11 +181,9 @@ export class WebSocketManager {
 				}
 			}
 
-			if (successCount > 0) {
-				console.log(`📡 Metrics broadcast to ${successCount} client(s) ${failCount > 0 ? `(${failCount} failed)` : ''}`);
-			}
+			console.log(`[WebSocket] Broadcast complete: ✅ ${successCount} successful, ❌ ${failCount} failed\n`);
 		} catch (error) {
-			console.error('Failed to get system metrics for broadcast:', error);
+			console.error('[WebSocket] ❌ Failed to get system metrics for broadcast:', error);
 		}
 	}
 
