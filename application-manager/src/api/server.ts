@@ -19,6 +19,7 @@ import { ContainerLogMonitor } from '../logging/monitor';
 import type { LogFilter, LogBackend } from '../logging/types';
 import { DeviceManager } from '../provisioning';
 import type { ProvisioningConfig, ProvisionRequest } from '../provisioning';
+import { WebSocketManager } from '../websocket-manager';
 
 // ============================================================================
 // SERVER SETUP
@@ -38,6 +39,7 @@ let containerManager: ContainerManager;
 let logBackend: LocalLogBackend;
 let logMonitor: ContainerLogMonitor;
 let deviceManager: DeviceManager;
+let websocketManager: WebSocketManager;
 
 // Initialize database and container manager
 async function initializeServer() {
@@ -349,6 +351,28 @@ app.get('/api/v1/status', (req: Request, res: Response) => {
 	} catch (error) {
 		res.status(500).json({
 			error: 'Failed to get status',
+			message: error instanceof Error ? error.message : String(error),
+		});
+	}
+});
+
+/**
+ * GET /api/v1/ws/stats
+ * Get WebSocket connection statistics
+ */
+app.get('/api/v1/ws/stats', (req: Request, res: Response) => {
+	try {
+		if (!websocketManager) {
+			return res.status(503).json({
+				error: 'WebSocket manager not initialized',
+			});
+		}
+
+		const stats = websocketManager.getStats();
+		res.json(stats);
+	} catch (error) {
+		res.status(500).json({
+			error: 'Failed to get WebSocket stats',
 			message: error instanceof Error ? error.message : String(error),
 		});
 	}
@@ -1000,8 +1024,8 @@ initializeServer().then(() => {
 		isReconciling = false;
 	});
 
-	// Start Express server
-	app.listen(PORT, () => {
+	// Start Express server and capture HTTP server instance
+	const httpServer = app.listen(PORT, () => {
 		console.log('='.repeat(80));
 		console.log('🚀 Simple Container Manager API');
 		console.log('='.repeat(80));
@@ -1009,7 +1033,7 @@ initializeServer().then(() => {
 		console.log(`Documentation: http://localhost:${PORT}/api/docs`);
 		console.log(`Docker mode: ${USE_REAL_DOCKER ? 'REAL' : 'SIMULATED'}`);
 		console.log('='.repeat(80));
-		console.log('\nEndpoints:');
+		console.log('\nHTTP Endpoints:');
 		console.log(`  GET    /api/v1/state                      - Get current and target state`);
 		console.log(`  POST   /api/v1/state/target               - Set target state`);
 		console.log(`  POST   /api/v1/state/apply                - Apply target state`);
@@ -1020,7 +1044,38 @@ initializeServer().then(() => {
 		console.log(`  DELETE /api/v1/apps/:appId                - Remove app`);
 		console.log(`  GET    /api/v1/logs                       - Get container logs`);
 		console.log(`  POST   /api/v1/containers/:id/exec        - Execute command in container`);
+		console.log('='.repeat(80));
+		console.log('\nWebSocket Endpoints:');
+		console.log(`  WS     ws://localhost:${PORT}/ws/metrics  - Real-time metrics updates`);
 		console.log('='.repeat(80) + '\n');
+
+		// Initialize WebSocket server
+		const wsIntervalMs = parseInt(process.env.WS_METRICS_INTERVAL || '5000', 10);
+		websocketManager = new WebSocketManager(wsIntervalMs);
+		websocketManager.initialize(httpServer);
+	});
+
+	// Graceful shutdown
+	process.on('SIGTERM', async () => {
+		console.log('SIGTERM received, shutting down gracefully...');
+		if (websocketManager) {
+			await websocketManager.shutdown();
+		}
+		httpServer.close(() => {
+			console.log('HTTP server closed');
+			process.exit(0);
+		});
+	});
+
+	process.on('SIGINT', async () => {
+		console.log('\nSIGINT received, shutting down gracefully...');
+		if (websocketManager) {
+			await websocketManager.shutdown();
+		}
+		httpServer.close(() => {
+			console.log('HTTP server closed');
+			process.exit(0);
+		});
 	});
 }).catch((error) => {
 	console.error('Failed to initialize server:', error);

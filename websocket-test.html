@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Metrics Test</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #4ec9b0;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+        .connected {
+            background: #0e7a0d;
+            color: white;
+        }
+        .disconnected {
+            background: #a1260d;
+            color: white;
+        }
+        .connecting {
+            background: #f48225;
+            color: white;
+        }
+        .metrics {
+            background: #252526;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .metric-row {
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 10px;
+            padding: 5px 0;
+            border-bottom: 1px solid #3e3e42;
+        }
+        .metric-label {
+            color: #9cdcfe;
+            font-weight: bold;
+        }
+        .metric-value {
+            color: #ce9178;
+        }
+        button {
+            background: #0e639c;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            font-family: inherit;
+        }
+        button:hover {
+            background: #1177bb;
+        }
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        .logs {
+            background: #252526;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            padding: 3px 0;
+            font-size: 12px;
+        }
+        .log-time {
+            color: #608b4e;
+        }
+        .log-message {
+            color: #d4d4d4;
+        }
+        .processes {
+            background: #252526;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+        .process-row {
+            display: grid;
+            grid-template-columns: 80px 200px 80px 80px 1fr;
+            gap: 10px;
+            padding: 5px 0;
+            border-bottom: 1px solid #3e3e42;
+            font-size: 13px;
+        }
+        .process-header {
+            font-weight: bold;
+            color: #4ec9b0;
+        }
+    </style>
+</head>
+<body>
+    <h1>🔌 WebSocket Metrics Test</h1>
+    
+    <div id="status" class="status connecting">Connecting...</div>
+    
+    <div>
+        <button id="connectBtn" onclick="connect()" disabled>Connect</button>
+        <button id="disconnectBtn" onclick="disconnect()">Disconnect</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <h2>📊 Current Metrics</h2>
+    <div id="metrics" class="metrics">
+        <p>Waiting for data...</p>
+    </div>
+
+    <h2>🔄 Top Processes</h2>
+    <div id="processes" class="processes">
+        <p>Waiting for data...</p>
+    </div>
+
+    <h2>📝 Connection Log</h2>
+    <div id="logs" class="logs"></div>
+
+    <script>
+        let ws = null;
+        let reconnectTimeout = null;
+
+        function log(message) {
+            const logs = document.getElementById('logs');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            entry.innerHTML = `<span class="log-time">${time}</span> - <span class="log-message">${message}</span>`;
+            logs.appendChild(entry);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function updateStatus(status, className) {
+            const statusEl = document.getElementById('status');
+            statusEl.textContent = status;
+            statusEl.className = `status ${className}`;
+            
+            document.getElementById('connectBtn').disabled = className === 'connected' || className === 'connecting';
+            document.getElementById('disconnectBtn').disabled = className === 'disconnected';
+        }
+
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                log('⚠️ Already connected');
+                return;
+            }
+
+            log('🔌 Connecting to ws://localhost:3002/ws/metrics...');
+            updateStatus('Connecting...', 'connecting');
+
+            try {
+                ws = new WebSocket('ws://localhost:3002/ws/metrics');
+
+                ws.onopen = () => {
+                    log('✅ Connected to WebSocket server');
+                    updateStatus('Connected ✅', 'connected');
+                };
+
+                ws.onmessage = (event) => {
+                    try {
+                        const message = JSON.parse(event.data);
+                        handleMessage(message);
+                    } catch (error) {
+                        log(`❌ Failed to parse message: ${error.message}`);
+                    }
+                };
+
+                ws.onerror = (error) => {
+                    log(`❌ WebSocket error: ${error}`);
+                    updateStatus('Error ❌', 'disconnected');
+                };
+
+                ws.onclose = () => {
+                    log('📴 Disconnected from WebSocket server');
+                    updateStatus('Disconnected 📴', 'disconnected');
+                    ws = null;
+                };
+            } catch (error) {
+                log(`❌ Connection failed: ${error.message}`);
+                updateStatus('Error ❌', 'disconnected');
+            }
+        }
+
+        function disconnect() {
+            if (ws) {
+                log('🔌 Disconnecting...');
+                ws.close();
+                ws = null;
+            }
+        }
+
+        function handleMessage(message) {
+            log(`📨 Received message type: ${message.type}`);
+
+            if (message.type === 'connected') {
+                log(`✅ Connection confirmed. Client ID: ${message.data.clientId}`);
+            } else if (message.type === 'metrics') {
+                displayMetrics(message.data);
+                displayProcesses(message.data.top_processes);
+            } else if (message.type === 'error') {
+                log(`❌ Server error: ${message.message}`);
+            }
+        }
+
+        function displayMetrics(data) {
+            const metricsEl = document.getElementById('metrics');
+            metricsEl.innerHTML = `
+                <div class="metric-row">
+                    <div class="metric-label">CPU Usage:</div>
+                    <div class="metric-value">${data.cpu_usage}% (${data.cpu_cores} cores)</div>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-label">CPU Temperature:</div>
+                    <div class="metric-value">${data.cpu_temp !== null ? data.cpu_temp + '°C' : 'N/A'}</div>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-label">Memory:</div>
+                    <div class="metric-value">${data.memory_usage} MB / ${data.memory_total} MB (${data.memory_percent}%)</div>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-label">Storage:</div>
+                    <div class="metric-value">${data.storage_usage !== null ? `${data.storage_usage} MB / ${data.storage_total} MB (${data.storage_percent}%)` : 'N/A'}</div>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-label">Uptime:</div>
+                    <div class="metric-value">${formatUptime(data.uptime)}</div>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-label">Hostname:</div>
+                    <div class="metric-value">${data.hostname}</div>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-label">Undervolted:</div>
+                    <div class="metric-value">${data.is_undervolted ? '⚠️ YES' : '✅ NO'}</div>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-label">Network Interfaces:</div>
+                    <div class="metric-value">${data.network_interfaces.length}</div>
+                </div>
+                <div class="metric-row">
+                    <div class="metric-label">Last Update:</div>
+                    <div class="metric-value">${new Date(data.timestamp).toLocaleTimeString()}</div>
+                </div>
+            `;
+        }
+
+        function displayProcesses(processes) {
+            const processesEl = document.getElementById('processes');
+            if (!processes || processes.length === 0) {
+                processesEl.innerHTML = '<p>No process data available</p>';
+                return;
+            }
+
+            let html = `
+                <div class="process-row process-header">
+                    <div>PID</div>
+                    <div>Name</div>
+                    <div>CPU %</div>
+                    <div>Memory %</div>
+                    <div>Command</div>
+                </div>
+            `;
+
+            processes.forEach(proc => {
+                html += `
+                    <div class="process-row">
+                        <div>${proc.pid}</div>
+                        <div>${proc.name}</div>
+                        <div>${proc.cpu.toFixed(1)}%</div>
+                        <div>${proc.mem.toFixed(1)}%</div>
+                        <div>${escapeHtml(proc.command)}</div>
+                    </div>
+                `;
+            });
+
+            processesEl.innerHTML = html;
+        }
+
+        function formatUptime(seconds) {
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            
+            const parts = [];
+            if (days > 0) parts.push(`${days}d`);
+            if (hours > 0) parts.push(`${hours}h`);
+            if (minutes > 0) parts.push(`${minutes}m`);
+            
+            return parts.length > 0 ? parts.join(' ') : '0m';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+            log('🧹 Logs cleared');
+        }
+
+        // Auto-connect on load
+        window.addEventListener('load', () => {
+            log('🚀 Page loaded');
+            connect();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (ws) {
+                ws.close();
+            }
+        });
+    </script>
+</body>
+</html>
