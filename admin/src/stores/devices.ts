@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { Device, DeviceConnectionTest, AddDeviceRequest, DeviceStats } from '../data/types/device'
+import type { Device, DeviceConnectionTest, AddDeviceRequest, DeviceStats, DeviceApplication } from '../data/types/device'
 
 const STORAGE_KEY = 'iotistic_devices'
 const ACTIVE_DEVICE_KEY = 'iotistic_active_device'
@@ -300,7 +300,6 @@ export const useDevicesStore = defineStore('devices', {
         }
 
         // Fetch deployed applications
-        let applications = undefined
         try {
           console.log(`[Devices] Fetching applications for ${device.name} from ${device.apiUrl}/state/current`)
           const appsResponse = await fetch(`${device.apiUrl}/state/current`, {
@@ -308,9 +307,12 @@ export const useDevicesStore = defineStore('devices', {
           })
           if (appsResponse.ok) {
             const currentState = await appsResponse.json()
-            // Convert apps object to array
-            applications = Object.values(currentState.apps || {})
-            console.log(`[Devices] Applications received for ${device.name}:`, applications)
+            console.log(`[Devices] Raw API response for ${device.name}:`, currentState)
+            console.log(`[Devices] Current apps object:`, currentState.current?.apps)
+            // Convert apps object to array - API returns {current: {apps: {...}}, target: {apps: {...}}}
+           applications = Object.values(currentState.current?.apps || {}) as DeviceApplication[] 
+            console.log(`[Devices] Applications array after Object.values for ${device.name}:`, applications)
+            console.log(`[Devices] Applications array length:`, applications.length)
           } else {
             console.warn(`[Devices] Applications request failed for ${device.name}: ${appsResponse.status}`)
           }

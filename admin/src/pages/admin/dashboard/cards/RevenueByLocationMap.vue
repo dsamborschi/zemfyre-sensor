@@ -1,7 +1,7 @@
 <template>
   <VaCard class="flex flex-col">
     <VaCardTitle class="flex items-center justify-between">
-      <h1 class="card-title text-secondary font-bold uppercase">Revenue by location</h1>
+      <h1 class="card-title text-secondary font-bold uppercase">Device location</h1>
     </VaCardTitle>
     <VaCardContent class="flex-1 flex overflow-hidden">
       <VaAspectRatio class="w-full md:min-h-72 overflow-hidden relative flex items-center">
@@ -20,7 +20,7 @@ import Map from '../../../../components/va-charts/chart-types/Map.vue'
 import type { ChartData } from 'chart.js'
 
 const getRevenue = (countryName: string) => {
-  if (['United States of America', 'Canada', 'United Kingdom', 'China', 'Japan'].includes(countryName)) {
+  if (['United States of America', 'Canada', 'United Kingdom'].includes(countryName)) {
     return 10
   }
 

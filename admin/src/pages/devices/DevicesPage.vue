@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { useDevicesStore } from '../../stores/devices'
+import { useApplicationManagerStore } from '../../stores/application-manager'
 import { useModal, useToast } from 'vuestic-ui'
 import type { AddDeviceRequest } from '../../data/types/device'
+import ApplicationCard from '../applications/cards/ApplicationCard.vue'
+import type { Application } from '../../data/pages/applications'
 
+const applicationStore = useApplicationManagerStore()
 const devicesStore = useDevicesStore()
 const { confirm } = useModal()
 
@@ -251,9 +255,11 @@ const handleVisibilityChange = () => {
   }
 }
 
+
 // Initialize auto-refresh on mount
 onMounted(async () => {
   await devicesStore.initialize()
+  await applicationStore.initialize()
   
   if (autoRefreshEnabled.value) {
     startAutoRefresh()
@@ -296,6 +302,16 @@ const sortedInterfaces = computed(() => {
     ...filtered.filter((iface: any) => !iface.default)
   ];
 });
+
+const deployedApplications = computed(() => {
+  console.log('Application Store State:', applicationStore.currentState);
+  if (!applicationStore.currentState) return []
+  
+  const currentApps = applicationStore.currentState.current?.apps || {}
+
+  // Convert the apps object to an array
+  return Object.values(currentApps)
+})
 
 
 </script>
@@ -562,48 +578,68 @@ const sortedInterfaces = computed(() => {
             </VaCardContent>
           </VaCard>
 
-          <!-- Application Manager Status Card -->
-          <VaCard v-if="devicesStore.activeDevice.managerStatus" class="device-card">
+          <!-- Applications Card -->
+          <VaCard class="device-card">
             <VaCardContent>
               <div class="flex items-center gap-2 mb-4">
-                <VaIcon name="settings" color="primary" />
+                <VaIcon name="apps" color="primary" />
                 <h3 class="text-lg font-semibold">Applications</h3>
               </div>
-            <div class="status-grid">
-              <div class="status-item">
-                <span class="status-label">Apps:</span>
-                <span class="status-value">{{ devicesStore.activeDevice.managerStatus.currentApps }}</span>
-              </div>
-              <div class="status-item">
-                <span class="status-label">Services:</span>
-                <span class="status-value">{{ devicesStore.activeDevice.managerStatus.currentServices }}</span>
-              </div>
-              <div class="status-item">
-                <span class="status-label">Applying:</span>
-                <VaBadge :text="devicesStore.activeDevice.managerStatus.isApplying ? 'YES' : 'NO'" :color="devicesStore.activeDevice.managerStatus.isApplying ? 'warning' : 'success'" />
-              </div>
-              <div class="status-item">
-                <span class="status-label">Reconciling:</span>
-                <VaBadge :text="devicesStore.activeDevice.managerStatus.isReconciling ? 'YES' : 'NO'" :color="devicesStore.activeDevice.managerStatus.isReconciling ? 'info' : 'success'" />
-              </div>
-            </div>
-            <div v-if="devicesStore.activeDevice.managerStatus.lastError" class="status-error">
-              <VaIcon name="error" size="small" color="danger" />
-              <span class="error-text">{{ devicesStore.activeDevice.managerStatus.lastError }}</span>
-            </div>
+
+              <!-- Application Manager Status Summary -->
+              <div v-if="devicesStore.activeDevice.managerStatus" class="mb-4 p-3 bg-gray-50 rounded">
+                <div class="grid grid-cols-2 gap-2 text-sm">
             
-            <!-- Reconcile Button -->
-            <div v-if="needsApply(devicesStore.activeDevice)" class="apply-state-section">
-              <VaButton
-                size="small"
-                preset="secondary"
-                :loading="applyingDevices.has(devicesStore.activeDevice.id)"
-                @click="reconcileState(devicesStore.activeDevice.id, devicesStore.activeDevice.name)"
-              >
-                <VaIcon name="sync" size="small" />
-                Reconcile
-              </VaButton>
-            </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-gray-600">Applying:</span>
+                    <VaBadge 
+                      :text="devicesStore.activeDevice.managerStatus.isApplying ? 'YES' : 'NO'" 
+                      :color="devicesStore.activeDevice.managerStatus.isApplying ? 'warning' : 'success'" 
+                      size="small"
+                    />
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-gray-600">Reconciling:</span>
+                    <VaBadge 
+                      :text="devicesStore.activeDevice.managerStatus.isReconciling ? 'YES' : 'NO'" 
+                      :color="devicesStore.activeDevice.managerStatus.isReconciling ? 'info' : 'success'"
+                      size="small"
+                    />
+                  </div>
+                </div>
+                <div v-if="devicesStore.activeDevice.managerStatus.lastError" class="mt-2 flex items-center gap-2 text-sm text-red-600">
+                  <VaIcon name="error" size="small" color="danger" />
+                  <span>{{ devicesStore.activeDevice.managerStatus.lastError }}</span>
+                </div>
+              </div>
+
+              <!-- Deployed Applications List -->
+              <div v-if="deployedApplications.length > 0" class="space-y-3">
+                <ApplicationCard
+                  v-for="app in deployedApplications"
+                  :key="app.appId"
+                  :app="app as Application"
+                  :is-offline="devicesStore.activeDevice.status === 'offline'"
+                />
+              </div>
+              <div v-else class="text-center py-4 text-gray-500 text-sm">
+                <VaIcon name="inbox" size="large" color="secondary" class="mb-2" />
+                <p>No applications deployed</p>
+              </div>
+
+              <!-- Reconcile Button -->
+              <div v-if="needsApply(devicesStore.activeDevice)" class="mt-4 pt-3 border-t">
+                <VaButton
+                  size="small"
+                  preset="secondary"
+                  :loading="applyingDevices.has(devicesStore.activeDevice.id)"
+                  @click="reconcileState(devicesStore.activeDevice.id, devicesStore.activeDevice.name)"
+                  block
+                >
+                  <VaIcon name="sync" size="small" class="mr-1" />
+                  Reconcile State
+                </VaButton>
+              </div>
             </VaCardContent>
           </VaCard>
 
