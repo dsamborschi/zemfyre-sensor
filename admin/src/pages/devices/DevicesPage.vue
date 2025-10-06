@@ -6,10 +6,25 @@ import { useModal, useToast } from 'vuestic-ui'
 import type { AddDeviceRequest } from '../../data/types/device'
 import ApplicationCard from '../applications/cards/ApplicationCard.vue'
 import type { Application } from '../../data/pages/applications'
+import { useMetricsWebSocket } from '../../services/metrics-websocket'
 
 const applicationStore = useApplicationManagerStore()
 const devicesStore = useDevicesStore()
 const { confirm } = useModal()
+
+// WebSocket for real-time metrics updates
+const useWebSocketMetrics = ref(true) // Toggle WebSocket vs polling
+const metricsWS = useMetricsWebSocket({
+  autoConnect: useWebSocketMetrics.value,
+  onMetricsUpdate: (device) => {
+    // Update device metrics in store when WebSocket receives data
+    devicesStore.updateDeviceMetrics(device)
+  },
+  onError: (error) => {
+    console.error('[DevicesPage] WebSocket error:', error)
+  },
+  debug: import.meta.env.DEV, // Enable debug in development mode
+})
 
 // Add device dialog state
 const showAddDialog = ref(false)
@@ -223,6 +238,12 @@ const performAutoRefresh = async () => {
   if (!autoRefreshEnabled.value || showAddDialog.value) return
   if (applyingDevices.value.size > 0) return // Don't refresh during state reconciliation
   
+  // If WebSocket is connected, skip polling (WebSocket handles updates)
+  if (useWebSocketMetrics.value && metricsWS.isConnected.value) {
+    console.log('[DevicesPage] Skipping polling refresh - WebSocket is connected')
+    return
+  }
+  
   try {
     await devicesStore.refreshAllDevicesStatus()
   } catch (error) {
@@ -249,9 +270,17 @@ const stopAutoRefresh = () => {
 const handleVisibilityChange = () => {
   if (document.hidden) {
     stopAutoRefresh()
+    // Disconnect WebSocket when page is hidden to save resources
+    if (useWebSocketMetrics.value && metricsWS.isConnected.value) {
+      metricsWS.disconnect()
+    }
   } else {
     startAutoRefresh()
     performAutoRefresh() // Immediate refresh when coming back
+    // Reconnect WebSocket when page becomes visible
+    if (useWebSocketMetrics.value && !metricsWS.isConnected.value) {
+      metricsWS.connect()
+    }
   }
 }
 
@@ -260,6 +289,12 @@ const handleVisibilityChange = () => {
 onMounted(async () => {
   await devicesStore.initialize()
   await applicationStore.initialize()
+  
+  // Start WebSocket connection if enabled
+  if (useWebSocketMetrics.value) {
+    console.log('[DevicesPage] Initializing WebSocket connection')
+    metricsWS.connect()
+  }
   
   if (autoRefreshEnabled.value) {
     startAutoRefresh()
@@ -271,6 +306,12 @@ onMounted(async () => {
 onUnmounted(() => {
   stopAutoRefresh()
   document.removeEventListener('visibilitychange', handleVisibilityChange)
+  
+  // Cleanup WebSocket connection
+  if (useWebSocketMetrics.value) {
+    console.log('[DevicesPage] Cleaning up WebSocket connection')
+    metricsWS.cleanup()
+  }
 })
 
 // Toggle auto-refresh
@@ -325,8 +366,25 @@ const deployedApplications = computed(() => {
       <!-- Main Content -->
       <div class="device-main-content">
         <!-- Page Header -->
-        <div class="mb-6">
+        <div class="mb-6 flex items-center justify-between">
           <h1 class="page-title mb-0">Device Manager</h1>
+          
+          <!-- WebSocket Connection Status -->
+          <VaChip
+            :color="metricsWS.isConnected.value ? 'success' : metricsWS.isConnecting.value ? 'warning' : 'danger'"
+            size="small"
+            outline
+          >
+            <template v-if="metricsWS.isConnected.value">
+              🟢 Real-time {{ metricsWS.updateFrequency.value > 0 ? `(${metricsWS.updateFrequency.value.toFixed(1)}/min)` : '' }}
+            </template>
+            <template v-else-if="metricsWS.isConnecting.value">
+              🟡 Connecting...
+            </template>
+            <template v-else>
+              🔴 Disconnected (Polling fallback)
+            </template>
+          </VaChip>
         </div>
 
         <!-- Summary Cards -->

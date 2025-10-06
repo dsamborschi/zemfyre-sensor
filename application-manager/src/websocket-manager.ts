@@ -47,7 +47,7 @@ export class WebSocketManager {
 	/**
 	 * Initialize WebSocket server attached to HTTP server
 	 */
-	initialize(httpServer: HttpServer): void {
+	initialize(httpServer: HttpServer, port?: number): void {
 		console.log('🔌 Initializing WebSocket server...');
 
 		this.wss = new WebSocketServer({ 
@@ -84,7 +84,7 @@ export class WebSocketManager {
 					const message = JSON.parse(data.toString());
 					this.handleClientMessage(clientId, message);
 				} catch (error) {
-					console.error(`❌ Failed to parse message from ${clientId}:`, error);
+					console.error(`Failed to parse message from ${clientId}:`, error);
 					this.sendError(ws, 'Invalid message format');
 				}
 			});
@@ -97,7 +97,7 @@ export class WebSocketManager {
 
 			// Handle errors
 			ws.on('error', (error) => {
-				console.error(`❌ WebSocket error for ${clientId}:`, error);
+				console.error(`WebSocket error for ${clientId}:`, error);
 				this.clients.delete(clientId);
 			});
 
@@ -110,7 +110,8 @@ export class WebSocketManager {
 		// Start broadcasting metrics periodically
 		this.startMetricsBroadcast();
 
-		console.log(`✅ WebSocket server ready on ws://localhost:PORT/ws/metrics`);
+		const portInfo = port ? `:${port}` : '';
+		console.log(`✅ WebSocket server ready on ws://localhost${portInfo}/ws/metrics`);
 		console.log(`📊 Broadcasting metrics every ${this.metricsIntervalMs}ms`);
 	}
 

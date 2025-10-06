@@ -1052,7 +1052,7 @@ initializeServer().then(() => {
 		// Initialize WebSocket server
 		const wsIntervalMs = parseInt(process.env.WS_METRICS_INTERVAL || '5000', 10);
 		websocketManager = new WebSocketManager(wsIntervalMs);
-		websocketManager.initialize(httpServer);
+		websocketManager.initialize(httpServer, typeof PORT === 'number' ? PORT : parseInt(PORT, 10));
 	});
 
 	// Graceful shutdown

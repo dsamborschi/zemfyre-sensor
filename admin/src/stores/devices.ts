@@ -375,5 +375,38 @@ export const useDevicesStore = defineStore('devices', {
     clearError(): void {
       this.error = null
     },
+
+    /**
+     * Update device metrics from WebSocket
+     * Merges incoming metrics with existing device data
+     */
+    updateDeviceMetrics(updatedDevice: Device): void {
+      // Find existing device by hostname (WebSocket uses hostname as ID)
+      const existingDevice = this.devices.find(d => d.hostname === updatedDevice.hostname)
+      
+      if (existingDevice) {
+        // Update existing device with new metrics
+        Object.assign(existingDevice, {
+          ...updatedDevice,
+          id: existingDevice.id, // Preserve original ID
+          name: existingDevice.name, // Preserve user-set name
+          apiUrl: existingDevice.apiUrl, // Preserve API URL
+          location: existingDevice.location, // Preserve location
+          description: existingDevice.description, // Preserve description
+          isDefault: existingDevice.isDefault, // Preserve default flag
+          createdAt: existingDevice.createdAt, // Preserve creation time
+          lastSeen: updatedDevice.lastSeen || new Date().toISOString(),
+          status: 'online',
+        })
+      } else {
+        // If device doesn't exist, this is the local/default device
+        // Add it as a temporary device (will be replaced on full refresh)
+        console.log('[Devices] Adding local device from WebSocket:', updatedDevice)
+        this.devices.push({
+          ...updatedDevice,
+          isDefault: true,
+        })
+      }
+    },
   },
 })
