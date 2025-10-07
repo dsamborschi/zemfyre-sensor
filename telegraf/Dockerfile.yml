@@ -1,22 +1,29 @@
 # ---------- 1️⃣ Build stage ----------
 FROM golang:1.22 AS builder
 
+# Accept plugin filters as build arguments
+ARG TELEGRAF_VERSION=1.36.2
+ARG INPUT_PLUGINS=""
+ARG OUTPUT_PLUGINS=""
+ARG PROCESSOR_PLUGINS=""
+ARG AGGREGATOR_PLUGINS=""
+
 # Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends make git && \
+RUN apt-get update && apt-get install -y --no-install-recommends make git ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
 WORKDIR /src
 
-# Clone Telegraf source
-RUN git clone --depth 1 --branch v1.36.2 https://github.com/influxdata/telegraf.git .
+# Clone specific version of Telegraf source
+RUN git clone --depth 1 --branch v${TELEGRAF_VERSION} https://github.com/influxdata/telegraf.git .
 
-# Build only selected plugins
-# You can list multiple inputs/outputs/aggregators/processors
+# Build custom Telegraf binary dynamically
 RUN make custom-builder && \
     ./custom-builder \
-      --input-filter cpu:mem:mqtt_consumer \
-      --output-filter http \
-      --processor-filter enum \
+      --input-filter "${INPUT_PLUGINS}" \
+      --output-filter "${OUTPUT_PLUGINS}" \
+      --processor-filter "${PROCESSOR_PLUGINS}" \
+      --aggregator-filter "${AGGREGATOR_PLUGINS}" \
       --output /telegraf
 
 # ---------- 2️⃣ Runtime stage ----------
@@ -26,12 +33,12 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates && \
     rm -rf /var/lib/apt/lists/*
 
-# Copy minimal Telegraf binary from build stage
+# Copy the custom-built Telegraf binary
 COPY --from=builder /telegraf /usr/bin/telegraf
 
-# Default configuration (optional — or mount your own)
+# Optional: default config
 COPY telegraf.conf /etc/telegraf/telegraf.conf
 
-EXPOSE 8092/udp 8094 8125/udp
+EXPOSE 8125/udp 8092/udp 8094
 
 ENTRYPOINT ["telegraf"]
