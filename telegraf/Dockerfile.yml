@@ -1,0 +1,37 @@
+# ---------- 1️⃣ Build stage ----------
+FROM golang:1.22 AS builder
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends make git && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /src
+
+# Clone Telegraf source
+RUN git clone --depth 1 --branch v1.36.2 https://github.com/influxdata/telegraf.git .
+
+# Build only selected plugins
+# You can list multiple inputs/outputs/aggregators/processors
+RUN make custom-builder && \
+    ./custom-builder \
+      --input-filter cpu:mem:mqtt_consumer \
+      --output-filter http \
+      --processor-filter enum \
+      --output /telegraf
+
+# ---------- 2️⃣ Runtime stage ----------
+FROM debian:bookworm-slim
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
+
+# Copy minimal Telegraf binary from build stage
+COPY --from=builder /telegraf /usr/bin/telegraf
+
+# Default configuration (optional — or mount your own)
+COPY telegraf.conf /etc/telegraf/telegraf.conf
+
+EXPOSE 8092/udp 8094 8125/udp
+
+ENTRYPOINT ["telegraf"]
