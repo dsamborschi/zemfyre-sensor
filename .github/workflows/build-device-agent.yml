@@ -1,15 +1,15 @@
-name: Build, Test & Push Application Manager
+name: Build, Test & Push Device Agent
 
 on: 
   push:
     branches:
       - master
     paths:
-      - 'application-manager/**' 
+      - 'device-agent/**' 
 
 jobs:
   buildx:
-    name: Build, Test & Push Application Manager
+    name: Build, Test & Push Device Agent
     runs-on: ubuntu-24.04
     strategy:
       matrix:
@@ -37,22 +37,22 @@ jobs:
         uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache/${{ matrix.board }}
-          key: buildx-manager-${{ matrix.board }}-${{ github.sha }}
+          key: buildx-agent-${{ matrix.board }}-${{ github.sha }}
           restore-keys: |
-            buildx-manager-${{ matrix.board }}-
+            buildx-agent-${{ matrix.board }}-
 
       # Build locally but DO NOT push yet
       - name: Build image (local only)
         uses: docker/build-push-action@v5
         with:
-          context: ./application-manager
-          file: ./application-manager/Dockerfile
+          context: ./device-agent
+          file: ./device-agent/Dockerfile
           load: true
           platforms: ${{ matrix.platform }}
           cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
           cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
           tags: |
-            iotistic/application-manager:test-${{ matrix.board }}
+            iotistic/device-agent:test-${{ matrix.board }}
 
       # Run app and tests in same container
       - name: Run tests inside container
@@ -60,10 +60,10 @@ jobs:
           docker run --rm \
             --platform ${{ matrix.platform }} \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -v ${{ github.workspace }}/application-manager/test:/app/test \
+            -v ${{ github.workspace }}/device-agent/test:/app/test \
             -e API_URL="http://localhost:3002" \
             -e MQTT_BROKER="mqtt://mosquitto:1883" \
-            iotistic/application-manager:test-${{ matrix.board }} \
+            iotistic/device-agent:test-${{ matrix.board }} \
             bash -c "
               # Start app in background
               npm run start:docker &
@@ -92,11 +92,11 @@ jobs:
         if: success()
         uses: docker/build-push-action@v5
         with:
-          context: ./application-manager
-          file: ./application-manager/Dockerfile
+          context: ./device-agent
+          file: ./device-agent/Dockerfile
           push: true
           platforms: ${{ matrix.platform }}
           cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
           cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
           tags: |
-            iotistic/application-manager:latest-${{ matrix.board }}
+            iotistic/device-agent:latest-${{ matrix.board }}

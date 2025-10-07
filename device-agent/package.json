@@ -1,7 +1,7 @@
 {
-  "name": "standalone-application-manager",
+  "name": "device-agent",
   "version": "1.0.0",
-  "description": "Standalone application manager extracted from balena-supervisor with REST API",
+  "description": "Standalone device agent",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
     "scripts": {
@@ -20,8 +20,7 @@
     "test": "mocha --require ts-node/register test/**/*.spec.ts"
   },
   "keywords": [
-    "balena",
-    "application-manager",
+    "device-agent",
     "docker",
     "container-orchestration",
     "api"

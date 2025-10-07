@@ -1,9 +1,9 @@
 services:
-    application-manager:
-        container_name: application-manager
-        image: iotistic/application-manager:${DOCKER_TAG}-${DEVICE_TYPE}
+    device-agent:
+        container_name: device-agent
+        image: iotistic/device-agent:${DOCKER_TAG}-${DEVICE_TYPE}
         build:
-            context: ./application-manager
+            context: ./device-agent
             dockerfile: Dockerfile
         privileged: true
         pid: "host"
@@ -12,7 +12,7 @@ services:
         network_mode: host
         volumes:
           - /var/run/docker.sock:/var/run/docker.sock
-          - application-manager-data:/app/data
+          - device-agent-data:/app/data
         environment:
           - USE_REAL_DOCKER=true
           - NODE_ENV=production
