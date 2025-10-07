@@ -14,7 +14,7 @@ import {
   type SystemMetrics,
   type DeviceInfo,
 } from '../data/pages/applications'
-import { setApiUrl } from '../services/application-manager-api'
+import { setApiUrl, setDeviceUuid } from '../services/application-manager-api'
 import { useDevicesStore } from './devices'
 
 // ===============================================`=============================

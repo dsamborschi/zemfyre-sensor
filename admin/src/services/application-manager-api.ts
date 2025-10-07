@@ -1,13 +1,14 @@
 /**
  * Application Manager API Service
  *
- * This service provides endpoint definitions for the Application Manager API.
- * The Application Manager orchestrates Docker containers and manages application deployments.
+ * This service provides endpoint definitions for the Cloud API (multi-device).
+ * The Cloud API manages multiple devices through device-centric endpoints.
  *
  * Architecture:
+ * - Each device has a unique UUID
+ * - Devices are managed via /api/v1/devices/:uuid endpoints
  * - Applications contain one or more Services
  * - Services are Docker containers that run your application code
- * - Each application has a unique appId and can have multiple service instances
  */
 
 const defaultApiUrl = import.meta.env.VITE_APP_MANAGER_API || 'http://localhost:3002/api/v1'
@@ -16,6 +17,11 @@ const defaultApiUrl = import.meta.env.VITE_APP_MANAGER_API || 'http://localhost:
  * Current API URL - can be changed for multi-device support
  */
 let currentApiUrl = defaultApiUrl
+
+/**
+ * Current device UUID - defaults to 'local'
+ */
+let currentDeviceUuid = 'local'
 
 /**
  * Set the API URL for communicating with a specific device
@@ -33,6 +39,21 @@ export function getApiUrl(): string {
 }
 
 /**
+ * Set the device UUID to manage
+ * @param uuid - Device UUID
+ */
+export function setDeviceUuid(uuid: string): void {
+  currentDeviceUuid = uuid
+}
+
+/**
+ * Get the current device UUID
+ */
+export function getDeviceUuid(): string {
+  return currentDeviceUuid
+}
+
+/**
  * Reset API URL to default value
  */
 export function resetApiUrl(): void {
@@ -40,126 +61,111 @@ export function resetApiUrl(): void {
 }
 
 export const applicationManagerApi = {
+  // ==================== Device Management ====================
+
+  /**
+   * List all devices
+   * Returns: { count: number, devices: Device[] }
+   */
+  listDevices: () => `${currentApiUrl}/devices`,
+
+  /**
+   * Get specific device info
+   * Returns: Device with target_state and current_state
+   */
+  getDevice: () => `${currentApiUrl}/devices/${currentDeviceUuid}`,
+
   // ==================== State Management ====================
 
   /**
-   * Get current and target state of all applications
-   * Returns: { current: ApplicationState, target: TargetState }
+   * Get target state for device
+   * Returns: { uuid, apps, updated_at }
    */
-  getState: () => `${currentApiUrl}/state`,
+  getTargetState: () => `${currentApiUrl}/devices/${currentDeviceUuid}/target-state`,
 
   /**
-   * Set target state for applications
+   * Get current state for device (last reported)
+   * Returns: Current state with apps and metrics
+   */
+  getCurrentState: () => `${currentApiUrl}/devices/${currentDeviceUuid}/current-state`,
+
+  /**
+   * Get current and target state (combined view)
+   * Returns: { current: ApplicationState, target: TargetState }
+   */
+  getState: () => `${currentApiUrl}/devices/${currentDeviceUuid}`,
+
+  /**
+   * Set target state for device
    * POST body: { apps: { [appId]: AppConfig } }
    */
-  setTargetState: () => `${currentApiUrl}/state/target`,
+  setTargetState: () => `${currentApiUrl}/devices/${currentDeviceUuid}/target-state`,
+
+  /**
+   * Clear target state (stop all apps)
+   * DELETE - removes all apps from target state
+   */
+  clearTargetState: () => `${currentApiUrl}/devices/${currentDeviceUuid}/target-state`,
 
   /**
    * Apply target state (reconcile current state with target)
-   * POST - triggers deployment/updates
+   * POST - triggers deployment/updates (handled by device)
    */
-  applyState: () => `${currentApiUrl}/state/apply`,
+  applyState: () => `${currentApiUrl}/devices/${currentDeviceUuid}/target-state`,
 
   // ==================== Application Management ====================
 
   /**
-   * Get all deployed applications
-   * Returns: Array of applications with their services
+   * Get all deployed applications for device
+   * Returns: Apps object from current state
    */
-  getAllApps: () => `${currentApiUrl}/apps`,
+  getAllApps: () => `${currentApiUrl}/devices/${currentDeviceUuid}/current-state`,
 
   /**
    * Get specific application by ID
    * Returns: Application details with all services
    */
-  getApp: (appId: number) => `${currentApiUrl}/apps/${appId}`,
+  getApp: (appId: number) => `${currentApiUrl}/devices/${currentDeviceUuid}/current-state`,
 
   /**
-   * Create or update an application
-   * POST/PUT body: AppConfig with services array
+   * Create or update an application in target state
+   * POST body: { apps: { [appId]: AppConfig } }
    */
-  setApp: (appId: number) => `${currentApiUrl}/apps/${appId}`,
+  setApp: (appId: number) => `${currentApiUrl}/devices/${currentDeviceUuid}/target-state`,
 
   /**
-   * Remove/undeploy an application and all its services
-   * DELETE - stops and removes all services
+   * Remove/undeploy an application
+   * Updates target state to remove app
    */
-  removeApp: (appId: number) => `${currentApiUrl}/apps/${appId}`,
-
-  // ==================== Device Management ====================
-
-  /**
-   * Get device information (UUID, provisioning status, etc.)
-   */
-  getDevice: () => `${currentApiUrl}/device`,
-
-  /**
-   * Check if device is provisioned
-   * Returns: { provisioned: boolean }
-   */
-  getDeviceStatus: () => `${currentApiUrl}/device/provisioned`,
-
-  /**
-   * Provision device locally (set name and type)
-   * POST body: { deviceName: string, deviceType: string }
-   */
-  provisionDevice: () => `${currentApiUrl}/device/provision`,
-
-  /**
-   * Register device with remote API
-   * POST body: { apiEndpoint: string, deviceName: string, deviceType: string }
-   */
-  registerDevice: () => `${currentApiUrl}/device/register`,
-
-  /**
-   * Update device information
-   * PATCH body: { deviceName?: string, apiEndpoint?: string }
-   */
-  updateDevice: () => `${currentApiUrl}/device`,
-
-  /**
-   * Reset device (unprovision)
-   * POST - clears deviceId, apiKey, marks as unprovisioned
-   */
-  resetDevice: () => `${currentApiUrl}/device/reset`,
+  removeApp: (appId: number) => `${currentApiUrl}/devices/${currentDeviceUuid}/target-state`,
 
   // ==================== Metrics & Monitoring ====================
 
   /**
    * Get system metrics (CPU, memory, disk, network)
-   * Returns: System resource utilization data
+   * Returns: Metrics from device's last report
    */
-  getSystemMetrics: () => `${currentApiUrl}/metrics`,
+  getSystemMetrics: () => `${currentApiUrl}/devices/${currentDeviceUuid}/current-state`,
 
   /**
-   * Get Docker-specific metrics
-   * Returns: Container resource usage, image info
+   * Get device metrics (alias)
+   * Returns: Same as current state with metrics
    */
-  getDockerMetrics: () => `${currentApiUrl}/metrics`,
-
-  /**
-   * Get application manager logs
-   * Query params: ?limit=100&since=timestamp
-   */
-  getLogs: (params?: { limit?: number; since?: string }) => {
-    const query = params ? `?${new URLSearchParams(params as any).toString()}` : ''
-    return `${currentApiUrl}/logs${query}`
-  },
+  getMetrics: () => `${currentApiUrl}/devices/${currentDeviceUuid}/current-state`,
 
   // ==================== Status & Health ====================
 
   /**
-   * Get application manager status
-   * Returns: { status: string, version: string, uptime: number }
+   * Get cloud API status
+   * Returns: { status, devices_online, devices_total }
    */
-  getStatus: () => `${currentApiUrl}/status`,
+  getStatus: () => `${currentApiUrl}/../`,
 
   /**
-   * Get detailed reconciliation status for each application/service
-   * Returns per-service status: 'in-sync', 'needs-update', 'missing', or 'extra'
-   * with reason for out-of-sync services (e.g., "Image changed", "Ports changed")
+   * Get device status and info
+   * Returns: Device online status, last reported time
    */
-  getReconciliation: () => `${currentApiUrl}/reconciliation`,
+  getDeviceStatus: () => `${currentApiUrl}/devices/${currentDeviceUuid}`,
 }
 
 export default applicationManagerApi
