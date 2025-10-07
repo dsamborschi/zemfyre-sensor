@@ -5,7 +5,7 @@ on:
     branches:
       - master
     paths:
-      - 'device-agent/**' 
+      - 'agent/**' 
 
 jobs:
   buildx:
@@ -45,14 +45,14 @@ jobs:
       - name: Build image (local only)
         uses: docker/build-push-action@v5
         with:
-          context: ./device-agent
-          file: ./device-agent/Dockerfile
+          context: ./agent
+          file: ./agent/Dockerfile
           load: true
           platforms: ${{ matrix.platform }}
           cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
           cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
           tags: |
-            iotistic/device-agent:test-${{ matrix.board }}
+            iotistic/agent:test-${{ matrix.board }}
 
       # Run app and tests in same container
       - name: Run tests inside container
@@ -60,10 +60,10 @@ jobs:
           docker run --rm \
             --platform ${{ matrix.platform }} \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -v ${{ github.workspace }}/device-agent/test:/app/test \
+            -v ${{ github.workspace }}/agent/test:/app/test \
             -e API_URL="http://localhost:3002" \
             -e MQTT_BROKER="mqtt://mosquitto:1883" \
-            iotistic/device-agent:test-${{ matrix.board }} \
+            iotistic/agent:test-${{ matrix.board }} \
             bash -c "
               # Start app in background
               npm run start:docker &
@@ -92,11 +92,11 @@ jobs:
         if: success()
         uses: docker/build-push-action@v5
         with:
-          context: ./device-agent
-          file: ./device-agent/Dockerfile
+          context: ./agent
+          file: ./agent/Dockerfile
           push: true
           platforms: ${{ matrix.platform }}
           cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
           cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
           tags: |
-            iotistic/device-agent:latest-${{ matrix.board }}
+            iotistic/agent:latest-${{ matrix.board }}
