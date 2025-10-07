@@ -1,0 +1,118 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Application Manager",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/application-manager",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "restart": true,
+      "sourceMaps": true,
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ]
+    },
+    {
+      "name": "Debug Application Manager (Server Only)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "watch", "src/api/server.ts"],
+      "cwd": "${workspaceFolder}/application-manager",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "restart": true,
+      "sourceMaps": true,
+      "env": {
+        "NODE_ENV": "development",
+        "USE_REAL_DOCKER": "false"
+      }
+    },
+    {
+      "name": "Debug Application Manager (Real Docker)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "watch", "src/api/server.ts"],
+      "cwd": "${workspaceFolder}/application-manager",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "restart": true,
+      "sourceMaps": true,
+      "env": {
+        "NODE_ENV": "development",
+        "USE_REAL_DOCKER": "true"
+      }
+    },
+    {
+      "name": "Debug Application Manager (Cloud Mode)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev:cloud"],
+      "cwd": "${workspaceFolder}/application-manager",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "restart": true,
+      "sourceMaps": true,
+      "env": {
+        "CLOUD_API_ENDPOINT": "http://localhost:8000",
+        "USE_REAL_DOCKER": "false"
+      }
+    },
+    {
+      "name": "Debug API Binder Test",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "src/api-binder.ts"],
+      "cwd": "${workspaceFolder}/application-manager",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true
+    },
+    {
+      "name": "Debug Network Integration Test",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "test-network-integration.ts"],
+      "cwd": "${workspaceFolder}/application-manager",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true
+    },
+    {
+      "name": "Debug Network Reconciliation Test",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "test-network-reconciliation.ts"],
+      "cwd": "${workspaceFolder}/application-manager",
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true
+    },
+    {
+      "name": "Attach to Running Application Manager",
+      "type": "node",
+      "request": "attach",
+      "port": 9229,
+      "restart": true,
+      "skipFiles": ["<node_internals>/**"],
+      "sourceMaps": true
+    }
+  ]
+}

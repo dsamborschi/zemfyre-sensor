@@ -1,0 +1,301 @@
+/**
+ * Device Supervisor
+ * 
+ * Orchestrates all device-side operations:
+ * - Container management
+ * - Device provisioning
+ * - System monitoring
+ * - Device API server
+ * - Logging
+ */
+
+import ContainerManager from './compose/container-manager';
+import { DeviceManager } from './provisioning';
+import { DeviceAPI } from './device-api';
+import { router as v1Router } from './device-api/v1';
+import { router as v2Router } from './device-api/v2';
+import * as deviceActions from './device-api/actions';
+import { ApiBinder } from './api-binder';
+import * as db from './db';
+import { LocalLogBackend } from './logging/local-backend';
+import { MqttLogBackend } from './logging/mqtt-backend';
+import { CloudLogBackend } from './logging/cloud-backend';
+import { ContainerLogMonitor } from './logging/monitor';
+import type { LogBackend } from './logging/types';
+
+export default class DeviceSupervisor {
+	private containerManager!: ContainerManager;
+	private deviceManager!: DeviceManager;
+	private deviceAPI!: DeviceAPI;
+	private apiBinder?: ApiBinder;
+	private logBackend!: LocalLogBackend;
+	private logBackends: LogBackend[] = [];
+	private logMonitor?: ContainerLogMonitor;
+
+	private readonly USE_REAL_DOCKER = process.env.USE_REAL_DOCKER === 'true';
+	private readonly DEVICE_API_PORT = parseInt(process.env.DEVICE_API_PORT || '48484', 10);
+	private readonly RECONCILIATION_INTERVAL = parseInt(
+		process.env.RECONCILIATION_INTERVAL_MS || '30000',
+		10
+	);
+	private readonly CLOUD_API_ENDPOINT = process.env.CLOUD_API_ENDPOINT || 'http://localhost:3002';
+
+	public async init(): Promise<void> {
+		console.log('🚀 Initializing Device Supervisor...');
+		console.log('='.repeat(80));
+
+		try {
+			// 1. Initialize database
+			await this.initializeDatabase();
+
+			// 2. Initialize device provisioning
+			await this.initializeDeviceManager();
+
+			// 3. Initialize logging
+			await this.initializeLogging();
+
+			// 4. Initialize container manager
+			await this.initializeContainerManager();
+
+			// 5. Initialize device API
+			await this.initializeDeviceAPI();
+
+			// 6. Initialize API Binder (if cloud endpoint configured)
+			await this.initializeApiBinder();
+
+			// 7. Start auto-reconciliation
+			this.startAutoReconciliation();
+
+			console.log('='.repeat(80));
+			console.log('✅ Device Supervisor initialized successfully!');
+			console.log('='.repeat(80));
+			console.log(`Device API: http://localhost:${this.DEVICE_API_PORT}`);
+			console.log(`Docker Mode: ${this.USE_REAL_DOCKER ? 'REAL' : 'SIMULATED'}`);
+			console.log(`Auto-reconciliation: ${this.RECONCILIATION_INTERVAL}ms`);
+			console.log(`Cloud API: ${this.CLOUD_API_ENDPOINT || 'Not configured'}`);
+			console.log('='.repeat(80));
+		} catch (error) {
+			console.error('❌ Failed to initialize Device Supervisor:', error);
+			throw error;
+		}
+	}
+
+	private async initializeDatabase(): Promise<void> {
+		console.log('📦 Initializing database...');
+		await db.initialized();
+		console.log('✅ Database initialized');
+	}
+
+private async initializeDeviceManager(): Promise<void> {
+		console.log('🔐 Initializing device manager...');
+		this.deviceManager = new DeviceManager();
+		await this.deviceManager.initialize();
+
+		let deviceInfo = this.deviceManager.getDeviceInfo();
+		
+		// Auto-provision if not yet provisioned and cloud endpoint is set
+		if (!deviceInfo.provisioned && this.CLOUD_API_ENDPOINT) {
+			console.log('⚙️  Auto-provisioning device...');
+			await this.deviceManager.provision({
+				deviceName: process.env.DEVICE_NAME || `device-${deviceInfo.uuid.slice(0, 8)}`,
+				deviceType: process.env.DEVICE_TYPE || 'standalone',
+				apiEndpoint: this.CLOUD_API_ENDPOINT,
+			});
+			deviceInfo = this.deviceManager.getDeviceInfo();
+			console.log('✅ Device auto-provisioned');
+		}
+		
+		console.log(`✅ Device manager initialized`);
+		console.log(`   UUID: ${deviceInfo.uuid}`);
+		console.log(`   Name: ${deviceInfo.deviceName || 'Not set'}`);
+		console.log(`   Provisioned: ${deviceInfo.provisioned ? 'Yes' : 'No'}`);
+	}
+
+	private async initializeLogging(): Promise<void> {
+		console.log('📝 Initializing logging...');
+
+		// Local backend (always enabled)
+		const enableFilePersistence = process.env.ENABLE_FILE_LOGGING !== 'false';
+		this.logBackend = new LocalLogBackend({
+			maxLogs: parseInt(process.env.MAX_LOGS || '1000', 10),
+			maxAge: parseInt(process.env.LOG_MAX_AGE || '3600000', 10), // 1 hour
+			enableFilePersistence,
+			logDir: process.env.LOG_DIR || './data/logs',
+			maxFileSize: parseInt(process.env.MAX_LOG_FILE_SIZE || '5242880', 10), // 5MB
+		});
+		await this.logBackend.initialize();
+		this.logBackends.push(this.logBackend);
+		console.log(`✅ Local log backend initialized (file logging: ${enableFilePersistence})`);
+
+		// Cloud log streaming backend (optional - if CLOUD_API_ENDPOINT is set)
+		if (this.CLOUD_API_ENDPOINT) {
+			try {
+				const deviceInfo = this.deviceManager.getDeviceInfo();
+				const cloudLogBackend = new CloudLogBackend({
+					cloudEndpoint: this.CLOUD_API_ENDPOINT,
+					deviceUuid: deviceInfo.uuid,
+					compression: process.env.LOG_COMPRESSION !== 'false', // Default: true
+				});
+				await cloudLogBackend.initialize();
+				this.logBackends.push(cloudLogBackend);
+				console.log(`✅ Cloud log backend initialized: ${this.CLOUD_API_ENDPOINT}`);
+			} catch (error) {
+				console.error('⚠️  Failed to initialize cloud log backend:', error);
+				console.log('   Continuing without cloud logging');
+			}
+		}
+
+		// MQTT backend (optional)
+		if (process.env.MQTT_BROKER) {
+			try {
+				const mqttBackend = new MqttLogBackend({
+					brokerUrl: process.env.MQTT_BROKER,
+					baseTopic: process.env.MQTT_TOPIC || 'device/logs',
+					qos: (process.env.MQTT_QOS ? parseInt(process.env.MQTT_QOS) : 1) as 0 | 1 | 2,
+					enableBatching: process.env.MQTT_BATCH !== 'false',
+					batchInterval: parseInt(process.env.MQTT_BATCH_INTERVAL || '1000'),
+					maxBatchSize: parseInt(process.env.MQTT_BATCH_SIZE || '50'),
+					debug: process.env.MQTT_DEBUG === 'true',
+				});
+				await mqttBackend.connect();
+				this.logBackends.push(mqttBackend);
+				console.log(`✅ MQTT log backend connected: ${process.env.MQTT_BROKER}`);
+			} catch (error) {
+				console.error('⚠️  Failed to connect to MQTT broker:', error);
+				console.log('   Continuing without cloud logging');
+			}
+		}
+
+		// Log summary
+		console.log(`✅ Logging initialized with ${this.logBackends.length} backend(s)`);
+	}
+
+	private async initializeContainerManager(): Promise<void> {
+		console.log('🐳 Initializing container manager...');
+		this.containerManager = new ContainerManager(this.USE_REAL_DOCKER);
+		await this.containerManager.init();
+
+		// Set up log monitor if using real Docker
+		if (this.USE_REAL_DOCKER) {
+			const docker = this.containerManager.getDocker();
+			if (docker) {
+				// Use all configured log backends
+				this.logMonitor = new ContainerLogMonitor(docker, this.logBackends);
+				this.containerManager.setLogMonitor(this.logMonitor);
+				await this.containerManager.attachLogsToAllContainers();
+				console.log(`✅ Log monitor attached to container manager (${this.logBackends.length} backend(s))`);
+			}
+		}
+
+		console.log('✅ Container manager initialized');
+	}
+
+	private async initializeDeviceAPI(): Promise<void> {
+		console.log('🌐 Initializing device API...');
+
+		// Initialize device actions with managers
+		deviceActions.initialize(this.containerManager, this.deviceManager);
+
+		// Health checks
+		const healthchecks = [
+			async () => {
+				try {
+					this.containerManager.getStatus();
+					return true;
+				} catch {
+					return false;
+				}
+			},
+		];
+
+		// Create device API with routers
+		this.deviceAPI = new DeviceAPI({
+			routers: [v1Router, v2Router],
+			healthchecks,
+		});
+
+		// Start listening
+		await this.deviceAPI.listen(this.DEVICE_API_PORT);
+		console.log(`✅ Device API started on port ${this.DEVICE_API_PORT}`);
+	}
+
+	private async initializeApiBinder(): Promise<void> {
+		if (!this.CLOUD_API_ENDPOINT) {
+			console.log('⚠️  Cloud API endpoint not configured (set CLOUD_API_ENDPOINT env var)');
+			console.log('   Device will run in standalone mode');
+			return;
+		}
+
+		console.log('☁️  Initializing API Binder...');
+		
+		this.apiBinder = new ApiBinder(
+			this.containerManager,
+			this.deviceManager,
+			{
+				cloudApiEndpoint: this.CLOUD_API_ENDPOINT,
+				pollInterval: parseInt(process.env.POLL_INTERVAL_MS || '60000', 10), // 60s
+				reportInterval: parseInt(process.env.REPORT_INTERVAL_MS || '10000', 10), // 10s
+				metricsInterval: parseInt(process.env.METRICS_INTERVAL_MS || '300000', 10), // 5min
+			}
+		);
+
+		// Start polling for target state
+		await this.apiBinder.startPoll();
+
+		// Start reporting current state
+		await this.apiBinder.startReporting();
+
+		console.log('✅ API Binder initialized');
+	}
+
+	private startAutoReconciliation(): void {
+		if (this.USE_REAL_DOCKER) {
+			this.containerManager.startAutoReconciliation(this.RECONCILIATION_INTERVAL);
+			console.log(`✅ Auto-reconciliation started (${this.RECONCILIATION_INTERVAL}ms)`);
+		} else {
+			console.log('⚠️  Auto-reconciliation disabled (simulation mode)');
+		}
+	}
+
+	public async stop(): Promise<void> {
+		console.log('🛑 Stopping Device Supervisor...');
+
+		try {
+			// Stop API binder
+			if (this.apiBinder) {
+				await this.apiBinder.stop();
+				console.log('✅ API Binder stopped');
+			}
+
+			// Stop device API
+			if (this.deviceAPI) {
+				await this.deviceAPI.stop();
+				console.log('✅ Device API stopped');
+			}
+
+			// Stop container manager
+			if (this.containerManager) {
+				// Container manager doesn't have a stop method yet
+				console.log('✅ Container manager cleanup');
+			}
+
+			console.log('✅ Device Supervisor stopped');
+		} catch (error) {
+			console.error('❌ Error stopping Device Supervisor:', error);
+			throw error;
+		}
+	}
+
+	// Getters for external access (if needed)
+	public getContainerManager(): ContainerManager {
+		return this.containerManager;
+	}
+
+	public getDeviceManager(): DeviceManager {
+		return this.deviceManager;
+	}
+
+	public getDeviceAPI(): DeviceAPI {
+		return this.deviceAPI;
+	}
+}

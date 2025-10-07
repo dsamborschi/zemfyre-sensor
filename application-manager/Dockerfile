@@ -43,4 +43,4 @@ VOLUME ["/app/data"]
 
 EXPOSE 3002
 
-CMD ["npm", "run", "start:docker"]
+CMD ["npm", "run", "start:device"]
