@@ -81,11 +81,16 @@
         amd64
       {% endif %}
 
-# Clean any malformed docker.list before adding repo
-- name: Remove malformed Docker repo file if it exists
+- name: Check if malformed docker.list exists
+  ansible.builtin.stat:
+    path: /etc/apt/sources.list.d/docker.list
+  register: docker_list_file
+
+- name: Remove malformed docker.list if it exists
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/docker.list
     state: absent
+  when: docker_list_file.stat.exists
 
 # Safely add Docker repo
 - name: Add Docker apt repository
