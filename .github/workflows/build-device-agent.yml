@@ -61,13 +61,11 @@ jobs:
             --platform ${{ matrix.platform }} \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${{ github.workspace }}/agent/test:/app/test \
-            -e START_SERVICES="true" \
             -e CLOUD_API_ENDPOINT="http://localhost:3002" \
             -e API_URL="http://localhost:48484" \
             -e USE_REAL_DOCKER="false" \
-            -e VERBOSE="false" \
             iotistic/agent:test-${{ matrix.board }} \
-            bash /app/test/device-api.sh
+            bash /app/test/run-ci-tests.sh
 
       # Login to Docker Hub (only if tests passed)
       - name: Login to Docker Hub
