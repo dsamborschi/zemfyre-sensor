@@ -81,29 +81,38 @@
         amd64
       {% endif %}
 
-- name: Check if malformed docker.list exists
+- name: Check if docker.list exists
   ansible.builtin.stat:
     path: /etc/apt/sources.list.d/docker.list
   register: docker_list_file
 
-- name: Remove malformed docker.list if it exists
+- name: Remove existing docker.list to avoid malformed entries
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/docker.list
     state: absent
   when: docker_list_file.stat.exists
 
-# Safely add Docker repo
-- name: Add Docker apt repository
-  ansible.builtin.apt_repository:
-    repo: "deb [arch={{ architecture }}] https://download.docker.com/linux/debian {{ docker_codename }} stable"
-    state: present
-    filename: docker
+- name: Ensure apt sources directory exists
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d
+    state: directory
+    mode: '0755'
+    owner: root
+    group: root
 
+- name: Create docker.list with correct format
+  ansible.builtin.copy:
+    content: "deb [arch={{ architecture }}] https://download.docker.com/linux/debian {{ docker_codename }} stable\n"
+    dest: /etc/apt/sources.list.d/docker.list
+    mode: '0644'
+    owner: root
+    group: root
 
-# Update package cache
+# Update package cache after fixing docker.list
 - name: Update apt cache
   ansible.builtin.apt:
-    update_cache: yes
+    update_cache: true
+  ignore_errors: true
 
 # Install Docker CE + CLI + compose plugin
 - name: Install Docker packages
