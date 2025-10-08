@@ -14,7 +14,7 @@ fi
 # CI-safe gum wrapper - uses echo in CI mode
 function gum() {
     if [ "$IS_CI_MODE" = true ]; then
-        # In CI mode, replace gum commands with simple echo
+        # In CI mode, replace gum commands with simple echoy
         case "$1" in
             format|style)
                 shift
