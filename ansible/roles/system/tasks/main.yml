@@ -158,12 +158,12 @@
 - name: Remove deprecated pip dependencies (>= Debian 12)
   ansible.builtin.pip:
     name: supervisor
-    executable: /home/{{ lookup('env', 'USER') }}/installer_venv/bin/pip
+    executable: "{{ lookup('env', 'HOME') }}/installer_venv/bin/pip"
     state: absent
   when:
     - ansible_distribution_major_version | int >= 12
-    - ansible_facts.env.HOME is defined
-    - ansible_facts.env.HOME + '/installer_venv/bin/pip' is exists
+    - lookup('env', 'HOME') is defined
+    - (lookup('env', 'HOME') + '/installer_venv/bin/pip') is file
 
 
 - name: Remove deprecated pip dependencies (>= Debian 12)
