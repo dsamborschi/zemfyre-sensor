@@ -9,12 +9,18 @@
 #   API_URL - Device API base URL (default: http://localhost:48484)
 #   API_KEY - Optional API key for authentication
 #   VERBOSE - Enable verbose output (default: false)
+#   START_SERVICES - Start cloud server and device agent before tests (default: false)
+#   CLOUD_API_ENDPOINT - Cloud server URL (default: http://localhost:3002)
 
 API_URL="${1:-${API_URL:-http://localhost:48484}}"
 API_KEY="${2:-${API_KEY}}"
 VERBOSE="${VERBOSE:-false}"
+START_SERVICES="${START_SERVICES:-false}"
+CLOUD_API_ENDPOINT="${CLOUD_API_ENDPOINT:-http://localhost:3002}"
 PASSED=0
 FAILED=0
+CLOUD_PID=""
+DEVICE_PID=""
 
 # Color codes for output
 RED='\033[0;31m'
@@ -47,6 +53,73 @@ log_verbose() {
         echo -e "${NC}   $1${NC}"
     fi
 }
+
+# Cleanup function to stop services
+cleanup() {
+    if [ -n "$DEVICE_PID" ]; then
+        info "Stopping device agent (PID: $DEVICE_PID)..."
+        kill $DEVICE_PID 2>/dev/null || true
+    fi
+    if [ -n "$CLOUD_PID" ]; then
+        info "Stopping cloud server (PID: $CLOUD_PID)..."
+        kill $CLOUD_PID 2>/dev/null || true
+    fi
+    sleep 2
+}
+
+# Register cleanup on exit
+trap cleanup EXIT INT TERM
+
+# Start services if requested
+if [ "$START_SERVICES" = "true" ]; then
+    echo "======================================"
+    echo "Starting Services"
+    echo "======================================"
+    
+    info "Starting cloud server on port 3002..."
+    npm run start:cloud > /tmp/cloud-server.log 2>&1 &
+    CLOUD_PID=$!
+    
+    # Wait for cloud server to be ready
+    info "Waiting for cloud server..."
+    for i in {1..30}; do
+        if curl -fs $CLOUD_API_ENDPOINT/ >/dev/null 2>&1; then
+            pass "Cloud server is ready"
+            break
+        fi
+        if [ $i -eq 30 ]; then
+            fail "Cloud server failed to start"
+            echo "Cloud server logs:"
+            cat /tmp/cloud-server.log
+            exit 1
+        fi
+        sleep 1
+    done
+    
+    info "Starting device agent on port 48484..."
+    npm run start:device > /tmp/device-agent.log 2>&1 &
+    DEVICE_PID=$!
+    
+    # Wait for device API to be ready
+    info "Waiting for device API..."
+    for i in {1..30}; do
+        if curl -fs $API_URL/ping >/dev/null 2>&1; then
+            pass "Device API is ready"
+            break
+        fi
+        if [ $i -eq 30 ]; then
+            fail "Device API failed to start"
+            echo "Device agent logs:"
+            cat /tmp/device-agent.log
+            exit 1
+        fi
+        sleep 1
+    done
+    
+    # Give services a moment to stabilize
+    sleep 2
+    echo ""
+fi
 
 # Helper function for API calls
 api_call() {

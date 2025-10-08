@@ -13,10 +13,9 @@ COPY package*.json tsconfig.json ./
 RUN npm ci
 
 COPY src ./src
-RUN npm run build
 
-# Copy migration files (they're .js, not compfiled by TypeScript)dhh
-COPY src/migrations ./dist/migrations
+# Build TypeScript and copy migrations
+RUN npm run build
 
 # ---- Production stage ------
 FROM node:20-slim AS runtime

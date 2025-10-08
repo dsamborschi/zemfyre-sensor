@@ -5,7 +5,8 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
     "scripts": {
-    "build": "tsc",
+    "build": "tsc && npm run copy:migrations",
+    "copy:migrations": "node -e \"require('fs').cpSync('src/migrations', 'dist/migrations', {recursive: true})\"",
     "watch": "tsc --watch",
     "clean": "rimraf dist",
     "dev": "tsx watch src/app.ts",

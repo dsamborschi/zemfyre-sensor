@@ -61,23 +61,13 @@ jobs:
             --platform ${{ matrix.platform }} \
             -v /var/run/docker.sock:/var/run/docker.sock \
             -v ${{ github.workspace }}/agent/test:/app/test \
+            -e START_SERVICES="true" \
+            -e CLOUD_API_ENDPOINT="http://localhost:3002" \
             -e API_URL="http://localhost:48484" \
-            -e MQTT_BROKER="mqtt://mosquitto:1883" \
+            -e USE_REAL_DOCKER="false" \
+            -e VERBOSE="false" \
             iotistic/agent:test-${{ matrix.board }} \
-            bash -c "
-              # Start apps in background
-              npm run start:cloud & 
-              APP_PID=\$!
-              echo 'Waiting for apps to start...'
-              for i in {1..15}; do
-                if curl -fs http://localhost:48484/ping >/dev/null; then break; fi
-                sleep 1
-              done
-              # Run CI tests
-              bash /app/test/device-api.sh
-              # Stop app
-              kill \$APP_PID
-            "
+            bash /app/test/device-api.sh
 
       # Login to Docker Hub (only if tests passed)
       - name: Login to Docker Hub
