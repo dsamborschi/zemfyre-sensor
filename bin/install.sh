@@ -345,9 +345,14 @@ function post_installation() {
 
     echo
 
-    gum confirm "Do you want to reboot now?" && \
-        gum style --foreground "#FF00FF" "Rebooting..." | gum format && \
-        sudo reboot
+    # Skip reboot prompt in CI
+    if [ "${CI:-false}" = "true" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
+        gum style --foreground "#00FFFF" "CI Mode - Skipping reboot" | gum format
+    else
+        gum confirm "Do you want to reboot now?" && \
+            gum style --foreground "#FF00FF" "Rebooting..." | gum format && \
+            sudo reboot
+    fi
 }
 
 function set_custom_version() {
@@ -391,17 +396,25 @@ function main() {
         DOCKER_TAG="latest"
     fi
 
-    # (You can still ask for MANAGE_NETWORK or SYSTEM_UPGRADE if you want)
-    gum confirm "${MANAGE_NETWORK_PROMPT[@]}" && \
-        export MANAGE_NETWORK="Yes" || \
+    # 🔹 CI Mode: Skip interactive prompts
+    if [ "${CI:-false}" = "true" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
         export MANAGE_NETWORK="No"
-
-    gum confirm "${SYSTEM_UPGRADE_PROMPT[@]}" && {
-        SYSTEM_UPGRADE="Yes"
-    } || {
         SYSTEM_UPGRADE="No"
         ANSIBLE_PLAYBOOK_ARGS+=("--skip-tags" "system-upgrade")
-    }
+        gum format "**CI Mode Detected** - Using non-interactive defaults"
+    else
+        # (You can still ask for MANAGE_NETWORK or SYSTEM_UPGRADE if you want)
+        gum confirm "${MANAGE_NETWORK_PROMPT[@]}" && \
+            export MANAGE_NETWORK="Yes" || \
+            export MANAGE_NETWORK="No"
+
+        gum confirm "${SYSTEM_UPGRADE_PROMPT[@]}" && {
+            SYSTEM_UPGRADE="Yes"
+        } || {
+            SYSTEM_UPGRADE="No"
+            ANSIBLE_PLAYBOOK_ARGS+=("--skip-tags" "system-upgrade")
+        }
+    fi
 
     display_section "User Input Summary"
     gum format "**Manage Network:**     ${MANAGE_NETWORK}"

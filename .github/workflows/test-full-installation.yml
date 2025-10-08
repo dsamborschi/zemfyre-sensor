@@ -81,10 +81,16 @@ jobs:
           # Set architecture for install script
           export TARGET_ARCH=${{ matrix.arch }}
           export PLATFORM=${{ matrix.platform }}
+          export DEBIAN_FRONTEND=noninteractive
           
-          # Run the installation script
-          # Docker is already installed in GitHub Actions runner
-          sudo -E bash bin/install.sh
+          # Run the installation script with master branch (non-interactive)
+          # Pass master as argument to skip version prompt
+          # Pipe answers: No to manage network, No to system upgrade, No to reboot
+          echo -e "n\nn\nn\n" | sudo -E bash bin/install.sh master || {
+            echo "⚠️  Installation failed - likely due to interactive prompts"
+            echo "Install script requires modification for CI compatibility"
+            exit 1
+          }
           
           echo "✅ Installation completed"
 
