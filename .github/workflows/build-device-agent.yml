@@ -54,8 +54,7 @@ jobs:
           tags: |
             iotistic/agent:test-${{ matrix.board }}
 
-      # Run app and tests in same container
-      - name: Run tests inside container
+      - name: Run api tests
         run: |
           docker run --rm \
             --platform ${{ matrix.platform }} \
@@ -66,6 +65,7 @@ jobs:
             -e USE_REAL_DOCKER="false" \
             iotistic/agent:test-${{ matrix.board }} \
             bash /app/test/run-ci-tests.sh
+
 
       # Login to Docker Hub (only if tests passed)
       - name: Login to Docker Hub
