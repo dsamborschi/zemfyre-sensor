@@ -9,7 +9,6 @@ on:
       - 'docker-compose.yml.tmpl'
       - 'docker-compose.dev.yml'
       - 'agent/**'
-      - 'application-manager/**'
       - 'mosquitto/**'
       - 'nodered/**'
       - 'influxdb/**'
