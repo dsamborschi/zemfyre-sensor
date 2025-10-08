@@ -297,6 +297,8 @@ function run_ansible_playbook() {
 function upgrade_docker_containers() {
     display_section "Initialize/Upgrade Docker Containers"
 
+    mkdir -p "$(dirname "$UPGRADE_SCRIPT_PATH")"
+
     wget -q \
         "$GITHUB_RAW_URL/master/bin/upgrade_containers.sh" \
         -O "$UPGRADE_SCRIPT_PATH"
@@ -310,6 +312,7 @@ function upgrade_docker_containers() {
         MODE="${MODE}" \
         "${UPGRADE_SCRIPT_PATH}"
 }
+
 
 function install_engine() {
     display_section "Build and install appEngine moby custom docker build"
