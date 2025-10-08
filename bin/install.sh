@@ -116,6 +116,8 @@ function install_prerequisites() {
 
     sudo apt -y update && sudo apt -y install gnupg
 
+    echo "sudo apt -y update done"
+
     sudo mkdir -p /etc/apt/keyrings
     curl -fsSL https://repo.charm.sh/apt/gpg.key | \
         sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
@@ -566,7 +568,7 @@ function set_custom_version() {
 
 function main() {
     install_prerequisites && clear
-    echo "install_prerequisites && clear done"
+   
     display_banner "${TITLE_TEXT}"
 
     # 🔹 Version handling: argument wins, otherwise default to master
