@@ -84,6 +84,7 @@ jobs:
           export DEBIAN_FRONTEND=noninteractive
           
           # Run the installation script with master branch (non-interactive)
+          export TERM=xterm
 
           bash bin/install.sh master
           
