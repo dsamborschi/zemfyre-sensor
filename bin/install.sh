@@ -5,6 +5,32 @@
 
 set -euo pipefail
 
+# CI-safe gum wrapper - uses echo in CI mode
+function gum() {
+    if [ "${CI:-false}" = "true" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
+        # In CI mode, replace gum commands with simple echo
+        case "$1" in
+            format|style)
+                shift
+                # Strip markdown/ANSI formatting and just echo
+                echo "$@" | sed 's/\*\*//g' | sed 's/`//g'
+                ;;
+            confirm)
+                # Always return false in CI for confirm (we set defaults before calling)
+                return 1
+                ;;
+            *)
+                # For other commands, just echo the arguments
+                shift
+                echo "$@"
+                ;;
+        esac
+    else
+        # Normal mode - call real gum
+        command gum "$@"
+    fi
+}
+
 BRANCH="master"
 ANSIBLE_PLAYBOOK_ARGS=()
 REPOSITORY="https://github.com/dsamborschi/zemfyre-sensor.git"
