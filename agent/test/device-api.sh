@@ -127,19 +127,39 @@ echo ""
 
 # Test 4: Get App Info (V1)
 echo "Test 4: Get App Info (GET /v1/apps/:appId)"
-# This test may fail if no apps are running - that's OK
-response=$(api_call GET "/v1/apps/1001")
-log_verbose "Response: $response"
-app_id=$(echo "$response" | jq -r '.appId // empty')
-if [ -n "$app_id" ]; then
-    app_name=$(echo "$response" | jq -r '.appName // empty')
-    service_name=$(echo "$response" | jq -r '.serviceName // empty')
-    pass "App info retrieved - App ID: $app_id"
-    [ -n "$app_name" ] && info "App Name: $app_name"
-    [ -n "$service_name" ] && info "Service: $service_name"
+# First, get device state to find available apps
+device_state=$(api_call GET "/v1/device")
+log_verbose "Device State: $device_state"
+
+# Extract first available app ID from device state
+first_app_id=$(echo "$device_state" | jq -r '.local.apps | to_entries | .[0].key // empty')
+
+if [ -n "$first_app_id" ] && [ "$first_app_id" != "null" ]; then
+    # Test with real app ID
+    info "Testing with app ID: $first_app_id"
+    response=$(api_call GET "/v1/apps/$first_app_id")
+    log_verbose "Response: $response"
+    
+    app_id=$(echo "$response" | jq -r '.appId // empty')
+    if [ -n "$app_id" ] && [ "$app_id" != "null" ]; then
+        app_name=$(echo "$response" | jq -r '.appName // empty')
+        service_name=$(echo "$response" | jq -r '.serviceName // empty')
+        pass "App info retrieved - App ID: $app_id"
+        [ -n "$app_name" ] && info "App Name: $app_name"
+        [ -n "$service_name" ] && info "Service: $service_name"
+    else
+        fail "Failed to get app info for app $first_app_id"
+    fi
 else
-    warn "No app with ID 1001 found (may be expected)"
-    ((PASSED++))  # Don't fail if app doesn't exist
+    # No apps running, just check endpoint exists
+    warn "No apps running, testing endpoint existence only"
+    response=$(api_call GET "/v1/apps/999999")
+    if echo "$response" | jq -e '.error' >/dev/null 2>&1; then
+        pass "App info endpoint exists (no apps to test with)"
+    else
+        warn "Could not verify app info endpoint (no apps running)"
+        ((PASSED++))  # Don't fail if no apps exist
+    fi
 fi
 echo ""
 
