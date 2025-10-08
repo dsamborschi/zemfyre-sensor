@@ -265,24 +265,34 @@ function run_ansible_playbook() {
             git clone --branch "$BRANCH" "$REPOSITORY" "$IOTISTIC_REPO_DIR"
         fi
 
-        # cd into the ansible folder
-        cd "${IOTISTIC_REPO_DIR}/ansible"
+        # cd into the ansible folder safely
+        if [ ! -d "${IOTISTIC_REPO_DIR}/ansible" ]; then
+            echo "❌ Error: ansible folder not found in $IOTISTIC_REPO_DIR"
+            exit 1
+        fi
+
+        pushd "${IOTISTIC_REPO_DIR}/ansible" > /dev/null
 
         # Run ansible-playbook from virtualenv
         ~/installer_venv/bin/ansible-playbook deploy.yml \
             -e "device_type=$DEVICE_TYPE" \
             "${ANSIBLE_PLAYBOOK_ARGS[@]}"
+
+        popd > /dev/null
     else
-        # Local/interactive mode (already handled)
-        cd "${IOTISTIC_REPO_DIR}/ansible"
+        # Local/interactive mode
+        pushd "${IOTISTIC_REPO_DIR}/ansible" > /dev/null
+
         sudo -E -u ${USER} ${SUDO_ARGS[@]} \
             DEVICE_TYPE="$DEVICE_TYPE" \
             ansible-playbook deploy.yml \
             -e "device_type=$DEVICE_TYPE" \
             "${ANSIBLE_PLAYBOOK_ARGS[@]}"
-    fi
 
+        popd > /dev/null
+    fi
 }
+
 
 
 function upgrade_docker_containers() {
