@@ -85,7 +85,7 @@ jobs:
           
           # Run the installation script with master branch (non-interactive)
 
-          sudo -E bash bin/install.sh master
+          bash bin/install.sh master
           
           echo "✅ Installation completed"
 
