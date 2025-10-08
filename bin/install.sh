@@ -566,6 +566,7 @@ function set_custom_version() {
 
 function main() {
     install_prerequisites && clear
+    echo "install_prerequisites && clear done"
     display_banner "${TITLE_TEXT}"
 
     # 🔹 Version handling: argument wins, otherwise default to master
