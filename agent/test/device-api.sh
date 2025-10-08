@@ -153,15 +153,14 @@ status_code=$(echo "$response" | tail -n1)
 response_body=$(echo "$response" | sed '$d')
 log_verbose "Status Code: $status_code"
 log_verbose "Response: $response_body"
-# Expect 400 (bad request), 404 (app not found), or 500 (error) - these mean endpoint exists
-# A 404 with "Cannot POST" means endpoint doesn't exist
-if echo "$response_body" | grep -q "Cannot POST"; then
+# Check for "Cannot POST" or "Cannot" with "POST" anywhere in response (Express 404)
+if echo "$response_body" | grep -iq "cannot.*post"; then
     fail "Restart endpoint not found"
-elif [ "$status_code" = "400" ] || [ "$status_code" = "404" ] || [ "$status_code" = "500" ]; then
+elif [ "$status_code" = "200" ] || [ "$status_code" = "400" ] || [ "$status_code" = "404" ] || [ "$status_code" = "500" ]; then
     pass "Restart endpoint exists"
 else
     warn "Unexpected status code: $status_code"
-    ((PASSED++))  # Don't fail on unexpected but non-404 codes
+    ((PASSED++))
 fi
 echo ""
 
@@ -211,40 +210,61 @@ echo ""
 
 # Test 9: V2 Restart Application (check endpoint exists)
 echo "Test 9: Restart Application Endpoint (POST /v2/applications/:appId/restart)"
-status_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/v2/applications/999999/restart" \
+response=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/v2/applications/999999/restart" \
     -H "Content-Type: application/json" \
     -d '{"force": false}')
+status_code=$(echo "$response" | tail -n1)
+response_body=$(echo "$response" | sed '$d')
 log_verbose "Status Code: $status_code"
-if [ "$status_code" != "404" ] || [ "$status_code" = "400" ] || [ "$status_code" = "500" ]; then
+log_verbose "Response: $response_body"
+# Check for "Cannot POST" or "Cannot" with "POST" anywhere in response (Express 404)
+if echo "$response_body" | grep -iq "cannot.*post"; then
+    fail "Restart application endpoint not found"
+elif [ "$status_code" = "200" ] || [ "$status_code" = "400" ] || [ "$status_code" = "404" ] || [ "$status_code" = "500" ]; then
     pass "Restart application endpoint exists"
 else
-    fail "Restart application endpoint not found (HTTP $status_code)"
+    warn "Unexpected status code: $status_code"
+    ((PASSED++))
 fi
 echo ""
 
 # Test 10: V2 Stop Service (check endpoint exists)
 echo "Test 10: Stop Service Endpoint (POST /v2/applications/:appId/stop-service)"
-status_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/v2/applications/999999/stop-service" \
+response=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/v2/applications/999999/stop-service" \
     -H "Content-Type: application/json" \
     -d '{"serviceName": "test", "force": false}')
+status_code=$(echo "$response" | tail -n1)
+response_body=$(echo "$response" | sed '$d')
 log_verbose "Status Code: $status_code"
-if [ "$status_code" != "404" ] || [ "$status_code" = "400" ] || [ "$status_code" = "500" ]; then
+log_verbose "Response: $response_body"
+# Check for "Cannot POST" or "Cannot" with "POST" anywhere in response (Express 404)
+if echo "$response_body" | grep -iq "cannot.*post"; then
+    fail "Stop service endpoint not found"
+elif [ "$status_code" = "200" ] || [ "$status_code" = "400" ] || [ "$status_code" = "404" ] || [ "$status_code" = "500" ]; then
     pass "Stop service endpoint exists"
 else
-    fail "Stop service endpoint not found (HTTP $status_code)"
+    warn "Unexpected status code: $status_code"
+    ((PASSED++))
 fi
 echo ""
 
 # Test 11: V2 Start Service (check endpoint exists)
 echo "Test 11: Start Service Endpoint (POST /v2/applications/:appId/start-service)"
-status_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/v2/applications/999999/start-service" \
+response=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/v2/applications/999999/start-service" \
     -H "Content-Type: application/json" \
     -d '{"serviceName": "test", "force": false}')
+status_code=$(echo "$response" | tail -n1)
+response_body=$(echo "$response" | sed '$d')
 log_verbose "Status Code: $status_code"
-if [ "$status_code" != "404" ] || [ "$status_code" = "400" ] || [ "$status_code" = "500" ]; then
+log_verbose "Response: $response_body"
+# Check for "Cannot POST" or "Cannot" with "POST" anywhere in response (Express 404)
+if echo "$response_body" | grep -iq "cannot.*post"; then
+    fail "Start service endpoint not found"
+elif [ "$status_code" = "200" ] || [ "$status_code" = "400" ] || [ "$status_code" = "404" ] || [ "$status_code" = "500" ]; then
     pass "Start service endpoint exists"
 else
-    fail "Start service endpoint not found (HTTP $status_code)"
+    warn "Unexpected status code: $status_code"
+    ((PASSED++))
 fi
 echo ""
 
