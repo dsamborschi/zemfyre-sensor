@@ -96,13 +96,24 @@
     owner: root
     group: root
 
-- name: Create docker.list with correct format
-  ansible.builtin.copy:
-    content: "deb [arch={{ architecture }}] https://download.docker.com/linux/debian {{ docker_codename }} stable\n"
-    dest: /etc/apt/sources.list.d/docker.list
-    mode: '0644'
-    owner: root
-    group: root
+- name: Debug Docker repository variables
+  ansible.builtin.debug:
+    msg: "Architecture: '{{ architecture }}', Codename: '{{ docker_codename }}'"
+
+- name: Create docker.list with shell command to avoid variable issues
+  ansible.builtin.shell: |
+    echo "deb [arch={{ architecture }}] https://download.docker.com/linux/debian {{ docker_codename }} stable" > /etc/apt/sources.list.d/docker.list
+    chmod 644 /etc/apt/sources.list.d/docker.list
+  changed_when: true
+
+- name: Verify docker.list content
+  ansible.builtin.command: cat /etc/apt/sources.list.d/docker.list
+  register: docker_list_content
+  changed_when: false
+
+- name: Display docker.list content
+  ansible.builtin.debug:
+    msg: "{{ docker_list_content.stdout }}"
 
 # Update package cache after fixing docker.list
 - name: Update apt cache
