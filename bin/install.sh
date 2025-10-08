@@ -122,7 +122,7 @@ function install_prerequisites() {
     echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
         | sudo tee /etc/apt/sources.list.d/charm.list
 
-    sudo apt -y update && sudo apt -y install gum jq
+    sudo apt -y update && sudo apt -y install gum
 }
 
 function display_banner() {
