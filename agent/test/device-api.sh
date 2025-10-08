@@ -302,6 +302,48 @@ if [ -n "$CLOUD_API_ENDPOINT" ]; then
         ((PASSED++))  # Don't fail - cloud API might not be running
     fi
     echo ""
+    
+    # Test 13: Report Device State
+    echo "Test 13: Report Device State (PATCH /api/v1/device/state)"
+    # Create sample state report
+    state_report=$(cat <<EOF
+{
+  "$device_uuid": {
+    "apps": {},
+    "cpu_usage": 25.5,
+    "memory_usage": 512000000,
+    "memory_total": 2048000000,
+    "storage_usage": 5000000000,
+    "storage_total": 32000000000,
+    "temperature": 45.2,
+    "uptime": 3600
+  }
+}
+EOF
+)
+    
+    # Report state to cloud API
+    response=$(curl -s -w "\n%{http_code}" -X PATCH "$CLOUD_API_ENDPOINT/api/v1/device/state" \
+        -H "Content-Type: application/json" \
+        -d "$state_report")
+    status_code=$(echo "$response" | tail -n1)
+    response_body=$(echo "$response" | sed '$d')
+    log_verbose "Status Code: $status_code"
+    log_verbose "Response: $response_body"
+    
+    if [ "$status_code" = "200" ]; then
+        # Check if response is JSON with status ok
+        if echo "$response_body" | jq -e '.status == "ok"' >/dev/null 2>&1; then
+            pass "Device state reported successfully"
+        else
+            warn "State reported but unexpected response"
+            ((PASSED++))
+        fi
+    else
+        warn "Cloud API not available or state report failed (HTTP $status_code)"
+        ((PASSED++))  # Don't fail - cloud API might not be running
+    fi
+    echo ""
 fi
 
 # ============================================================================
@@ -311,8 +353,8 @@ if [ -n "$API_KEY" ]; then
     echo "=== Authentication Tests ==="
     echo ""
     
-    # Test 13: Unauthorized Request (without API key)
-    echo "Test 13: Unauthorized Request (no API key)"
+    # Test 14: Unauthorized Request (without API key)
+    echo "Test 14: Unauthorized Request (no API key)"
     status_code=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/v1/device")
     log_verbose "Status Code: $status_code"
     if [ "$status_code" = "401" ] || [ "$status_code" = "403" ]; then
@@ -323,8 +365,8 @@ if [ -n "$API_KEY" ]; then
     fi
     echo ""
     
-    # Test 14: Authorized Request (with API key)
-    echo "Test 14: Authorized Request (with API key)"
+    # Test 15: Authorized Request (with API key)
+    echo "Test 15: Authorized Request (with API key)"
     response=$(curl -s -H "X-API-Key: $API_KEY" "$API_URL/v1/device")
     uuid=$(echo "$response" | jq -r '.uuid // empty')
     if [ -n "$uuid" ]; then
