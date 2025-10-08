@@ -428,8 +428,13 @@ function main() {
     # 🔹 Version handling: argument wins, otherwise default to master
     if [ -n "${1:-}" ]; then
         BRANCH="$1"
-        # optional: verify if tag exists
-        set_custom_version
+        # Only verify tags, not branch names like "master"
+        if [ "$BRANCH" != "master" ] && [ "$BRANCH" != "main" ]; then
+            # optional: verify if tag exists
+            set_custom_version "$BRANCH"
+        else
+            DOCKER_TAG="latest"
+        fi
     else
         BRANCH="master"
         DOCKER_TAG="latest"
@@ -478,4 +483,4 @@ function main() {
 }
 
 
-main
+main "$@"
