@@ -225,27 +225,19 @@ function install_ansible() {
         ANSIBLE_VERSION=$(curl -s $REQUIREMENTS_URL | grep ansible)
     fi
 
-    SUDO_ARGS=()
+    gum format 'Module `venv` detected. Activating virtual environment...'
+    python3 -m venv /home/${USER}/installer_venv
+    source /home/${USER}/installer_venv/bin/activate
 
-    if python3 -c "import venv" &> /dev/null; then
-        gum format 'Module `venv` is detected. Activating virtual environment...'
+    pip install --upgrade pip setuptools wheel
+    pip install cryptography==38.0.1
+    pip install "$ANSIBLE_VERSION"
+    pip install requests urllib3 certifi
 
-        echo
-
-        python3 -m venv /home/${USER}/installer_venv
-        source /home/${USER}/installer_venv/bin/activate
-
-        SUDO_ARGS+=("--preserve-env" "env" "PATH=$PATH")
-    fi
-
-    # @TODO: Remove me later. Cryptography 38.0.3 won't build at the moment.
-    # See https://github.com/Screenly/iotistic/issues/1654 for details.
-    sudo ${SUDO_ARGS[@]} pip install cryptography==38.0.1
-    sudo ${SUDO_ARGS[@]} pip install "$ANSIBLE_VERSION"
-
-    # 🔹 Install community.docker collection so docker_compose_v2 works
-    ansible-galaxy collection install community.docker
+    # Install Ansible Galaxy collection inside venv
+    ansible-galaxy collection install community.docker --force
 }
+
 
 function set_device_type() {
     if [ ! -f /proc/device-tree/model ] && [ "$(uname -m)" = "x86_64" ]; then
