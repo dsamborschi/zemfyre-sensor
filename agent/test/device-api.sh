@@ -10,8 +10,6 @@
 #   API_KEY - Optional API key for authentication
 #   VERBOSE - Enable verbose output (default: false)
 
-set -e
-
 API_URL="${1:-${API_URL:-http://localhost:48484}}"
 API_KEY="${2:-${API_KEY}}"
 VERBOSE="${VERBOSE:-false}"
