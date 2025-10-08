@@ -39,119 +39,72 @@
 
 # ---------------- Docker Installation ----------------
 
-- name: Make sure distro package of Docker is absent
-  ansible.builtin.apt:
-    name:
-      - docker
-      - docker-engine
-      - docker.io
-      - containerd
-      - runc
-      - docker-compose
-    state: absent
-    purge: yes
-    update_cache: yes
-
-# Get Debian codename
-- name: Get Debian name
+# Get Debian/Ubuntu codename
+- name: Get system codename
   ansible.builtin.command: lsb_release -cs
   register: debian_name
   changed_when: false
 
-# Map unsupported Debian codenames to a supported Docker repo
-- name: Map Debian codename to supported Docker repo
+# Normalize codename to Docker-supported ones
+- name: Map unsupported codenames to supported Docker repos
   ansible.builtin.set_fact:
     docker_codename: >-
-      {% if debian_name.stdout in ['noble', 'trixie'] %}
+      {% if debian_name.stdout in ['noble', 'trixie', 'testing', 'sid'] %}
         bookworm
+      {% elif debian_name.stdout == 'jammy' %}
+        bullseye
       {% else %}
         {{ debian_name.stdout }}
       {% endif %}
 
-- name: Add Docker apt key (x86)
+# Debug output for safety
+- debug:
+    msg: "Using Docker codename '{{ docker_codename }}' for '{{ debian_name.stdout }}'"
+
+# Add Docker’s GPG key
+- name: Add Docker apt key
   ansible.builtin.apt_key:
     url: https://download.docker.com/linux/debian/gpg
     state: present
-  when: ansible_architecture == "x86_64"
 
-- name: Add Docker apt key (Raspberry Pi)
-  ansible.builtin.apt_key:
-    url: https://download.docker.com/linux/raspbian/gpg
-    state: present
-  when: ansible_architecture in ["aarch64", "armv7l", "armv6l"]
-
-- name: Check system bit width
-  ansible.builtin.command: getconf LONG_BIT
-  register: system_bits
-  changed_when: false
-
-- name: Set architecture for Docker packages
+# Determine architecture
+- name: Determine architecture for Docker packages
   ansible.builtin.set_fact:
     architecture: >-
-      {% if device_type == "pi5" %}
-        arm64
-      {% elif ansible_architecture == "x86_64" %}
+      {% if ansible_architecture == 'x86_64' %}
         amd64
-      {% elif device_type in ["pi4"] and system_bits.stdout == "64" %}
+      {% elif ansible_architecture in ['aarch64', 'arm64'] %}
         arm64
-      {% else %}
+      {% elif ansible_architecture in ['armv7l', 'armv6l'] %}
         armhf
+      {% else %}
+        amd64
       {% endif %}
 
-- name: Add Docker repository
-  ansible.builtin.lineinfile:
-    path: /etc/apt/sources.list.d/docker.list
-    create: true
-    line: "deb [arch={{ architecture }}] https://download.docker.com/linux/debian {{ docker_codename }} stable"
+# Add Docker repo safely
+- name: Add Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ architecture }}] https://download.docker.com/linux/debian {{ docker_codename }} stable"
     state: present
-    owner: root
-    group: root
-    mode: "0644"
+    filename: docker
 
+# Update package cache
 - name: Update apt cache
   ansible.builtin.apt:
     update_cache: yes
 
-- name: Install Docker
+# Install Docker CE + CLI + compose plugin
+- name: Install Docker packages
   ansible.builtin.apt:
     name:
-      - "docker-ce:{{ architecture }}"
-      - "docker-ce-cli:{{ architecture }}"
-      - "docker-compose-plugin:{{ architecture }}"
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
     update_cache: yes
-    install_recommends: false
+    install_recommends: no
 
-- name: Add user to Docker group (all platforms)
-  ansible.builtin.user:
-    name: "{{ lookup('env', 'USER') }}"
-    groups:
-      - docker
-      - adm
-      - sudo
-      - video
-      - plugdev
-      - users
-      - input
-      - netdev
-      - dialout
-    append: yes
-
-- name: Add user to Docker group (Raspberry Pi)
-  ansible.builtin.user:
-    name: "{{ lookup('env', 'USER') }}"
-    groups:
-      - docker
-      - adm
-      - sudo
-      - video
-      - plugdev
-      - users
-      - input
-      - netdev
-      - gpio
-      - dialout
-    append: yes
-  when: ansible_architecture in ["aarch64", "armv7l", "armv6l"]
 
 - name: Perform system upgrade
   ansible.builtin.apt:
