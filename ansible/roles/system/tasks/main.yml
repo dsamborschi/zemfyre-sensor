@@ -31,10 +31,11 @@
     create: yes
 
 - name: Enable and start systemd-timesyncd
-  systemd:
+  ansible.builtin.systemd:
     name: systemd-timesyncd
     enabled: yes
     state: restarted
+  ignore_errors: true
 
 # ---------------- Docker Installation ---ss-------------
 
