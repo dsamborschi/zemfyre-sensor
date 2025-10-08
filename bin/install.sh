@@ -163,7 +163,7 @@ function initialize_locales() {
     display_section "Initialize Locales"
 
     if [ ! -f /etc/locale.gen ]; then
-        # No locales found. Creating locales with default UK/US setup.fff
+        # No locales found. Creating locales with default UK/US setup.ffftt
         echo -e "en_GB.UTF-8 UTF-8\nen_US.UTF-8 UTF-8" | \
             sudo tee /etc/locale.gen > /dev/null
         sudo locale-gen
