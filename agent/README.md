@@ -4,7 +4,7 @@ A standalone application manager service extracted from the Balena Supervisor. T
 
 ## 🐳 Docker Integration - NEW!
 
-This manager now has **REAL Docker support**! Deploy, update, and manage containers just like Balena does.
+This manager now has **REAL Docker support**! Deploy, update, and manage containers just likerr Balena does.
 
 ### Quick Start (30 seconds)
 
