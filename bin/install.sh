@@ -47,8 +47,13 @@ DOCKER_TAG="latest"
 UPGRADE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/upgrade_containers.sh"
 APPENGINE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/build_appengine.sh"
 ARCHITECTURE=$(uname -m)
-DISTRO_VERSION=$(lsb_release -rs 2>/dev/null || echo "24.04")
-DISTRO_VERSION_MAJOR=$(echo "$DISTRO_VERSION" | cut -d'.' -f1 || echo "24")
+DISTRO_VERSION=$(lsb_release -rs 2>/dev/null || true)
+if ! [[ "$DISTRO_VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
+    echo "⚠️  lsb_release returned unknown value: '$DISTRO_VERSION', defaulting to 24.04"
+    DISTRO_VERSION="24.04"
+fi
+DISTRO_VERSION_MAJOR=$(echo "$DISTRO_VERSION" | cut -d'.' -f1)
+
 
 # Fallback if still empty
 if ! [[ "$DISTRO_VERSION_MAJOR" =~ ^[0-9]+$ ]]; then
