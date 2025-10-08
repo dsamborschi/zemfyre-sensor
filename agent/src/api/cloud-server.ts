@@ -103,18 +103,7 @@ app.use((req: Request, res: Response, next) => {
 	next();
 });
 
-// ============================================================================
-// DEVICE API V3 - BALENA-STYLE ENDPOINTS
-// ============================================================================
 
-/**
- * GET /api/v3/device/:uuid/state
- * Device polls for target state (what SHOULD be running)
- * 
- * Supports ETag caching:
- * - Returns 304 Not Modified if ETag matches (no changes)
- * - Returns 200 with state if changed
- */
 app.get('/api/v1/device/:uuid/state', (req: Request, res: Response) => {
 	const { uuid } = req.params;
 	const ifNoneMatch = req.headers['if-none-match'];
@@ -154,7 +143,7 @@ app.get('/api/v1/device/:uuid/state', (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/v3/device/:uuid/logs
+ * POST /api/v1/device/:uuid/logs
  * Device uploads logs (compressed NDJSON)
  * 
  * Content-Type: application/x-ndjson

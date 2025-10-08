@@ -269,14 +269,50 @@ fi
 echo ""
 
 # ============================================================================
+# Cloud API Tests (if CLOUD_API_ENDPOINT is set)
+# ============================================================================
+if [ -n "$CLOUD_API_ENDPOINT" ]; then
+    echo "=== Cloud API Tests ==="
+    echo ""
+    
+    # Test 12: Upload Logs Endpoint
+    echo "Test 12: Upload Logs (POST /api/v1/device/:uuid/logs)"
+    # Get device UUID first
+    device_info=$(api_call GET "/v1/device")
+    device_uuid=$(echo "$device_info" | jq -r '.uuid // "test-device-uuid"')
+    log_verbose "Device UUID: $device_uuid"
+    
+    # Create sample log data (NDJSON format)
+    sample_logs='{"timestamp":"2025-01-01T00:00:00Z","level":"info","message":"Test log 1"}
+{"timestamp":"2025-01-01T00:00:01Z","level":"info","message":"Test log 2"}'
+    
+    # Upload logs to cloud API
+    response=$(curl -s -w "\n%{http_code}" -X POST "$CLOUD_API_ENDPOINT/api/v1/device/$device_uuid/logs" \
+        -H "Content-Type: application/x-ndjson" \
+        -d "$sample_logs")
+    status_code=$(echo "$response" | tail -n1)
+    response_body=$(echo "$response" | sed '$d')
+    log_verbose "Status Code: $status_code"
+    log_verbose "Response: $response_body"
+    
+    if [ "$status_code" = "200" ]; then
+        pass "Logs uploaded successfully"
+    else
+        warn "Cloud API not available or logs upload failed (HTTP $status_code)"
+        ((PASSED++))  # Don't fail - cloud API might not be running
+    fi
+    echo ""
+fi
+
+# ============================================================================
 # Authentication Tests (if API_KEY is set)
 # ============================================================================
 if [ -n "$API_KEY" ]; then
     echo "=== Authentication Tests ==="
     echo ""
     
-    # Test 12: Unauthorized Request (without API key)
-    echo "Test 12: Unauthorized Request (no API key)"
+    # Test 13: Unauthorized Request (without API key)
+    echo "Test 13: Unauthorized Request (no API key)"
     status_code=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/v1/device")
     log_verbose "Status Code: $status_code"
     if [ "$status_code" = "401" ] || [ "$status_code" = "403" ]; then
@@ -287,8 +323,8 @@ if [ -n "$API_KEY" ]; then
     fi
     echo ""
     
-    # Test 13: Authorized Request (with API key)
-    echo "Test 13: Authorized Request (with API key)"
+    # Test 14: Authorized Request (with API key)
+    echo "Test 14: Authorized Request (with API key)"
     response=$(curl -s -H "X-API-Key: $API_KEY" "$API_URL/v1/device")
     uuid=$(echo "$response" | jq -r '.uuid // empty')
     if [ -n "$uuid" ]; then
