@@ -114,6 +114,8 @@ function install_prerequisites() {
         return
     fi
 
+    echo "before sudo apt -y update"
+
     sudo apt -y update && sudo apt -y install gnupg
 
     echo "sudo apt -y update done"
