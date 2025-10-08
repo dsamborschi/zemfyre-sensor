@@ -65,12 +65,12 @@ jobs:
             -e MQTT_BROKER="mqtt://mosquitto:1883" \
             iotistic/agent:test-${{ matrix.board }} \
             bash -c "
-              # Start app in background
-              npm run start:docker &
+              # Start apps in background
+              npm run start:cloud & 
               APP_PID=\$!
-              echo 'Waiting for app to start...'
+              echo 'Waiting for apps to start...'
               for i in {1..15}; do
-                if curl -fs http://localhost:48484/v1/healthy >/dev/null; then break; fi
+                if curl -fs http://localhost:48484/ping >/dev/null; then break; fi
                 sleep 1
               done
               # Run CI tests
