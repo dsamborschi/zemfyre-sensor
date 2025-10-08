@@ -216,26 +216,16 @@ function install_packages() {
 }
 
 function install_ansible() {
-    display_section "Install Ansible"
+    echo "📦 Installing Ansible (CI mode)..."
 
-    REQUIREMENTS_URL="$GITHUB_RAW_URL/$BRANCH/requirements/requirements.host.txt"
-    if [ "$DISTRO_VERSION_MAJOR" -le 11 ]; then
-        ANSIBLE_VERSION="ansible-core==2.15.9"
-    else
-        ANSIBLE_VERSION=$(curl -s $REQUIREMENTS_URL | grep ansible)
-    fi
-
-    gum format 'Module `venv` detected. Activating virtual environment...'
-    python3 -m venv /home/${USER}/installer_venv
-    source /home/${USER}/installer_venv/bin/activate
+    python3 -m venv ~/installer_venv
+    source ~/installer_venv/bin/activate
 
     pip install --upgrade pip setuptools wheel
-    pip install cryptography==38.0.1
-    pip install "$ANSIBLE_VERSION"
-    pip install requests urllib3 certifi
+    pip install cryptography==38.0.1 ansible-core==2.15.9 requests urllib3 certifi
 
-    # Install Ansible Galaxy collection inside venv
-    ansible-galaxy collection install community.docker --force
+    export HOME=/github/home
+    ansible-galaxy collection install community.docker --force --ignore-certs
 }
 
 
