@@ -259,37 +259,36 @@ function run_ansible_playbook() {
     display_section "Run the Iotistic Ansible Playbook"
     set_device_type
 
+    # CI mode: use GitHub Actions checkout path
     if [ "$IS_CI_MODE" = true ]; then
-        # Clone repo if not already present
-        if [ ! -d "${IOTISTIC_REPO_DIR}" ]; then
-            git clone --branch "$BRANCH" "$REPOSITORY" "$IOTISTIC_REPO_DIR"
-        fi
+        IOTISTIC_REPO_DIR="${GITHUB_WORKSPACE:-/home/${USER}/iotistic}"
 
-        # cd into the ansible folder safely
-        if [ ! -d "${IOTISTIC_REPO_DIR}/ansible" ]; then
+        if [ ! -d "$IOTISTIC_REPO_DIR/ansible" ]; then
             echo "❌ Error: ansible folder not found in $IOTISTIC_REPO_DIR"
             exit 1
         fi
 
-        pushd "${IOTISTIC_REPO_DIR}/ansible" > /dev/null
+        cd "$IOTISTIC_REPO_DIR/ansible"
 
-        # Run ansible-playbook from virtualenv
+        echo "📦 Running Ansible Playbook in CI mode..."
         ~/installer_venv/bin/ansible-playbook deploy.yml \
             -e "device_type=$DEVICE_TYPE" \
             "${ANSIBLE_PLAYBOOK_ARGS[@]}"
-
-        popd > /dev/null
     else
         # Local/interactive mode
-        pushd "${IOTISTIC_REPO_DIR}/ansible" > /dev/null
+        if [ ! -d "$IOTISTIC_REPO_DIR/ansible" ]; then
+            echo "❌ Error: ansible folder not found in $IOTISTIC_REPO_DIR"
+            exit 1
+        fi
 
+        cd "$IOTISTIC_REPO_DIR/ansible"
+
+        echo "📦 Running Ansible Playbook locally..."
         sudo -E -u ${USER} ${SUDO_ARGS[@]} \
             DEVICE_TYPE="$DEVICE_TYPE" \
             ansible-playbook deploy.yml \
             -e "device_type=$DEVICE_TYPE" \
             "${ANSIBLE_PLAYBOOK_ARGS[@]}"
-
-        popd > /dev/null
     fi
 }
 
