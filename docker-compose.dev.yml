@@ -1,8 +1,8 @@
 services:
-    application-manager:
-            container_name: application-manager
+    agent:
+            container_name: agent
             build:
-                context: ./application-manager
+                context: ./agent
                 dockerfile: Dockerfile
             privileged: true
             pid: "host"
@@ -19,6 +19,7 @@ services:
             - MQTT_BROKER=mqtt://mosquitto:1883
             - ENABLE_FILE_LOGGING=false
             - MAX_LOGS=500
+             - CLOUD_API_ENDPOINT=http://localhost:3002
     nginx:
         image: nginx
         ports:

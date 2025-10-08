@@ -74,7 +74,7 @@ jobs:
                 sleep 1
               done
               # Run CI tests
-              bash /app/test/ci-test.sh
+              bash /app/test/device-api.sh
               # Stop app
               kill \$APP_PID
             "
