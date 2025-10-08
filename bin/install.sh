@@ -261,6 +261,7 @@ function run_ansible_playbook() {
 
     if [ "$IS_CI_MODE" = true ]; then
         # Use ansible from virtualenv in CI
+        cd "${IOTISTIC_REPO_DIR}/ansible"
         ~/installer_venv/bin/ansible-playbook deploy.yml \
             -e "device_type=$DEVICE_TYPE" \
             "${ANSIBLE_PLAYBOOK_ARGS[@]}"
