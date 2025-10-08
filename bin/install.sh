@@ -103,6 +103,8 @@ EOF
 # Install gum from Charm.sh.
 # Gum helps you write shell scripts more efficiently.
 function install_prerequisites() {
+
+    echo "install_prerequisites started"
     # In CI mode, skip gum installation (we have a wrapper that uses echo)
     if [ "$IS_CI_MODE" = true ]; then
         echo "CI Mode: Skipping gum installation, installing jq only"
