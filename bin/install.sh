@@ -136,6 +136,8 @@ function display_banner() {
         --margin "1 1" \
         --padding "2 6" \
         "${TITLE}"
+
+    echo " display_banner finished"
 }
 
 function display_section() {
