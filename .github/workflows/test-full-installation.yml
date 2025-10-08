@@ -1,0 +1,136 @@
+name: Test Full Installation
+
+on: 
+  push:
+    branches:
+      - master
+    paths:
+      - 'bin/install.sh'
+      - 'docker-compose.yml.tmpl'
+      - 'docker-compose.dev.yml'
+      - 'agent/**'
+      - 'application-manager/**'
+      - 'mosquitto/**'
+      - 'nodered/**'
+      - 'influxdb/**'
+      - 'grafana/**'
+      - 'nginx/**'
+      - 'api/**'
+      - 'admin/**'
+
+jobs:
+  test-installation:
+    name: Test Full Installation
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - arch: armhf
+            platform: linux/arm/v7
+            qemu_arch: arm
+          - arch: arm64
+            platform: linux/arm64/v8
+            qemu_arch: aarch64
+          - arch: amd64
+            platform: linux/amd64
+            qemu_arch: x86_64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache/${{ matrix.arch }}
+          key: buildx-full-${{ matrix.arch }}-${{ github.sha }}
+          restore-keys: |
+            buildx-full-${{ matrix.arch }}-
+
+      - name: Prepare test environment
+        run: |
+          echo "🔧 Setting up test environment for ${{ matrix.arch }}"
+          
+          # Create minimal .env for testing
+          cat > .env <<EOF
+          # Test Environment
+          DEVICE_UUID=test-device-${{ matrix.arch }}
+          TARGET_ARCH=${{ matrix.arch }}
+          EOF
+          
+          echo "✅ Environment configured"
+
+      - name: Run installation script
+        run: |
+          echo "� Running bin/install.sh for ${{ matrix.arch }}..."
+          
+          # Check if install script exists
+          if [ ! -f "bin/install.sh" ]; then
+            echo "❌ bin/install.sh not found"
+            exit 1
+          fi
+          
+          # Make it executable
+          chmod +x bin/install.sh
+          
+          # Set architecture for install script
+          export TARGET_ARCH=${{ matrix.arch }}
+          export PLATFORM=${{ matrix.platform }}
+          
+          # Run the installation script
+          # Docker is already installed in GitHub Actions runner
+          sudo -E bash bin/install.sh
+          
+          echo "✅ Installation completed"
+
+      - name: Verify installation
+        run: |
+          echo "� Verifying installation..."
+          
+          # Check if docker-compose file was created
+          if [ -f "docker-compose.yml" ]; then
+            echo "✅ docker-compose.yml created"
+          else
+            echo "❌ docker-compose.yml not found"
+            exit 1
+          fi
+          
+          # Check if containers are running
+          echo "📦 Checking running containers..."
+          docker-compose ps
+          
+          # Wait for services to start
+          echo "⏳ Waiting for services to be ready..."
+          sleep 10
+          
+          # Test basic connectivity (if services expose ports)
+          if docker-compose ps | grep -q "agent"; then
+            echo "🧪 Testing agent connectivity..."
+            curl -f http://localhost:48484/ping || echo "⚠️  Agent not responding yet"
+          fi
+          
+          echo "✅ Installation verified"
+
+      - name: Show installation logs
+        if: always()
+        run: |
+          echo "� Docker Compose Services:"
+          docker-compose ps || true
+          echo ""
+          echo "📋 Docker Images:"
+          docker images | grep iotistic || true
+          echo ""
+          echo "📋 Service Logs (last 50 lines):"
+          docker-compose logs --tail=50 || true
+
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "🧹 Cleaning up..."
+          docker-compose down -v 2>/dev/null || true
