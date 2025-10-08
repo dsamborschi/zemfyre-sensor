@@ -52,6 +52,13 @@
     purge: yes
     update_cache: yes
 
+# Get Debian codename
+- name: Get Debian name
+  ansible.builtin.command: lsb_release -cs
+  register: debian_name
+  changed_when: false
+
+# Map unsupported Debian codenames to a supported Docker repo
 - name: Map Debian codename to supported Docker repo
   ansible.builtin.set_fact:
     docker_codename: >-
@@ -72,11 +79,6 @@
     url: https://download.docker.com/linux/raspbian/gpg
     state: present
   when: ansible_architecture in ["aarch64", "armv7l", "armv6l"]
-
-- name: Get Debian name
-  ansible.builtin.command: lsb_release -cs
-  register: debian_name
-  changed_when: false
 
 - name: Check system bit width
   ansible.builtin.command: getconf LONG_BIT
