@@ -260,19 +260,28 @@ function run_ansible_playbook() {
     set_device_type
 
     if [ "$IS_CI_MODE" = true ]; then
-        # Use ansible from virtualenv in CI
+        # Clone repo if not already present
+        if [ ! -d "${IOTISTIC_REPO_DIR}" ]; then
+            git clone --branch "$BRANCH" "$REPOSITORY" "$IOTISTIC_REPO_DIR"
+        fi
+
+        # cd into the ansible folder
         cd "${IOTISTIC_REPO_DIR}/ansible"
+
+        # Run ansible-playbook from virtualenv
         ~/installer_venv/bin/ansible-playbook deploy.yml \
             -e "device_type=$DEVICE_TYPE" \
             "${ANSIBLE_PLAYBOOK_ARGS[@]}"
     else
-        # Interactive/local mode: run with sudo if needed
-        sudo -E -u "${USER}" "${SUDO_ARGS[@]}" \
+        # Local/interactive mode (already handled)
+        cd "${IOTISTIC_REPO_DIR}/ansible"
+        sudo -E -u ${USER} ${SUDO_ARGS[@]} \
             DEVICE_TYPE="$DEVICE_TYPE" \
             ansible-playbook deploy.yml \
             -e "device_type=$DEVICE_TYPE" \
             "${ANSIBLE_PLAYBOOK_ARGS[@]}"
     fi
+
 }
 
 
