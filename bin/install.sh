@@ -275,7 +275,7 @@ function run_ansible_playbook() {
             -e "device_type=$DEVICE_TYPE" \
             "${ANSIBLE_PLAYBOOK_ARGS[@]}"
     else
-        # Local/interactive mode
+        # Local/interactive modess
         if [ ! -d "$IOTISTIC_REPO_DIR/ansible" ]; then
             echo "❌ Error: ansible folder not found in $IOTISTIC_REPO_DIR"
             exit 1
