@@ -47,7 +47,14 @@ DOCKER_TAG="latest"
 UPGRADE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/upgrade_containers.sh"
 APPENGINE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/build_appengine.sh"
 ARCHITECTURE=$(uname -m)
-DISTRO_VERSION=$(lsb_release -rs)
+DISTRO_VERSION=$(lsb_release -rs 2>/dev/null || echo "24.04")
+DISTRO_VERSION_MAJOR=$(echo "$DISTRO_VERSION" | cut -d'.' -f1 || echo "24")
+
+# Fallback if still empty
+if ! [[ "$DISTRO_VERSION_MAJOR" =~ ^[0-9]+$ ]]; then
+    echo "⚠️  Unknown distro version '$DISTRO_VERSION', defaulting to 24"
+    DISTRO_VERSION_MAJOR=24
+fi
 MODE="pull" #  either "pull" or "build"
 
 INTRO_MESSAGE=(
@@ -168,7 +175,7 @@ function install_packages() {
         "whois"
     )
 
-    if [ "$DISTRO_VERSION" -ge 12 ]; then
+    if [ "$DISTRO_VERSION_MAJOR" -ge 12 ]; then
         APT_INSTALL_ARGS+=(
             "python3-dev"
             "python3-full"
@@ -199,7 +206,7 @@ function install_ansible() {
     display_section "Install Ansible"
 
     REQUIREMENTS_URL="$GITHUB_RAW_URL/$BRANCH/requirements/requirements.host.txt"
-    if [ "$DISTRO_VERSION" -le 11 ]; then
+    if [ "$DISTRO_VERSION_MAJOR" -le 11 ]; then
         ANSIBLE_VERSION="ansible-core==2.15.9"
     else
         ANSIBLE_VERSION=$(curl -s $REQUIREMENTS_URL | grep ansible)
