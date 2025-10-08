@@ -277,8 +277,8 @@ function run_ansible_playbook() {
     sudo -E -u ${USER} ${SUDO_ARGS[@]} \
     DEVICE_TYPE="$DEVICE_TYPE" \
     if [ "$IS_CI_MODE" = true ]; then
-    # Use ansible from virtualenv
-    ~/installer_venv/bin/ansible-playbook deploy.yml -e "device_type=$DEVICE_TYPE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
+        # Use ansible from virtualenv
+        ~/installer_venv/bin/ansible-playbook deploy.yml -e "device_type=$DEVICE_TYPE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
     else
         # Interactive/local mode: run with sudo if needed
         sudo -E -u ${USER} ${SUDO_ARGS[@]} \
