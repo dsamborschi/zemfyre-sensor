@@ -216,7 +216,14 @@ function install_packages() {
 }
 
 function install_ansible() {
-    echo "📦 Installing Ansible (CI mode)..."
+    echo "📦 Installing Ansible..."
+
+    if [ "$IS_CI_MODE" = true ]; then
+        # Use a writable home in CI
+        export HOME="$GITHUB_WORKSPACE"
+        export ANSIBLE_REMOTE_TEMP="$HOME/.ansible/tmp"
+        mkdir -p "$ANSIBLE_REMOTE_TEMP"
+    fi
 
     python3 -m venv ~/installer_venv
     source ~/installer_venv/bin/activate
@@ -224,8 +231,11 @@ function install_ansible() {
     pip install --upgrade pip setuptools wheel
     pip install cryptography==38.0.1 ansible-core==2.15.9 requests urllib3 certifi
 
-    export HOME=/github/home
-    ansible-galaxy collection install community.docker --force --ignore-certs
+    echo "✅ Ansible installed"
+
+    # Install docker collection
+    ansible-galaxy collection install community.docker --force
+    echo "✅ Ansible community.docker collection installed"
 }
 
 
