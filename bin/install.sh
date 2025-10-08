@@ -259,34 +259,21 @@ function run_ansible_playbook() {
     display_section "Run the Iotistic Ansible Playbook"
     set_device_type
 
-    sudo -u ${USER} ${SUDO_ARGS[@]} ansible localhost \
-        -m git \
-        -a "repo=$REPOSITORY dest=${IOTISTIC_REPO_DIR} version=${BRANCH} force=yes"
-    cd ${IOTISTIC_REPO_DIR}/ansible
-
-    if [ "$ARCHITECTURE" == "x86_64" ]; then
-        if [ ! -f /etc/sudoers.d/010_${USER}-nopasswd ]; then
-            ANSIBLE_PLAYBOOK_ARGS+=("--ask-become-pass")
-        fi
-
-        ANSIBLE_PLAYBOOK_ARGS+=(
-            "--skip-tags" "raspberry-pi"
-        )
-    fi
-
-    sudo -E -u ${USER} ${SUDO_ARGS[@]} \
-    DEVICE_TYPE="$DEVICE_TYPE" \
     if [ "$IS_CI_MODE" = true ]; then
-        # Use ansible from virtualenv
-        ~/installer_venv/bin/ansible-playbook deploy.yml -e "device_type=$DEVICE_TYPE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
+        # Use ansible from virtualenv in CI
+        ~/installer_venv/bin/ansible-playbook deploy.yml \
+            -e "device_type=$DEVICE_TYPE" \
+            "${ANSIBLE_PLAYBOOK_ARGS[@]}"
     else
         # Interactive/local mode: run with sudo if needed
-        sudo -E -u ${USER} ${SUDO_ARGS[@]} \
+        sudo -E -u "${USER}" "${SUDO_ARGS[@]}" \
             DEVICE_TYPE="$DEVICE_TYPE" \
-            ansible-playbook deploy.yml -e "device_type=$DEVICE_TYPE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
+            ansible-playbook deploy.yml \
+            -e "device_type=$DEVICE_TYPE" \
+            "${ANSIBLE_PLAYBOOK_ARGS[@]}"
     fi
-
 }
+
 
 function upgrade_docker_containers() {
     display_section "Initialize/Upgrade Docker Containers"
