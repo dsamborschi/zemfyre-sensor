@@ -25,6 +25,7 @@ A comprehensive IoT solution for environmental monitoring using Bosch BME688 gas
 - [Installation Methods](#-installation-methods)
 - [Service Configuration](#-service-configuration)
 - [Usage](#-usage)
+- [Remote Device Access](#-remote-device-access)
 - [Development](#-development)
 - [Troubleshooting](#-troubleshooting)
 - [Maintenance](#-maintenance)
@@ -265,7 +266,189 @@ The system automatically:
 4. **Visualizes** real-time and historical data in Grafana
 5. **Triggers** alerts based on configured thresholds for air quality and environmental conditions
 
-## 🛠️ Development
+## � Remote Device Access
+
+The system supports SSH reverse tunneling for remote device access without VPN complexity.
+
+### Why SSH Reverse Tunnel?
+
+- ✅ **Simple Setup**: No VPN server required
+- ✅ **Built-in Security**: Uses SSH key authentication
+- ✅ **Firewall Friendly**: Works through standard SSH port 22
+- ✅ **Auto-Reconnect**: Automatically re-establishes lost connections
+- ✅ **Multiple Devices**: Support for fleet management
+
+### Architecture
+
+```
+Device (Behind NAT/Firewall)           Cloud Server (Public IP)
+┌─────────────────────┐               ┌─────────────────────┐
+│   Device Agent      │               │   Cloud API         │
+│   localhost:48484   │─────SSH───▶   │   localhost:48484   │
+│                     │   Tunnel      │   (forwarded)       │
+└─────────────────────┘               └─────────────────────┘
+```
+
+The device establishes an SSH reverse tunnel to your cloud server, making its Device API accessible remotely.
+
+### Quick Setup
+
+Remote access can be configured **during initial installation** or **added later**.
+
+#### Option 1: During Installation (Recommended)
+
+When running `bin/install.sh`, you'll be prompted:
+```
+╔═══════════════════════════════════════════════════════════╗
+║     Remote Device Access Setup (Optional)                 ║
+╚═══════════════════════════════════════════════════════════╝
+
+? Would you like to enable remote access? (y/N)
+```
+
+If you choose "Yes":
+1. Enter your cloud server hostname (e.g., `cloud.example.com`)
+2. Enter SSH username (default: `tunnel`)
+3. The script will generate SSH keys and copy them to cloud server
+4. Remote access will be enabled automatically after installation completes
+
+#### Option 2: After Installation
+
+If you skipped remote access during installation, run the setup script:
+
+```bash
+bash bin/setup-remote-access.sh cloud.example.com tunnel
+```
+
+This script will:
+- Generate SSH keys on the device
+- Copy public key to cloud server
+- Configure cloud server SSH settings
+- Update .env with remote access configuration
+- Test the tunnel connection
+
+Then restart the device agent:
+```bash
+docker-compose restart agent
+```
+
+#### Verify Connection
+
+From your cloud server:
+```bash
+curl http://localhost:48484/v2/device
+curl http://localhost:48484/v2/applications/state
+```
+
+### Manual Configuration
+
+If you prefer manual setup:
+
+1. **Generate SSH key on device**:
+```bash
+mkdir -p data/ssh
+ssh-keygen -t ed25519 -f data/ssh/id_rsa -N ""
+```
+
+2. **Copy public key to cloud server**:
+```bash
+ssh-copy-id -i data/ssh/id_rsa.pub tunnel@cloud.example.com
+```
+
+3. **Configure cloud server** (`/etc/ssh/sshd_config`):
+```
+GatewayPorts yes
+ClientAliveInterval 60
+ClientAliveCountMax 3
+```
+
+4. **Add to `.env`**:
+```bash
+ENABLE_REMOTE_ACCESS=true
+CLOUD_HOST=cloud.example.com
+CLOUD_SSH_PORT=22
+SSH_TUNNEL_USER=tunnel
+SSH_KEY_PATH=/app/data/ssh/id_rsa
+```
+
+5. **Restart services**:
+```bash
+sudo systemctl restart sshd  # On cloud server
+docker-compose restart agent  # On device
+```
+
+### Environment Variables
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_REMOTE_ACCESS` | `false` | Enable SSH reverse tunnel |
+| `CLOUD_HOST` | - | Cloud server hostname/IP (required) |
+| `CLOUD_SSH_PORT` | `22` | SSH port on cloud server |
+| `SSH_TUNNEL_USER` | `tunnel` | SSH user on cloud server |
+| `SSH_KEY_PATH` | `/app/data/ssh/id_rsa` | Path to SSH private key |
+| `SSH_AUTO_RECONNECT` | `true` | Auto-reconnect on disconnect |
+| `SSH_RECONNECT_DELAY` | `5000` | Delay before reconnect (ms) |
+
+### Multi-Device Management
+
+For managing multiple devices, assign each device a unique port:
+
+**Device 1**:
+```bash
+DEVICE_API_PORT=48484
+```
+
+**Device 2**:
+```bash
+DEVICE_API_PORT=48485
+```
+
+**Device 3**:
+```bash
+DEVICE_API_PORT=48486
+```
+
+Then access each device from cloud:
+```bash
+curl http://localhost:48484/v2/device  # Device 1
+curl http://localhost:48485/v2/device  # Device 2
+curl http://localhost:48486/v2/device  # Device 3
+```
+
+### Monitoring
+
+Check tunnel status in logs:
+```bash
+docker-compose logs -f agent | grep -i tunnel
+```
+
+Expected output:
+```
+🔌 Initializing SSH reverse tunnel...
+   Cloud: cloud.example.com:22
+   Tunnel: cloud:48484 -> device:48484
+✅ SSH reverse tunnel established successfully
+```
+
+### Troubleshooting
+
+**Tunnel not connecting:**
+- Verify cloud server is reachable: `ping cloud.example.com`
+- Check SSH key permissions: `ls -la data/ssh/id_rsa` (should be 600)
+- Test SSH connection: `ssh -i data/ssh/id_rsa tunnel@cloud.example.com`
+
+**Tunnel disconnects frequently:**
+- Check network stability
+- Adjust `SSH_RECONNECT_DELAY` if needed
+- Verify cloud server `ClientAliveInterval` settings
+
+**Port already in use:**
+- Choose a different `DEVICE_API_PORT`
+- Check for existing tunnels: `ps aux | grep ssh`
+
+For more details, see [`docs/REMOTE-ACCESS.md`](docs/REMOTE-ACCESS.md).
+
+## �🛠️ Development
 
 ### Project Structure
 

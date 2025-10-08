@@ -21,6 +21,14 @@ services:
             - MAX_LOGS=500
             - CLOUD_API_ENDPOINT=http://localhost:3002
             - DEVICE_API_PORT=48484
+            # SSH Reverse Tunnel (Remote Access)
+            - ENABLE_REMOTE_ACCESS=${ENABLE_REMOTE_ACCESS:-false}
+            - CLOUD_HOST=${CLOUD_HOST:-}
+            - CLOUD_SSH_PORT=${CLOUD_SSH_PORT:-22}
+            - SSH_TUNNEL_USER=${SSH_TUNNEL_USER:-tunnel}
+            - SSH_KEY_PATH=${SSH_KEY_PATH:-/app/data/ssh/id_rsa}
+            - SSH_AUTO_RECONNECT=${SSH_AUTO_RECONNECT:-true}
+            - SSH_RECONNECT_DELAY=${SSH_RECONNECT_DELAY:-5000}
     nginx:
         image: nginx
         ports:

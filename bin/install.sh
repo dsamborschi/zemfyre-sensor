@@ -360,6 +360,135 @@ function modify_permissions() {
     fi
 }
 
+function setup_remote_access() {
+    # Skip in CI mode
+    if [ "$IS_CI_MODE" = true ]; then
+        gum format "**CI Mode** - Skipping remote access setup"
+        return
+    fi
+
+    display_section "Remote Device Access Setup (Optional)"
+
+    gum format "**SSH Reverse Tunnel** allows remote access to this device from your cloud server."
+    gum format "This is useful for fleet management and remote troubleshooting."
+    echo
+
+    if ! gum confirm "Would you like to enable remote access?"; then
+        gum format "⚠️  Remote access disabled. You can enable it later by running:"
+        gum format "   \`bash ${IOTISTIC_REPO_DIR}/bin/setup-remote-access.sh <cloud-host> <ssh-user>\`"
+        return
+    fi
+
+    # Prompt for cloud host
+    echo
+    gum format "**Enter your cloud server hostname or IP address:**"
+    gum format "(e.g., cloud.example.com or 203.0.113.50)"
+    read -p "Cloud host: " CLOUD_HOST
+
+    if [ -z "$CLOUD_HOST" ]; then
+        gum format "⚠️  No cloud host provided. Skipping remote access setup."
+        return
+    fi
+
+    # Prompt for SSH user
+    echo
+    gum format "**Enter the SSH username on the cloud server:**"
+    gum format "(Default: tunnel)"
+    read -p "SSH user [tunnel]: " SSH_USER
+    SSH_USER=${SSH_USER:-tunnel}
+
+    echo
+    gum format "🔌 Setting up SSH reverse tunnel..."
+    
+    # Generate SSH keys
+    local SSH_DIR="${IOTISTIC_REPO_DIR}/data/ssh"
+    local SSH_KEY_PATH="${SSH_DIR}/id_rsa"
+    
+    mkdir -p "$SSH_DIR"
+    
+    if [ ! -f "$SSH_KEY_PATH" ]; then
+        gum format "Generating SSH key pair..."
+        ssh-keygen -t ed25519 \
+            -f "$SSH_KEY_PATH" \
+            -N "" \
+            -C "zemfyre-device-$(hostname)" \
+            -q
+        chmod 600 "$SSH_KEY_PATH"
+        chmod 644 "${SSH_KEY_PATH}.pub"
+        gum format "✅ SSH key generated"
+    fi
+
+    # Copy key to cloud server
+    echo
+    gum format "📤 Copying SSH key to cloud server..."
+    gum format "   You may need to enter the password for ${SSH_USER}@${CLOUD_HOST}"
+    
+    if ssh-copy-id -i "${SSH_KEY_PATH}.pub" "${SSH_USER}@${CLOUD_HOST}"; then
+        gum format "✅ SSH key copied to cloud server"
+    else
+        gum format "⚠️  Failed to copy SSH key automatically"
+        gum format "   Please copy the key manually:"
+        gum format "   1. Copy this public key:"
+        cat "${SSH_KEY_PATH}.pub"
+        gum format "   2. Add to cloud server: ssh ${SSH_USER}@${CLOUD_HOST}"
+        gum format "   3. Run: echo '<PUBLIC_KEY>' >> ~/.ssh/authorized_keys"
+    fi
+
+    # Test connection
+    echo
+    gum format "🧪 Testing SSH connection..."
+    if ssh -o BatchMode=yes -o ConnectTimeout=5 -i "$SSH_KEY_PATH" "${SSH_USER}@${CLOUD_HOST}" exit 2>/dev/null; then
+        gum format "✅ SSH connection successful!"
+    else
+        gum format "⚠️  SSH connection test failed. Please verify:"
+        gum format "   - Cloud server is reachable"
+        gum format "   - SSH key was copied correctly"
+        gum format "   - User ${SSH_USER} exists on cloud server"
+    fi
+
+    # Update .env file
+    local ENV_FILE="${IOTISTIC_REPO_DIR}/.env"
+    
+    gum format "📝 Updating .env file..."
+    
+    # Create .env if doesn't exist
+    touch "$ENV_FILE"
+    
+    # Remove old settings
+    sed -i.bak '/^ENABLE_REMOTE_ACCESS=/d' "$ENV_FILE" 2>/dev/null || true
+    sed -i.bak '/^CLOUD_HOST=/d' "$ENV_FILE" 2>/dev/null || true
+    sed -i.bak '/^SSH_TUNNEL_USER=/d' "$ENV_FILE" 2>/dev/null || true
+    sed -i.bak '/^SSH_KEY_PATH=/d' "$ENV_FILE" 2>/dev/null || true
+    sed -i.bak '/^CLOUD_SSH_PORT=/d' "$ENV_FILE" 2>/dev/null || true
+    
+    # Add new settings
+    cat >> "$ENV_FILE" <<EOF
+
+# SSH Reverse Tunnel Configuration
+ENABLE_REMOTE_ACCESS=true
+CLOUD_HOST=$CLOUD_HOST
+CLOUD_SSH_PORT=22
+SSH_TUNNEL_USER=$SSH_USER
+SSH_KEY_PATH=/app/data/ssh/id_rsa
+SSH_AUTO_RECONNECT=true
+SSH_RECONNECT_DELAY=5000
+EOF
+    
+    rm -f "${ENV_FILE}.bak" 2>/dev/null || true
+    
+    gum format "✅ Remote access configured!"
+    echo
+    gum format "**Cloud Server Configuration Required:**"
+    gum format "On your cloud server (${CLOUD_HOST}), add to /etc/ssh/sshd_config:"
+    gum format "   GatewayPorts yes"
+    gum format "   ClientAliveInterval 60"
+    gum format "   ClientAliveCountMax 3"
+    gum format "Then restart SSH: sudo systemctl restart sshd"
+    echo
+    gum format "After device restarts, access it from cloud server:"
+    gum format "   curl http://localhost:48484/v2/device"
+}
+
 function write_iotistic_version() {
     local GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
     local GIT_SHORT_HASH=$(git rev-parse --short HEAD)
@@ -483,6 +612,7 @@ function main() {
     install_ansible
     run_ansible_playbook
     upgrade_docker_containers
+    setup_remote_access
     cleanup
     modify_permissions
     write_iotistic_version

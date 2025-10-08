@@ -22,6 +22,7 @@ import { MqttLogBackend } from './logging/mqtt-backend';
 import { CloudLogBackend } from './logging/cloud-backend';
 import { ContainerLogMonitor } from './logging/monitor';
 import type { LogBackend } from './logging/types';
+import { SSHTunnelManager } from './remote-access/ssh-tunnel';
 
 export default class DeviceSupervisor {
 	private containerManager!: ContainerManager;
@@ -31,6 +32,7 @@ export default class DeviceSupervisor {
 	private logBackend!: LocalLogBackend;
 	private logBackends: LogBackend[] = [];
 	private logMonitor?: ContainerLogMonitor;
+	private sshTunnel?: SSHTunnelManager;
 
 	private readonly USE_REAL_DOCKER = process.env.USE_REAL_DOCKER === 'true';
 	private readonly DEVICE_API_PORT = parseInt(process.env.DEVICE_API_PORT || '48484', 10);
@@ -63,7 +65,10 @@ export default class DeviceSupervisor {
 			// 6. Initialize API Binder (if cloud endpoint configured)
 			await this.initializeApiBinder();
 
-			// 7. Start auto-reconciliation
+			// 7. Initialize SSH Reverse Tunnel (if remote access enabled)
+			await this.initializeRemoteAccess();
+
+			// 8. Start auto-reconciliation
 			this.startAutoReconciliation();
 
 			console.log('='.repeat(80));
@@ -248,6 +253,41 @@ private async initializeDeviceManager(): Promise<void> {
 		console.log('✅ API Binder initialized');
 	}
 
+	private async initializeRemoteAccess(): Promise<void> {
+		if (process.env.ENABLE_REMOTE_ACCESS !== 'true') {
+			console.log('⚠️  Remote access disabled (set ENABLE_REMOTE_ACCESS=true to enable)');
+			return;
+		}
+
+		const cloudHost = process.env.CLOUD_HOST;
+		if (!cloudHost) {
+			console.error('❌ CLOUD_HOST environment variable required for remote access');
+			return;
+		}
+
+		console.log('🔌 Initializing SSH reverse tunnel...');
+
+		try {
+			this.sshTunnel = new SSHTunnelManager({
+				cloudHost,
+				cloudPort: parseInt(process.env.CLOUD_SSH_PORT || '22', 10),
+				localPort: this.DEVICE_API_PORT,
+				sshUser: process.env.SSH_TUNNEL_USER || 'tunnel',
+				sshKeyPath: process.env.SSH_KEY_PATH || '/data/ssh/id_rsa',
+				autoReconnect: process.env.SSH_AUTO_RECONNECT !== 'false',
+				reconnectDelay: parseInt(process.env.SSH_RECONNECT_DELAY || '5000', 10),
+			});
+
+			await this.sshTunnel.connect();
+			console.log('✅ Remote access enabled via SSH tunnel');
+			console.log(`   Device API accessible at: ${cloudHost}:${this.DEVICE_API_PORT}`);
+		} catch (error) {
+			console.error('❌ Failed to initialize SSH tunnel:', error);
+			console.log('   Continuing without remote access');
+			this.sshTunnel = undefined;
+		}
+	}
+
 	private startAutoReconciliation(): void {
 		if (this.USE_REAL_DOCKER) {
 			this.containerManager.startAutoReconciliation(this.RECONCILIATION_INTERVAL);
@@ -261,6 +301,12 @@ private async initializeDeviceManager(): Promise<void> {
 		console.log('🛑 Stopping Device Supervisor...');
 
 		try {
+			// Stop SSH tunnel
+			if (this.sshTunnel) {
+				await this.sshTunnel.disconnect();
+				console.log('✅ SSH tunnel stopped');
+			}
+
 			// Stop API binder
 			if (this.apiBinder) {
 				await this.apiBinder.stop();
