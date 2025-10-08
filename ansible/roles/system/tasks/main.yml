@@ -37,7 +37,7 @@
     state: restarted
   ignore_errors: true
 
-# ---------------- Docker Installation ---ss-------------
+# ---------------- Docker Installation ----------------
 
 - name: Make sure distro package of Docker is absent
   ansible.builtin.apt:
@@ -49,6 +49,17 @@
       - runc
       - docker-compose
     state: absent
+    purge: yes
+    update_cache: yes
+
+- name: Map Debian codename to supported Docker repo
+  ansible.builtin.set_fact:
+    docker_codename: >-
+      {% if debian_name.stdout in ['noble', 'trixie'] %}
+        bookworm
+      {% else %}
+        {{ debian_name.stdout }}
+      {% endif %}
 
 - name: Add Docker apt key (x86)
   ansible.builtin.apt_key:
@@ -60,10 +71,7 @@
   ansible.builtin.apt_key:
     url: https://download.docker.com/linux/raspbian/gpg
     state: present
-  when: |
-    ansible_architecture == "aarch64" or
-    ansible_architecture == "armv7l" or
-    ansible_architecture == "armv6l"
+  when: ansible_architecture in ["aarch64", "armv7l", "armv6l"]
 
 - name: Get Debian name
   ansible.builtin.command: lsb_release -cs
@@ -75,49 +83,45 @@
   register: system_bits
   changed_when: false
 
-- name: Set architecture
+- name: Set architecture for Docker packages
   ansible.builtin.set_fact:
     architecture: >-
-      {{
-        'amd64' if ansible_architecture == 'x86_64'
-        else ('arm64' if device_type == 'pi4' and system_bits.stdout == '64'
-        else 'armhf')
-      }}
-  when: |
-    device_type == "pi1" or
-    device_type == "pi2" or
-    device_type == "pi3" or
-    device_type == "pi4" or
-    device_type == "x86"
+      {% if device_type == "pi5" %}
+        arm64
+      {% elif ansible_architecture == "x86_64" %}
+        amd64
+      {% elif device_type in ["pi4"] and system_bits.stdout == "64" %}
+        arm64
+      {% else %}
+        armhf
+      {% endif %}
 
-- name: Set architecture
-  ansible.builtin.set_fact:
-    architecture: "arm64"
-  when: device_type == "pi5"
-
-- name: Add Docker repo
+- name: Add Docker repository
   ansible.builtin.lineinfile:
     path: /etc/apt/sources.list.d/docker.list
     create: true
-    line: "deb [arch={{ architecture }}] https://download.docker.com/linux/debian {{ debian_name.stdout }} stable"
+    line: "deb [arch={{ architecture }}] https://download.docker.com/linux/debian {{ docker_codename }} stable"
     state: present
     owner: root
     group: root
     mode: "0644"
 
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+
 - name: Install Docker
   ansible.builtin.apt:
     name:
-      - docker-ce:{{ architecture }}
-      - docker-ce-cli:{{ architecture }}
-      - docker-compose-plugin:{{ architecture }}
-    update_cache: true
+      - "docker-ce:{{ architecture }}"
+      - "docker-ce-cli:{{ architecture }}"
+      - "docker-compose-plugin:{{ architecture }}"
+    update_cache: yes
     install_recommends: false
 
 - name: Add user to Docker group (all platforms)
   ansible.builtin.user:
     name: "{{ lookup('env', 'USER') }}"
-    group: "{{ lookup('env', 'USER') }}"
     groups:
       - docker
       - adm
@@ -128,11 +132,11 @@
       - input
       - netdev
       - dialout
+    append: yes
 
 - name: Add user to Docker group (Raspberry Pi)
   ansible.builtin.user:
     name: "{{ lookup('env', 'USER') }}"
-    group: "{{ lookup('env', 'USER') }}"
     groups:
       - docker
       - adm
@@ -144,10 +148,8 @@
       - netdev
       - gpio
       - dialout
-  when: |
-    ansible_architecture == "aarch64" or
-    ansible_architecture == "armv7l" or
-    ansible_architecture == "armv6l"
+    append: yes
+  when: ansible_architecture in ["aarch64", "armv7l", "armv6l"]
 
 - name: Perform system upgrade
   ansible.builtin.apt:
