@@ -105,7 +105,7 @@ EOF
 function install_prerequisites() {
 
     echo "install_prerequisites started"
-    # In CI mode, skip gum installation (we have a wrapper that uses echo)
+    # In CI mode, skip gum installation (we have a wrapper that uses echo)66
     if [ "$IS_CI_MODE" = true ]; then
         echo "CI Mode: Skipping gum installation, installing jq only"
         sudo apt -y update && sudo apt -y install jq
