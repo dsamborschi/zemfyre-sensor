@@ -4,7 +4,7 @@ Livepush enables **rapid development iteration** by syncing code changes to runn
 
 ## Overview
 
-When developing containerized applications, the traditional workflow is:
+When developing containerized applications, the traditional workflow is:ff
 1. Change code
 2. Rebuild Docker image
 3. Stop container
