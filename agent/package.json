@@ -13,7 +13,7 @@
     "dev:old-api": "tsx watch src/api/server.ts",
     "dev:livepush": "tsx src/cli/livepush-dev.ts",
     "start": "node dist/app.js",
-    "start:device": "USE_REAL_DOCKER=true node dist/app.js",
+    "start:device": "node dist/app.js",
     "start:cloud": "node dist/api/cloud-server.js",
     "start:old-api": "node dist/api/server.js",
     "lint": "eslint src --ext .ts",
