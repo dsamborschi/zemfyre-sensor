@@ -259,7 +259,7 @@ function run_ansible_playbook() {
     display_section "Run the Iotistic Ansible Playbook"
     set_device_type
 
-    # CI mode: use GitHub Actions checkout pathddddw3werw
+    # CI mode: use GitHub Actions checkout pathddddw3werwe
     if [ "$IS_CI_MODE" = true ]; then
         IOTISTIC_REPO_DIR="${GITHUB_WORKSPACE:-/home/${USER}/iotistic}"
 
