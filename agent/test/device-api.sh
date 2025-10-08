@@ -146,15 +146,22 @@ echo ""
 # Test 5: Restart Endpoint (V1) - dry run check
 echo "Test 5: Restart Endpoint Check (POST /v1/restart)"
 # We don't actually restart, just check if endpoint exists
-status_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "$API_URL/v1/restart" \
+response=$(curl -s -w "\n%{http_code}" -X POST "$API_URL/v1/restart" \
     -H "Content-Type: application/json" \
     -d '{"appId": 999999}')
+status_code=$(echo "$response" | tail -n1)
+response_body=$(echo "$response" | sed '$d')
 log_verbose "Status Code: $status_code"
-# Expect 404 (app not found) or 400 (validation error), not 404 (endpoint not found)
-if [ "$status_code" != "404" ] || [ "$status_code" = "400" ] || [ "$status_code" = "500" ]; then
+log_verbose "Response: $response_body"
+# Expect 400 (bad request), 404 (app not found), or 500 (error) - these mean endpoint exists
+# A 404 with "Cannot POST" means endpoint doesn't exist
+if echo "$response_body" | grep -q "Cannot POST"; then
+    fail "Restart endpoint not found"
+elif [ "$status_code" = "400" ] || [ "$status_code" = "404" ] || [ "$status_code" = "500" ]; then
     pass "Restart endpoint exists"
 else
-    fail "Restart endpoint not found (HTTP $status_code)"
+    warn "Unexpected status code: $status_code"
+    ((PASSED++))  # Don't fail on unexpected but non-404 codes
 fi
 echo ""
 
