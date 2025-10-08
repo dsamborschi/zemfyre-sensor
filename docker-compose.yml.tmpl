@@ -1,9 +1,9 @@
 services:
     device-agent:
-        container_name: device-agent
-        image: iotistic/device-agent:${DOCKER_TAG}-${DEVICE_TYPE}
+        container_name: agent
+        image: iotistic/agent:${DOCKER_TAG}-${DEVICE_TYPE}
         build:
-            context: ./device-agent
+            context: ./agent
             dockerfile: Dockerfile
         privileged: true
         pid: "host"
