@@ -356,7 +356,7 @@ function install_engine() {
 }
 
 function cleanup() {
-    display_section "Clean Up Unused Packages and Files"
+    display_section "Clean Up Unused Packages and Filess"
 
     sudo apt-get autoclean
     sudo apt-get clean
