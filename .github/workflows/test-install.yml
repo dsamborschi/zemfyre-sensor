@@ -54,20 +54,20 @@ jobs:
 
       - name: Prepare test environment
         run: |
-          echo "🔧 Setting up test environment for ${{ matrix.board }}"
+          echo "🔧 Setting up test environment for ${{ matrix.board }}, arch ${{ matrix.qemu_arch }}"
           
           # Create minimal .env for testing
           cat > .env <<EOF
           # Test Environment
           DEVICE_UUID=test-device-${{ matrix.board }}
-          TARGET_ARCH=${{ matrix.board }}
+          TARGET_ARCH=${{ matrix.qemu_arch }}
           EOF
           
           echo "✅ Environment configured"
 
       - name: Run installation script
         run: |
-          echo "� Running bin/install.sh for ${{ matrix.board }}..."
+          echo "� Running bin/install.sh for ${{ matrix.board }}. arch ${{ matrix.qemu_arch }}..."
           
           # Check if install script exists
           if [ ! -f "bin/install.sh" ]; then
@@ -79,7 +79,7 @@ jobs:
           chmod +x bin/install.sh
           
           # Set architecture for install script
-          export TARGET_ARCH=${{ matrix.board }}
+          export TARGET_ARCH=${{ matrix.qemu_arch}}
           export PLATFORM=${{ matrix.platform }}
           export DEBIAN_FRONTEND=noninteractive
           
