@@ -13,7 +13,7 @@
  *   npm run dev:livepush -- --container=abc123 --dockerfile=./Dockerfile --source=./src
  */
 
-import { startLivepush, isContainerRunning } from '../livepush';
+import { startLivepush, isContainerRunning } from '../src/livepush';
 import * as path from 'path';
 
 // Parse command line arguments
