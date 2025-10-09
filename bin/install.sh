@@ -279,7 +279,7 @@ function run_ansible_playbook() {
     echo "📦 Running Ansible Playbook locally..."
     sudo -E -u ${USER} ${SUDO_ARGS[@]} \
         DEVICE_TYPE="$DEVICE_TYPE" \
-        ansible-playbook deploy.yml -e "device_type=$DEVICE_TYPE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
+        ~/installer_venv/bin/ansible-playbook deploy.yml -e "device_type=$DEVICE_TYPE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
 }
 
 
