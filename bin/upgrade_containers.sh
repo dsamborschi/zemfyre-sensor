@@ -27,7 +27,15 @@ if [[ "$DEVICE_TYPE" =~ ^(x86|pi5)$ ]]; then
         /home/${USER}/iotistic/docker-compose.yml
 fi
 
-echo "🔄 Upgrading containers (mode: $MODE, tag: $DOCKER_TAG), device type $DEVICE_TYPE..."
+echo "=================================================="
+echo "🔄 Upgrading Docker Containers"
+echo "=================================================="
+echo "Mode:        $MODE"
+echo "Docker Tag:  $DOCKER_TAG"
+echo "Device Type: $DEVICE_TYPE"
+echo "Git Branch:  $GIT_BRANCH"
+echo "User:        $USER"
+echo "=================================================="
 
 sudo -E docker compose \
     -f /home/${USER}/iotistic/docker-compose.yml \
