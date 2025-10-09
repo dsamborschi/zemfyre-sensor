@@ -283,6 +283,10 @@ function set_device_type() {
         else
             export DEVICE_TYPE="pi1"
         fi
+    else
+        echo "⚠️  Unable to detect device type, defaulting to x86"
+        export DEVICE_TYPE="x86"
+    fi
 }
 
 function run_ansible_playbook() {
