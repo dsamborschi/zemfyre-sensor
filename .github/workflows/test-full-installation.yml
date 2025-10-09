@@ -24,10 +24,10 @@ jobs:
     strategy:
       matrix:
         include:
-          - arch: armhf
+          - board: pi4
             platform: linux/arm/v7
             qemu_arch: arm
-          - arch: arm64
+          - board: pi4-64
             platform: linux/arm64/v8
             qemu_arch: aarch64
          # - arch: amd64
@@ -47,27 +47,27 @@ jobs:
       - name: Cache Docker layers
         uses: actions/cache@v4
         with:
-          path: /tmp/.buildx-cache/${{ matrix.arch }}
-          key: buildx-full-${{ matrix.arch }}-${{ github.sha }}
+          path: /tmp/.buildx-cache/${{ matrix.board }}
+          key: buildx-full-${{ matrix.board }}-${{ github.sha }}
           restore-keys: |
-            buildx-full-${{ matrix.arch }}-
+            buildx-full-${{ matrix.board }}-
 
       - name: Prepare test environment
         run: |
-          echo "🔧 Setting up test environment for ${{ matrix.arch }}"
+          echo "🔧 Setting up test environment for ${{ matrix.board }}"
           
           # Create minimal .env for testing
           cat > .env <<EOF
           # Test Environment
-          DEVICE_UUID=test-device-${{ matrix.arch }}
-          TARGET_ARCH=${{ matrix.arch }}
+          DEVICE_UUID=test-device-${{ matrix.board }}
+          TARGET_ARCH=${{ matrix.board }}
           EOF
           
           echo "✅ Environment configured"
 
       - name: Run installation script
         run: |
-          echo "� Running bin/install.sh for ${{ matrix.arch }}..."
+          echo "� Running bin/install.sh for ${{ matrix.board }}..."
           
           # Check if install script exists
           if [ ! -f "bin/install.sh" ]; then
@@ -79,7 +79,7 @@ jobs:
           chmod +x bin/install.sh
           
           # Set architecture for install script
-          export TARGET_ARCH=${{ matrix.arch }}
+          export TARGET_ARCH=${{ matrix.board }}
           export PLATFORM=${{ matrix.platform }}
           export DEBIAN_FRONTEND=noninteractive
           
