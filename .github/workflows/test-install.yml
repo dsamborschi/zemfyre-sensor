@@ -6,6 +6,7 @@ on:
       - master
     paths:
       - 'bin/install.sh'
+      - 'bin/upgrade_containers.sh'
       - 'docker-compose.yml.tmpl'
       - 'docker-compose.dev.yml'
       - 'agent/**'
