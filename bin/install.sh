@@ -69,7 +69,9 @@ if ! [[ "$DISTRO_VERSION_MAJOR" =~ ^[0-9]+$ ]]; then
     echo "⚠️  Unknown distro version '$DISTRO_VERSION', defaulting to 24"
     DISTRO_VERSION_MAJOR=24
 fi
-MODE="pull" #  either "pull" or "build"
+
+# Allow MODE to be overridden by environment variable (for CI)
+MODE="${MODE:-pull}" #  either "pull" or "build"
 
 INTRO_MESSAGE=(
     "Iotistic requires a dedicated Raspberry Pi and an SD card."
