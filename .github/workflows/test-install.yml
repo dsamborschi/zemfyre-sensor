@@ -25,15 +25,15 @@ jobs:
     strategy:
       matrix:
         include:
-          - board: pi4
+          - board: pi3
             platform: linux/arm/v7
-            qemu_arch: arm
-          - board: pi4-64
+            target_arch: armhf
+          - board: pi4
             platform: linux/arm64/v8
-            qemu_arch: aarch64
-         # - arch: amd64
-           # platform: linux/amd64
-            #qemu_arch: x86_64
+            target_arch: arm64
+          - board: x86
+            platform: linux/amd64
+            target_arch: amd64
 
     steps:
       - name: Checkout repository
@@ -55,20 +55,21 @@ jobs:
 
       - name: Prepare test environment
         run: |
-          echo "🔧 Setting up test environment for ${{ matrix.board }}, arch ${{ matrix.qemu_arch }}"
+          echo "🔧 Setting up test environment for ${{ matrix.board }}, arch ${{ matrix.target_arch }}"
           
           # Create minimal .env for testing
           cat > .env <<EOF
           # Test Environment
           DEVICE_UUID=test-device-${{ matrix.board }}
-          TARGET_ARCH=${{ matrix.qemu_arch }}
+          TARGET_ARCH=${{ matrix.target_arch }}
+          MODE=build
           EOF
           
           echo "✅ Environment configured"
 
       - name: Run installation script
         run: |
-          echo "� Running bin/install.sh for ${{ matrix.board }}. arch ${{ matrix.qemu_arch }}..."
+          echo "🚀 Running bin/install.sh for ${{ matrix.board }}, arch ${{ matrix.target_arch }}..."
           
           # Check if install script exists
           if [ ! -f "bin/install.sh" ]; then
@@ -79,9 +80,10 @@ jobs:
           # Make it executable
           chmod +x bin/install.sh
           
-          # Set architecture for install script
-          export TARGET_ARCH=${{ matrix.qemu_arch}}
+          # Set architecture and mode for install script
+          export TARGET_ARCH=${{ matrix.target_arch }}
           export PLATFORM=${{ matrix.platform }}
+          export MODE=build
           export DEBIAN_FRONTEND=noninteractive
           
           # Run the installation script with master branch (non-interactive)
