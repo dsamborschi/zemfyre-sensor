@@ -14,11 +14,9 @@ if [[ ! "$MODE" =~ ^(pull|build)$ ]]; then
     exit 1
 fi
 
-
 if [ -z "$DOCKER_TAG" ]; then
     export DOCKER_TAG="latest"
 fi
-
 
 cat /home/${USER}/iotistic/docker-compose.yml.tmpl \
     | envsubst \
