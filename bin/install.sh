@@ -251,69 +251,36 @@ function set_device_type() {
     fi
 }
 
-# function run_ansible_playbook() {
-#     display_section "Run the Iotistic Ansible Playbook"
-#     set_device_type
-
-#     # CI mode: use GitHub Actions checkout pathddddw3werweddsss
-#     if [ "$IS_CI_MODE" = true ]; then
-#         IOTISTIC_REPO_DIR="${GITHUB_WORKSPACE:-/home/${USER}/iotistic}"
-
-#         if [ ! -d "$IOTISTIC_REPO_DIR/ansible" ]; then
-#             echo "❌ Error: ansible folder not found in $IOTISTIC_REPO_DIR"
-#             exit 1
-#         fi
-
-#         cd "$IOTISTIC_REPO_DIR/ansible"
-
-#         echo "📦 Running Ansible Playbook in CI mode..."
-#         ~/installer_venv/bin/ansible-playbook deploy.yml \
-#             -e "device_type=$DEVICE_TYPE" \
-#             "${ANSIBLE_PLAYBOOK_ARGS[@]}"
-#     else
-#         # Local/interactive modesssettsdss
-#         if [ ! -d "$IOTISTIC_REPO_DIR/ansible" ]; then
-#             echo "❌ Error: ansible folder not found in $IOTISTIC_REPO_DIR"
-#             exit 1
-#         fi
-
-#         cd "$IOTISTIC_REPO_DIR/ansible"
-
-#         echo "📦 Running Ansible Playbook locally..."
-#         sudo -E -u ${USER} ${SUDO_ARGS[@]} \
-#             DEVICE_TYPE="$DEVICE_TYPE" \
-#             ansible-playbook deploy.yml \
-#             -e "device_type=$DEVICE_TYPE" \
-#             "${ANSIBLE_PLAYBOOK_ARGS[@]}"
-#     fi
-# }
-
-
 function run_ansible_playbook() {
     display_section "Run the Iotistic Ansible Playbook"
     set_device_type
 
-    sudo -u ${USER} ${SUDO_ARGS[@]} ansible localhost \
-        -m git \
-        -a "repo=$REPOSITORY dest=${IOTISTIC_REPO_DIR} version=${BRANCH} force=yes"
-    cd ${IOTISTIC_REPO_DIR}/ansible
+    # Ensure repository exists and is updated
+    if [ ! -d "$IOTISTIC_REPO_DIR/.git" ]; then
+        echo "📥 Cloning Iotistic repository..."
+        sudo -u ${USER} ${SUDO_ARGS[@]} git clone --branch "$BRANCH" "$REPOSITORY" "$IOTISTIC_REPO_DIR"
+    else
+        echo "🔄 Updating Iotistic repository..."
+        cd "$IOTISTIC_REPO_DIR"
+        sudo -u ${USER} ${SUDO_ARGS[@]} git fetch --all
+        sudo -u ${USER} ${SUDO_ARGS[@]} git reset --hard "origin/$BRANCH"
+    fi
 
+    cd "$IOTISTIC_REPO_DIR/ansible"
+
+    # Set architecture-specific Ansible arguments
     if [ "$ARCHITECTURE" == "x86_64" ]; then
         if [ ! -f /etc/sudoers.d/010_${USER}-nopasswd ]; then
             ANSIBLE_PLAYBOOK_ARGS+=("--ask-become-pass")
         fi
-
-        ANSIBLE_PLAYBOOK_ARGS+=(
-            "--skip-tags" "raspberry-pi"
-        )
+        ANSIBLE_PLAYBOOK_ARGS+=( "--skip-tags" "raspberry-pi" )
     fi
 
+    echo "📦 Running Ansible Playbook locally..."
     sudo -E -u ${USER} ${SUDO_ARGS[@]} \
-    DEVICE_TYPE="$DEVICE_TYPE" \
-    ansible-playbook deploy.yml -e "device_type=$DEVICE_TYPE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
-
+        DEVICE_TYPE="$DEVICE_TYPE" \
+        ansible-playbook deploy.yml -e "device_type=$DEVICE_TYPE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
 }
-
 
 
 function upgrade_docker_containers() {
