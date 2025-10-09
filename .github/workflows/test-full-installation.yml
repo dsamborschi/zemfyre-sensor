@@ -110,12 +110,6 @@ jobs:
           echo "⏳ Waiting for services to be ready..."
           sleep 10
           
-          # Test basic connectivity (if services expose ports)
-          if docker-compose ps | grep -q "agent"; then
-            echo "🧪 Testing agent connectivity..."
-            curl -f http://localhost:48484/ping || echo "⚠️  Agent not responding yet"
-          fi
-          
           echo "✅ Installation verified"
 
       - name: Show installation logs

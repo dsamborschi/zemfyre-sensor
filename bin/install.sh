@@ -46,7 +46,15 @@ GITHUB_RAW_URL="https://raw.githubusercontent.com/dsamborschi/zemfyre-sensor"
 DOCKER_TAG="latest"
 UPGRADE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/upgrade_containers.sh"
 APPENGINE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/build_appengine.sh"
-ARCHITECTURE=$(uname -m)
+
+# Use TARGET_ARCH if set (for CI), otherwise detect from system
+if [ -n "${TARGET_ARCH}" ]; then
+    ARCHITECTURE="${TARGET_ARCH}"
+    echo "🎯 Using TARGET_ARCH from environment: ${ARCHITECTURE}"
+else
+    ARCHITECTURE=$(uname -m)
+    echo "🔍 Detected architecture: ${ARCHITECTURE}"
+fi
 DISTRO_VERSION=$(lsb_release -rs 2>/dev/null || true)
 if ! [[ "$DISTRO_VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
     echo "⚠️  lsb_release returned unknown value: '$DISTRO_VERSION', defaulting to 24.04"
