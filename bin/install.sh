@@ -344,6 +344,7 @@ function upgrade_docker_containers() {
 
     sudo -u ${USER} env \
         DOCKER_TAG="${DOCKER_TAG}" \
+        DEVICE_TYPE="$DEVICE_TYPE" \
         GIT_BRANCH="${BRANCH}" \
         MODE="${MODE}" \
         "${UPGRADE_SCRIPT_PATH}"
