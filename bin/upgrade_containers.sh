@@ -3,7 +3,7 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 # -*- sh-basic-offset: 4 -*-
 
-# Export various environment variables
+# Export various environment variablesf
 export MY_IP=$(ip -4 route get 8.8.8.8 | awk {'print $7'} | tr -d '\n')
 GIT_BRANCH="${GIT_BRANCH:-master}"
 
