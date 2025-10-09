@@ -37,6 +37,7 @@ export default class DeviceSupervisor {
 	private jobEngine?: EnhancedJobEngine;
 
 	private readonly USE_REAL_DOCKER = process.env.USE_REAL_DOCKER === 'true';
+	private readonly ENABLE_JOB_ENGINE = process.env.ENABLE_JOB_ENGINE === 'true';
 	private readonly DEVICE_API_PORT = parseInt(process.env.DEVICE_API_PORT || '48484', 10);
 	private readonly RECONCILIATION_INTERVAL = parseInt(
 		process.env.RECONCILIATION_INTERVAL_MS || '30000',
@@ -294,7 +295,7 @@ private async initializeDeviceManager(): Promise<void> {
 	}
 
 	private async initializeJobEngine(): Promise<void> {
-		if (process.env.ENABLE_JOB_ENGINE !== 'true') {
+		if (!this.ENABLE_JOB_ENGINE) {
 			console.log('⚠️  Job Engine disabled (set ENABLE_JOB_ENGINE=true to enable)');
 			return;
 		}
