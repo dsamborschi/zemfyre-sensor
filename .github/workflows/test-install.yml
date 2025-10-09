@@ -95,14 +95,6 @@ jobs:
         run: |
           echo "� Verifying installation..."
           
-          # Check if docker-compose file was created
-          if [ -f "docker-compose.yml" ]; then
-            echo "✅ docker-compose.yml created"
-          else
-            echo "❌ docker-compose.yml not found"
-            exit 1
-          fi
-          
           # Check if containers are running
           echo "📦 Checking running containers..."
           docker-compose ps

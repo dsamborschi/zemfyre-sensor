@@ -36,6 +36,12 @@ echo "Device Type: $DEVICE_TYPE"
 echo "Git Branch:  $GIT_BRANCH"
 echo "User:        $USER"
 echo "=================================================="
+echo ""
+echo "📄 Generated docker-compose.yml:"
+echo "=================================================="
+cat /home/${USER}/iotistic/docker-compose.yml
+echo "=================================================="
+echo ""
 
 sudo -E docker compose \
     -f /home/${USER}/iotistic/docker-compose.yml \
