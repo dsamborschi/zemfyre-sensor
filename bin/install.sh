@@ -244,18 +244,57 @@ function install_ansible() {
 
 
 function set_device_type() {
-    if [ ! -f /proc/device-tree/model ] && [ "$(uname -m)" = "x86_64" ]; then
+    # If TARGET_ARCH is set (CI environment), map it to device type
+    if [ -n "${TARGET_ARCH}" ]; then
+        case "${TARGET_ARCH}" in
+            x86_64|amd64)
+                export DEVICE_TYPE="x86"
+                echo "🎯 CI: Setting DEVICE_TYPE=x86 for ${TARGET_ARCH}"
+                ;;
+            aarch64|arm64)
+                export DEVICE_TYPE="pi4"  # Default ARM64 to Pi4
+                echo "🎯 CI: Setting DEVICE_TYPE=pi4 for ${TARGET_ARCH}"
+                ;;
+            armv7l|armhf)
+                export DEVICE_TYPE="pi3"  # Default ARMv7 to Pi3
+                echo "🎯 CI: Setting DEVICE_TYPE=pi3 for ${TARGET_ARCH}"
+                ;;
+            *)
+                export DEVICE_TYPE="pi4"
+                echo "⚠️  CI: Unknown TARGET_ARCH=${TARGET_ARCH}, defaulting to pi4"
+                ;;
+        esac
+        return
+    fi
+    
+    # Real hardware detection (non-CI)
+    if [ ! -f /proc/device-tree/model ] && [ "$ARCHITECTURE" = "x86_64" ]; then
         export DEVICE_TYPE="x86"
-    elif grep -qF "Raspberry Pi 5" /proc/device-tree/model || grep -qF "Compute Module 5" /proc/device-tree/model; then
-        export DEVICE_TYPE="pi5"
-    elif grep -qF "Raspberry Pi 4" /proc/device-tree/model || grep -qF "Compute Module 4" /proc/device-tree/model; then
-        export DEVICE_TYPE="pi4"
-    elif grep -qF "Raspberry Pi 3" /proc/device-tree/model || grep -qF "Compute Module 3" /proc/device-tree/model; then
-        export DEVICE_TYPE="pi3"
-    elif grep -qF "Raspberry Pi 2" /proc/device-tree/model; then
-        export DEVICE_TYPE="pi2"
+    elif [ -f /proc/device-tree/model ]; then
+        if grep -qF "Raspberry Pi 5" /proc/device-tree/model || grep -qF "Compute Module 5" /proc/device-tree/model; then
+            export DEVICE_TYPE="pi5"
+        elif grep -qF "Raspberry Pi 4" /proc/device-tree/model || grep -qF "Compute Module 4" /proc/device-tree/model; then
+            export DEVICE_TYPE="pi4"
+        elif grep -qF "Raspberry Pi 3" /proc/device-tree/model || grep -qF "Compute Module 3" /proc/device-tree/model; then
+            export DEVICE_TYPE="pi3"
+        elif grep -qF "Raspberry Pi 2" /proc/device-tree/model; then
+            export DEVICE_TYPE="pi2"
+        else
+            export DEVICE_TYPE="pi1"
+        fi
     else
-        export DEVICE_TYPE="pi1"
+        # Fallback for ARM without device-tree
+        case "$ARCHITECTURE" in
+            aarch64|arm64)
+                export DEVICE_TYPE="pi4"
+                ;;
+            armv7l)
+                export DEVICE_TYPE="pi3"
+                ;;
+            *)
+                export DEVICE_TYPE="pi1"
+                ;;
+        esac
     fi
 }
 
