@@ -12,7 +12,7 @@ A Node.js TypeScript implementation of the AWS IoT Device Client Jobs Feature, p
 - **Error Handling**: Comprehensive error handling with STDOUT/STDERR capture
 - **Type Safety**: Full TypeScript type definitions with runtime validation
 
-## Installation
+## Installationr
 
 ```bash
 npm install @aws-iot/device-client-jobs
