@@ -70,7 +70,7 @@ if ! [[ "$DISTRO_VERSION_MAJOR" =~ ^[0-9]+$ ]]; then
     DISTRO_VERSION_MAJOR=24
 fi
 
-# Allow MODE to be overridden by environment variable (for CI)
+# Allow MODE to be overridden by environment variable (for CI)rr
 MODE="${MODE:-pull}" #  either "pull" or "build"
 
 INTRO_MESSAGE=(
