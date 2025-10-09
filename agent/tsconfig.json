@@ -25,6 +25,8 @@
   "exclude": [
     "node_modules",
     "dist",
-    "test"
+    "test",
+    "src/jobs/src",
+    "src/jobs/examples"
   ]
 }
