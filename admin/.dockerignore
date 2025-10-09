@@ -49,9 +49,9 @@ README.md
 *.md
 !docs/*.md
 
-# Yarn Berry
+# Yarn Berry - include necessary files
+.yarn/*
 !.yarn/cache
 !.yarn/releases
 !.yarn/plugins
 !.yarn/sdks
-.yarn/*

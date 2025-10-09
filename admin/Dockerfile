@@ -16,9 +16,10 @@ RUN apt-get update && apt-get install -y \
 
 # Copy only package files to leverage Docker cache
 COPY package.json yarn.lock .yarnrc.yml ./
+COPY .yarn .yarn
 
 # Install dependencies
-RUN yarn install --mode=skip-build
+RUN yarn install --immutable
 
 # Copy rest of the source code
 COPY . .
