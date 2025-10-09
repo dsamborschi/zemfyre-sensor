@@ -20,8 +20,8 @@ jobs:
             platform: linux/arm64/v8
           # - board: pi5
           #   platform: linux/arm64/v8
-          # - board: x86
-          #   platform: linux/amd64
+          - board: x86
+            platform: linux/amd64
 
     steps:
       - name: Checkout repository
