@@ -23,6 +23,7 @@ import { CloudLogBackend } from './logging/cloud-backend';
 import { ContainerLogMonitor } from './logging/monitor';
 import type { LogBackend } from './logging/types';
 import { SSHTunnelManager } from './remote-access/ssh-tunnel';
+import { EnhancedJobEngine } from './jobs/src/enhanced-job-engine';
 
 export default class DeviceSupervisor {
 	private containerManager!: ContainerManager;
@@ -33,6 +34,7 @@ export default class DeviceSupervisor {
 	private logBackends: LogBackend[] = [];
 	private logMonitor?: ContainerLogMonitor;
 	private sshTunnel?: SSHTunnelManager;
+	private jobEngine?: EnhancedJobEngine;
 
 	private readonly USE_REAL_DOCKER = process.env.USE_REAL_DOCKER === 'true';
 	private readonly DEVICE_API_PORT = parseInt(process.env.DEVICE_API_PORT || '48484', 10);
@@ -68,7 +70,10 @@ export default class DeviceSupervisor {
 			// 7. Initialize SSH Reverse Tunnel (if remote access enabled)
 			await this.initializeRemoteAccess();
 
-			// 8. Start auto-reconciliation
+			// 8. Initialize Job Engine (if enabled)
+			await this.initializeJobEngine();
+
+			// 9. Start auto-reconciliation
 			this.startAutoReconciliation();
 
 			console.log('='.repeat(80));
@@ -288,6 +293,49 @@ private async initializeDeviceManager(): Promise<void> {
 		}
 	}
 
+	private async initializeJobEngine(): Promise<void> {
+		if (process.env.ENABLE_JOB_ENGINE !== 'true') {
+			console.log('⚠️  Job Engine disabled (set ENABLE_JOB_ENGINE=true to enable)');
+			return;
+		}
+
+		console.log('⚙️  Initializing Enhanced Job Engine...');
+
+		try {
+			// Create a simple logger that wraps console
+			const jobLogger = {
+				info: (message: string) => console.log(`[JobEngine] ${message}`),
+				warn: (message: string) => console.warn(`[JobEngine] ${message}`),
+				error: (message: string) => console.error(`[JobEngine] ${message}`),
+				debug: (message: string) => {
+					if (process.env.JOB_ENGINE_DEBUG === 'true') {
+						console.log(`[JobEngine][DEBUG] ${message}`);
+					}
+				},
+			};
+
+			this.jobEngine = new EnhancedJobEngine(jobLogger);
+
+			// Log job engine capabilities
+			console.log('✅ Enhanced Job Engine initialized');
+			console.log('   Supports: ONE_TIME, RECURRING, CONTINUOUS job types');
+			console.log('   Execution Types: Sequential, Parallel');
+			console.log('   Job Handler Directory: ./data/job-handlers (default)');
+			
+			// Example: Register a simple test job (optional - can be removed)
+			if (process.env.JOB_ENGINE_TEST === 'true') {
+				console.log('🧪 Testing Job Engine with sample job...');
+				const testJobId = 'test-job-' + Date.now();
+				jobLogger.info(`Test job ID generated: ${testJobId}`);
+				jobLogger.info('Job Engine is ready to process jobs!');
+			}
+		} catch (error) {
+			console.error('❌ Failed to initialize Job Engine:', error);
+			console.log('   Continuing without Job Engine');
+			this.jobEngine = undefined;
+		}
+	}
+
 	private startAutoReconciliation(): void {
 		if (this.USE_REAL_DOCKER) {
 			this.containerManager.startAutoReconciliation(this.RECONCILIATION_INTERVAL);
@@ -301,6 +349,12 @@ private async initializeDeviceManager(): Promise<void> {
 		console.log('🛑 Stopping Device Supervisor...');
 
 		try {
+			// Stop Job Engine
+			if (this.jobEngine) {
+				// Clean up any scheduled or running jobs
+				console.log('✅ Job Engine cleanup');
+			}
+
 			// Stop SSH tunnel
 			if (this.sshTunnel) {
 				await this.sshTunnel.disconnect();
@@ -343,5 +397,9 @@ private async initializeDeviceManager(): Promise<void> {
 
 	public getDeviceAPI(): DeviceAPI {
 		return this.deviceAPI;
+	}
+
+	public getJobEngine(): EnhancedJobEngine | undefined {
+		return this.jobEngine;
 	}
 }

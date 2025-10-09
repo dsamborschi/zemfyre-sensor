@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-import { v4 as uuidv4 } from 'uuid';
+import { randomUUID } from 'crypto';
 import { 
   Feature,
   JobExecutionData, 
@@ -168,7 +168,7 @@ export class JobsFeature extends EventEmitter implements Feature {
    */
   private async publishStartNextPendingJobExecutionRequest(): Promise<void> {
     const request = {
-      clientToken: uuidv4()
+      clientToken: randomUUID()
     };
 
     const payload = JSON.stringify(request);
@@ -209,7 +209,7 @@ export class JobsFeature extends EventEmitter implements Feature {
       statusDetails,
       expectedVersion: jobData.versionNumber,
       executionNumber: jobData.executionNumber,
-      clientToken: uuidv4()
+      clientToken: randomUUID()
     };
 
     const topic = `$aws/things/${this.config.thingName}/jobs/${jobData.jobId}/update`;
