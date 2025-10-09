@@ -5,6 +5,16 @@
 
 set -euo pipefail
 
+BRANCH="master"
+ANSIBLE_PLAYBOOK_ARGS=()
+REPOSITORY="https://github.com/dsamborschi/zemfyre-sensor.git"
+IOTISTIC_REPO_DIR="/home/${USER}/iotistic"
+GITHUB_RELEASES_URL="https://github.com/dsamborschi/zemfyre-sensor/releases"
+GITHUB_RAW_URL="https://raw.githubusercontent.com/dsamborschi/zemfyre-sensor"
+DOCKER_TAG="latest"
+UPGRADE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/upgrade_containers.sh"
+APPENGINE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/build_appengine.sh"
+
 # Detect CI mode early
 IS_CI_MODE=false
 if [ "${CI:-false}" = "true" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
@@ -37,15 +47,6 @@ function gum() {
     fi
 }
 
-BRANCH="master"
-ANSIBLE_PLAYBOOK_ARGS=()
-REPOSITORY="https://github.com/dsamborschi/zemfyre-sensor.git"
-IOTISTIC_REPO_DIR="/home/${USER}/iotistic"
-GITHUB_RELEASES_URL="https://github.com/dsamborschi/zemfyre-sensor/releases"
-GITHUB_RAW_URL="https://raw.githubusercontent.com/dsamborschi/zemfyre-sensor"
-DOCKER_TAG="latest"
-UPGRADE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/upgrade_containers.sh"
-APPENGINE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/build_appengine.sh"
 
 # Use TARGET_ARCH if set (for CI), otherwise detect from system
 if [ -n "${TARGET_ARCH}" ]; then
@@ -282,20 +283,6 @@ function set_device_type() {
         else
             export DEVICE_TYPE="pi1"
         fi
-    else
-        # Fallback for ARM without device-tree
-        case "$ARCHITECTURE" in
-            aarch64|arm64)
-                export DEVICE_TYPE="pi4"
-                ;;
-            armv7l)
-                export DEVICE_TYPE="pi3"
-                ;;
-            *)
-                export DEVICE_TYPE="pi1"
-                ;;
-        esac
-    fi
 }
 
 function run_ansible_playbook() {
