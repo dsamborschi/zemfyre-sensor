@@ -276,12 +276,6 @@ function set_device_type() {
             export DEVICE_TYPE="pi5"
         elif grep -qF "Raspberry Pi 4" /proc/device-tree/model || grep -qF "Compute Module 4" /proc/device-tree/model; then
             export DEVICE_TYPE="pi4"
-        elif grep -qF "Raspberry Pi 3" /proc/device-tree/model || grep -qF "Compute Module 3" /proc/device-tree/model; then
-            export DEVICE_TYPE="pi3"
-        elif grep -qF "Raspberry Pi 2" /proc/device-tree/model; then
-            export DEVICE_TYPE="pi2"
-        else
-            export DEVICE_TYPE="pi1"
         fi
     else
         echo "⚠️  Unable to detect device type, defaulting to x86"
