@@ -245,7 +245,7 @@ function install_ansible() {
 
 
 function set_device_type() {
-    # If TARGET_ARCH is set (CI environment), map it to device type
+    # If TARGET_ARCH is set (CI environment), map it to device typess
     if [ -n "${TARGET_ARCH}" ]; then
         case "${TARGET_ARCH}" in
             x86_64|amd64)
