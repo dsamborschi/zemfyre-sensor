@@ -17,7 +17,6 @@ on:
       - 'nginx/**'
       - 'api/**'
       - 'admin/**'
-      - 'workflows/test-install.yml'
 
 jobs:
   test-installation:
