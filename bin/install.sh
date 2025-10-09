@@ -301,26 +301,6 @@ function set_device_type() {
 function run_ansible_playbook() {
     display_section "Run the Iotistic Ansible Playbook"
     set_device_type
-    
-    # Write DEVICE_TYPE to .env file for docker-compose
-    local ENV_FILE="${IOTISTIC_REPO_DIR}/.env"
-    touch "$ENV_FILE"
-    
-    # Remove old DEVICE_TYPE and DOCKER_TAG if present
-    sed -i.bak '/^DEVICE_TYPE=/d' "$ENV_FILE" 2>/dev/null || true
-    sed -i.bak '/^DOCKER_TAG=/d' "$ENV_FILE" 2>/dev/null || true
-    
-    # Add DEVICE_TYPE and DOCKER_TAG
-    cat >> "$ENV_FILE" <<EOF
-
-# Docker image tags
-DEVICE_TYPE=${DEVICE_TYPE}
-DOCKER_TAG=${DOCKER_TAG}
-EOF
-    
-    rm -f "${ENV_FILE}.bak" 2>/dev/null || true
-    
-    echo "✅ Set DEVICE_TYPE=${DEVICE_TYPE} and DOCKER_TAG=${DOCKER_TAG} in .env"
 
     # Ensure repository exists and is updated
     if [ ! -d "$IOTISTIC_REPO_DIR/.git" ]; then
