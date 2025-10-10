@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y python3 make g++ \
 COPY package*.json tsconfig.json ./
 
 # Install all deps (including dev)
-RUN npm ci
+RUN npm ci --legacy-peer-deps
 
 COPY src ./src
 
@@ -28,7 +28,7 @@ COPY package*.json package-lock.json ./
 # Install only production deps, then remove build tools in same layer
 RUN apt-get update \
     && apt-get install -y python3 make g++ curl jq procps \
-    && npm ci --omit=dev \
+    && npm ci --omit=dev --legacy-peer-deps \
     && apt-get purge -y --auto-remove python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 
