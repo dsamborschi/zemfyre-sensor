@@ -301,6 +301,9 @@ export class ContainerManager extends EventEmitter {
 					},
 				});
 			}
+
+			// Save the synced current state to database
+			await this.saveCurrentStateToDB();
 		} catch (error) {
 			console.error('❌ Failed to sync state from Docker:', error);
 		}
