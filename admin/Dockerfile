@@ -3,8 +3,8 @@
 # Stage 1: Build the Vue application
 FROM node:20-bullseye-slim AS builder
 
-# Enable Corepack for Yarn (use Yarn 1.x to match lockfile)
-RUN corepack enable && corepack prepare yarn@1.22.22 --activate
+# Use Yarn 1.x explicitly (avoid Yarn 4 download)
+RUN corepack disable && npm install -g yarn@1.22.22
 
 # Set working directory
 WORKDIR /app
@@ -18,7 +18,7 @@ RUN apt-get update && apt-get install -y \
 COPY package.json yarn.lock ./
 
 # Install dependencies
-RUN yarn install --frozen-lockfile --non-interactive
+RUN yarn install --frozen-lockfile 
 
 # Copy rest of the source code
 COPY . .
