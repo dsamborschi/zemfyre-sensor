@@ -4,7 +4,7 @@
 FROM node:20-bullseye-slim AS builder
 
 # Use Yarn 1.x explicitly (avoid Yarn 4 download)
-RUN corepack disable && npm install -g yarn@1.22.22
+RUN corepack enable && corepack prepare yarn@4.9.2 --activate
 
 # Set working directory
 WORKDIR /app
