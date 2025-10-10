@@ -96,7 +96,7 @@ jobs:
           
           # Check if containers are running
           echo "📦 Checking running containers..."
-          docker-compose ps
+          docker compose ps
           
           # Wait for services to start
           echo "⏳ Waiting for services to be ready..."
@@ -108,16 +108,16 @@ jobs:
         if: always()
         run: |
           echo "� Docker Compose Services:"
-          docker-compose ps || true
+          docker compose ps || true
           echo ""
           echo "📋 Docker Images:"
           docker images | grep iotistic || true
           echo ""
           echo "📋 Service Logs (last 50 lines):"
-          docker-compose logs --tail=50 || true
+          docker compose logs --tail=50 || true
 
       - name: Cleanup
         if: always()
         run: |
           echo "🧹 Cleaning up..."
-          docker-compose down -v 2>/dev/null || true
+          docker compose down -v 2>/dev/null || true
