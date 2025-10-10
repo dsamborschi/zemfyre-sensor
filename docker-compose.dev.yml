@@ -101,18 +101,6 @@ services:
         networks:
            - zemfyre-net
 
-    portainer:
-        image: portainer/portainer-ce:latest
-        container_name: portainer
-        restart: always
-        ports:
-            - "${PORT_PORT_EXT:-59000}:9000"
-        volumes:
-            - /var/run/docker.sock:/var/run/docker.sock
-            - ./portainer/data:/data
-        networks:
-           - zemfyre-net
-
     admin:
         build:
            context: ./admin
