@@ -32,12 +32,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-        
-      - name: Clean up old package-lock.json artifacts
-        run: |
-          # Remove any old package-lock.json that might have overrides
-          rm -f agent/package-lock.json
-          cd agent && npm install --package-lock-only
 
       - name: Cache Docker layers
         uses: actions/cache@v4
