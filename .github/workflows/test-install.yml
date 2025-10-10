@@ -28,9 +28,9 @@ jobs:
           - board: pi4
             platform: linux/arm64/v8
             target_arch: arm64
-          - board: x86
-            platform: linux/amd64
-            target_arch: amd64
+          # - board: x86
+          #   platform: linux/amd64
+          #   target_arch: amd64
 
     steps:
       - name: Checkout repository
