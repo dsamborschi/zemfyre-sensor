@@ -117,20 +117,6 @@ services:
         networks:
            - zemfyre-net
 
-    admin:
-        image: iotistic/zemfyre-admin:${DOCKER_TAG}-${DEVICE_TYPE}
-        build:
-           context: ./admin
-           dockerfile: Dockerfile
-        container_name: admin
-        restart: always
-        environment:
-            - APP_MANAGER_API=http://host.docker.internal:3002/api/v1
-            - USE_MOCK_DATA=false
-        ports:
-            - "${ADMIN_PORT_EXT:-51850}:80"
-        networks:
-           - zemfyre-net
     api:
         image: iotistic/zemfyre-api:${DOCKER_TAG}-${DEVICE_TYPE}
         build:
