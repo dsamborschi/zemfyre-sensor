@@ -226,7 +226,7 @@ function install_ansible() {
     echo "📦 Installing Ansible..."
 
     if [ "$IS_CI_MODE" = true ]; then
-        # Use a writable home in CI
+        # Use a writable home in CItt
         export HOME="$GITHUB_WORKSPACE"
         export ANSIBLE_REMOTE_TEMP="$HOME/.ansible/tmp"
         mkdir -p "$ANSIBLE_REMOTE_TEMP"
