@@ -3,6 +3,10 @@
 # Stage 1: Build the Vue application
 FROM node:20-bullseye-slim AS builder
 
+
+# Copy only package files to leverage Docker cache  
+COPY package.json yarn.lock ./
+
 # Use Yarn 1.x explicitly (avoid Yarn 4 download)
 RUN corepack enable && corepack prepare yarn@4.9.2 --activate
 
@@ -14,11 +18,9 @@ RUN apt-get update && apt-get install -y \
     python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy only package files to leverage Docker cache  
-COPY package.json yarn.lock ./
 
 # Install dependencies
-RUN yarn install --frozen-lockfile 
+RUN yarn install --immutable
 
 # Copy rest of the source code
 COPY . .
