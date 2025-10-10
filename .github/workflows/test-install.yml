@@ -98,29 +98,32 @@ jobs:
 
       - name: Verify installation
         run: |
-          echo "� Verifying installation..."
-          
-          # Check if containers are running
           echo "📦 Checking running containers..."
-          docker compose ps
-          
-          # Wait for services to start
+          docker ps -a
+
           echo "⏳ Waiting for services to be ready..."
           sleep 10
-          
           echo "✅ Installation verified"
 
       - name: Show installation logs
         if: always()
         run: |
-          echo "� Docker Compose Services:"
-          docker compose ps || true
+          echo "🟢 Docker Containers (all):"
+          docker ps -a || true
           echo ""
-          echo "📋 Docker Images:"
+
+          echo "📋 Docker Images (iotistic):"
           docker images | grep iotistic || true
           echo ""
-          echo "📋 Service Logs (last 50 lines):"
-          docker compose logs --tail=50 || true
+
+          echo "📋 Last 50 lines of logs per container:"
+          for container in $(docker ps -q); do
+            name=$(docker inspect --format='{{.Name}}' "$container" | sed 's|/||')
+            echo "----- Logs for $name -----"
+            docker logs --tail 50 "$container" || true
+            echo ""
+          done
+
 
       - name: Cleanup
         if: always()
