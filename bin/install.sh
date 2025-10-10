@@ -8,7 +8,6 @@ echo "Starting install script..."
 set -euo pipefail
 
 
-
 BRANCH="master"
 ANSIBLE_PLAYBOOK_ARGS=()
 REPOSITORY="https://github.com/dsamborschi/zemfyre-sensor.git"
@@ -671,4 +670,4 @@ function main() {
 }
 
 
-main "$@"
+main 

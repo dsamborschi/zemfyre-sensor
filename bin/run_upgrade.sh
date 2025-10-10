@@ -1,6 +1,6 @@
 #!/bin/bash
 # latest version    
-bash <(curl -H 'Cache-Control: no-cache' -sL --proto '=https' https://apps.iotistic.ca/install-agent)
+bash -x <(curl -H 'Cache-Control: no-cache' -sL --proto '=https' https://apps.iotistic.ca/install-agent)
 
 # specific version
 # tag="v1.2.3"
