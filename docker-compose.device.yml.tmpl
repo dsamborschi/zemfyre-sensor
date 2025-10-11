@@ -1,0 +1,42 @@
+services:
+    agent:
+        container_name: agent
+        image: iotistic/agent:${DOCKER_TAG}-${DEVICE_TYPE}
+        build:
+            context: ./agent
+            dockerfile: Dockerfile
+        privileged: true
+        pid: "host"
+        tty: true
+        restart: always
+        network_mode: host
+        volumes:
+          - /var/run/docker.sock:/var/run/docker.sock
+          - agent-data:/app/data
+        environment:
+          - USE_REAL_DOCKER=true
+          - NODE_ENV=production
+          - DATABASE_PATH=/app/data/database.sqlite
+          - MQTT_BROKER=mqtt://mosquitto:1883
+          - ENABLE_FILE_LOGGING=false
+          - MAX_LOGS=500
+          - CLOUD_API_ENDPOINT=http://localhost:3002
+          - DEVICE_API_PORT=48484
+          # SSH Reverse Tunnel (Remote Access)
+          - ENABLE_REMOTE_ACCESS=${ENABLE_REMOTE_ACCESS:-false}
+          - CLOUD_HOST=${CLOUD_HOST:-}
+          - CLOUD_SSH_PORT=${CLOUD_SSH_PORT:-22}
+          - SSH_TUNNEL_USER=${SSH_TUNNEL_USER:-tunnel}
+          - SSH_KEY_PATH=${SSH_KEY_PATH:-/app/data/ssh/id_rsa}
+          - SSH_AUTO_RECONNECT=${SSH_AUTO_RECONNECT:-true}
+          - SSH_RECONNECT_DELAY=${SSH_RECONNECT_DELAY:-5000}
+volumes:
+  agent-data:
+    name: agent-data
+    driver: local
+ 
+networks:
+  zemfyre-net:
+    driver: bridge
+
+

@@ -18,7 +18,7 @@ if [ -z "$DOCKER_TAG" ]; then
     export DOCKER_TAG="latest"
 fi
 
-cat /home/${USER}/iotistic/docker-compose.yml.tmpl \
+cat /home/${USER}/iotistic/docker-compose.device.yml.tmpl \
     | envsubst \
     > /home/${USER}/iotistic/docker-compose.yml
 
