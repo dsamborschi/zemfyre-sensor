@@ -2,12 +2,25 @@ FROM node:20
 
 WORKDIR /usr/src/app
 
+# Copy package files
 COPY package*.json ./
-RUN npm install --production
+COPY tsconfig.json ./
+
+# Install dependencies (including devDependencies for build)
+RUN npm install
+
+# Copy source code
+COPY src ./src
+
+# Build TypeScript
+RUN npm run build
+
+# Remove devDependencies after build
+RUN npm prune --production
+
+# Install system dependencies
 RUN apt-get update && apt-get install -y libnotify-bin
 
-COPY . .
+EXPOSE 3002
 
-EXPOSE 3001
-# cd api && npm start
 CMD ["npm", "start"]

@@ -670,4 +670,4 @@ function main() {
 }
 
 
-main 
+main "$@"
