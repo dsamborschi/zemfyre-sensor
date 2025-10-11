@@ -120,7 +120,6 @@ services:
         volumes:
           - /tmp/.X11-unix:/tmp/.X11-unix  # for X11
           - /run/user/1000/bus:/run/user/1000/bus  # for D-Bus socketdy0
-          - /var/run/docker.sock:/var/run/docker.sock
         user: "1000:1000"
         ports:
             - "${API_PORT_EXT:-53001}:3001"
