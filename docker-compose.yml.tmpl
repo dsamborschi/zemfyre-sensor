@@ -106,6 +106,28 @@ services:
            - zemfyre-net
 
 
+    postgres:
+        image: postgres:16-alpine
+        container_name: zemfyre-postgres
+        restart: unless-stopped
+        environment:
+            - POSTGRES_DB=zemfyre
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
+            - POSTGRES_INITDB_ARGS=-E UTF8
+        ports:
+            - "${DB_PORT_EXT:-5432}:5432"
+        volumes:
+            - zemfyre-pg-data:/var/lib/postgresql/data
+            - ./api/database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+           - zemfyre-net
+
     api:
         image: iotistic/zemfyre-api:${DOCKER_TAG}-${DEVICE_TYPE}
         build:
@@ -114,20 +136,35 @@ services:
         container_name: zemfyre-api
         restart: always
         environment:
+            - PORT=3002
+            - NODE_ENV=production
+            - USE_POSTGRES=${USE_POSTGRES:-false}
+            - DB_HOST=postgres
+            - DB_PORT=5432
+            - DB_NAME=zemfyre
+            - DB_USER=postgres
+            - DB_PASSWORD=${DB_PASSWORD:-postgres}
+            - DB_POOL_SIZE=20
             - GRAFANA_API_TOKEN=${GRAFANA_API_TOKEN}
             - DISPLAY=${DISPLAY}
             - DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}
         volumes:
           - /tmp/.X11-unix:/tmp/.X11-unix  # for X11
-          - /run/user/1000/bus:/run/user/1000/bus  # for D-Bus socketdy0
+          - /run/user/1000/bus:/run/user/1000/bus  # for D-Bus socket
+          - /var/run/docker.sock:/var/run/docker.sock:ro
         user: "1000:1000"
         ports:
-            - "${API_PORT_EXT:-53001}:3001"
+            - "${API_PORT_EXT:-3002}:3002"
+        depends_on:
+            postgres:
+                condition: service_healthy
         networks:
            - zemfyre-net
 volumes:
   device-agent-data:
     name: device-agent-data
+    driver: local
+  zemfyre-pg-data:
     driver: local
  
 networks:

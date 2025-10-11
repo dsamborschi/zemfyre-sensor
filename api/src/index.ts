@@ -9,7 +9,18 @@ import cors from 'cors';
 // Import route modules
 import grafanaRoutes from './routes/grafana';
 import notifyRoutes from './routes/notify';
-import cloudRoutes from './routes/cloud';
+
+// Choose cloud routes based on configuration
+const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
+let cloudRoutes: any;
+
+if (USE_POSTGRES) {
+  console.log('🐘 Using PostgreSQL backend for device state');
+  cloudRoutes = require('./routes/cloud-postgres').default;
+} else {
+  console.log('💾 Using in-memory backend for device state');
+  cloudRoutes = require('./routes/cloud').default;
+}
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -116,6 +127,26 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 // Start server
 async function startServer() {
   console.log('🚀 Initializing Zemfyre Unified API...\n');
+
+  // Initialize database if using PostgreSQL
+  if (USE_POSTGRES) {
+    try {
+      const db = await import('./db/connection');
+      const connected = await db.testConnection();
+      
+      if (!connected) {
+        console.error('❌ Failed to connect to PostgreSQL. Falling back to in-memory mode.');
+        cloudRoutes = require('./routes/cloud').default;
+      } else {
+        // Initialize schema
+        await db.initializeSchema();
+      }
+    } catch (error) {
+      console.error('❌ Database initialization error:', error);
+      console.log('⚠️  Falling back to in-memory mode');
+      cloudRoutes = require('./routes/cloud').default;
+    }
+  }
 
   const server = app.listen(PORT, () => {
     console.log('='.repeat(80));
