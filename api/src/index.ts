@@ -8,7 +8,6 @@ import cors from 'cors';
 
 // Import route modules
 import grafanaRoutes from './routes/grafana';
-import dockerRoutes from './routes/docker';
 import notifyRoutes from './routes/notify';
 import cloudRoutes from './routes/cloud';
 
@@ -93,7 +92,6 @@ app.get('/api/docs', (req, res) => {
 
 // Mount route modules
 app.use(grafanaRoutes);
-app.use(dockerRoutes);
 app.use(notifyRoutes);
 app.use(cloudRoutes);
 
