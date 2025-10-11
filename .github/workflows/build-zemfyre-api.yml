@@ -44,8 +44,8 @@ jobs:
       - name: Build & Push Admin image
         uses: docker/build-push-action@v5
         with:
-          context: ./admin
-          file: ./admin/Dockerfile
+          context: ./api
+          file: ./api/Dockerfile
           push: true
           platforms: ${{ matrix.platform }}
           cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
