@@ -337,7 +337,7 @@ function run_ansible_playbook() {
 
     cd "$IOTISTIC_REPO_DIR/ansible"
 
-    # Set architecture-specific Ansible argumentsd
+    # Set architecture-specific Ansible argumentsdsdsd
     if [ "$ARCHITECTURE" == "x86_64" ]; then
         if [ ! -f /etc/sudoers.d/010_${USER}-nopasswd ]; then
             ANSIBLE_PLAYBOOK_ARGS+=("--ask-become-pass")
