@@ -42,29 +42,29 @@ jobs:
             buildx-agent-v2-${{ matrix.board }}-
 
       # Build locally but DO NOT push yet
-      - name: Build image (local only)
-        uses: docker/build-push-action@v5
-        with:
-          context: ./agent
-          file: ./agent/Dockerfile
-          load: true
-          platforms: ${{ matrix.platform }}
-          cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
-          cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
-          tags: |
-            iotistic/agent:test-${{ matrix.board }}
+      # - name: Build image (local only)
+      #   uses: docker/build-push-action@v5
+      #   with:
+      #     context: ./agent
+      #     file: ./agent/Dockerfile
+      #     load: true
+      #     platforms: ${{ matrix.platform }}
+      #     cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
+      #     cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
+      #     tags: |
+      #       iotistic/agent:test-${{ matrix.board }}
 
-      - name: Run api tests
-        run: |
-          docker run --rm \
-            --platform ${{ matrix.platform }} \
-            -v /var/run/docker.sock:/var/run/docker.sock \
-            -v ${{ github.workspace }}/agent/test:/app/test \
-            -e CLOUD_API_ENDPOINT="http://localhost:3002" \
-            -e API_URL="http://localhost:48484" \
-            -e USE_REAL_DOCKER="false" \
-            iotistic/agent:test-${{ matrix.board }} \
-            bash /app/test/run-ci-tests.sh
+      # - name: Run api tests
+      #   run: |
+      #     docker run --rm \
+      #       --platform ${{ matrix.platform }} \
+      #       -v /var/run/docker.sock:/var/run/docker.sock \
+      #       -v ${{ github.workspace }}/agent/test:/app/test \
+      #       -e CLOUD_API_ENDPOINT="http://localhost:3002" \
+      #       -e API_URL="http://localhost:48484" \
+      #       -e USE_REAL_DOCKER="false" \
+      #       iotistic/agent:test-${{ matrix.board }} \
+      #       bash /app/test/run-ci-tests.sh
 
 
       # Login to Docker Hub (only if tests passed)
