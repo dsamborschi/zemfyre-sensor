@@ -156,7 +156,6 @@
     append: true
 
 
-
 - name: Perform system upgrade
   ansible.builtin.apt:
     upgrade: dist

@@ -2,6 +2,14 @@
 
 This directory contains a Postman collection with comprehensive mock examples for the Zemfyre Cloud API (based on `cloud-postgres.ts`).
 
+## 🔥 IMPORTANT: SimpleState Format
+
+**CRITICAL UPDATE**: The mock server now returns the **correct SimpleState format** that the device agent expects. This fix resolves the issue where devices received target state but didn't install apps.
+
+✅ **Apps are now properly structured** with `appId`, `services[]`, and complete container configs.
+
+See [FORMAT-FIX-COMPLETE.md](./FORMAT-FIX-COMPLETE.md) for details and [SIMPLESTATE-FORMAT-FIX.md](./SIMPLESTATE-FORMAT-FIX.md) for format documentation.
+
 ## ✨ Wildcard UUID Support
 
 **NEW**: The collection now supports **wildcard UUID matching**! The mock server will respond to ANY device UUID, not just hardcoded examples. Perfect for CI/CD testing with dynamic device IDs.

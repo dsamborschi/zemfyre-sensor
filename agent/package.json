@@ -13,12 +13,17 @@
     "dev:cloud": "tsx watch src/api/cloud-server.ts",
     "dev:old-api": "tsx watch src/api/server.ts",
     "dev:livepush": "tsx src/cli/livepush-dev.ts",
+    "cli": "tsx cli/device-cli.ts",
+    "cli:build": "tsc cli/device-cli.ts --outDir dist/cli --module commonjs --target es2020",
     "start": "node dist/app.js",
     "start:device": "node dist/app.js",
     "start:cloud": "node dist/api/cloud-server.js",
     "start:old-api": "node dist/api/server.js",
     "lint": "eslint src --ext .ts",
     "test": "mocha --require ts-node/register test/**/*.spec.ts"
+  },
+  "bin": {
+    "device-cli": "./dist/cli/device-cli.js"
   },
   "keywords": [
     "device-agent",
