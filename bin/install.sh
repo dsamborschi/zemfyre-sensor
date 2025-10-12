@@ -5,7 +5,7 @@
 
 
 
-set -euo pipefail
+# set -euo pipefail
 
 
 BRANCH="master"
@@ -609,7 +609,7 @@ function set_custom_version() {
 function main() {
 
     echo "Starting install script..."
-    
+
     install_prerequisites && clear
    
     display_banner "${TITLE_TEXT}"
