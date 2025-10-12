@@ -17,6 +17,7 @@ on:
       - 'nginx/**'
       - 'api/**'
       - 'admin/**'
+      - 'ansible/**'
 
 jobs:
   test-installation:
