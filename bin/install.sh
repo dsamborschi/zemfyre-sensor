@@ -3,10 +3,17 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 # -*- sh-basic-offset: 4 -*-
 
+set -euo pipefail
 
+echo "🚀 Zemfyre Sensor Installation Script"
+echo "======================================"
+echo ""
 
-# set -euo pipefail
-
+# Detect user early (handle curl pipe context)
+if [ -z "${USER:-}" ]; then
+    USER=$(whoami)
+    echo "ℹ️  Detected user: ${USER}"
+fi
 
 BRANCH="master"
 ANSIBLE_PLAYBOOK_ARGS=()
@@ -607,8 +614,10 @@ function set_custom_version() {
 
 
 function main() {
-
-    echo "Starting install script..."
+    echo ""
+    echo "📦 Starting Zemfyre Sensor installation..."
+    echo "   This may take 10-15 minutes depending on your connection."
+    echo ""
 
     install_prerequisites && clear
    
