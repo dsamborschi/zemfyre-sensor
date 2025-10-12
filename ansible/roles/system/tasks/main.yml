@@ -48,8 +48,16 @@
   ignore_errors: true
 
 # Determine system codename
-- name: Get system codename
-  ansible.builtin.command: lsb_release -cs
+- name: Get system codename (robust detection)
+  ansible.builtin.shell: |
+    if command -v lsb_release >/dev/null 2>&1; then
+      lsb_release -cs
+    elif [ -f /etc/os-release ]; then
+      . /etc/os-release
+      echo "$VERSION_CODENAME"
+    else
+      echo "bookworm"  # default fallback for Debian 12+
+    fi
   register: debian_name
   changed_when: false
 
