@@ -66,6 +66,7 @@ else
     ARCHITECTURE=$(uname -m)
     echo "🔍 Detected architecture: ${ARCHITECTURE}"
 fi
+
 DISTRO_VERSION=$(lsb_release -rs 2>/dev/null || true)
 if ! [[ "$DISTRO_VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
     echo "⚠️  lsb_release returned unknown value: '$DISTRO_VERSION', defaulting to 24.04"
@@ -258,7 +259,7 @@ function install_ansible() {
 
 function set_device_type() {
     # If TARGET_ARCH is set (CI environment), map it to device typess
-    if [ -n "${TARGET_ARCH}" ]; then
+    if [ -n "${TARGET_ARCH:-}" ]; then
         case "${TARGET_ARCH}" in
             x86_64|amd64)
                 export DEVICE_TYPE="x86"
