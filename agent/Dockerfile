@@ -7,15 +7,15 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
 
-COPY package*.json tsconfig.json ./
+COPY package*.json tsconfig.json tsconfig.build.json ./
 
 # Install all deps (including dev)
 RUN npm ci --legacy-peer-deps
 
 COPY src ./src
 
-# Build TypeScript and copy migrations
-RUN npm run build
+# Build TypeScript using build-specific config (excludes CLI)
+RUN npx tsc --project tsconfig.build.json && npm run copy:migrations
 
 # ---- Production stage ------
 FROM node:20-slim AS runtime
