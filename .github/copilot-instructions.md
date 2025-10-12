@@ -1,8 +1,14 @@
-# Zemfyre Sensor - AI Coding Agent Instructions# Zemfyre Sensor - AI Coding Agent Instructions# Zemfyre Sensor - AI Coding Agent Instructions
-
-
+# Zemfyre Sensor - AI Coding Agent Instructions
 
 **Full Documentation**: See [docs/AI-AGENT-GUIDE.md](../docs/AI-AGENT-GUIDE.md) for comprehensive architecture patterns, workflows, and troubleshooting.
+
+## ⚠️ Folders to Ignore
+
+**Do not analyze or reference these directories** - they contain deprecated/archived code:
+
+- `admin_old/` - Legacy admin panel implementation (superseded by `admin/`)
+
+When working with the admin panel, **always use the `admin/` directory**, never `admin_old/`.
 
 
 
@@ -136,6 +142,8 @@ TARGET_ARCH=amd64    → DEVICE_TYPE=x86  → iotistic/agent:latest-x86- **api**
 
 5. Docker pulls/builds correct architecture-specific imagesThe `application-manager/` directory contains a **standalone container orchestration engine** extracted from Balena Supervisor:
 
+1. `bin/install.sh` is also used to be run on the device (Raspberry Pi) to set up the entire stack. It detects the architecture and configures services accordingly.
+
 
 
 **When editing install.sh or CI workflows**: Always ensure `DEVICE_TYPE` environment variable flows through the entire pipeline. It's the primary architecture selector, not `ARCHITECTURE` or `TARGET_ARCH`.### Architecture
@@ -164,7 +172,9 @@ TARGET_ARCH=amd64    → DEVICE_TYPE=x86  → iotistic/agent:latest-x86- **api**
 
 device-agent:cd application-manager
 
-    image: iotistic/agent:${DOCKER_TAG}-${DEVICE_TYPE}  # Becomes: iotistic/agent:latest-pi4npm run build  # Compile TypeScript
+    image: iotistic/agent:${DOCKER_TAG}-${DEVICE_TYPE}  # Becomes: iotistic/agent:latest-pi4 
+    
+npm run build  # Compile TypeScript
 
 ```npm run dev    # Start in dev mode (port 3002)
 

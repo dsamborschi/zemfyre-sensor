@@ -5,16 +5,6 @@
 
 set -euo pipefail
 
-echo "🚀 Zemfyre Sensor Installation Script"
-echo "======================================"
-echo ""
-
-# Detect user early (handle curl pipe context)
-if [ -z "${USER:-}" ]; then
-    USER=$(whoami)
-    echo "ℹ️  Detected user: ${USER}"
-fi
-
 BRANCH="master"
 ANSIBLE_PLAYBOOK_ARGS=()
 REPOSITORY="https://github.com/dsamborschi/zemfyre-sensor.git"
@@ -24,64 +14,9 @@ GITHUB_RAW_URL="https://raw.githubusercontent.com/dsamborschi/zemfyre-sensor"
 DOCKER_TAG="latest"
 UPGRADE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/upgrade_containers.sh"
 APPENGINE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/build_appengine.sh"
-
-# Detect CI mode early
-IS_CI_MODE=false
-if [ "${CI:-false}" = "true" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
-    IS_CI_MODE=true
-fi
-
-# CI-safe gum wrapper - uses echo in CI mode
-function gum() {
-    if [ "$IS_CI_MODE" = true ]; then
-        # In CI mode, replace gum commands with simple echoy
-        case "$1" in
-            format|style)
-                shift
-                # Strip markdown/ANSI formatting and just echo
-                echo "$@" | sed 's/\*\*//g' | sed 's/`//g'
-                ;;
-            confirm)
-                # Always return false in CI for confirm (we set defaults before calling)
-                return 1
-                ;;
-            *)
-                # For other commands, just echo the arguments
-                shift
-                echo "$@"
-                ;;
-        esac
-    else
-        # Normal mode - call real gum
-        command gum "$@"
-    fi
-}
-
-
-# Use TARGET_ARCH if set (for CI), otherwise detect from system
-if [ -n "${TARGET_ARCH}" ]; then
-    ARCHITECTURE="${TARGET_ARCH}"
-    echo "🎯 Using TARGET_ARCH from environment: ${ARCHITECTURE}"
-else
-    ARCHITECTURE=$(uname -m)
-    echo "🔍 Detected architecture: ${ARCHITECTURE}"
-fi
-DISTRO_VERSION=$(lsb_release -rs 2>/dev/null || true)
-if ! [[ "$DISTRO_VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
-    echo "⚠️  lsb_release returned unknown value: '$DISTRO_VERSION', defaulting to 24.04"
-    DISTRO_VERSION="24.04"
-fi
-DISTRO_VERSION_MAJOR=$(echo "$DISTRO_VERSION" | cut -d'.' -f1)
-
-
-# Fallback if still empty
-if ! [[ "$DISTRO_VERSION_MAJOR" =~ ^[0-9]+$ ]]; then
-    echo "⚠️  Unknown distro version '$DISTRO_VERSION', defaulting to 24"
-    DISTRO_VERSION_MAJOR=24
-fi
-
-# Allow MODE to be overridden by environment variable (for CI)rr
-MODE="${MODE:-pull}" #  either "pull" or "build"
+ARCHITECTURE=$(uname -m)
+DISTRO_VERSION=$(lsb_release -rs)
+MODE="pull" #  either "pull" or "build"
 
 INTRO_MESSAGE=(
     "Iotistic requires a dedicated Raspberry Pi and an SD card."
@@ -124,15 +59,6 @@ EOF
 # Install gum from Charm.sh.
 # Gum helps you write shell scripts more efficiently.
 function install_prerequisites() {
-
-    echo "install_prerequisites started"
-    # In CI mode, skip gum installation (we have a wrapper that uses echo)66ass
-    if [ "$IS_CI_MODE" = true ]; then
-        echo "CI Mode: Skipping gum installation, installing jq only"
-        sudo apt -y update && sudo apt -y install jq
-        return
-    fi
-
     if [ -f /usr/bin/gum ] && [ -f /usr/bin/jq ]; then
         return
     fi
@@ -145,7 +71,7 @@ function install_prerequisites() {
     echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
         | sudo tee /etc/apt/sources.list.d/charm.list
 
-    sudo apt -y update && sudo apt -y install gum
+    sudo apt -y update && sudo apt -y install gum jq
 }
 
 function display_banner() {
@@ -159,8 +85,6 @@ function display_banner() {
         --margin "1 1" \
         --padding "2 6" \
         "${TITLE}"
-
-    echo " display_banner finished"
 }
 
 function display_section() {
@@ -188,7 +112,7 @@ function initialize_locales() {
     display_section "Initialize Locales"
 
     if [ ! -f /etc/locale.gen ]; then
-        # No locales found. Creating locales with default UK/US setup.ffftt
+        # No locales found. Creating locales with default UK/US setup.
         echo -e "en_GB.UTF-8 UTF-8\nen_US.UTF-8 UTF-8" | \
             sudo tee /etc/locale.gen > /dev/null
         sudo locale-gen
@@ -205,7 +129,7 @@ function install_packages() {
         "whois"
     )
 
-    if [ "$DISTRO_VERSION_MAJOR" -ge 12 ]; then
+    if [ "$DISTRO_VERSION" -ge 12 ]; then
         APT_INSTALL_ARGS+=(
             "python3-dev"
             "python3-full"
@@ -233,65 +157,50 @@ function install_packages() {
 }
 
 function install_ansible() {
-    echo "📦 Installing Ansible..."
+    display_section "Install Ansible"
 
-    if [ "$IS_CI_MODE" = true ]; then
-        # Use a writable home in CIttsfaswww
-        export HOME="$GITHUB_WORKSPACE"
-        export ANSIBLE_REMOTE_TEMP="$HOME/.ansible/tmp"
-        mkdir -p "$ANSIBLE_REMOTE_TEMP"
+    REQUIREMENTS_URL="$GITHUB_RAW_URL/$BRANCH/requirements/requirements.host.txt"
+    if [ "$DISTRO_VERSION" -le 11 ]; then
+        ANSIBLE_VERSION="ansible-core==2.15.9"
+    else
+        ANSIBLE_VERSION=$(curl -s $REQUIREMENTS_URL | grep ansible)
     fi
 
-    python3 -m venv ~/installer_venv
-    source ~/installer_venv/bin/activate
+    SUDO_ARGS=()
 
-    pip install --upgrade pip setuptools wheel
-    pip install cryptography==38.0.1 ansible-core==2.15.9 requests urllib3 certifi
+    if python3 -c "import venv" &> /dev/null; then
+        gum format 'Module `venv` is detected. Activating virtual environment...'
 
-    echo "✅ Ansible installed"
+        echo
 
-    # Install docker collection
-    ansible-galaxy collection install community.docker --force
-    echo "✅ Ansible community.docker collection installed"
+        python3 -m venv /home/${USER}/installer_venv
+        source /home/${USER}/installer_venv/bin/activate
+
+        SUDO_ARGS+=("--preserve-env" "env" "PATH=$PATH")
+    fi
+
+    # @TODO: Remove me later. Cryptography 38.0.3 won't build at the moment.
+    # See https://github.com/Screenly/iotistic/issues/1654 for details.
+    sudo ${SUDO_ARGS[@]} pip install cryptography==38.0.1
+    sudo ${SUDO_ARGS[@]} pip install "$ANSIBLE_VERSION"
+
+    # 🔹 Install community.docker collection so docker_compose_v2 works
+    ansible-galaxy collection install community.docker
 }
 
-
 function set_device_type() {
-    # If TARGET_ARCH is set (CI environment), map it to device typess
-    if [ -n "${TARGET_ARCH}" ]; then
-        case "${TARGET_ARCH}" in
-            x86_64|amd64)
-                export DEVICE_TYPE="x86"
-                echo "🎯 CI: Setting DEVICE_TYPE=x86 for ${TARGET_ARCH}"
-                ;;
-            aarch64|arm64)
-                export DEVICE_TYPE="pi4"  # Default ARM64 to Pi4
-                echo "🎯 CI: Setting DEVICE_TYPE=pi4 for ${TARGET_ARCH}"
-                ;;
-            armv7l|armhf)
-                export DEVICE_TYPE="pi3"  # Default ARMv7 to Pi3
-                echo "🎯 CI: Setting DEVICE_TYPE=pi3 for ${TARGET_ARCH}"
-                ;;
-            *)
-                export DEVICE_TYPE="pi4"
-                echo "⚠️  CI: Unknown TARGET_ARCH=${TARGET_ARCH}, defaulting to pi4"
-                ;;
-        esac
-        return
-    fi
-    
-    # Real hardware detection (non-CI)
-    if [ ! -f /proc/device-tree/model ] && [ "$ARCHITECTURE" = "x86_64" ]; then
+    if [ ! -f /proc/device-tree/model ] && [ "$(uname -m)" = "x86_64" ]; then
         export DEVICE_TYPE="x86"
-    elif [ -f /proc/device-tree/model ]; then
-        if grep -qF "Raspberry Pi 5" /proc/device-tree/model || grep -qF "Compute Module 5" /proc/device-tree/model; then
-            export DEVICE_TYPE="pi5"
-        elif grep -qF "Raspberry Pi 4" /proc/device-tree/model || grep -qF "Compute Module 4" /proc/device-tree/model; then
-            export DEVICE_TYPE="pi4"
-        fi
+    elif grep -qF "Raspberry Pi 5" /proc/device-tree/model || grep -qF "Compute Module 5" /proc/device-tree/model; then
+        export DEVICE_TYPE="pi5"
+    elif grep -qF "Raspberry Pi 4" /proc/device-tree/model || grep -qF "Compute Module 4" /proc/device-tree/model; then
+        export DEVICE_TYPE="pi4"
+    elif grep -qF "Raspberry Pi 3" /proc/device-tree/model || grep -qF "Compute Module 3" /proc/device-tree/model; then
+        export DEVICE_TYPE="pi3"
+    elif grep -qF "Raspberry Pi 2" /proc/device-tree/model; then
+        export DEVICE_TYPE="pi2"
     else
-        echo "⚠️  Unable to detect device type, defaulting to x86"
-        export DEVICE_TYPE="x86"
+        export DEVICE_TYPE="pi1"
     fi
 }
 
@@ -299,38 +208,29 @@ function run_ansible_playbook() {
     display_section "Run the Iotistic Ansible Playbook"
     set_device_type
 
-    # Ensure repository exists and is updated
-    if [ ! -d "$IOTISTIC_REPO_DIR/.git" ]; then
-        echo "📥 Cloning Iotistic repository..."
-        sudo -u ${USER} ${SUDO_ARGS[@]} git clone --branch "$BRANCH" "$REPOSITORY" "$IOTISTIC_REPO_DIR"
-    else
-        echo "🔄 Updating Iotistic repository..."
-        cd "$IOTISTIC_REPO_DIR"
-        sudo -u ${USER} ${SUDO_ARGS[@]} git fetch --all
-        sudo -u ${USER} ${SUDO_ARGS[@]} git reset --hard "origin/$BRANCH"
-    fi
+    sudo -u ${USER} ${SUDO_ARGS[@]} ansible localhost \
+        -m git \
+        -a "repo=$REPOSITORY dest=${IOTISTIC_REPO_DIR} version=${BRANCH} force=yes"
+    cd ${IOTISTIC_REPO_DIR}/ansible
 
-    cd "$IOTISTIC_REPO_DIR/ansible"
-
-    # Set architecture-specific Ansible argumentsd
     if [ "$ARCHITECTURE" == "x86_64" ]; then
         if [ ! -f /etc/sudoers.d/010_${USER}-nopasswd ]; then
             ANSIBLE_PLAYBOOK_ARGS+=("--ask-become-pass")
         fi
-        ANSIBLE_PLAYBOOK_ARGS+=( "--skip-tags" "raspberry-pi" )
+
+        ANSIBLE_PLAYBOOK_ARGS+=(
+            "--skip-tags" "raspberry-pi"
+        )
     fi
 
-    echo "📦 Running Ansible Playbook locally..."
     sudo -E -u ${USER} ${SUDO_ARGS[@]} \
-        DEVICE_TYPE="$DEVICE_TYPE" \
-        ~/installer_venv/bin/ansible-playbook deploy.yml -e "device_type=$DEVICE_TYPE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
-}
+    DEVICE_TYPE="$DEVICE_TYPE" \
+    ansible-playbook deploy.yml -e "device_type=$DEVICE_TYPE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
 
+}
 
 function upgrade_docker_containers() {
     display_section "Initialize/Upgrade Docker Containers"
-
-    mkdir -p "$(dirname "$UPGRADE_SCRIPT_PATH")"
 
     wget -q \
         "$GITHUB_RAW_URL/master/bin/upgrade_containers.sh" \
@@ -341,14 +241,12 @@ function upgrade_docker_containers() {
 
     sudo -u ${USER} env \
         DOCKER_TAG="${DOCKER_TAG}" \
-        DEVICE_TYPE="$DEVICE_TYPE" \
         GIT_BRANCH="${BRANCH}" \
         MODE="${MODE}" \
         "${UPGRADE_SCRIPT_PATH}"
 }
 
-
-function install_engine() {
+function install_appEngine() {
     display_section "Build and install appEngine moby custom docker build"
 
     wget -q \
@@ -362,12 +260,11 @@ function install_engine() {
 }
 
 function cleanup() {
-    display_section "Clean Up Unused Packages and Filess"
+    display_section "Clean Up Unused Packages and Files"
 
     sudo apt-get autoclean
     sudo apt-get clean
     sudo docker system prune -f
-    sudo docker volume prune -f
     sudo apt autoremove -y
     sudo find /usr/share/doc \
         -depth \
@@ -416,135 +313,6 @@ function modify_permissions() {
     fi
 }
 
-function setup_remote_access() {
-    # Skip in CI mode
-    if [ "$IS_CI_MODE" = true ]; then
-        gum format "**CI Mode** - Skipping remote access setup"
-        return
-    fi
-
-    display_section "Remote Device Access Setup (Optional)"
-
-    gum format "**SSH Reverse Tunnel** allows remote access to this device from your cloud server."
-    gum format "This is useful for fleet management and remote troubleshooting."
-    echo
-
-    if ! gum confirm "Would you like to enable remote access?"; then
-        gum format "⚠️  Remote access disabled. You can enable it later by running:"
-        gum format "   \`bash ${IOTISTIC_REPO_DIR}/bin/setup-remote-access.sh <cloud-host> <ssh-user>\`"
-        return
-    fi
-
-    # Prompt for cloud host
-    echo
-    gum format "**Enter your cloud server hostname or IP address:**"
-    gum format "(e.g., cloud.example.com or 203.0.113.50)"
-    read -p "Cloud host: " CLOUD_HOST
-
-    if [ -z "$CLOUD_HOST" ]; then
-        gum format "⚠️  No cloud host provided. Skipping remote access setup."
-        return
-    fi
-
-    # Prompt for SSH user
-    echo
-    gum format "**Enter the SSH username on the cloud server:**"
-    gum format "(Default: tunnel)"
-    read -p "SSH user [tunnel]: " SSH_USER
-    SSH_USER=${SSH_USER:-tunnel}
-
-    echo
-    gum format "🔌 Setting up SSH reverse tunnel..."
-    
-    # Generate SSH keys
-    local SSH_DIR="${IOTISTIC_REPO_DIR}/data/ssh"
-    local SSH_KEY_PATH="${SSH_DIR}/id_rsa"
-    
-    mkdir -p "$SSH_DIR"
-    
-    if [ ! -f "$SSH_KEY_PATH" ]; then
-        gum format "Generating SSH key pair..."
-        ssh-keygen -t ed25519 \
-            -f "$SSH_KEY_PATH" \
-            -N "" \
-            -C "zemfyre-device-$(hostname)" \
-            -q
-        chmod 600 "$SSH_KEY_PATH"
-        chmod 644 "${SSH_KEY_PATH}.pub"
-        gum format "✅ SSH key generated"
-    fi
-
-    # Copy key to cloud server
-    echo
-    gum format "📤 Copying SSH key to cloud server..."
-    gum format "   You may need to enter the password for ${SSH_USER}@${CLOUD_HOST}"
-    
-    if ssh-copy-id -i "${SSH_KEY_PATH}.pub" "${SSH_USER}@${CLOUD_HOST}"; then
-        gum format "✅ SSH key copied to cloud server"
-    else
-        gum format "⚠️  Failed to copy SSH key automatically"
-        gum format "   Please copy the key manually:"
-        gum format "   1. Copy this public key:"
-        cat "${SSH_KEY_PATH}.pub"
-        gum format "   2. Add to cloud server: ssh ${SSH_USER}@${CLOUD_HOST}"
-        gum format "   3. Run: echo '<PUBLIC_KEY>' >> ~/.ssh/authorized_keys"
-    fi
-
-    # Test connection
-    echo
-    gum format "🧪 Testing SSH connection..."
-    if ssh -o BatchMode=yes -o ConnectTimeout=5 -i "$SSH_KEY_PATH" "${SSH_USER}@${CLOUD_HOST}" exit 2>/dev/null; then
-        gum format "✅ SSH connection successful!"
-    else
-        gum format "⚠️  SSH connection test failed. Please verify:"
-        gum format "   - Cloud server is reachable"
-        gum format "   - SSH key was copied correctly"
-        gum format "   - User ${SSH_USER} exists on cloud server"
-    fi
-
-    # Update .env file
-    local ENV_FILE="${IOTISTIC_REPO_DIR}/.env"
-    
-    gum format "📝 Updating .env file..."
-    
-    # Create .env if doesn't exist
-    touch "$ENV_FILE"
-    
-    # Remove old settings
-    sed -i.bak '/^ENABLE_REMOTE_ACCESS=/d' "$ENV_FILE" 2>/dev/null || true
-    sed -i.bak '/^CLOUD_HOST=/d' "$ENV_FILE" 2>/dev/null || true
-    sed -i.bak '/^SSH_TUNNEL_USER=/d' "$ENV_FILE" 2>/dev/null || true
-    sed -i.bak '/^SSH_KEY_PATH=/d' "$ENV_FILE" 2>/dev/null || true
-    sed -i.bak '/^CLOUD_SSH_PORT=/d' "$ENV_FILE" 2>/dev/null || true
-    
-    # Add new settings
-    cat >> "$ENV_FILE" <<EOF
-
-# SSH Reverse Tunnel Configuration
-ENABLE_REMOTE_ACCESS=true
-CLOUD_HOST=$CLOUD_HOST
-CLOUD_SSH_PORT=22
-SSH_TUNNEL_USER=$SSH_USER
-SSH_KEY_PATH=/app/data/ssh/id_rsa
-SSH_AUTO_RECONNECT=true
-SSH_RECONNECT_DELAY=5000
-EOF
-    
-    rm -f "${ENV_FILE}.bak" 2>/dev/null || true
-    
-    gum format "✅ Remote access configured!"
-    echo
-    gum format "**Cloud Server Configuration Required:**"
-    gum format "On your cloud server (${CLOUD_HOST}), add to /etc/ssh/sshd_config:"
-    gum format "   GatewayPorts yes"
-    gum format "   ClientAliveInterval 60"
-    gum format "   ClientAliveCountMax 3"
-    gum format "Then restart SSH: sudo systemctl restart sshd"
-    echo
-    gum format "After device restarts, access it from cloud server:"
-    gum format "   curl http://localhost:48484/v2/device"
-}
-
 function write_iotistic_version() {
     local GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
     local GIT_SHORT_HASH=$(git rev-parse --short HEAD)
@@ -576,87 +344,71 @@ function post_installation() {
 
     echo
 
-    # Skip reboot prompt in CI
-    if [ "${CI:-false}" = "true" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
-        gum style --foreground "#00FFFF" "CI Mode - Skipping reboot" | gum format
-    else
-        gum confirm "Do you want to reboot now?" && \
-            gum style --foreground "#FF00FF" "Rebooting..." | gum format && \
-            sudo reboot
-    fi
+    gum confirm "Do you want to reboot now?" && \
+        gum style --foreground "#FF00FF" "Rebooting..." | gum format && \
+        sudo reboot
 }
 
 function set_custom_version() {
-    local TAG="$1"
-    BRANCH="$TAG"
+    BRANCH=$(
+        gum input \
+            --header "Enter the tag name you want to install" \
+    )
 
-    # Verify that the tag exists on GitHub
     local STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
         "${GITHUB_API_REPO_URL}/git/refs/tags/$BRANCH")
 
     if [ "$STATUS_CODE" -ne 200 ]; then
-        echo "Invalid tag name: $BRANCH"
+        gum style "Invalid tag name." \
+            | gum format
+        echo
         exit 1
     fi
 
-    # Verify that the release has a docker-tag file
     local DOCKER_TAG_FILE_URL="${GITHUB_RELEASES_URL}/download/${BRANCH}/docker-tag"
     STATUS_CODE=$(curl -sL -o /dev/null -w "%{http_code}" \
         "$DOCKER_TAG_FILE_URL")
 
     if [ "$STATUS_CODE" -ne 200 ]; then
-        echo "This version does not have a docker-tag file."
+        gum style "This version doesn't have a \`docker-tag\` file." \
+            | gum format
+        echo
         exit 1
     fi
 
     DOCKER_TAG=$(curl -sL "$DOCKER_TAG_FILE_URL")
 }
 
-
 function main() {
-    echo ""
-    echo "📦 Starting Zemfyre Sensor installation..."
-    echo "   This may take 10-15 minutes depending on your connection."
-    echo ""
-
     install_prerequisites && clear
-   
+
     display_banner "${TITLE_TEXT}"
 
-    # 🔹 Version handling: argument wins, otherwise default to master
-    if [ -n "${1:-}" ]; then
-        BRANCH="$1"
-        # Only verify tags, not branch names like "master"
-        if [ "$BRANCH" != "master" ] && [ "$BRANCH" != "main" ]; then
-            # optional: verify if tag exists
-            set_custom_version "$BRANCH"
-        else
-            DOCKER_TAG="latest"
-        fi
-    else
+    gum format "${INTRO_MESSAGE[@]}"
+    echo
+    gum confirm "Do you still want to continue?" || exit 0
+    gum confirm "${MANAGE_NETWORK_PROMPT[@]}" && \
+        export MANAGE_NETWORK="Yes" || \
+        export MANAGE_NETWORK="No"
+
+    VERSION=$(
+        gum choose \
+            --header "${VERSION_PROMPT}" \
+            -- "${VERSION_PROMPT_CHOICES[@]}"
+    )
+
+    if [ "$VERSION" == "latest" ]; then
         BRANCH="master"
-        DOCKER_TAG="latest"
+    else
+        set_custom_version
     fi
 
-    # 🔹 CI Mode: Skip interactive prompts
-    if [ "${CI:-false}" = "true" ] || [ -n "${GITHUB_ACTIONS:-}" ]; then
-        export MANAGE_NETWORK="No"
+    gum confirm "${SYSTEM_UPGRADE_PROMPT[@]}" && {
+        SYSTEM_UPGRADE="Yes"
+    } || {
         SYSTEM_UPGRADE="No"
         ANSIBLE_PLAYBOOK_ARGS+=("--skip-tags" "system-upgrade")
-        gum format "**CI Mode Detected** - Using non-interactive defaults"
-    else
-        # (You can still ask for MANAGE_NETWORK or SYSTEM_UPGRADE if you want)
-        gum confirm "${MANAGE_NETWORK_PROMPT[@]}" && \
-            export MANAGE_NETWORK="Yes" || \
-            export MANAGE_NETWORK="No"
-
-        gum confirm "${SYSTEM_UPGRADE_PROMPT[@]}" && {
-            SYSTEM_UPGRADE="Yes"
-        } || {
-            SYSTEM_UPGRADE="No"
-            ANSIBLE_PLAYBOOK_ARGS+=("--skip-tags" "system-upgrade")
-        }
-    fi
+    }
 
     display_section "User Input Summary"
     gum format "**Manage Network:**     ${MANAGE_NETWORK}"
@@ -671,15 +423,16 @@ function main() {
     initialize_ansible
     initialize_locales
     install_packages
+
     install_ansible
     run_ansible_playbook
+
     upgrade_docker_containers
-    setup_remote_access
     cleanup
     modify_permissions
+
     write_iotistic_version
     post_installation
 }
 
-
-main "$@"
+main
