@@ -218,6 +218,16 @@ export class ContainerManager extends EventEmitter {
 		await this.saveTargetStateToDB();
 		
 		this.emit('target-state-changed', target);
+		
+		// Trigger immediate reconciliation if using real Docker
+		if (this.useRealDocker && !this.isApplyingState) {
+			console.log('🔄 Triggering immediate reconciliation...');
+			try {
+				await this.applyTargetState();
+			} catch (error) {
+				console.error('❌ Failed to apply target state:', error);
+			}
+		}
 	}
 
 	/**
