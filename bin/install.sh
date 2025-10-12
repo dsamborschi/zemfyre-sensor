@@ -58,15 +58,6 @@ function gum() {
 }
 
 
-# Use TARGET_ARCH if set (for CI), otherwise detect from system
-if [ -n "${TARGET_ARCH:-}" ]; then
-    ARCHITECTURE="${TARGET_ARCH}"
-    echo "🎯 Using TARGET_ARCH from environment: ${ARCHITECTURE}"
-else
-    ARCHITECTURE=$(uname -m)
-    echo "🔍 Detected architecture: ${ARCHITECTURE}"
-fi
-
 # Allow MODE to be overridden by environment variable (for CI)rr
 MODE="${MODE:-pull}" #  either "pull" or "build"
 
