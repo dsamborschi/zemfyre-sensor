@@ -67,20 +67,6 @@ else
     echo "🔍 Detected architecture: ${ARCHITECTURE}"
 fi
 
-DISTRO_VERSION=$(lsb_release -rs 2>/dev/null || true)
-if ! [[ "$DISTRO_VERSION" =~ ^[0-9]+\.[0-9]+$ ]]; then
-    echo "⚠️  lsb_release returned unknown value: '$DISTRO_VERSION', defaulting to 24.04"
-    DISTRO_VERSION="24.04"
-fi
-DISTRO_VERSION_MAJOR=$(echo "$DISTRO_VERSION" | cut -d'.' -f1)
-
-
-# Fallback if still empty
-if ! [[ "$DISTRO_VERSION_MAJOR" =~ ^[0-9]+$ ]]; then
-    echo "⚠️  Unknown distro version '$DISTRO_VERSION', defaulting to 24"
-    DISTRO_VERSION_MAJOR=24
-fi
-
 # Allow MODE to be overridden by environment variable (for CI)rr
 MODE="${MODE:-pull}" #  either "pull" or "build"
 
@@ -121,6 +107,53 @@ TITLE_TEXT=$(cat <<EOF
                                                                                                                                                                                                                            
 EOF
 )
+
+detect_arch_and_distro() {
+    echo "🔍 Detecting system architecture and distribution..."
+
+    # Architecture
+    ARCHITECTURE="${TARGET_ARCH:-$(uname -m)}"
+    echo "🔍 Detected architecture: $ARCHITECTURE"
+
+    # Distro version and codename
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        DISTRO_NAME="$ID"
+        DISTRO_VERSION="${VERSION_ID:-}"
+    else
+        DISTRO_NAME="debian"
+        DISTRO_VERSION=$(cat /etc/debian_version)
+    fi
+
+    # Fallback codename mapping
+    case "$DISTRO_NAME" in
+        raspbian|debian)
+            case "${DISTRO_VERSION%%.*}" in
+                10) DISTRO_CODENAME="buster" ;;
+                11) DISTRO_CODENAME="bullseye" ;;
+                12|13) DISTRO_CODENAME="bookworm" ;;
+                *) DISTRO_CODENAME="bookworm" ;;
+            esac
+            ;;
+        ubuntu)
+            case "${DISTRO_VERSION}" in
+                20.04) DISTRO_CODENAME="focal" ;;
+                22.04) DISTRO_CODENAME="jammy" ;;
+                24.04) DISTRO_CODENAME="kinetic" ;;
+                *) DISTRO_CODENAME="jammy" ;;
+            esac
+            ;;
+        *)
+            DISTRO_CODENAME="bookworm"
+            ;;
+    esac
+
+    DISTRO_VERSION_MAJOR="${DISTRO_VERSION%%.*}"
+    export ARCHITECTURE DISTRO_NAME DISTRO_VERSION DISTRO_CODENAME DISTRO_VERSION_MAJOR
+
+    echo "📌 System detected: $DISTRO_NAME $DISTRO_VERSION ($DISTRO_CODENAME), arch: $ARCHITECTURE"
+}
+
 
 # Install gum from Charm.sh.
 # Gum helps you write shell scripts more efficiently.
@@ -619,6 +652,9 @@ function main() {
     echo "📦 Starting Zemfyre Sensor installation..."
     echo "   This may take 10-15 minutes depending on your connection."
     echo ""
+
+     # Detect architecture and distro early
+    detect_arch_and_distro
 
     install_prerequisites && clear
    
