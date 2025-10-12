@@ -84,6 +84,64 @@
                 }
               ],
               "body": "{\n  \"new-device-uuid\": {\n    \"apps\": {}\n  }\n}"
+            },
+            {
+              "name": "200 - CI Device State",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/device/1e01ad34-41dd-4263-9899-8963dcb0f721/state",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "device", "1e01ad34-41dd-4263-9899-8963dcb0f721", "state"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "ETag",
+                  "value": "\"ci-v1\""
+                }
+              ],
+              "body": "{\n  \"1e01ad34-41dd-4263-9899-8963dcb0f721\": {\n    \"apps\": {\n      \"mosquitto\": {\n        \"image\": \"eclipse-mosquitto:2.0\",\n        \"ports\": [\"1883:1883\"]\n      },\n      \"nodered\": {\n        \"image\": \"nodered/node-red:latest\",\n        \"ports\": [\"1880:1880\"]\n      }\n    }\n  }\n}"
+            },
+            {
+              "name": "200 - Wildcard (Any UUID)",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/device/:uuid/state",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "device", ":uuid", "state"],
+                  "variable": [
+                    {
+                      "key": "uuid",
+                      "value": "{{deviceUuid}}"
+                    }
+                  ]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "ETag",
+                  "value": "\"wildcard-v1\""
+                }
+              ],
+              "body": "{\n  \"{{deviceUuid}}\": {\n    \"apps\": {\n      \"mosquitto\": {\n        \"image\": \"eclipse-mosquitto:2.0\",\n        \"ports\": [\"1883:1883\"],\n        \"restart\": \"unless-stopped\"\n      },\n      \"nodered\": {\n        \"image\": \"nodered/node-red:latest\",\n        \"environment\": {\n          \"TZ\": \"UTC\"\n        },\n        \"ports\": [\"1880:1880\"],\n        \"restart\": \"unless-stopped\"\n      },\n      \"influxdb\": {\n        \"image\": \"influxdb:2.7-alpine\",\n        \"environment\": {\n          \"DOCKER_INFLUXDB_INIT_MODE\": \"setup\",\n          \"DOCKER_INFLUXDB_INIT_USERNAME\": \"admin\",\n          \"DOCKER_INFLUXDB_INIT_PASSWORD\": \"defaultpass123\"\n        },\n        \"ports\": [\"8086:8086\"],\n        \"volumes\": [\"influx-data:/var/lib/influxdb2\"],\n        \"restart\": \"unless-stopped\"\n      }\n    },\n    \"config\": {\n      \"DEVICE_TYPE\": \"generic\",\n      \"BALENA_SUPERVISOR_VERSION\": \"1.0.0\"\n    }\n  }\n}"
             }
           ]
         },

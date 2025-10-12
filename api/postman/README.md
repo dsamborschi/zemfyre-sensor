@@ -2,6 +2,12 @@
 
 This directory contains a Postman collection with comprehensive mock examples for the Zemfyre Cloud API (based on `cloud-postgres.ts`).
 
+## ✨ Wildcard UUID Support
+
+**NEW**: The collection now supports **wildcard UUID matching**! The mock server will respond to ANY device UUID, not just hardcoded examples. Perfect for CI/CD testing with dynamic device IDs.
+
+See [WILDCARD-MOCK-UPDATE.md](./WILDCARD-MOCK-UPDATE.md) for details.
+
 ## 📋 Collection Contents
 
 The collection includes **13 API endpoints** organized into 6 folders:
