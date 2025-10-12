@@ -39,21 +39,23 @@
 
 # ---------------- Docker Installation ----------------
 
-# Pre-flight: Clean up any malformed Docker repository files
-- name: Remove potentially malformed docker.list (pre-flight)
+# ---------------- Docker Installation ----------------
+
+# Pre-flight: Remove any malformed docker.list
+- name: Remove old docker.list if exists
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/docker.list
     state: absent
   ignore_errors: true
 
-# Get Debian/Ubuntu codename
+# Get system codename
 - name: Get system codename
   ansible.builtin.command: lsb_release -cs
   register: debian_name
   changed_when: false
 
-# Normalize codename to Docker-supported ones
-- name: Map unsupported codenames to supported Docker repos
+# Map unsupported codenames to Docker-supported ones
+- name: Set Docker codename
   ansible.builtin.set_fact:
     docker_codename: >-
       {% if debian_name.stdout in ['noble', 'trixie', 'testing', 'sid'] %}
@@ -64,18 +66,12 @@
         {{ debian_name.stdout }}
       {% endif %}
 
-# Debug output for safety
-- debug:
-    msg: "Using Docker codename '{{ docker_codename }}' for '{{ debian_name.stdout }}'"
-
-# Add Docker’s GPG key
-- name: Add Docker apt key
-  ansible.builtin.apt_key:
-    url: https://download.docker.com/linux/debian/gpg
-    state: present
+- name: Debug Docker codename
+  ansible.builtin.debug:
+    msg: "Using Docker codename '{{ docker_codename }}'"
 
 # Determine architecture
-- name: Determine architecture for Docker packages
+- name: Set Docker architecture
   ansible.builtin.set_fact:
     architecture: >-
       {% if ansible_architecture == 'x86_64' %}
@@ -88,59 +84,60 @@
         amd64
       {% endif %}
 
-- name: Ensure apt sources directory exists
+- name: Ensure Docker apt keyrings directory exists
   ansible.builtin.file:
-    path: /etc/apt/sources.list.d
+    path: /etc/apt/keyrings
     state: directory
     mode: '0755'
     owner: root
     group: root
 
-- name: Check if Docker is already installed
+# Download Docker GPG key (avoids deprecated apt-key)
+- name: Add Docker GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.gpg
+    mode: '0644'
+
+# Add Docker repository
+- name: Add Docker repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ architecture }} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian {{ docker_codename }} stable"
+    state: present
+
+# Update apt cache
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+# Check if Docker is installed
+- name: Check Docker version
   ansible.builtin.command: docker --version
   register: docker_version
   ignore_errors: true
   changed_when: false
 
-- name: Display current Docker version if installed
-  ansible.builtin.debug:
-    msg: "Docker already installed: {{ docker_version.stdout }}"
-  when: docker_version.rc == 0
-
-- name: Install Docker using official convenience script
-  ansible.builtin.shell: |
-    curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-    sh /tmp/get-docker.sh
-    rm /tmp/get-docker.sh
+- name: Install Docker if not present
+  ansible.builtin.apt:
+    name: docker-ce,docker-ce-cli,containerd.io
+    state: present
   when: docker_version.rc != 0
-  register: docker_install
-  changed_when: true
+  notify: Restart Docker
 
-- name: Display Docker installation output
-  ansible.builtin.debug:
-    msg: "{{ docker_install.stdout_lines }}"
-  when: docker_version.rc != 0 and docker_install.stdout_lines is defined
+- name: Add user to docker group
+  ansible.builtin.user:
+    name: "{{ lookup('env','USER') }}"
+    groups: docker
+    append: true
 
-- name: Verify Docker installation
-  ansible.builtin.command: docker --version
-  register: docker_verify
-  changed_when: false
-
-- name: Display Docker version after installation
-  ansible.builtin.debug:
-    msg: "✅ Docker installed: {{ docker_verify.stdout }}"
-
+# Ensure Docker service is running
 - name: Ensure Docker service is enabled and started
   ansible.builtin.systemd:
     name: docker
     enabled: true
     state: started
 
-- name: Add user to docker group
-  ansible.builtin.user:
-    name: "{{ lookup('env', 'USER') }}"
-    groups: docker
-    append: true
 
 
 - name: Perform system upgrade
