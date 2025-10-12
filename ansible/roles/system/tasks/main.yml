@@ -39,14 +39,25 @@
 
 # ---------------- Docker Installation ----------------
 
-# Pre-flight: Clean up any malformed Docker repository files
-- name: Remove potentially malformed docker.list (pre-flight)
+# ---------------- Docker Installation ----------------
+
+# Pre-flight: Clean up potentially malformed Docker repository files
+- name: Remove old docker.list (pre-flight)
   ansible.builtin.file:
     path: /etc/apt/sources.list.d/docker.list
     state: absent
   ignore_errors: true
 
-# Get Debian/Ubuntu codename
+# Determine architecture
+- name: Determine architecture for Docker packages
+  ansible.builtin.set_fact:
+    architecture: >-
+      {% if ansible_architecture == 'x86_64' %} amd64
+      {% elif ansible_architecture in ['aarch64','arm64'] %} arm64
+      {% elif ansible_architecture in ['armv7l','armv6l'] %} armhf
+      {% else %} amd64 {% endif %}
+
+# Get system codename
 - name: Get system codename
   ansible.builtin.command: lsb_release -cs
   register: debian_name
@@ -56,58 +67,54 @@
 - name: Map unsupported codenames to supported Docker repos
   ansible.builtin.set_fact:
     docker_codename: >-
-      {% if debian_name.stdout in ['noble', 'trixie', 'testing', 'sid'] %}
-        bookworm
-      {% elif debian_name.stdout == 'jammy' %}
-        bullseye
-      {% else %}
-        {{ debian_name.stdout }}
-      {% endif %}
+      {% if debian_name.stdout in ['noble', 'trixie', 'testing', 'sid'] %} bookworm
+      {% elif debian_name.stdout == 'jammy' %} bullseye
+      {% else %} {{ debian_name.stdout }} {% endif %}
 
-# Debug output for safety
-- debug:
-    msg: "Using Docker codename '{{ docker_codename }}' for '{{ debian_name.stdout }}'"
+- name: Debug Docker codename and architecture
+  ansible.builtin.debug:
+    msg: "Docker codename: {{ docker_codename }}, architecture: {{ architecture }}"
 
-# Add Docker’s GPG key
-- name: Add Docker apt key
-  ansible.builtin.apt_key:
-    url: https://download.docker.com/linux/debian/gpg
-    state: present
-
-# Determine architecture
-- name: Determine architecture for Docker packages
-  ansible.builtin.set_fact:
-    architecture: >-
-      {% if ansible_architecture == 'x86_64' %}
-        amd64
-      {% elif ansible_architecture in ['aarch64', 'arm64'] %}
-        arm64
-      {% elif ansible_architecture in ['armv7l', 'armv6l'] %}
-        armhf
-      {% else %}
-        amd64
-      {% endif %}
-
-- name: Ensure apt sources directory exists
+# Ensure keyrings directory exists
+- name: Ensure /etc/apt/keyrings exists
   ansible.builtin.file:
-    path: /etc/apt/sources.list.d
+    path: /etc/apt/keyrings
     state: directory
     mode: '0755'
-    owner: root
-    group: root
 
-- name: Check if Docker is already installed
+# Add Docker GPG key
+- name: Add Docker GPG key
+  ansible.builtin.get_url:
+    url: https://download.docker.com/linux/debian/gpg
+    dest: /etc/apt/keyrings/docker.gpg
+    mode: '0644'
+
+# Add Docker repository
+- name: Add Docker repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ architecture }} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian {{ docker_codename }} stable"
+    state: present
+
+# Update apt cache
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+
+# Check if Docker is already installed
+- name: Check if Docker is installed
   ansible.builtin.command: docker --version
   register: docker_version
   ignore_errors: true
   changed_when: false
 
-- name: Display current Docker version if installed
+# Display current Docker version if installed
+- name: Show Docker version
   ansible.builtin.debug:
     msg: "Docker already installed: {{ docker_version.stdout }}"
   when: docker_version.rc == 0
 
-- name: Install Docker using official convenience script
+# Install Docker using official convenience script if not installed
+- name: Install Docker using get-docker.sh
   ansible.builtin.shell: |
     curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
     sh /tmp/get-docker.sh
@@ -116,11 +123,13 @@
   register: docker_install
   changed_when: true
 
-- name: Display Docker installation output
+# Display Docker installation output
+- name: Show Docker installation output
   ansible.builtin.debug:
     msg: "{{ docker_install.stdout_lines }}"
   when: docker_version.rc != 0 and docker_install.stdout_lines is defined
 
+# Verify Docker installation
 - name: Verify Docker installation
   ansible.builtin.command: docker --version
   register: docker_verify
@@ -130,17 +139,20 @@
   ansible.builtin.debug:
     msg: "✅ Docker installed: {{ docker_verify.stdout }}"
 
-- name: Ensure Docker service is enabled and started
+# Ensure Docker service is enabled and started
+- name: Ensure Docker service is running
   ansible.builtin.systemd:
     name: docker
     enabled: true
     state: started
 
-- name: Add user to docker group
+# Add user to Docker group
+- name: Add current user to docker group
   ansible.builtin.user:
-    name: "{{ lookup('env', 'USER') }}"
+    name: "{{ lookup('env','USER') }}"
     groups: docker
     append: true
+
 
 
 - name: Perform system upgrade
