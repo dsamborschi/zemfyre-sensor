@@ -648,11 +648,6 @@ function set_custom_version() {
 
 
 function main() {
-    echo ""
-    echo "📦 Starting Zemfyre Sensor installation..."
-    echo "   This may take 10-15 minutes depending on your connection."
-    echo ""
-
      # Detect architecture and distro early
     detect_arch_and_distro
 
