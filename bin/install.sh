@@ -116,7 +116,7 @@ detect_arch_and_distro() {
         DISTRO_VERSION=$(cat /etc/debian_version)
     fi
 
-    # Fallback codename mapping
+    # Fallback codename mappingf
     case "$DISTRO_NAME" in
         raspbian|debian)
             case "${DISTRO_VERSION%%.*}" in
