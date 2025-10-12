@@ -3,6 +3,8 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
 # -*- sh-basic-offset: 4 -*-
 
+
+
 set -euo pipefail
 
 
@@ -605,6 +607,9 @@ function set_custom_version() {
 
 
 function main() {
+
+    echo "Starting install script..."
+    
     install_prerequisites && clear
    
     display_banner "${TITLE_TEXT}"
