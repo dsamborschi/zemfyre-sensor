@@ -28,7 +28,7 @@
 - name: Ensure Chromium and kiosk tools are installed (Desktop mode)
   apt:
     name:
-      - chromium-browser
+      - chromium
       - unclutter
       - xdotool
     state: present
