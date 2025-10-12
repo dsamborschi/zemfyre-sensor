@@ -38,7 +38,6 @@
   ignore_errors: true
 
 # ---------------- Docker Installation ----------------
-# ---------------- Docker Installation ----------------
 
 # Pre-flight: Remove old/malformed Docker repo files
 - name: Remove old docker.list (pre-flight)
@@ -76,20 +75,6 @@
 # Debug
 - ansible.builtin.debug:
     msg: "Using Docker codename '{{ docker_codename }}' for '{{ debian_name.stdout }}'"
-
-# Determine architecture
-- name: Determine architecture for Docker packages
-  ansible.builtin.set_fact:
-    architecture: >-
-      {% if ansible_architecture == 'x86_64' %}
-        amd64
-      {% elif ansible_architecture in ['aarch64', 'arm64'] %}
-        arm64
-      {% elif ansible_architecture in ['armv7l', 'armv6l'] %}
-        armhf
-      {% else %}
-        amd64
-      {% endif %}
 
 # Ensure keyrings directory exists
 - name: Ensure /etc/apt/keyrings exists
