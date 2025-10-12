@@ -43,7 +43,7 @@
       - xinit
       - openbox
       - unclutter
-      - chromium-browser
+      - chromium
     state: present
     update_cache: yes
   when: not desktop_mode
