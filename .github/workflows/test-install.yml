@@ -82,6 +82,7 @@ jobs:
           export TARGET_ARCH=${{ matrix.target_arch }}
           export PLATFORM=${{ matrix.platform }}
           export MODE=build
+          export CLOUD_API_ENDPOINT=https://567cea7e-66b6-4e92-a622-ac53067b271a.mock.pstmn.io
           export DEBIAN_FRONTEND=noninteractive
           
           # Run the installation script with master branch (non-interactive)
