@@ -39,6 +39,13 @@
 
 # ---------------- Docker Installation ----------------
 
+# Pre-flight: Remove old/malformed Docker repo files
+- name: Remove old docker.list (pre-flight)
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/docker.list
+    state: absent
+  ignore_errors: true
+
 # Determine system codename
 - name: Get system codename (robust detection)
   ansible.builtin.shell: |
