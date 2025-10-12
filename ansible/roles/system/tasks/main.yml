@@ -37,98 +37,95 @@
     state: restarted
   ignore_errors: true
 
-# ---------------- Docker Installation ----------------
+# ---------------- Docker Installation (universal: CI + direct devices) ----------------
 
-# Pre-flight: Clean up any malformed Docker repository files
-- name: Remove potentially malformed docker.list (pre-flight)
-  ansible.builtin.file:
-    path: /etc/apt/sources.list.d/docker.list
-    state: absent
-  ignore_errors: true
-
-# Get Debian/Ubuntu codename
-- name: Get system codename
-  ansible.builtin.command: lsb_release -cs
-  register: debian_name
-  changed_when: false
-
-# Normalize codename to Docker-supported ones
-- name: Map unsupported codenames to supported Docker repos
+# Detect architecture if not provided (for direct installs)
+- name: Detect architecture if TARGET_ARCH is not set
   ansible.builtin.set_fact:
-    docker_codename: >-
-      {% if debian_name.stdout in ['noble', 'trixie', 'testing', 'sid'] %}
-        bookworm
-      {% elif debian_name.stdout == 'jammy' %}
-        bullseye
-      {% else %}
-        {{ debian_name.stdout }}
-      {% endif %}
+    detected_arch: "{{ ansible_architecture }}"
+  when: TARGET_ARCH is not defined
 
-# Debug output for safety
-- debug:
-    msg: "Using Docker codename '{{ docker_codename }}' for '{{ debian_name.stdout }}'"
-
-# Add Docker’s GPG key
-- name: Add Docker apt key
-  ansible.builtin.apt_key:
-    url: https://download.docker.com/linux/debian/gpg
-    state: present
-
-# Determine architecture
 - name: Determine architecture for Docker packages
   ansible.builtin.set_fact:
     architecture: >-
-      {% if ansible_architecture == 'x86_64' %}
+      {% if (TARGET_ARCH | default(detected_arch)) == 'x86_64' %}
         amd64
-      {% elif ansible_architecture in ['aarch64', 'arm64'] %}
+      {% elif (TARGET_ARCH | default(detected_arch)) in ['aarch64', 'arm64'] %}
         arm64
-      {% elif ansible_architecture in ['armv7l', 'armv6l'] %}
+      {% elif (TARGET_ARCH | default(detected_arch)) in ['armv7l', 'armv6l'] %}
         armhf
       {% else %}
         amd64
       {% endif %}
 
-- name: Ensure apt sources directory exists
-  ansible.builtin.file:
-    path: /etc/apt/sources.list.d
-    state: directory
-    mode: '0755'
-    owner: root
-    group: root
+# Map unsupported Debian codenames (for Ubuntu, Pi OS, or testing)
+- name: Normalize codename to supported Docker repos
+  ansible.builtin.set_fact:
+    docker_codename: >-
+      {% set codename = debian_name.stdout | default(ansible_distribution_release) %}
+      {% if codename in ['noble', 'trixie', 'testing', 'sid'] %}
+        bookworm
+      {% elif codename == 'jammy' %}
+        bullseye
+      {% else %}
+        {{ codename }}
+      {% endif %}
 
+- name: Debug codename and architecture
+  ansible.builtin.debug:
+    msg: "Installing Docker for '{{ docker_codename }}' [arch={{ architecture }}]"
+
+# Backward-compatible key handling (works for Debian < 12 and >= 12)
+- name: Add Docker GPG key (modern method, fallback for old distros)
+  block:
+    - name: Try modern GPG method
+      ansible.builtin.get_url:
+        url: https://download.docker.com/linux/debian/gpg
+        dest: /usr/share/keyrings/docker-archive-keyring.gpg
+        mode: '0644'
+      register: gpg_key_result
+      ignore_errors: true
+
+    - name: Fallback to apt-key if modern method fails
+      ansible.builtin.apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+      when: gpg_key_result is failed
+
+# Add Docker apt repository
+- name: Add Docker apt repository
+  ansible.builtin.apt_repository:
+    repo: "deb [arch={{ architecture }} signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian {{ docker_codename }} stable"
+    state: present
+    filename: docker
+  ignore_errors: true  # allows fallback installs if repo setup fails temporarily
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: yes
+
+# Try to detect if Docker is already installed
 - name: Check if Docker is already installed
   ansible.builtin.command: docker --version
   register: docker_version
   ignore_errors: true
   changed_when: false
 
-- name: Display current Docker version if installed
-  ansible.builtin.debug:
-    msg: "Docker already installed: {{ docker_version.stdout }}"
-  when: docker_version.rc == 0
-
-- name: Install Docker using official convenience script
-  ansible.builtin.shell: |
-    curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
-    sh /tmp/get-docker.sh
-    rm /tmp/get-docker.sh
+- name: Install Docker Engine and dependencies (if not installed)
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
   when: docker_version.rc != 0
   register: docker_install
-  changed_when: true
 
-- name: Display Docker installation output
+- name: Display Docker installation result
   ansible.builtin.debug:
-    msg: "{{ docker_install.stdout_lines }}"
-  when: docker_version.rc != 0 and docker_install.stdout_lines is defined
-
-- name: Verify Docker installation
-  ansible.builtin.command: docker --version
-  register: docker_verify
-  changed_when: false
-
-- name: Display Docker version after installation
-  ansible.builtin.debug:
-    msg: "✅ Docker installed: {{ docker_verify.stdout }}"
+    msg: "{{ docker_install if docker_version.rc != 0 else 'Docker already installed' }}"
 
 - name: Ensure Docker service is enabled and started
   ansible.builtin.systemd:
