@@ -225,15 +225,25 @@ export class ApiBinder extends EventEmitter {
 			
 			// Parse response
 			const targetStateResponse = await response.json() as TargetStateResponse;
+			
+			console.log('📥 Raw target state response:', JSON.stringify(targetStateResponse, null, 2));
+			console.log('🔍 Looking for device UUID:', deviceInfo.uuid);
+			
 			const deviceState = targetStateResponse[deviceInfo.uuid];
 			
 			if (!deviceState) {
 				console.warn('⚠️  No target state for this device in response');
+				console.warn('   Available UUIDs:', Object.keys(targetStateResponse));
 				return;
 			}
 			
+			console.log('✅ Found device state:', JSON.stringify(deviceState, null, 2));
+			
 			// Check if target state changed
 			const newTargetState: SimpleState = { apps: deviceState.apps || {} };
+			
+			console.log('📦 New target state apps:', JSON.stringify(newTargetState.apps, null, 2));
+			console.log('📦 Current target state apps:', JSON.stringify(this.targetState?.apps || {}, null, 2));
 			
 			if (JSON.stringify(this.targetState) !== JSON.stringify(newTargetState)) {
 				console.log('🎯 New target state received from cloud');
