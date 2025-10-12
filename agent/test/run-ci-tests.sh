@@ -36,7 +36,7 @@ for i in {1..30}; do
     sleep 1
 done
 
-# Start device agent in background
+# Start device agent in backgrounds
 echo -e "${BLUE}🚀 Starting device agent...${NC}"
 npm run start:device > /tmp/device-agent.log 2>&1 &
 DEVICE_PID=$!
