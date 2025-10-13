@@ -86,7 +86,7 @@
               "body": "{\n  \"new-device-uuid\": {\n    \"apps\": {}\n  }\n}"
             },
             {
-              "name": "200 - CI Device State - SimpleState Format",
+              "name": "200 - CI Device State",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
@@ -112,7 +112,7 @@
               "body": "{\n  \"1e01ad34-41dd-4263-9899-8963dcb0f721\": {\n    \"apps\": {\n      \"1\": {\n        \"appId\": 1,\n        \"appName\": \"test-stack\",\n        \"appUuid\": \"test-stack-uuid\",\n        \"services\": [\n          {\n            \"serviceId\": 1,\n            \"serviceName\": \"mosquitto\",\n            \"image\": \"eclipse-mosquitto:2.0\",\n            \"environment\": {},\n            \"ports\": [\"6883:1883\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 2,\n            \"serviceName\": \"nodered\",\n            \"image\": \"nodered/node-red:latest\",\n            \"environment\": {\n              \"TZ\": \"UTC\"\n            },\n            \"ports\": [\"6880:1880\"],\n            \"restart\": \"unless-stopped\"\n          }\n        ]\n      }\n    }\n  }\n}"
             },
             {
-              "name": "200 - Real Device State - SimpleState Format",
+              "name": "200 - Real Device State",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
@@ -138,7 +138,7 @@
               "body": "{\n  \"b3b3cb52-e9c8-45be-825c-83a37781307f\": {\n    \"apps\": {\n      \"1\": {\n        \"appId\": 1,\n        \"appName\": \"test-stack\",\n        \"appUuid\": \"test-stack-uuid\",\n        \"services\": [\n          {\n            \"serviceId\": 1,\n            \"serviceName\": \"mosquitto\",\n            \"image\": \"eclipse-mosquitto:2.0\",\n            \"environment\": {},\n            \"ports\": [\"6883:1883\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 2,\n            \"serviceName\": \"nodered\",\n            \"image\": \"nodered/node-red:latest\",\n            \"environment\": {\n              \"TZ\": \"UTC\"\n            },\n            \"ports\": [\"6880:1880\"],\n            \"restart\": \"unless-stopped\"\n          }\n        ]\n      }\n    }\n  }\n}"
             },
             {
-              "name": "200 - Windows Device State - SimpleState Format",
+              "name": "200 - Windows Device State",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
@@ -164,7 +164,7 @@
               "body": "{\n  \"7400d5e0-62ad-4de6-82e4-1896407a92d8\": {\n    \"apps\": {\n      \"1\": {\n        \"appId\": 1,\n        \"appName\": \"test-stack\",\n        \"appUuid\": \"test-stack-uuid\",\n        \"services\": [\n          {\n            \"serviceId\": 1,\n            \"serviceName\": \"mosquitto\",\n            \"image\": \"eclipse-mosquitto:2.0\",\n            \"environment\": {},\n            \"ports\": [\"6883:1883\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 2,\n            \"serviceName\": \"nodered\",\n            \"image\": \"nodered/node-red:latest\",\n            \"environment\": {\n              \"TZ\": \"UTC\"\n            },\n            \"ports\": [\"6880:1880\"],\n            \"restart\": \"unless-stopped\"\n          }\n        ]\n      }\n    }\n  }\n}"
             },
             {
-              "name": "200 - Wildcard (Any UUID) - SimpleState Format",
+              "name": "200 - Wildcard (Any UUID) ",
               "originalRequest": {
                 "method": "GET",
                 "header": [],
