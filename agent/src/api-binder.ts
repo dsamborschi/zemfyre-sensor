@@ -315,8 +315,6 @@ export class ApiBinder extends EventEmitter {
 		if (!deviceInfo.provisioned) {
 			console.log('⚠️  Device not provisioned, skipping state report');
 			return;
-		}else {
-			console.log('✅ Device is provisioned');
 		}
 		
 		const now = Date.now();

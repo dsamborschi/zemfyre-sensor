@@ -166,7 +166,7 @@ export class CloudLogBackend implements LogBackend {
 	}
 	
 	private async sendLogs(logs: LogMessage[]): Promise<void> {
-		const endpoint = `${this.config.cloudEndpoint}/api/v3/device/${this.config.deviceUuid}/logs`;
+		const endpoint = `${this.config.cloudEndpoint}/api/v1/device/${this.config.deviceUuid}/logs`;
 		
 		// Convert to NDJSON (newline-delimited JSON)
 		const ndjson = logs.map(log => JSON.stringify(log)).join('\n') + '\n';
@@ -174,7 +174,7 @@ export class CloudLogBackend implements LogBackend {
 		// Compress if enabled
 		let body: string | Buffer = ndjson;
 		const headers: Record<string, string> = {
-			'Content-Type': 'application/x-ndjson',
+			'Content-Type': 'application/json',
 		};
 		
 		if (this.config.compression) {
@@ -189,7 +189,7 @@ export class CloudLogBackend implements LogBackend {
 		const response = await fetch(endpoint, {
 			method: 'POST',
 			headers,
-			body,
+			body : JSON.stringify(logs),
 			signal: this.abortController.signal,
 		});
 		
