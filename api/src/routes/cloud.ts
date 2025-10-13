@@ -1,75 +1,95 @@
 /**
- * Cloud Multi-Device Management Routes
- * Manage multiple IoT devices from a central server
+ * Cloud Multi-Device Management Routes with PostgreSQL
+ * Balena-style API for managing IoT devices
  */
 
 import express from 'express';
+import {
+  DeviceModel,
+  DeviceTargetStateModel,
+  DeviceCurrentStateModel,
+  DeviceMetricsModel,
+  DeviceLogsModel,
+} from '../db/models';
 
 export const router = express.Router();
 
-// Types
-interface DeviceTargetState {
-  uuid: string;
-  apps: { [appId: string]: any };
-  updated_at: number;
-  etag: string;
-}
+/**
+ * Device polling for target state
+ * GET /api/v1/device/:uuid/state
+ * 
+ * Supports ETag caching - returns 304 if state hasn't changed
+ */
+router.get('/api/v1/device/:uuid/state', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const ifNoneMatch = req.headers['if-none-match'];
 
-interface DeviceCurrentState {
-  uuid: string;
-  apps: { [appId: string]: any };
-  cpu_usage?: number;
-  memory_usage?: number;
-  memory_total?: number;
-  storage_usage?: number;
-  storage_total?: number;
-  temperature?: number;
-  is_online?: boolean;
-  uptime?: number;
-  last_reported: number;
-}
+    // Get or create device
+    await DeviceModel.getOrCreate(uuid);
 
-// In-memory storage (replace with database in production)
-const deviceTargetStates = new Map<string, DeviceTargetState>();
-const deviceCurrentStates = new Map<string, DeviceCurrentState>();
+    // Get target state
+    const targetState = await DeviceTargetStateModel.get(uuid);
 
-function generateETag(data: any): string {
-  return Buffer.from(JSON.stringify(data)).toString('base64').substring(0, 32);
-}
+    if (!targetState) {
+      // No target state yet - return empty state
+      const emptyState = { [uuid]: { apps: {} } };
+      const etag = Buffer.from(JSON.stringify(emptyState))
+        .toString('base64')
+        .substring(0, 32);
+      return res.set('ETag', etag).json(emptyState);
+    }
 
-// Device polling for target state
-router.get('/api/v1/device/:uuid/state', (req, res) => {
-  const { uuid } = req.params;
-  const ifNoneMatch = req.headers['if-none-match'];
+    // Generate ETag
+    const etag = DeviceTargetStateModel.generateETag(targetState);
 
-  const targetState = deviceTargetStates.get(uuid);
+    // Check if client has current version
+    if (ifNoneMatch && ifNoneMatch === etag) {
+      return res.status(304).end();
+    }
 
-  if (!targetState) {
-    const emptyState = { [uuid]: { apps: {} } };
-    const etag = generateETag(emptyState);
-    return res.set('ETag', etag).json(emptyState);
+    // Return target state
+    const response = {
+      [uuid]: {
+        apps: typeof targetState.apps === 'string' 
+          ? JSON.parse(targetState.apps as any) 
+          : targetState.apps
+      }
+    };
+
+    res.set('ETag', etag).json(response);
+  } catch (error: any) {
+    console.error('Error getting device state:', error);
+    res.status(500).json({
+      error: 'Failed to get device state',
+      message: error.message
+    });
   }
-
-  if (ifNoneMatch && ifNoneMatch === targetState.etag) {
-    return res.status(304).end();
-  }
-
-  const response = { [uuid]: { apps: targetState.apps } };
-  res.set('ETag', targetState.etag).json(response);
 });
 
-// Device uploads logs
+/**
+ * Device uploads logs
+ * POST /api/v1/device/:uuid/logs
+ */
 router.post('/api/v1/device/:uuid/logs', async (req, res) => {
   try {
     const { uuid } = req.params;
-    const contentEncoding = req.headers['content-encoding'];
+    const logs = req.body;
 
     console.log(`📥 Received logs from device ${uuid.substring(0, 8)}...`);
-    console.log(`   Content-Encoding: ${contentEncoding || 'none'}`);
-    console.log(`   Size: ${req.headers['content-length'] || 'unknown'} bytes`);
 
-    res.json({ status: 'ok', received: 'logs' });
+    // Ensure device exists
+    await DeviceModel.getOrCreate(uuid);
+
+    // Store logs
+    if (Array.isArray(logs)) {
+      await DeviceLogsModel.store(uuid, logs);
+      console.log(`   Stored ${logs.length} log entries`);
+    }
+
+    res.json({ status: 'ok', received: logs.length || 0 });
   } catch (error: any) {
+    console.error('Error storing logs:', error);
     res.status(500).json({
       error: 'Failed to process logs',
       message: error.message
@@ -77,33 +97,56 @@ router.post('/api/v1/device/:uuid/logs', async (req, res) => {
   }
 });
 
-// Device reports current state
-router.patch('/api/v1/device/state', (req, res) => {
+/**
+ * Device reports current state
+ * PATCH /api/v1/device/state
+ */
+router.patch('/api/v1/device/state', async (req, res) => {
   try {
     const stateReport = req.body;
 
     for (const uuid in stateReport) {
       const deviceState = stateReport[uuid];
 
-      deviceCurrentStates.set(uuid, {
-        uuid,
-        apps: deviceState.apps || {},
-        cpu_usage: deviceState.cpu_usage,
-        memory_usage: deviceState.memory_usage,
-        memory_total: deviceState.memory_total,
-        storage_usage: deviceState.storage_usage,
-        storage_total: deviceState.storage_total,
-        temperature: deviceState.temperature,
-        is_online: true,
-        uptime: deviceState.uptime,
-        last_reported: Date.now(),
-      });
-
       console.log(`📥 Received state report from device ${uuid.substring(0, 8)}...`);
+
+      // Ensure device exists and mark as online
+      await DeviceModel.getOrCreate(uuid);
+
+      // Update current state
+      await DeviceCurrentStateModel.update(
+        uuid,
+        deviceState.apps || {},
+        deviceState.config || {},
+        {
+          ip_address: deviceState.ip_address,
+          mac_address: deviceState.mac_address,
+          os_version: deviceState.os_version,
+          supervisor_version: deviceState.supervisor_version,
+          uptime: deviceState.uptime,
+        }
+      );
+
+      // Record metrics if provided
+      if (
+        deviceState.cpu_usage !== undefined ||
+        deviceState.memory_usage !== undefined ||
+        deviceState.storage_usage !== undefined
+      ) {
+        await DeviceMetricsModel.record(uuid, {
+          cpu_usage: deviceState.cpu_usage,
+          cpu_temp: deviceState.cpu_temp,
+          memory_usage: deviceState.memory_usage,
+          memory_total: deviceState.memory_total,
+          storage_usage: deviceState.storage_usage,
+          storage_total: deviceState.storage_total,
+        });
+      }
     }
 
     res.json({ status: 'ok' });
   } catch (error: any) {
+    console.error('Error processing state report:', error);
     res.status(500).json({
       error: 'Failed to process state report',
       message: error.message
@@ -111,75 +154,140 @@ router.patch('/api/v1/device/state', (req, res) => {
   }
 });
 
-// List all devices
-router.get('/api/v1/devices', (req, res) => {
-  const devices: any[] = [];
+/**
+ * List all devices
+ * GET /api/v1/devices
+ */
+router.get('/api/v1/devices', async (req, res) => {
+  try {
+    const isOnline = req.query.online === 'true' ? true : 
+                     req.query.online === 'false' ? false : 
+                     undefined;
 
-  const allUuids = new Set([
-    ...deviceTargetStates.keys(),
-    ...deviceCurrentStates.keys(),
-  ]);
+    const devices = await DeviceModel.list({ isOnline });
 
-  for (const uuid of allUuids) {
-    const targetState = deviceTargetStates.get(uuid);
-    const currentState = deviceCurrentStates.get(uuid);
+    // Enhance with state info
+    const enhancedDevices = await Promise.all(
+      devices.map(async (device) => {
+        const targetState = await DeviceTargetStateModel.get(device.uuid);
+        const currentState = await DeviceCurrentStateModel.get(device.uuid);
 
-    devices.push({
-      uuid,
-      is_online: currentState?.is_online || false,
-      last_reported: currentState?.last_reported,
-      target_apps: Object.keys(targetState?.apps || {}).length,
-      current_apps: Object.keys(currentState?.apps || {}).length,
-      cpu_usage: currentState?.cpu_usage,
-      memory_usage: currentState?.memory_usage,
-      memory_total: currentState?.memory_total,
-      temperature: currentState?.temperature,
+        return {
+          uuid: device.uuid,
+          device_name: device.device_name,
+          device_type: device.device_type,
+          is_online: device.is_online,
+          last_connectivity_event: device.last_connectivity_event,
+          ip_address: device.ip_address,
+          os_version: device.os_version,
+          supervisor_version: device.supervisor_version,
+          cpu_usage: device.cpu_usage,
+          cpu_temp: device.cpu_temp,
+          memory_usage: device.memory_usage,
+          memory_total: device.memory_total,
+          storage_usage: device.storage_usage,
+          storage_total: device.storage_total,
+          target_apps_count: targetState ? Object.keys(targetState.apps || {}).length : 0,
+          current_apps_count: currentState ? Object.keys(currentState.apps || {}).length : 0,
+          last_reported: currentState?.reported_at,
+          created_at: device.created_at,
+        };
+      })
+    );
+
+    res.json({
+      count: enhancedDevices.length,
+      devices: enhancedDevices,
+    });
+  } catch (error: any) {
+    console.error('Error listing devices:', error);
+    res.status(500).json({
+      error: 'Failed to list devices',
+      message: error.message
     });
   }
-
-  res.json({ count: devices.length, devices });
 });
 
-// Get specific device
-router.get('/api/v1/devices/:uuid', (req, res) => {
-  const { uuid } = req.params;
-
-  const targetState = deviceTargetStates.get(uuid);
-  const currentState = deviceCurrentStates.get(uuid);
-
-  if (!targetState && !currentState) {
-    return res.status(404).json({
-      error: 'Device not found',
-      message: `Device ${uuid} not found`
-    });
-  }
-
-  res.json({
-    uuid,
-    target_state: targetState ? { apps: targetState.apps } : { apps: {} },
-    current_state: currentState || null,
-    is_online: currentState?.is_online || false,
-    last_reported: currentState?.last_reported,
-  });
-});
-
-// Get device target state
-router.get('/api/v1/devices/:uuid/target-state', (req, res) => {
-  const { uuid } = req.params;
-  const targetState = deviceTargetStates.get(uuid);
-
-  res.json({
-    uuid,
-    apps: targetState?.apps || {},
-    updated_at: targetState?.updated_at,
-  });
-});
-
-// Set device target state
-router.post('/api/v1/devices/:uuid/target-state', (req, res) => {
+/**
+ * Get specific device
+ * GET /api/v1/devices/:uuid
+ */
+router.get('/api/v1/devices/:uuid', async (req, res) => {
   try {
     const { uuid } = req.params;
-    const { apps } = req.body;
+
+    const device = await DeviceModel.getByUuid(uuid);
+    if (!device) {
+      return res.status(404).json({
+        error: 'Device not found',
+        message: `Device ${uuid} not found`
+      });
+    }
+
+    const targetState = await DeviceTargetStateModel.get(uuid);
+    const currentState = await DeviceCurrentStateModel.get(uuid);
+
+    res.json({
+      device,
+      target_state: targetState ? {
+        apps: typeof targetState.apps === 'string' ? JSON.parse(targetState.apps as any) : targetState.apps,
+        config: typeof targetState.config === 'string' ? JSON.parse(targetState.config as any) : targetState.config,
+        version: targetState.version,
+        updated_at: targetState.updated_at,
+      } : { apps: {}, config: {} },
+      current_state: currentState ? {
+        apps: typeof currentState.apps === 'string' ? JSON.parse(currentState.apps as any) : currentState.apps,
+        config: typeof currentState.config === 'string' ? JSON.parse(currentState.config as any) : currentState.config,
+        system_info: typeof currentState.system_info === 'string' ? JSON.parse(currentState.system_info as any) : currentState.system_info,
+        reported_at: currentState.reported_at,
+      } : null,
+    });
+  } catch (error: any) {
+    console.error('Error getting device:', error);
+    res.status(500).json({
+      error: 'Failed to get device',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Get device target state
+ * GET /api/v1/devices/:uuid/target-state
+ */
+router.get('/api/v1/devices/:uuid/target-state', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const targetState = await DeviceTargetStateModel.get(uuid);
+
+    res.json({
+      uuid,
+      apps: targetState ? 
+        (typeof targetState.apps === 'string' ? JSON.parse(targetState.apps as any) : targetState.apps) :
+        {},
+      config: targetState ? 
+        (typeof targetState.config === 'string' ? JSON.parse(targetState.config as any) : targetState.config) :
+        {},
+      version: targetState?.version,
+      updated_at: targetState?.updated_at,
+    });
+  } catch (error: any) {
+    console.error('Error getting target state:', error);
+    res.status(500).json({
+      error: 'Failed to get target state',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Set device target state
+ * POST /api/v1/devices/:uuid/target-state
+ */
+router.post('/api/v1/devices/:uuid/target-state', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const { apps, config } = req.body;
 
     if (!apps || typeof apps !== 'object') {
       return res.status(400).json({
@@ -188,26 +296,21 @@ router.post('/api/v1/devices/:uuid/target-state', (req, res) => {
       });
     }
 
-    const now = Date.now();
-    const targetState: DeviceTargetState = {
-      uuid,
-      apps,
-      updated_at: now,
-      etag: generateETag({ uuid, apps, updated_at: now }),
-    };
-
-    deviceTargetStates.set(uuid, targetState);
+    const targetState = await DeviceTargetStateModel.set(uuid, apps, config || {});
 
     console.log(`🎯 Target state updated for device ${uuid.substring(0, 8)}...`);
-    console.log(`   Apps: ${Object.keys(apps).length}`);
+    console.log(`   Apps: ${Object.keys(apps).length}, Version: ${targetState.version}`);
 
     res.json({
       status: 'ok',
       message: 'Target state updated',
       uuid,
+      version: targetState.version,
       apps,
+      config,
     });
   } catch (error: any) {
+    console.error('Error setting target state:', error);
     res.status(500).json({
       error: 'Failed to set target state',
       message: error.message
@@ -215,41 +318,147 @@ router.post('/api/v1/devices/:uuid/target-state', (req, res) => {
   }
 });
 
-// Get device current state
-router.get('/api/v1/devices/:uuid/current-state', (req, res) => {
-  const { uuid } = req.params;
-  const currentState = deviceCurrentStates.get(uuid);
+/**
+ * Get device current state
+ * GET /api/v1/devices/:uuid/current-state
+ */
+router.get('/api/v1/devices/:uuid/current-state', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const currentState = await DeviceCurrentStateModel.get(uuid);
 
-  if (!currentState) {
-    return res.status(404).json({
-      error: 'No state reported yet',
-      message: `Device ${uuid} has not reported its state yet`
+    if (!currentState) {
+      return res.status(404).json({
+        error: 'No state reported yet',
+        message: `Device ${uuid} has not reported its state yet`
+      });
+    }
+
+    res.json({
+      apps: typeof currentState.apps === 'string' ? JSON.parse(currentState.apps as any) : currentState.apps,
+      config: typeof currentState.config === 'string' ? JSON.parse(currentState.config as any) : currentState.config,
+      system_info: typeof currentState.system_info === 'string' ? JSON.parse(currentState.system_info as any) : currentState.system_info,
+      reported_at: currentState.reported_at,
+    });
+  } catch (error: any) {
+    console.error('Error getting current state:', error);
+    res.status(500).json({
+      error: 'Failed to get current state',
+      message: error.message
     });
   }
-
-  res.json(currentState);
 });
 
-// Clear device target state
-router.delete('/api/v1/devices/:uuid/target-state', (req, res) => {
-  const { uuid } = req.params;
+/**
+ * Clear device target state
+ * DELETE /api/v1/devices/:uuid/target-state
+ */
+router.delete('/api/v1/devices/:uuid/target-state', async (req, res) => {
+  try {
+    const { uuid } = req.params;
 
-  const now = Date.now();
-  const targetState: DeviceTargetState = {
-    uuid,
-    apps: {},
-    updated_at: now,
-    etag: generateETag({ uuid, apps: {}, updated_at: now }),
-  };
+    await DeviceTargetStateModel.clear(uuid);
 
-  deviceTargetStates.set(uuid, targetState);
+    console.log(`🧹 Cleared target state for device ${uuid.substring(0, 8)}...`);
 
-  console.log(`🧹 Cleared target state for device ${uuid.substring(0, 8)}...`);
+    res.json({
+      status: 'ok',
+      message: 'Target state cleared',
+    });
+  } catch (error: any) {
+    console.error('Error clearing target state:', error);
+    res.status(500).json({
+      error: 'Failed to clear target state',
+      message: error.message
+    });
+  }
+});
 
-  res.json({
-    status: 'ok',
-    message: 'Target state cleared',
-  });
+/**
+ * Get device logs
+ * GET /api/v1/devices/:uuid/logs
+ */
+router.get('/api/v1/devices/:uuid/logs', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const serviceName = req.query.service as string | undefined;
+    const limit = parseInt(req.query.limit as string) || 100;
+    const offset = parseInt(req.query.offset as string) || 0;
+
+    const logs = await DeviceLogsModel.get(uuid, {
+      serviceName,
+      limit,
+      offset,
+    });
+
+    res.json({
+      count: logs.length,
+      logs,
+    });
+  } catch (error: any) {
+    console.error('Error getting logs:', error);
+    res.status(500).json({
+      error: 'Failed to get logs',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Get device metrics
+ * GET /api/v1/devices/:uuid/metrics
+ */
+router.get('/api/v1/devices/:uuid/metrics', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const limit = parseInt(req.query.limit as string) || 100;
+
+    const metrics = await DeviceMetricsModel.getRecent(uuid, limit);
+
+    res.json({
+      count: metrics.length,
+      metrics,
+    });
+  } catch (error: any) {
+    console.error('Error getting metrics:', error);
+    res.status(500).json({
+      error: 'Failed to get metrics',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Delete device
+ * DELETE /api/v1/devices/:uuid
+ */
+router.delete('/api/v1/devices/:uuid', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+
+    const device = await DeviceModel.getByUuid(uuid);
+    if (!device) {
+      return res.status(404).json({
+        error: 'Device not found',
+        message: `Device ${uuid} not found`
+      });
+    }
+
+    await DeviceModel.delete(uuid);
+
+    console.log(`🗑️  Deleted device ${uuid.substring(0, 8)}...`);
+
+    res.json({
+      status: 'ok',
+      message: 'Device deleted',
+    });
+  } catch (error: any) {
+    console.error('Error deleting device:', error);
+    res.status(500).json({
+      error: 'Failed to delete device',
+      message: error.message
+    });
+  }
 });
 
 export default router;

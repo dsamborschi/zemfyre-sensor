@@ -225,10 +225,7 @@ export class ApiBinder extends EventEmitter {
 			
 			// Parse response
 			const targetStateResponse = await response.json() as TargetStateResponse;
-			
-			console.log('📥 Raw target state response:', JSON.stringify(targetStateResponse, null, 2));
-			console.log('🔍 Looking for device UUID:', deviceInfo.uuid);
-			
+	
 			const deviceState = targetStateResponse[deviceInfo.uuid];
 			
 			if (!deviceState) {
@@ -237,20 +234,13 @@ export class ApiBinder extends EventEmitter {
 				return;
 			}
 			
-			console.log('✅ Found device state:', JSON.stringify(deviceState, null, 2));
 			
 			// Check if target state changed
 			const newTargetState: SimpleState = { apps: deviceState.apps || {} };
 			
-			console.log('📦 New target state apps:', JSON.stringify(newTargetState.apps, null, 2));
-			console.log('📦 Current target state apps:', JSON.stringify(this.targetState?.apps || {}, null, 2));
-			
 			// Debug: Log the actual comparison strings
 			const currentStateStr = JSON.stringify(this.targetState);
 			const newStateStr = JSON.stringify(newTargetState);
-			console.log('🔍 Current state string length:', currentStateStr.length);
-			console.log('🔍 New state string length:', newStateStr.length);
-			console.log('🔍 States equal?', currentStateStr === newStateStr);
 			
 			if (currentStateStr !== newStateStr) {
 				console.log('🎯 New target state received from cloud');
