@@ -245,9 +245,17 @@ export class ApiBinder extends EventEmitter {
 			console.log('📦 New target state apps:', JSON.stringify(newTargetState.apps, null, 2));
 			console.log('📦 Current target state apps:', JSON.stringify(this.targetState?.apps || {}, null, 2));
 			
-			if (JSON.stringify(this.targetState) !== JSON.stringify(newTargetState)) {
+			// Debug: Log the actual comparison strings
+			const currentStateStr = JSON.stringify(this.targetState);
+			const newStateStr = JSON.stringify(newTargetState);
+			console.log('🔍 Current state string length:', currentStateStr.length);
+			console.log('🔍 New state string length:', newStateStr.length);
+			console.log('🔍 States equal?', currentStateStr === newStateStr);
+			
+			if (currentStateStr !== newStateStr) {
 				console.log('🎯 New target state received from cloud');
 				console.log(`   Apps: ${Object.keys(newTargetState.apps).length}`);
+				console.log('🔍 Difference detected - applying new state');
 				
 				this.targetState = newTargetState;
 				
@@ -353,13 +361,27 @@ export class ApiBinder extends EventEmitter {
 			}
 		}
 		
-		// Calculate diff from last report
-		const diff = this.calculateStateDiff(this.lastReport, stateReport);
+		// Build state-only report for diff comparison (without metrics)
+		const stateOnlyReport: DeviceStateReport = {
+			[deviceInfo.uuid]: {
+				apps: currentState.apps,
+				is_online: true,
+			},
+		};
 		
-		if (Object.keys(diff).length === 0) {
+		// Calculate diff - only compare app state (no metrics)
+		const diff = this.calculateStateDiff(this.lastReport, stateOnlyReport);
+		
+		// If there are changes OR we need to send metrics, send the full report (with metrics if applicable)
+		const shouldReport = Object.keys(diff).length > 0 || includeMetrics;
+		
+		if (!shouldReport) {
 			// No changes to report
 			return;
 		}
+		
+		// Prepare report to send (include metrics if needed)
+		const reportToSend = includeMetrics ? stateReport : stateOnlyReport;
 		
 		// Send report to cloud
 		const endpoint = `${this.config.cloudApiEndpoint}/api/v1/device/state`;
@@ -370,7 +392,7 @@ export class ApiBinder extends EventEmitter {
 				headers: {
 					'Content-Type': 'application/json',
 				},
-				body: JSON.stringify(diff),
+				body: JSON.stringify(reportToSend),
 				signal: AbortSignal.timeout(this.config.apiTimeout),
 			});
 			
@@ -378,8 +400,8 @@ export class ApiBinder extends EventEmitter {
 				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 			}
 			
-			// Update last report
-			this.lastReport = stateReport;
+			// Update last report (state only, no metrics)
+			this.lastReport = stateOnlyReport;
 			this.lastReportTime = now;
 			
 			console.log(`📤 Reported current state to cloud ${includeMetrics ? '(with metrics)' : ''}`);
@@ -393,7 +415,10 @@ export class ApiBinder extends EventEmitter {
 	}
 	
 	/**
-	 * Calculate diff between two state reports (shallow diff)
+	 * Calculate diff between two state reports
+	 * 
+	 * Compares only app state and non-metrics fields.
+	 * Both states should NOT contain metrics fields.
 	 */
 	private calculateStateDiff(
 		oldState: DeviceStateReport,
@@ -406,7 +431,7 @@ export class ApiBinder extends EventEmitter {
 			const newDevice = newState[uuid];
 			const deviceDiff: any = {};
 			
-			// Compare each field
+			// Compare each field in newDevice
 			for (const key in newDevice) {
 				const oldValue = (oldDevice as any)[key];
 				const newValue = (newDevice as any)[key];
@@ -416,8 +441,9 @@ export class ApiBinder extends EventEmitter {
 					if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
 						deviceDiff[key] = newValue;
 					}
-				} else {
-					// Shallow comparison for primitives
+				}
+				// Shallow comparison for other primitives (is_online, local_ip, etc.)
+				else {
 					if (oldValue !== newValue) {
 						deviceDiff[key] = newValue;
 					}

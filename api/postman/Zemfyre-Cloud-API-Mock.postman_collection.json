@@ -57,7 +57,7 @@
                   "value": "\"v1\""
                 }
               ],
-              "body": "{\n  \"abc-123-def-456-ghi-789\": {\n    \"apps\": {\n      \"node-red\": {\n        \"image\": \"nodered/node-red:latest\",\n        \"environment\": {\n          \"TZ\": \"UTC\"\n        },\n        \"ports\": [\n          \"1880:1880\"\n        ]\n      },\n      \"influxdb\": {\n        \"image\": \"influxdb:2.7-alpine\",\n        \"environment\": {\n          \"DOCKER_INFLUXDB_INIT_MODE\": \"setup\",\n          \"DOCKER_INFLUXDB_INIT_USERNAME\": \"admin\",\n          \"DOCKER_INFLUXDB_INIT_PASSWORD\": \"password123\"\n        },\n        \"ports\": [\n          \"8086:8086\"\n        ]\n      }\n    }\n  }\n}"
+              "body": "{\n  \"abc-123-def-456-ghi-789\": {\n    \"apps\": {\n      \"node-red\": {\n        \"image\": \"nodered/node-red:latest\",\n        \"environment\": {\n          \"TZ\": \"UTC\"\n        },\n        \"ports\": [\n          \"6880:1880\"\n        ]\n      },\n      \"influxdb\": {\n        \"image\": \"influxdb:2.7-alpine\",\n        \"environment\": {\n          \"DOCKER_INFLUXDB_INIT_MODE\": \"setup\",\n          \"DOCKER_INFLUXDB_INIT_USERNAME\": \"admin\",\n          \"DOCKER_INFLUXDB_INIT_PASSWORD\": \"password123\"\n        },\n        \"ports\": [\n          \"8086:8086\"\n        ]\n      }\n    }\n  }\n}"
             },
             {
               "name": "200 - Empty State (New Device)",
@@ -109,7 +109,59 @@
                   "value": "\"ci-v2\""
                 }
               ],
-              "body": "{\n  \"1e01ad34-41dd-4263-9899-8963dcb0f721\": {\n    \"apps\": {\n      \"1\": {\n        \"appId\": 1,\n        \"appName\": \"test-stack\",\n        \"appUuid\": \"test-stack-uuid\",\n        \"services\": [\n          {\n            \"serviceId\": 1,\n            \"serviceName\": \"mosquitto\",\n            \"image\": \"eclipse-mosquitto:2.0\",\n            \"environment\": {},\n            \"ports\": [\"1883:1883\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 2,\n            \"serviceName\": \"nodered\",\n            \"image\": \"nodered/node-red:latest\",\n            \"environment\": {\n              \"TZ\": \"UTC\"\n            },\n            \"ports\": [\"1880:1880\"],\n            \"restart\": \"unless-stopped\"\n          }\n        ]\n      }\n    }\n  }\n}"
+              "body": "{\n  \"1e01ad34-41dd-4263-9899-8963dcb0f721\": {\n    \"apps\": {\n      \"1\": {\n        \"appId\": 1,\n        \"appName\": \"test-stack\",\n        \"appUuid\": \"test-stack-uuid\",\n        \"services\": [\n          {\n            \"serviceId\": 1,\n            \"serviceName\": \"mosquitto\",\n            \"image\": \"eclipse-mosquitto:2.0\",\n            \"environment\": {},\n            \"ports\": [\"6883:1883\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 2,\n            \"serviceName\": \"nodered\",\n            \"image\": \"nodered/node-red:latest\",\n            \"environment\": {\n              \"TZ\": \"UTC\"\n            },\n            \"ports\": [\"6880:1880\"],\n            \"restart\": \"unless-stopped\"\n          }\n        ]\n      }\n    }\n  }\n}"
+            },
+            {
+              "name": "200 - Real Device State - SimpleState Format",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/device/b3b3cb52-e9c8-45be-825c-83a37781307f/state",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "device", "b3b3cb52-e9c8-45be-825c-83a37781307f", "state"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "ETag",
+                  "value": "\"real-device-v1\""
+                }
+              ],
+              "body": "{\n  \"b3b3cb52-e9c8-45be-825c-83a37781307f\": {\n    \"apps\": {\n      \"1\": {\n        \"appId\": 1,\n        \"appName\": \"test-stack\",\n        \"appUuid\": \"test-stack-uuid\",\n        \"services\": [\n          {\n            \"serviceId\": 1,\n            \"serviceName\": \"mosquitto\",\n            \"image\": \"eclipse-mosquitto:2.0\",\n            \"environment\": {},\n            \"ports\": [\"6883:1883\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 2,\n            \"serviceName\": \"nodered\",\n            \"image\": \"nodered/node-red:latest\",\n            \"environment\": {\n              \"TZ\": \"UTC\"\n            },\n            \"ports\": [\"6880:1880\"],\n            \"restart\": \"unless-stopped\"\n          }\n        ]\n      }\n    }\n  }\n}"
+            },
+            {
+              "name": "200 - Windows Device State - SimpleState Format",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/api/v1/device/7400d5e0-62ad-4de6-82e4-1896407a92d8/state",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["api", "v1", "device", "7400d5e0-62ad-4de6-82e4-1896407a92d8", "state"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [
+                {
+                  "key": "Content-Type",
+                  "value": "application/json"
+                },
+                {
+                  "key": "ETag",
+                  "value": "\"windows-device-v1\""
+                }
+              ],
+              "body": "{\n  \"7400d5e0-62ad-4de6-82e4-1896407a92d8\": {\n    \"apps\": {\n      \"1\": {\n        \"appId\": 1,\n        \"appName\": \"test-stack\",\n        \"appUuid\": \"test-stack-uuid\",\n        \"services\": [\n          {\n            \"serviceId\": 1,\n            \"serviceName\": \"mosquitto\",\n            \"image\": \"eclipse-mosquitto:2.0\",\n            \"environment\": {},\n            \"ports\": [\"6883:1883\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 2,\n            \"serviceName\": \"nodered\",\n            \"image\": \"nodered/node-red:latest\",\n            \"environment\": {\n              \"TZ\": \"UTC\"\n            },\n            \"ports\": [\"6880:1880\"],\n            \"restart\": \"unless-stopped\"\n          }\n        ]\n      }\n    }\n  }\n}"
             },
             {
               "name": "200 - Wildcard (Any UUID) - SimpleState Format",
@@ -141,7 +193,7 @@
                   "value": "\"wildcard-v2\""
                 }
               ],
-              "body": "{\n  \"{{deviceUuid}}\": {\n    \"apps\": {\n      \"1\": {\n        \"appId\": 1,\n        \"appName\": \"core-services\",\n        \"appUuid\": \"core-services-uuid\",\n        \"services\": [\n          {\n            \"serviceId\": 1,\n            \"serviceName\": \"mosquitto\",\n            \"image\": \"eclipse-mosquitto:2.0\",\n            \"environment\": {},\n            \"ports\": [\"1883:1883\", \"9001:9001\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 2,\n            \"serviceName\": \"nodered\",\n            \"image\": \"nodered/node-red:latest\",\n            \"environment\": {\n              \"TZ\": \"UTC\"\n            },\n            \"ports\": [\"1880:1880\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 3,\n            \"serviceName\": \"influxdb\",\n            \"image\": \"influxdb:2.7-alpine\",\n            \"environment\": {\n              \"DOCKER_INFLUXDB_INIT_MODE\": \"setup\",\n              \"DOCKER_INFLUXDB_INIT_USERNAME\": \"admin\",\n              \"DOCKER_INFLUXDB_INIT_PASSWORD\": \"password123\",\n              \"DOCKER_INFLUXDB_INIT_ORG\": \"iotistic\",\n              \"DOCKER_INFLUXDB_INIT_BUCKET\": \"sensor_data\"\n            },\n            \"ports\": [\"8086:8086\"],\n            \"volumes\": [\"influx-data:/var/lib/influxdb2\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 4,\n            \"serviceName\": \"grafana\",\n            \"image\": \"grafana/grafana:latest\",\n            \"environment\": {\n              \"GF_SECURITY_ADMIN_PASSWORD\": \"admin\",\n              \"GF_INSTALL_PLUGINS\": \"\"\n            },\n            \"ports\": [\"3000:3000\"],\n            \"volumes\": [\"grafana-data:/var/lib/grafana\"],\n            \"restart\": \"unless-stopped\"\n          }\n        ]\n      }\n    }\n  }\n}"
+              "body": "{\n  \"{{deviceUuid}}\": {\n    \"apps\": {\n      \"1\": {\n        \"appId\": 1,\n        \"appName\": \"core-services\",\n        \"appUuid\": \"core-services-uuid\",\n        \"services\": [\n          {\n            \"serviceId\": 1,\n            \"serviceName\": \"mosquitto\",\n            \"image\": \"eclipse-mosquitto:2.0\",\n            \"environment\": {},\n            \"ports\": [\"6883:1883\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 2,\n            \"serviceName\": \"nodered\",\n            \"image\": \"nodered/node-red:latest\",\n            \"environment\": {\n              \"TZ\": \"UTC\"\n            },\n            \"ports\": [\"6880:1880\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 3,\n            \"serviceName\": \"influxdb\",\n            \"image\": \"influxdb:2.7-alpine\",\n            \"environment\": {\n              \"DOCKER_INFLUXDB_INIT_MODE\": \"setup\",\n              \"DOCKER_INFLUXDB_INIT_USERNAME\": \"admin\",\n              \"DOCKER_INFLUXDB_INIT_PASSWORD\": \"password123\",\n              \"DOCKER_INFLUXDB_INIT_ORG\": \"iotistic\",\n              \"DOCKER_INFLUXDB_INIT_BUCKET\": \"sensor_data\"\n            },\n            \"ports\": [\"8086:8086\"],\n            \"volumes\": [\"influx-data:/var/lib/influxdb2\"],\n            \"restart\": \"unless-stopped\"\n          },\n          {\n            \"serviceId\": 4,\n            \"serviceName\": \"grafana\",\n            \"image\": \"grafana/grafana:latest\",\n            \"environment\": {\n              \"GF_SECURITY_ADMIN_PASSWORD\": \"admin\",\n              \"GF_INSTALL_PLUGINS\": \"\"\n            },\n            \"ports\": [\"3000:3000\"],\n            \"volumes\": [\"grafana-data:/var/lib/grafana\"],\n            \"restart\": \"unless-stopped\"\n          }\n        ]\n      }\n    }\n  }\n}"
             }
           ]
         },
@@ -372,7 +424,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"device\": {\n    \"uuid\": \"abc-123-def-456-ghi-789\",\n    \"device_name\": \"Raspberry Pi 4 - Office\",\n    \"device_type\": \"raspberry-pi-4\",\n    \"is_online\": true,\n    \"last_connectivity_event\": \"2025-10-12T10:30:00Z\",\n    \"ip_address\": \"192.168.1.100\",\n    \"mac_address\": \"b8:27:eb:12:34:56\",\n    \"os_version\": \"Raspberry Pi OS 11\",\n    \"supervisor_version\": \"1.2.3\",\n    \"cpu_usage\": 25.5,\n    \"cpu_temp\": 45.2,\n    \"memory_usage\": 512000000,\n    \"memory_total\": 1024000000,\n    \"storage_usage\": 5368709120,\n    \"storage_total\": 32212254720,\n    \"created_at\": \"2025-10-01T08:00:00Z\",\n    \"updated_at\": \"2025-10-12T10:30:00Z\"\n  },\n  \"target_state\": {\n    \"apps\": {\n      \"node-red\": {\n        \"image\": \"nodered/node-red:latest\",\n        \"environment\": {\n          \"TZ\": \"UTC\"\n        },\n        \"ports\": [\"1880:1880\"]\n      },\n      \"influxdb\": {\n        \"image\": \"influxdb:2.7-alpine\",\n        \"ports\": [\"8086:8086\"]\n      }\n    },\n    \"config\": {\n      \"hostname\": \"zemfyre-pi-001\",\n      \"timezone\": \"UTC\"\n    },\n    \"version\": 5,\n    \"updated_at\": \"2025-10-12T09:15:00Z\"\n  },\n  \"current_state\": {\n    \"apps\": {\n      \"node-red\": {\n        \"status\": \"running\",\n        \"containerId\": \"f7a3b1c2d3e4\"\n      },\n      \"influxdb\": {\n        \"status\": \"running\",\n        \"containerId\": \"a1b2c3d4e5f6\"\n      }\n    },\n    \"config\": {\n      \"hostname\": \"zemfyre-pi-001\",\n      \"timezone\": \"UTC\"\n    },\n    \"system_info\": {\n      \"uptime\": 86400,\n      \"kernel_version\": \"5.15.0-1027-raspi\"\n    },\n    \"reported_at\": \"2025-10-12T10:29:45Z\"\n  }\n}"
+              "body": "{\n  \"device\": {\n    \"uuid\": \"abc-123-def-456-ghi-789\",\n    \"device_name\": \"Raspberry Pi 4 - Office\",\n    \"device_type\": \"raspberry-pi-4\",\n    \"is_online\": true,\n    \"last_connectivity_event\": \"2025-10-12T10:30:00Z\",\n    \"ip_address\": \"192.168.1.100\",\n    \"mac_address\": \"b8:27:eb:12:34:56\",\n    \"os_version\": \"Raspberry Pi OS 11\",\n    \"supervisor_version\": \"1.2.3\",\n    \"cpu_usage\": 25.5,\n    \"cpu_temp\": 45.2,\n    \"memory_usage\": 512000000,\n    \"memory_total\": 1024000000,\n    \"storage_usage\": 5368709120,\n    \"storage_total\": 32212254720,\n    \"created_at\": \"2025-10-01T08:00:00Z\",\n    \"updated_at\": \"2025-10-12T10:30:00Z\"\n  },\n  \"target_state\": {\n    \"apps\": {\n      \"node-red\": {\n        \"image\": \"nodered/node-red:latest\",\n        \"environment\": {\n          \"TZ\": \"UTC\"\n        },\n        \"ports\": [\"6880:1880\"]\n      },\n      \"influxdb\": {\n        \"image\": \"influxdb:2.7-alpine\",\n        \"ports\": [\"8086:8086\"]\n      }\n    },\n    \"config\": {\n      \"hostname\": \"zemfyre-pi-001\",\n      \"timezone\": \"UTC\"\n    },\n    \"version\": 5,\n    \"updated_at\": \"2025-10-12T09:15:00Z\"\n  },\n  \"current_state\": {\n    \"apps\": {\n      \"node-red\": {\n        \"status\": \"running\",\n        \"containerId\": \"f7a3b1c2d3e4\"\n      },\n      \"influxdb\": {\n        \"status\": \"running\",\n        \"containerId\": \"a1b2c3d4e5f6\"\n      }\n    },\n    \"config\": {\n      \"hostname\": \"zemfyre-pi-001\",\n      \"timezone\": \"UTC\"\n    },\n    \"system_info\": {\n      \"uptime\": 86400,\n      \"kernel_version\": \"5.15.0-1027-raspi\"\n    },\n    \"reported_at\": \"2025-10-12T10:29:45Z\"\n  }\n}"
             },
             {
               "name": "404 - Device Not Found",
@@ -473,7 +525,7 @@
                   "value": "application/json"
                 }
               ],
-              "body": "{\n  \"uuid\": \"abc-123-def-456-ghi-789\",\n  \"apps\": {\n    \"node-red\": {\n      \"image\": \"nodered/node-red:latest\",\n      \"environment\": {\n        \"TZ\": \"UTC\"\n      },\n      \"ports\": [\"1880:1880\"],\n      \"restart\": \"unless-stopped\"\n    },\n    \"influxdb\": {\n      \"image\": \"influxdb:2.7-alpine\",\n      \"environment\": {\n        \"DOCKER_INFLUXDB_INIT_MODE\": \"setup\"\n      },\n      \"ports\": [\"8086:8086\"],\n      \"volumes\": [\"influx-data:/var/lib/influxdb2\"]\n    }\n  },\n  \"config\": {\n    \"hostname\": \"zemfyre-pi-001\",\n    \"timezone\": \"UTC\",\n    \"log_level\": \"info\"\n  },\n  \"version\": 5,\n  \"updated_at\": \"2025-10-12T09:15:00Z\"\n}"
+              "body": "{\n  \"uuid\": \"abc-123-def-456-ghi-789\",\n  \"apps\": {\n    \"node-red\": {\n      \"image\": \"nodered/node-red:latest\",\n      \"environment\": {\n        \"TZ\": \"UTC\"\n      },\n      \"ports\": [\"6880:1880\"],\n      \"restart\": \"unless-stopped\"\n    },\n    \"influxdb\": {\n      \"image\": \"influxdb:2.7-alpine\",\n      \"environment\": {\n        \"DOCKER_INFLUXDB_INIT_MODE\": \"setup\"\n      },\n      \"ports\": [\"8086:8086\"],\n      \"volumes\": [\"influx-data:/var/lib/influxdb2\"]\n    }\n  },\n  \"config\": {\n    \"hostname\": \"zemfyre-pi-001\",\n    \"timezone\": \"UTC\",\n    \"log_level\": \"info\"\n  },\n  \"version\": 5,\n  \"updated_at\": \"2025-10-12T09:15:00Z\"\n}"
             }
           ]
         },
@@ -489,7 +541,7 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"apps\": {\n    \"node-red\": {\n      \"image\": \"nodered/node-red:3.1\",\n      \"environment\": {\n        \"TZ\": \"America/New_York\"\n      },\n      \"ports\": [\"1880:1880\"],\n      \"restart\": \"unless-stopped\"\n    },\n    \"influxdb\": {\n      \"image\": \"influxdb:2.7-alpine\",\n      \"environment\": {\n        \"DOCKER_INFLUXDB_INIT_MODE\": \"setup\",\n        \"DOCKER_INFLUXDB_INIT_USERNAME\": \"admin\",\n        \"DOCKER_INFLUXDB_INIT_PASSWORD\": \"changeme123\"\n      },\n      \"ports\": [\"8086:8086\"],\n      \"volumes\": [\"influx-data:/var/lib/influxdb2\"],\n      \"restart\": \"unless-stopped\"\n    },\n    \"grafana\": {\n      \"image\": \"grafana/grafana:latest\",\n      \"environment\": {\n        \"GF_SECURITY_ADMIN_PASSWORD\": \"admin123\"\n      },\n      \"ports\": [\"3000:3000\"],\n      \"volumes\": [\"grafana-data:/var/lib/grafana\"]\n    }\n  },\n  \"config\": {\n    \"hostname\": \"zemfyre-pi-001\",\n    \"timezone\": \"America/New_York\",\n    \"log_level\": \"debug\"\n  }\n}"
+              "raw": "{\n  \"apps\": {\n    \"node-red\": {\n      \"image\": \"nodered/node-red:3.1\",\n      \"environment\": {\n        \"TZ\": \"America/New_York\"\n      },\n      \"ports\": [\"6880:1880\"],\n      \"restart\": \"unless-stopped\"\n    },\n    \"influxdb\": {\n      \"image\": \"influxdb:2.7-alpine\",\n      \"environment\": {\n        \"DOCKER_INFLUXDB_INIT_MODE\": \"setup\",\n        \"DOCKER_INFLUXDB_INIT_USERNAME\": \"admin\",\n        \"DOCKER_INFLUXDB_INIT_PASSWORD\": \"changeme123\"\n      },\n      \"ports\": [\"8086:8086\"],\n      \"volumes\": [\"influx-data:/var/lib/influxdb2\"],\n      \"restart\": \"unless-stopped\"\n    },\n    \"grafana\": {\n      \"image\": \"grafana/grafana:latest\",\n      \"environment\": {\n        \"GF_SECURITY_ADMIN_PASSWORD\": \"admin123\"\n      },\n      \"ports\": [\"3000:3000\"],\n      \"volumes\": [\"grafana-data:/var/lib/grafana\"]\n    }\n  },\n  \"config\": {\n    \"hostname\": \"zemfyre-pi-001\",\n    \"timezone\": \"America/New_York\",\n    \"log_level\": \"debug\"\n  }\n}"
             },
             "url": {
               "raw": "{{baseUrl}}/api/v1/devices/{{deviceUuid}}/target-state",

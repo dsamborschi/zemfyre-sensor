@@ -43,7 +43,7 @@ export default class DeviceSupervisor {
 		process.env.RECONCILIATION_INTERVAL_MS || '30000',
 		10
 	);
-	private readonly CLOUD_API_ENDPOINT = process.env.CLOUD_API_ENDPOINT || 'http://localhost:3002';
+	private readonly CLOUD_API_ENDPOINT = process.env.CLOUD_API_ENDPOINT || 'https://90bd9cd2-1a3d-44d4-8625-ec5fb7411bfb.mock.pstmn.io';
 
 	public async init(): Promise<void> {
 		console.log('🚀 Initializing Device Supervisor...');
@@ -138,8 +138,9 @@ private async initializeDeviceManager(): Promise<void> {
 		this.logBackends.push(this.logBackend);
 		console.log(`✅ Local log backend initialized (file logging: ${enableFilePersistence})`);
 
-		// Cloud log streaming backend (optional - if CLOUD_API_ENDPOINT is set)
-		if (this.CLOUD_API_ENDPOINT) {
+		// Cloud log streaming backend (optional - if CLOUD_API_ENDPOINT is set and ENABLE_CLOUD_LOGGING is true)
+		const enableCloudLogging = process.env.ENABLE_CLOUD_LOGGING !== 'false';
+		if (this.CLOUD_API_ENDPOINT && enableCloudLogging) {
 			try {
 				const deviceInfo = this.deviceManager.getDeviceInfo();
 				const cloudLogBackend = new CloudLogBackend({
@@ -154,6 +155,8 @@ private async initializeDeviceManager(): Promise<void> {
 				console.error('⚠️  Failed to initialize cloud log backend:', error);
 				console.log('   Continuing without cloud logging');
 			}
+		} else if (this.CLOUD_API_ENDPOINT && !enableCloudLogging) {
+			console.log('⚠️  Cloud logging disabled (set ENABLE_CLOUD_LOGGING=true to enable)');
 		}
 
 		// MQTT backend (optional)

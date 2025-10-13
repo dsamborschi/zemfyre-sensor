@@ -24,7 +24,23 @@ export class DockerManager {
 
 	constructor(dockerOptions?: Docker.DockerOptions) {
 		// Default: connect to local Docker daemon
-		this.docker = new Docker(dockerOptions || { socketPath: '/var/run/docker.sock' });
+		// Detect platform and use appropriate socket
+		console.log(`[DockerManager] Platform detected: ${process.platform}`);
+		
+		if (dockerOptions) {
+			console.log('[DockerManager] Using custom Docker options');
+			this.docker = new Docker(dockerOptions);
+		} else if (process.platform === 'win32') {
+			// Windows: Explicitly use named pipe for Docker Desktop
+			console.log('[DockerManager] Connecting to Docker Desktop on Windows via named pipe');
+			this.docker = new Docker({
+				socketPath: '//./pipe/docker_engine'
+			});
+		} else {
+			// Linux/Mac: Use Unix socket
+			console.log('[DockerManager] Using Unix socket: /var/run/docker.sock');
+			this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
+		}
 	}
 
 	// ========================================================================

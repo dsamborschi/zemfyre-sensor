@@ -112,6 +112,7 @@ export class ContainerManager extends EventEmitter {
 	constructor(useRealDocker: boolean = false) {
 		super();
 		this.useRealDocker = useRealDocker;
+		console.log(`[ContainerManager] Creating DockerManager (platform: ${process.platform})`);
 		this.dockerManager = new DockerManager();
 	}
 
@@ -267,10 +268,13 @@ export class ContainerManager extends EventEmitter {
 					};
 				}
 
-				// Get network information from container inspect
-				let networks: string[] | undefined;
+				// Get network and environment information from container inspect
+				let networks: string[] = [];
+				let environment: Record<string, string> = {};
 				try {
 					const containerInfo = await this.dockerManager.inspectContainer(container.id);
+					
+					// Extract networks
 					if (containerInfo.NetworkSettings?.Networks) {
 						// Extract network names, filtering out default networks
 						const networkNames = Object.keys(containerInfo.NetworkSettings.Networks)
@@ -287,29 +291,43 @@ export class ContainerManager extends EventEmitter {
 							networks = networkNames;
 						}
 					}
+					
+					// Extract environment variables
+					if (containerInfo.Config?.Env) {
+						for (const envVar of containerInfo.Config.Env) {
+							const [key, ...valueParts] = envVar.split('=');
+							if (key) {
+								environment[key] = valueParts.join('=');
+							}
+						}
+					}
 				} catch (error) {
 					console.error(`Warning: Failed to inspect container ${container.id}:`, error);
 				}
 
 				// Add service
-				this.currentState.apps[appId].services.push({
+				const service: SimpleService = {
 					serviceId,
 					serviceName,
 					imageName: container.image,
 					appId,
 					appName,
 					containerId: container.id,
-					status: container.state,
+					// Normalize status to lowercase for consistent comparison
+					status: container.state.toLowerCase(),
 					config: {
 						image: container.image,
 						ports: container.ports && container.ports.length > 0
 						? Array.from(new Set(container.ports
 							.filter(p => p.PublicPort && p.PrivatePort)
 							.map(p => `${p.PublicPort}:${p.PrivatePort}`)))
-						: undefined,
-						networks,
+						: [],  // Use empty array instead of undefined
+						networks,  // Already defaults to []
+						environment,  // Extract actual environment variables
 					},
-				});
+				};
+				
+				this.currentState.apps[appId].services.push(service);
 			}
 
 			// Save the synced current state to database
@@ -415,16 +433,20 @@ export class ContainerManager extends EventEmitter {
 
 		if (currentApp) {
 			for (const service of currentApp.services) {
-				if (service.config.networks) {
-					service.config.networks.forEach((net) => currentNetworks.add(net));
+				// Handle both formats: service.config.networks and service.networks
+				const networks = service.config?.networks || (service as any).networks;
+				if (networks) {
+					networks.forEach((net: string) => currentNetworks.add(net));
 				}
 			}
 		}
 
 		if (targetApp) {
 			for (const service of targetApp.services) {
-				if (service.config.networks) {
-					service.config.networks.forEach((net) => targetNetworks.add(net));
+				// Handle both formats: service.config.networks and service.networks
+				const networks = service.config?.networks || (service as any).networks;
+				if (networks) {
+					networks.forEach((net: string) => targetNetworks.add(net));
 				}
 			}
 		}
@@ -467,8 +489,10 @@ export class ContainerManager extends EventEmitter {
 
 		if (currentApp) {
 			for (const service of currentApp.services) {
-				if (service.config.volumes) {
-					for (const volume of service.config.volumes) {
+				// Handle both formats: service.config.volumes and service.volumes
+				const volumes = service.config?.volumes || (service as any).volumes;
+				if (volumes) {
+					for (const volume of volumes) {
 						// Only track named volumes (format: "volumeName:/path")
 						// Skip bind mounts (format: "/host/path:/container/path")
 						if (!volume.startsWith('/')) {
@@ -482,8 +506,10 @@ export class ContainerManager extends EventEmitter {
 
 		if (targetApp) {
 			for (const service of targetApp.services) {
-				if (service.config.volumes) {
-					for (const volume of service.config.volumes) {
+				// Handle both formats: service.config.volumes and service.volumes
+				const volumes = service.config?.volumes || (service as any).volumes;
+				if (volumes) {
+					for (const volume of volumes) {
 						// Only track named volumes (format: "volumeName:/path")
 						// Skip bind mounts (format: "/host/path:/container/path")
 						if (!volume.startsWith('/')) {
@@ -700,14 +726,31 @@ export class ContainerManager extends EventEmitter {
 				const imageChanged = currentSvc.imageName !== targetSvc.imageName;
 				
 				// Check if configuration changed (ports, environment, volumes, networks, etc.)
-				const portsChanged = JSON.stringify(currentSvc.config.ports || []) !== 
-				                     JSON.stringify(targetSvc.config.ports || []);
-				const envChanged = JSON.stringify(currentSvc.config.environment || {}) !== 
-				                   JSON.stringify(targetSvc.config.environment || {});
-				const volumesChanged = JSON.stringify(currentSvc.config.volumes || []) !== 
-				                       JSON.stringify(targetSvc.config.volumes || []);
-				const networksChanged = JSON.stringify(currentSvc.config.networks || []) !== 
-				                        JSON.stringify(targetSvc.config.networks || []);
+				// Normalize undefined/null to empty arrays/objects for consistent comparison
+				const currentPorts = JSON.stringify(currentSvc.config.ports || []);
+				const targetPorts = JSON.stringify(targetSvc.config.ports || []);
+				const portsChanged = currentPorts !== targetPorts;
+				
+				// For environment, only compare variables that are defined in target state
+				// Docker injects many env vars (PATH, HOSTNAME, etc.) that we don't care about
+				const targetEnvKeys = Object.keys(targetSvc.config.environment || {});
+				const filteredCurrentEnv: Record<string, string> = {};
+				for (const key of targetEnvKeys) {
+					if (currentSvc.config.environment && key in currentSvc.config.environment) {
+						filteredCurrentEnv[key] = currentSvc.config.environment[key];
+					}
+				}
+				const currentEnv = JSON.stringify(filteredCurrentEnv);
+				const targetEnv = JSON.stringify(targetSvc.config.environment || {});
+				const envChanged = currentEnv !== targetEnv;
+				
+				const currentVolumes = JSON.stringify(currentSvc.config.volumes || []);
+				const targetVolumes = JSON.stringify(targetSvc.config.volumes || []);
+				const volumesChanged = currentVolumes !== targetVolumes;
+				
+				const currentNetworks = JSON.stringify(currentSvc.config.networks || []);
+				const targetNetworks = JSON.stringify(targetSvc.config.networks || []);
+				const networksChanged = currentNetworks !== targetNetworks;
 				
 				const configChanged = portsChanged || envChanged || volumesChanged || networksChanged;
 				
@@ -718,6 +761,37 @@ export class ContainerManager extends EventEmitter {
 				                        currentSvc.status?.toLowerCase() === 'dead';
 				
 				const needsUpdate = imageChanged || configChanged || containerStopped;
+				
+				// DEBUG: Log comparison details for debugging
+				if (needsUpdate) {
+					console.log(`\n🔍 Service ${currentSvc.serviceName} needs update:`);
+					if (imageChanged) {
+						console.log(`  ❌ Image changed: ${currentSvc.imageName} → ${targetSvc.imageName}`);
+					}
+					if (portsChanged) {
+						console.log(`  ❌ Ports changed:`);
+						console.log(`     Current: ${currentPorts}`);
+						console.log(`     Target:  ${targetPorts}`);
+					}
+					if (envChanged) {
+						console.log(`  ❌ Environment changed:`);
+						console.log(`     Current: ${currentEnv}`);
+						console.log(`     Target:  ${targetEnv}`);
+					}
+					if (volumesChanged) {
+						console.log(`  ❌ Volumes changed:`);
+						console.log(`     Current: ${currentVolumes}`);
+						console.log(`     Target:  ${targetVolumes}`);
+					}
+					if (networksChanged) {
+						console.log(`  ❌ Networks changed:`);
+						console.log(`     Current: ${currentNetworks}`);
+						console.log(`     Target:  ${targetNetworks}`);
+					}
+					if (containerStopped) {
+						console.log(`  ❌ Container stopped: ${currentSvc.status}`);
+					}
+				}
 
 				if (needsUpdate && currentSvc.containerId) {
 					// Download new image
@@ -989,7 +1063,7 @@ export class ContainerManager extends EventEmitter {
 		const serviceWithContainer = {
 			...service,
 			containerId: containerId,
-			status: 'Running',
+			status: 'running',  // Use lowercase for consistency
 		};
 
 		this.currentState.apps[appId].services.push(serviceWithContainer);
@@ -1010,6 +1084,50 @@ export class ContainerManager extends EventEmitter {
 	private sanitizeState(state: SimpleState): void {
 		for (const app of Object.values(state.apps)) {
 			for (const service of app.services) {
+				// Normalize flat format to nested config format
+				// If service has properties at top level (from cloud API), move them to config
+				const flatService = service as any;
+				
+				if (!service.config) {
+					service.config = {
+						image: flatService.image || 'unknown',
+					};
+				}
+				
+				// Move image to both imageName and config.image
+				if (flatService.image && !service.imageName) {
+					service.imageName = flatService.image;
+					service.config.image = flatService.image;
+				}
+				
+				// Move top-level properties to config
+				if (flatService.environment && !service.config.environment) {
+					service.config.environment = flatService.environment;
+				}
+				if (flatService.ports && !service.config.ports) {
+					service.config.ports = flatService.ports;
+				}
+				if (flatService.volumes && !service.config.volumes) {
+					service.config.volumes = flatService.volumes;
+				}
+				if (flatService.networks && !service.config.networks) {
+					service.config.networks = flatService.networks;
+				}
+				if (flatService.restart && !service.config.restart) {
+					service.config.restart = flatService.restart;
+				}
+				if (flatService.labels && !service.config.labels) {
+					service.config.labels = flatService.labels;
+				}
+				
+				// Set appId and appName if missing
+				if (!service.appId) {
+					service.appId = app.appId;
+				}
+				if (!service.appName) {
+					service.appName = app.appName;
+				}
+				
 				// Ensure ports are strings
 				if (service.config.ports) {
 					service.config.ports = service.config.ports.map(port => {

@@ -2,21 +2,26 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Debug Application Manager",
+      "name": "Debug Agent",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
-      "cwd": "${workspaceFolder}/application-manager",
+      "cwd": "${workspaceFolder}/agent",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": ["<node_internals>/**"],
       "restart": true,
       "sourceMaps": true,
+      
       "resolveSourceMapLocations": [
         "${workspaceFolder}/**",
         "!**/node_modules/**"
-      ]
+      ],
+      "env": {
+        "USE_REAL_DOCKER": "true",
+        "CLOUD_API_ENDPOINT": "https://081c79d3-cd3b-4dc0-9703-9ca2c578467c.mock.pstmn.io"
+      }
     },
     {
       "name": "Debug Application Manager (Server Only)",
