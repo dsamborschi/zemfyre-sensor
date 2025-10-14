@@ -13,17 +13,17 @@ The MQTT logging backend is **automatically enabled** when you set the `MQTT_BRO
 docker run -d -p 1883:1883 --name mosquitto eclipse-mosquitto
 
 # Start container-manager with MQTT enabled
-MQTT_BROKER=mqtt://localhost:1883 USE_REAL_DOCKER=true npm run dev
+MQTT_BROKER=mqtt://localhost:1883  npm run dev
 ```
 
 ### Option 2: Cloud MQTT Broker
 
 ```bash
 # Use HiveMQ public broker
-MQTT_BROKER=mqtt://broker.hivemq.com:1883 USE_REAL_DOCKER=true npm run dev
+MQTT_BROKER=mqtt://broker.hivemq.com:1883 npm run dev
 
 # Or Eclipse public broker
-MQTT_BROKER=mqtt://mqtt.eclipseprojects.io:1883 USE_REAL_DOCKER=true npm run dev
+MQTT_BROKER=mqtt://mqtt.eclipseprojects.io:1883 npm run dev
 ```
 
 ## Environment Variables
@@ -48,7 +48,6 @@ MQTT_BATCH=true \
 MQTT_BATCH_INTERVAL=2000 \
 MQTT_BATCH_SIZE=100 \
 MQTT_DEBUG=true \
-USE_REAL_DOCKER=true \
 npm run dev
 ```
 
@@ -162,7 +161,7 @@ mosquitto_sub -h localhost -t "container-manager/logs/#" -v
 ### 3. Start Container-Manager in Terminal 2
 
 ```bash
-MQTT_BROKER=mqtt://localhost:1883 USE_REAL_DOCKER=true npm run dev
+MQTT_BROKER=mqtt://localhost:1883 npm run dev
 ```
 
 **Expected output:**
@@ -279,7 +278,7 @@ sudo systemctl enable mosquitto
 
 # Start container-manager with MQTT
 sudo MQTT_BROKER=mqtt://localhost:1883 \
-     USE_REAL_DOCKER=true \
+  \
      npm run dev
 ```
 
@@ -299,7 +298,7 @@ services:
   container-manager:
     build: .
     environment:
-      - USE_REAL_DOCKER=true
+  -
       - MQTT_BROKER=mqtt://mosquitto:1883
       - MQTT_QOS=1
       - MQTT_BATCH=true
@@ -319,7 +318,7 @@ volumes:
 MQTT_BROKER=mqtts://broker.example.com:8883 \
 MQTT_USERNAME=admin \
 MQTT_PASSWORD=secret \
-USE_REAL_DOCKER=true \
+
 npm run dev
 ```
 

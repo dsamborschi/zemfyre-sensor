@@ -293,7 +293,7 @@ For issues or questions:
 - Check backend logs: `docker-compose logs -f application-manager`
 - Check browser console for frontend errors
 - Verify Docker socket is mounted: `/var/run/docker.sock`
-- Ensure `USE_REAL_DOCKER=true` in application-manager
+
 
 ---
 

@@ -27,7 +27,6 @@ The device agent is a TypeScript/Node.js application that manages Docker contain
 - **Fix**:
   - Ensure `/var/run/docker.sock` is mounted in docker-compose
   - Run with `privileged: true`
-  - Set `USE_REAL_DOCKER=true` environment variable
 
 ### 4. Database Migration Failures
 - **Symptom**: Knex migration errors
@@ -50,7 +49,6 @@ npm run clean              # Clean dist/ directory
 # Run
 npm run dev                # Development with ts-node
 npm run start:device       # Production mode (requires built dist/)
-USE_REAL_DOCKER=true npm run dev  # Dev mode with real Docker
 
 # Database
 npx knex migrate:latest    # Run pending migrations
@@ -67,7 +65,6 @@ Debug and fix device agent build or runtime issues:
 1. Check TypeScript compilation errors in `npm run build`
 2. Verify all dependencies are installed
 3. Check module resolution paths in tsconfig.json
-4. Test Docker integration with `USE_REAL_DOCKER=true`
 5. Verify database migrations run successfully
 6. Check environment variables are set correctly
 7. Test Device API endpoints (port 48484)
@@ -84,6 +81,5 @@ Debug and fix device agent build or runtime issues:
 - `npm run build` completes without errors
 - Agent starts successfully in dev mode
 - Device API responds on http://localhost:48484
-- Docker operations work (if USE_REAL_DOCKER=true)
 - Database migrations complete successfully
 - All tests pass

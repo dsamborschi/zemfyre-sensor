@@ -63,7 +63,6 @@ jobs:
       #       -v ${{ github.workspace }}/agent/test:/app/test \
       #       -e CLOUD_API_ENDPOINT="http://localhost:3002" \
       #       -e API_URL="http://localhost:48484" \
-      #       -e USE_REAL_DOCKER="false" \
       #       iotistic/agent:test-${{ matrix.board }} \
       #       bash /app/test/run-ci-tests.sh
 

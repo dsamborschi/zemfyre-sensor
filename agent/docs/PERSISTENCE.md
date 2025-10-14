@@ -280,7 +280,7 @@ docker run -v $(pwd)/data:/app/data container-manager
 ## Environment Variables
 
 - `DATABASE_PATH`: Custom database file location (default: `./data/database.sqlite`)
-- `USE_REAL_DOCKER`: Use real Docker vs simulation (default: `false`)
+
 
 ## Future Enhancements
 

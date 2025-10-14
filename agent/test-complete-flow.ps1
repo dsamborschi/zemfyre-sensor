@@ -8,7 +8,6 @@ docker exec iotistic-postgres psql -U postgres -d iotistic -c "SELECT COUNT(*) a
 Write-Host "`n💡 Instructions:" -ForegroundColor Cyan
 Write-Host "1. Start the agent in another terminal with:" -ForegroundColor White
 Write-Host "   cd c:\Users\Dan\zemfyre-sensor\agent" -ForegroundColor Gray
-Write-Host "   `$env:USE_REAL_DOCKER='false'" -ForegroundColor Gray
 Write-Host "   `$env:CLOUD_API_ENDPOINT='http://localhost:4002'" -ForegroundColor Gray
 Write-Host "   `$env:PROVISIONING_API_KEY='test-key'" -ForegroundColor Gray
 Write-Host "   npm run dev" -ForegroundColor Gray

@@ -223,9 +223,7 @@ const logBackend = new LocalLogBackend({
 ### Environment Variables
 
 ```bash
-# Enable real Docker (logging only works in this mode)
-USE_REAL_DOCKER=true
-
+## Removed real Docker configuration
 # Custom log directory
 LOG_DIR=./data/logs
 ```
@@ -235,8 +233,7 @@ LOG_DIR=./data/logs
 ### Example 1: Monitor Container Logs in Real-Time
 
 ```bash
-# Terminal 1: Start container-manager
-USE_REAL_DOCKER=true npm run dev
+
 
 # Terminal 2: Deploy an app
 curl -X POST http://localhost:3000/api/v1/apps/1001 \
@@ -287,7 +284,7 @@ curl "http://localhost:3000/api/v1/logs?sourceType=system&sourceType=manager" | 
 
 ## Automatic Log Attachment
 
-When using real Docker (`USE_REAL_DOCKER=true`), the container-manager automatically attaches to container logs when:
+When using Docker, the container-manager automatically attaches to container logs when:
 
 1. A new container is started
 2. The container-manager starts and finds running containers
@@ -421,7 +418,7 @@ Potential improvements for future versions:
 **Problem**: Container logs not showing up
 
 **Solutions**:
-- Ensure `USE_REAL_DOCKER=true` is set
+
 - Check container is running: `docker ps`
 - Verify log monitor initialized: Check server startup logs
 - Try manual attach: `POST /api/v1/logs/:containerId/attach`
@@ -519,7 +516,7 @@ ssh pi@raspberrypi.local
 cd /opt/container-manager
 
 # Start with logging enabled
-USE_REAL_DOCKER=true npm run dev
+npm run dev
 ```
 
 ### Deploy and Monitor

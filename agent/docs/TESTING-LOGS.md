@@ -9,7 +9,7 @@ The logging system now **automatically attaches** to container logs when they st
 ### 1. Start Container-Manager with Real Docker
 
 ```bash
-USE_REAL_DOCKER=true npm run dev
+npm run dev
 ```
 
 You should see:
@@ -137,7 +137,7 @@ After accessing nginx a few times, you should see logs like:
 
 1. **Check you're using real Docker**:
    ```bash
-   USE_REAL_DOCKER=true npm run dev
+  npm run dev
    ```
 
 2. **Check log monitor initialized**:
@@ -186,7 +186,7 @@ curl http://localhost:3000/api/v1/logs
 ```bash
 # Terminal 1: Start container-manager
 cd standalone-application-manager
-USE_REAL_DOCKER=true npm run dev
+npm run dev
 
 # Terminal 2: Deploy and test
 # Deploy nginx

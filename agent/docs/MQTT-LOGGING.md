@@ -368,7 +368,7 @@ mosquitto_sub -h localhost -t "container-manager/logs/#" -v
 
 ```bash
 # Terminal 2
-MQTT_BROKER=mqtt://localhost:1883 USE_REAL_DOCKER=true npm run dev
+MQTT_BROKER=mqtt://localhost:1883 npm run dev
 ```
 
 ### 4. Deploy Container

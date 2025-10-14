@@ -64,7 +64,7 @@ When working with the admin panel, **always use the `admin/` directory**, never 
 
 docker-compose -f docker-compose.dev.yml up -d
 
-cd agent && USE_REAL_DOCKER=true npm run dev                                    ├─ Nginx (Reverse Proxy, 80)                                    ├─ Nginx (Reverse Proxy)
+cd agent npm run dev                                    ├─ Nginx (Reverse Proxy, 80)                                    ├─ Nginx (Reverse Proxy)
 
 
 
@@ -234,7 +234,7 @@ MQTT_BROKER=mqtt://mosquitto:1883 npm run dev
 
 **Environment Variables**:
 
-**Key Functions** (read these first when editing install.sh):- `USE_REAL_DOCKER=true` - Enable real Docker (vs. simulated mode)
+**Key Functions** (read these first when editing install.sh):- Enable real Docker (vs. simulated mode)
 
 1. `set_device_type()` - Maps TARGET_ARCH → DEVICE_TYPE (lines ~245-300)- `DATABASE_PATH=/app/data/database.sqlite` - SQLite location
 
@@ -458,7 +458,6 @@ jobManager.registerJob('container-update', async (payload) => {cd application-ma
 
 ---- Requires `/var/run/docker.sock` volume mount
 
-- Set `USE_REAL_DOCKER=true` to enable actual container operations
 
 ## Service Communication Patterns
 
@@ -552,7 +551,6 @@ cd agent**Access**: `http://<pi-ip>:3000` (default: admin/admin)
 
 npm run build
 
-USE_REAL_DOCKER=true npm run dev**API Integration** (`api/index.js`):
 
 - Update dashboard variables: `POST /grafana/dashboards/:uid/variables/:varName`
 
@@ -708,7 +706,7 @@ docker-compose -f docker-compose.dev.yml up -d
 
 **Root Cause**: `uname -m` returns x86_64 on GitHub Actions runners even when building ARM.# Start application manager dev server
 
-cd application-manager && USE_REAL_DOCKER=true npm run dev
+cd application-manager  npm run dev
 
 **Fix**: Always set `TARGET_ARCH` environment variable in CI workflows, rely on it instead of `uname -m`.
 
@@ -756,7 +754,7 @@ This project emphasizes **modularity** (microservices), **configurability** (env
 
 # Local development
 docker-compose -f docker-compose.dev.yml up -d
-cd agent && USE_REAL_DOCKER=true npm run dev
+cd agent && npm run dev
 
 # Deploy via Ansible (from control machine)
 cd ansible

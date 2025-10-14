@@ -103,7 +103,7 @@ curl "http://localhost:3000/api/v1/logs?serviceName=web"
 
 ```bash
 # Must use real Docker for logging
-USE_REAL_DOCKER=true npm run dev
+npm run dev
 ```
 
 You'll see:
@@ -271,7 +271,7 @@ ssh pi@raspberrypi.local
 
 # 2. Start container-manager
 cd /opt/container-manager
-USE_REAL_DOCKER=true npm run dev
+npm run dev
 
 # 3. Deploy nginx
 curl -X POST http://localhost:3000/api/v1/apps/1001 \

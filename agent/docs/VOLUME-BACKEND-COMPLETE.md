@@ -164,8 +164,7 @@ All volume types properly defined and integrated.
 - Cleanup operations query Docker for volumes with these labels
 
 ### Simulated vs Real Mode
-- `USE_REAL_DOCKER=true` → Real Docker operations
-- `USE_REAL_DOCKER=false` → Simulated with console logs (testing)
+
 
 ---
 
