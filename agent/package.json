@@ -20,7 +20,10 @@
     "start:cloud": "node dist/api/cloud-server.js",
     "start:old-api": "node dist/api/server.js",
     "lint": "eslint src --ext .ts",
-    "test": "mocha --require ts-node/register test/**/*.spec.ts"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:coverage": "jest --coverage",
+    "test:provisioning": "jest provisioning.spec.ts"
   },
   "bin": {
     "device-cli": "./dist/cli/device-cli.js"

@@ -1,10 +1,24 @@
 /**
  * Device provisioning manager for standalone container-manager
- * Simplified version inspired by balena-supervisor's provisioning
+ * Implements two-phase authentication inspired by Balena Supervisor
+ * 
+ * Flow:
+ * 1. Generate UUID and deviceApiKey locally
+ * 2. Use provisioningApiKey (fleet-level) to register device
+ * 3. Exchange provisioningApiKey for deviceApiKey authentication
+ * 4. Remove provisioningApiKey (one-time use)
  */
 
 import * as db from '../db';
-import type { DeviceInfo, ProvisioningConfig, ProvisionRequest, ProvisionResponse } from './types';
+import * as crypto from 'crypto';
+import type { 
+	DeviceInfo, 
+	ProvisioningConfig, 
+	ProvisionRequest, 
+	ProvisionResponse,
+	KeyExchangeRequest,
+	KeyExchangeResponse 
+} from './types';
 
 // Dynamic import for uuid (ESM module)
 let uuidv4: () => string;
@@ -26,6 +40,14 @@ function generateUUID(): string {
 	});
 }
 
+/**
+ * Generate cryptographically secure API key
+ * Similar to Balena's generateUniqueKey()
+ */
+function generateAPIKey(): string {
+	return crypto.randomBytes(32).toString('hex');
+}
+
 export class DeviceManager {
 	private deviceInfo: DeviceInfo | null = null;
 
@@ -38,18 +60,24 @@ export class DeviceManager {
 		await this.loadDeviceInfo();
 
 		if (!this.deviceInfo) {
-			// Create new device with generated UUID
+			// Create new device with generated UUID and deviceApiKey
 			this.deviceInfo = {
 				uuid: generateUUID(),
+				deviceApiKey: generateAPIKey(), // Pre-generate device key
 				provisioned: false,
 			};
 			await this.saveDeviceInfo();
-			console.log('📱 New device created with UUID:', this.deviceInfo.uuid);
+			console.log('📱 New device created:', {
+				uuid: this.deviceInfo.uuid,
+				deviceApiKey: `${this.deviceInfo.deviceApiKey?.substring(0, 8)}...`,
+			});
 		} else {
 			console.log('📱 Device loaded:', {
 				uuid: this.deviceInfo.uuid,
 				deviceId: this.deviceInfo.deviceId,
 				provisioned: this.deviceInfo.provisioned,
+				hasDeviceApiKey: !!this.deviceInfo.deviceApiKey,
+				hasProvisioningKey: !!this.deviceInfo.provisioningApiKey,
 			});
 		}
 	}
@@ -65,10 +93,16 @@ export class DeviceManager {
 				deviceId: rows[0].deviceId,
 				deviceName: rows[0].deviceName,
 				deviceType: rows[0].deviceType,
-				apiKey: rows[0].apiKey,
+				deviceApiKey: rows[0].deviceApiKey,
+				provisioningApiKey: rows[0].provisioningApiKey,
+				apiKey: rows[0].apiKey, // Legacy field
 				apiEndpoint: rows[0].apiEndpoint,
 				registeredAt: rows[0].registeredAt,
 				provisioned: rows[0].provisioned === 1,
+				applicationId: rows[0].applicationId,
+				macAddress: rows[0].macAddress,
+				osVersion: rows[0].osVersion,
+				supervisorVersion: rows[0].supervisorVersion,
 			};
 		}
 	}
@@ -88,10 +122,16 @@ export class DeviceManager {
 			deviceId: this.deviceInfo.deviceId || null,
 			deviceName: this.deviceInfo.deviceName || null,
 			deviceType: this.deviceInfo.deviceType || null,
-			apiKey: this.deviceInfo.apiKey || null,
+			deviceApiKey: this.deviceInfo.deviceApiKey || null,
+			provisioningApiKey: this.deviceInfo.provisioningApiKey || null,
+			apiKey: this.deviceInfo.apiKey || null, // Legacy
 			apiEndpoint: this.deviceInfo.apiEndpoint || null,
 			registeredAt: this.deviceInfo.registeredAt || null,
 			provisioned: this.deviceInfo.provisioned ? 1 : 0,
+			applicationId: this.deviceInfo.applicationId || null,
+			macAddress: this.deviceInfo.macAddress || null,
+			osVersion: this.deviceInfo.osVersion || null,
+			supervisorVersion: this.deviceInfo.supervisorVersion || null,
 			updatedAt: new Date().toISOString(),
 		};
 
@@ -123,98 +163,202 @@ export class DeviceManager {
 	}
 
 	/**
-	 * Provision device (register with API or set local config)
-	 * This is a simplified version - in production you'd call a real API
+	 * Provision device using two-phase authentication
+	 * Phase 1: Register device using provisioningApiKey
+	 * Phase 2: Exchange keys and remove provisioning key
 	 */
 	async provision(config: ProvisioningConfig): Promise<DeviceInfo> {
 		if (!this.deviceInfo) {
 			throw new Error('Device manager not initialized');
 		}
 
-		// Update device info with provided config
+		if (!config.provisioningApiKey) {
+			throw new Error('provisioningApiKey is required for device provisioning');
+		}
+
+		// Ensure deviceApiKey exists
+		if (!this.deviceInfo.deviceApiKey) {
+			this.deviceInfo.deviceApiKey = generateAPIKey();
+		}
+
+		// Update device metadata
 		this.deviceInfo.deviceName = config.deviceName || this.deviceInfo.deviceName || `device-${this.deviceInfo.uuid.slice(0, 8)}`;
 		this.deviceInfo.deviceType = config.deviceType || this.deviceInfo.deviceType || 'generic';
 		this.deviceInfo.apiEndpoint = config.apiEndpoint || this.deviceInfo.apiEndpoint;
-		this.deviceInfo.apiKey = config.apiKey || this.deviceInfo.apiKey;
+		this.deviceInfo.provisioningApiKey = config.provisioningApiKey;
+		this.deviceInfo.applicationId = config.applicationId;
+		this.deviceInfo.macAddress = config.macAddress;
+		this.deviceInfo.osVersion = config.osVersion;
+		this.deviceInfo.supervisorVersion = config.supervisorVersion;
 
 		// If UUID is provided in config, use it (useful for pre-configured devices)
 		if (config.uuid && config.uuid !== this.deviceInfo.uuid) {
 			this.deviceInfo.uuid = config.uuid;
 		}
 
-		// Generate device ID if not provided (would normally come from API)
-		if (!this.deviceInfo.deviceId) {
-			this.deviceInfo.deviceId = `dev_${Date.now()}`;
+		try {
+			// Phase 1: Register device with cloud API
+			console.log('🔐 Phase 1: Registering device with provisioning key...');
+			const response = await this.registerWithAPI(
+				this.deviceInfo.apiEndpoint || 'http://localhost:3002',
+				{
+					uuid: this.deviceInfo.uuid,
+					deviceName: this.deviceInfo.deviceName,
+					deviceType: this.deviceInfo.deviceType,
+					deviceApiKey: this.deviceInfo.deviceApiKey,
+					applicationId: this.deviceInfo.applicationId,
+					macAddress: this.deviceInfo.macAddress,
+					osVersion: this.deviceInfo.osVersion,
+					supervisorVersion: this.deviceInfo.supervisorVersion,
+				},
+				this.deviceInfo.provisioningApiKey
+			);
+
+			// Save server-assigned device ID
+			this.deviceInfo.deviceId = response.id.toString();
+
+			// Phase 2: Exchange keys - verify device can authenticate with deviceApiKey
+			console.log('🔐 Phase 2: Exchanging keys...');
+			await this.exchangeKeys(
+				this.deviceInfo.apiEndpoint || 'http://localhost:3002',
+				this.deviceInfo.uuid,
+				this.deviceInfo.deviceApiKey
+			);
+
+			// Phase 3: Remove provisioning key (one-time use complete)
+			console.log('🔐 Phase 3: Removing provisioning key...');
+			this.deviceInfo.provisioningApiKey = undefined;
+
+			// Mark as provisioned
+			this.deviceInfo.provisioned = true;
+			this.deviceInfo.registeredAt = Date.now();
+
+			// Save to database
+			await this.saveDeviceInfo();
+
+			console.log('✅ Device provisioned successfully:', {
+				uuid: this.deviceInfo.uuid,
+				deviceId: this.deviceInfo.deviceId,
+				deviceName: this.deviceInfo.deviceName,
+				applicationId: this.deviceInfo.applicationId,
+			});
+
+			return this.getDeviceInfo();
+		} catch (error: any) {
+			console.error('❌ Provisioning failed:', error.message);
+			throw error;
 		}
-
-		// Mark as provisioned
-		this.deviceInfo.provisioned = true;
-		this.deviceInfo.registeredAt = Date.now();
-
-		// Save to database
-		await this.saveDeviceInfo();
-
-		console.log('✅ Device provisioned:', {
-			uuid: this.deviceInfo.uuid,
-			deviceId: this.deviceInfo.deviceId,
-			deviceName: this.deviceInfo.deviceName,
-		});
-
-		return this.getDeviceInfo();
 	}
 
 	/**
-	 * Register device with a remote API
-	 * This simulates what balena-supervisor does with balena API
+	 * Register device with cloud API using provisioning key
+	 * POST /api/v1/device/register
 	 */
-	async registerWithAPI(apiEndpoint: string, provisionRequest: ProvisionRequest): Promise<ProvisionResponse> {
+	async registerWithAPI(
+		apiEndpoint: string, 
+		provisionRequest: ProvisionRequest,
+		provisioningApiKey: string
+	): Promise<ProvisionResponse> {
 		if (!this.deviceInfo) {
 			throw new Error('Device manager not initialized');
 		}
 
-		// In a real implementation, this would POST to apiEndpoint + '/device/register'
-		// For now, we simulate the response
+		const url = `${apiEndpoint}/api/v1/device/register`;
 		
-		console.log('📡 Registering device with API:', apiEndpoint);
-		console.log('Request:', provisionRequest);
+		console.log('📡 Registering device with API:', url);
+		console.log('   UUID:', provisionRequest.uuid);
+		console.log('   Device Name:', provisionRequest.deviceName);
+		console.log('   Device Type:', provisionRequest.deviceType);
+		console.log('   Application ID:', provisionRequest.applicationId);
 
-		// Simulate API call delay
-		await new Promise(resolve => setTimeout(resolve, 100));
+		try {
+			const response = await fetch(url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${provisioningApiKey}`,
+				},
+				body: JSON.stringify(provisionRequest),
+			});
 
-		// Simulate API response
-		const response: ProvisionResponse = {
-			deviceId: `dev_${Date.now()}`,
-			uuid: provisionRequest.uuid,
-			deviceName: provisionRequest.deviceName,
-			apiKey: this.generateAPIKey(),
-			registeredAt: Date.now(),
-		};
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(`API returned ${response.status}: ${errorText}`);
+			}
 
-		// Update local device info with API response
-		this.deviceInfo.deviceId = response.deviceId;
-		this.deviceInfo.deviceName = response.deviceName;
-		this.deviceInfo.apiKey = response.apiKey;
-		this.deviceInfo.apiEndpoint = apiEndpoint;
-		this.deviceInfo.registeredAt = response.registeredAt;
-		this.deviceInfo.provisioned = true;
+			const result = await response.json() as ProvisionResponse;
+			console.log('✅ Device registered with ID:', result.id);
 
-		await this.saveDeviceInfo();
-
-		console.log('✅ Device registered:', response);
-
-		return response;
+			return result;
+		} catch (error: any) {
+			console.error('❌ Registration failed:', error.message);
+			throw new Error(`Failed to register device: ${error.message}`);
+		}
 	}
 
 	/**
-	 * Generate a random API key
+	 * Exchange keys - verify device can authenticate with deviceApiKey
+	 * POST /api/v1/device/:uuid/key-exchange
 	 */
-	private generateAPIKey(): string {
-		const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-		let key = '';
-		for (let i = 0; i < 32; i++) {
-			key += chars.charAt(Math.floor(Math.random() * chars.length));
+	async exchangeKeys(apiEndpoint: string, uuid: string, deviceApiKey: string): Promise<void> {
+		const url = `${apiEndpoint}/api/v1/device/${uuid}/key-exchange`;
+		
+		console.log('🔑 Exchanging keys for device:', uuid);
+
+		try {
+			const response = await fetch(url, {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json',
+					'Authorization': `Bearer ${deviceApiKey}`,
+				},
+				body: JSON.stringify({
+					uuid,
+					deviceApiKey,
+				}),
+			});
+
+			if (!response.ok) {
+				const errorText = await response.text();
+				throw new Error(`Key exchange failed ${response.status}: ${errorText}`);
+			}
+
+			const result = await response.json();
+			console.log('✅ Key exchange successful');
+		} catch (error: any) {
+			console.error('❌ Key exchange failed:', error.message);
+			throw new Error(`Failed to exchange keys: ${error.message}`);
 		}
-		return key;
+	}
+
+	/**
+	 * Check if device already exists and try key exchange
+	 * GET /api/v1/device/:uuid
+	 */
+	async fetchDevice(apiEndpoint: string, uuid: string, apiKey: string): Promise<any> {
+		const url = `${apiEndpoint}/api/v1/devices/${uuid}`;
+		
+		try {
+			const response = await fetch(url, {
+				method: 'GET',
+				headers: {
+					'Authorization': `Bearer ${apiKey}`,
+				},
+			});
+
+			if (!response.ok) {
+				if (response.status === 404) {
+					return null; // Device not found
+				}
+				const errorText = await response.text();
+				throw new Error(`API returned ${response.status}: ${errorText}`);
+			}
+
+			return await response.json();
+		} catch (error: any) {
+			console.error('Failed to fetch device:', error.message);
+			return null;
+		}
 	}
 
 	/**
@@ -244,6 +388,7 @@ export class DeviceManager {
 	/**
 	 * Reset device (unprovision)
 	 * Useful for testing or re-provisioning
+	 * Keeps UUID and deviceApiKey, clears server registration
 	 */
 	async reset(): Promise<void> {
 		if (!this.deviceInfo) {
@@ -252,14 +397,17 @@ export class DeviceManager {
 
 		this.deviceInfo.deviceId = undefined;
 		this.deviceInfo.deviceName = undefined;
+		this.deviceInfo.provisioningApiKey = undefined;
 		this.deviceInfo.apiKey = undefined;
 		this.deviceInfo.apiEndpoint = undefined;
 		this.deviceInfo.registeredAt = undefined;
 		this.deviceInfo.provisioned = false;
+		this.deviceInfo.applicationId = undefined;
 
 		await this.saveDeviceInfo();
 
 		console.log('🔄 Device reset (unprovisioned)');
+		console.log('   UUID and deviceApiKey preserved for re-registration');
 	}
 }
 

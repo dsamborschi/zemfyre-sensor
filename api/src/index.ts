@@ -81,6 +81,8 @@ app.get('/api/docs', (req, res) => {
         'POST /notify': 'Send system notification'
       },
       cloud: {
+        'POST /api/v1/device/register': 'Register new device (two-phase auth - provisioning key)',
+        'POST /api/v1/device/:uuid/key-exchange': 'Exchange keys (two-phase auth - device key)',
         'GET /api/v1/device/:uuid/state': 'Device polls for target state (ETag cached)',
         'POST /api/v1/device/:uuid/logs': 'Device uploads logs',
         'PATCH /api/v1/device/state': 'Device reports current state + metrics',
@@ -96,7 +98,8 @@ app.get('/api/docs', (req, res) => {
       'Grafana management requires GRAFANA_API_TOKEN environment variable',
       'Docker operations require /var/run/docker.sock volume mount',
       'Cloud endpoints support multi-device IoT fleet management',
-      'Devices poll for target state using ETag caching'
+      'Devices poll for target state using ETag caching',
+      'Two-phase authentication: provisioning key (fleet) + device key (unique per device)'
     ]
   });
 });
@@ -163,6 +166,8 @@ async function startServer() {
     console.log(`  GET    /containers                     - List containers`);
     console.log(`  POST   /containers/:id/restart         - Restart container`);
     console.log('\nCloud Device Management:');
+    console.log(`  POST   /api/v1/device/register         - Register device (provisioning)`);
+    console.log(`  POST   /api/v1/device/:uuid/key-exchange - Key exchange (provisioning)`);
     console.log(`  GET    /api/v1/devices                 - List all devices`);
     console.log(`  POST   /api/v1/devices/:uuid/target-state - Set device target`);
     console.log(`  PATCH  /api/v1/device/state            - Device reports state`);

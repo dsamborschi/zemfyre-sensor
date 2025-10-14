@@ -97,32 +97,46 @@ export default class DeviceSupervisor {
 		console.log('✅ Database initialized');
 	}
 
-private async initializeDeviceManager(): Promise<void> {
+	private async initializeDeviceManager(): Promise<void> {
 		console.log('🔐 Initializing device manager...');
 		this.deviceManager = new DeviceManager();
 		await this.deviceManager.initialize();
 
 		let deviceInfo = this.deviceManager.getDeviceInfo();
 		
-		// Auto-provision if not yet provisioned and cloud endpoint is set
-		if (!deviceInfo.provisioned && this.CLOUD_API_ENDPOINT) {
-			console.log('⚙️  Auto-provisioning device...');
-			await this.deviceManager.provision({
-				deviceName: process.env.DEVICE_NAME || `device-${deviceInfo.uuid.slice(0, 8)}`,
-				deviceType: process.env.DEVICE_TYPE || 'standalone',
-				apiEndpoint: this.CLOUD_API_ENDPOINT,
-			});
-			deviceInfo = this.deviceManager.getDeviceInfo();
-			console.log('✅ Device auto-provisioned');
+		// Auto-provision if not yet provisioned, cloud endpoint is set, AND provisioning key is available
+		const provisioningApiKey = process.env.PROVISIONING_API_KEY;
+		if (!deviceInfo.provisioned && this.CLOUD_API_ENDPOINT && provisioningApiKey) {
+			console.log('⚙️  Auto-provisioning device with two-phase authentication...');
+			try {
+				await this.deviceManager.provision({
+					provisioningApiKey, // Required for two-phase auth
+					deviceName: process.env.DEVICE_NAME || `device-${deviceInfo.uuid.slice(0, 8)}`,
+					deviceType: process.env.DEVICE_TYPE || 'standalone',
+					apiEndpoint: this.CLOUD_API_ENDPOINT,
+					applicationId: process.env.APPLICATION_ID ? parseInt(process.env.APPLICATION_ID, 10) : undefined,
+					macAddress: process.env.MAC_ADDRESS,
+					osVersion: process.env.OS_VERSION,
+					supervisorVersion: process.env.SUPERVISOR_VERSION || '1.0.0',
+				});
+				deviceInfo = this.deviceManager.getDeviceInfo();
+				console.log('✅ Device auto-provisioned successfully');
+			} catch (error: any) {
+				console.error('❌ Auto-provisioning failed:', error.message);
+				console.error('   Device will remain unprovisioned. Set PROVISIONING_API_KEY to retry.');
+			}
+		} else if (!deviceInfo.provisioned && this.CLOUD_API_ENDPOINT && !provisioningApiKey) {
+			console.warn('⚠️  Device not provisioned. Set PROVISIONING_API_KEY environment variable to enable auto-provisioning.');
 		}
 		
 		console.log(`✅ Device manager initialized`);
 		console.log(`   UUID: ${deviceInfo.uuid}`);
 		console.log(`   Name: ${deviceInfo.deviceName || 'Not set'}`);
 		console.log(`   Provisioned: ${deviceInfo.provisioned ? 'Yes' : 'No'}`);
-	}
-
-	private async initializeLogging(): Promise<void> {
+		if (deviceInfo.deviceApiKey) {
+			console.log(`   Device API Key: ${deviceInfo.deviceApiKey.substring(0, 16)}...`);
+		}
+	}	private async initializeLogging(): Promise<void> {
 		console.log('📝 Initializing logging...');
 
 		// Local backend (always enabled)

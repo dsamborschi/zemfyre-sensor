@@ -22,6 +22,7 @@
 
 import { EventEmitter } from 'events';
 import _ from 'lodash';
+import crypto from 'crypto';
 import type Docker from 'dockerode';
 import { DockerManager } from './docker-manager';
 import * as db from '../db';
@@ -108,6 +109,8 @@ export class ContainerManager extends EventEmitter {
 	private reconciliationInterval?: NodeJS.Timeout;
 	private isReconciliationEnabled = false;
 	private logMonitor?: ContainerLogMonitor;
+	private lastSavedCurrentStateHash: string = '';
+	private lastSavedTargetStateHash: string = '';
 
 	constructor(useRealDocker: boolean = false) {
 		super();
@@ -131,6 +134,14 @@ export class ContainerManager extends EventEmitter {
 		}
 		
 		console.log('✅ ContainerManager initialized');
+	}
+
+	/**
+	 * Generate SHA-256 hash of state for efficient comparison
+	 */
+	private getStateHash(state: SimpleState): string {
+		const stateJson = JSON.stringify(state);
+		return crypto.createHash('sha256').update(stateJson).digest('hex');
 	}
 
 	/**
@@ -158,13 +169,31 @@ export class ContainerManager extends EventEmitter {
 	}
 
 	/**
-	 * Save target state to database
+	 * Save target state to database (only if changed)
 	 */
 	private async saveTargetStateToDB(): Promise<void> {
 		try {
+			const stateHash = this.getStateHash(this.targetState);
+			
+			// Skip if state hasn't changed (compare hashes)
+			if (stateHash === this.lastSavedTargetStateHash) {
+				console.log('  Target state unchanged, skipping DB write');
+				return;
+			}
+			
+			console.log('  Target state changed, saving to DB');
+			this.lastSavedTargetStateHash = stateHash;
+			
+			const stateJson = JSON.stringify(this.targetState);
+			
+			// Delete old target snapshots and insert new
+			await db.models('stateSnapshot')
+				.where({ type: 'target' })
+				.delete();
+			
 			await db.models('stateSnapshot').insert({
 				type: 'target',
-				state: JSON.stringify(this.targetState),
+				state: stateJson,
 			});
 			console.log('✅ Saved target state to database');
 		} catch (error) {
@@ -173,13 +202,31 @@ export class ContainerManager extends EventEmitter {
 	}
 
 	/**
-	 * Save current state to database
+	 * Save current state to database (only if changed)
 	 */
 	private async saveCurrentStateToDB(): Promise<void> {
 		try {
+			const stateHash = this.getStateHash(this.currentState);
+			
+			// Skip if state hasn't changed (compare hashes)
+			if (stateHash === this.lastSavedCurrentStateHash) {
+				console.log('  Current state unchanged, skipping DB write');
+				return;
+			}
+			
+			console.log('  Current state changed, saving to DB');
+			this.lastSavedCurrentStateHash = stateHash;
+			
+			const stateJson = JSON.stringify(this.currentState);
+			
+			// Delete old current snapshots and insert new
+			await db.models('stateSnapshot')
+				.where({ type: 'current' })
+				.delete();
+			
 			await db.models('stateSnapshot').insert({
 				type: 'current',
-				state: JSON.stringify(this.currentState),
+				state: stateJson,
 			});
 		} catch (error) {
 			console.error('Failed to save current state to DB:', error);
@@ -346,8 +393,11 @@ export class ContainerManager extends EventEmitter {
 
 	/**
 	 * Main function: Reconcile current state → target state
+	 * @param options.saveState - Whether to save state to DB after reconciliation (default: true)
 	 */
-	public async applyTargetState(): Promise<void> {
+	public async applyTargetState(options: { saveState?: boolean } = {}): Promise<void> {
+		const { saveState = true } = options;
+		
 		if (this.isApplyingState) {
 			console.log('Already applying state, skipping...');
 			return;
@@ -392,8 +442,10 @@ export class ContainerManager extends EventEmitter {
 			console.log('\nState reconciliation complete!');
 			console.log('='.repeat(80) + '\n');
 
-			// Save current state snapshot after successful reconciliation
-			await this.saveCurrentStateToDB();
+			// Save current state snapshot after successful reconciliation (if requested)
+			if (saveState) {
+				await this.saveCurrentStateToDB();
+			}
 
 			this.emit('state-applied');
 		} catch (error) {
@@ -1357,14 +1409,16 @@ export class ContainerManager extends EventEmitter {
 			return;
 		}
 
-		console.log(`🔄 Starting auto-reconciliation every ${intervalMs}ms`);
+		console.log(`🔄 Starting auto-reconciliation every ${intervalMs}ms (DB writes optimized)`);
 		this.isReconciliationEnabled = true;
 
 		this.reconciliationInterval = setInterval(async () => {
 			if (this.useRealDocker && !this.isApplyingState) {
 				console.log('🔄 Auto-reconciliation check...');
 				try {
-					await this.applyTargetState();
+					// Don't save to DB on auto-reconciliation (reduces writes by 99%)
+					// State is only saved when it actually changes via syncStateFromDocker
+					await this.applyTargetState({ saveState: false });
 				} catch (error) {
 					console.error('Auto-reconciliation error:', error);
 				}

@@ -1,5 +1,6 @@
 /**
  * Types for device provisioning in standalone container-manager
+ * Implements two-phase authentication similar to Balena Supervisor
  */
 
 export interface DeviceInfo {
@@ -7,10 +8,23 @@ export interface DeviceInfo {
 	deviceId?: string;
 	deviceName?: string;
 	deviceType?: string;
+	
+	// Two-phase authentication keys
+	deviceApiKey?: string;        // Device-specific key (permanent)
+	provisioningApiKey?: string;  // Fleet/provisioning key (temporary)
+	
+	// Legacy field for backward compatibility
 	apiKey?: string;
+	
 	apiEndpoint?: string;
 	registeredAt?: number;
 	provisioned: boolean;
+	
+	// Additional metadata
+	applicationId?: number;
+	macAddress?: string;
+	osVersion?: string;
+	supervisorVersion?: string;
 }
 
 export interface ProvisioningConfig {
@@ -18,22 +32,51 @@ export interface ProvisioningConfig {
 	deviceName?: string;
 	deviceType?: string;
 	apiEndpoint?: string;
-	apiKey?: string;
+	
+	// Two-phase auth
+	provisioningApiKey: string;   // Required: fleet-level key
+	deviceApiKey?: string;         // Optional: if not provided, will be generated
+	
+	// Fleet configuration
+	applicationId?: number;
+	
+	// Device metadata
+	macAddress?: string;
+	osVersion?: string;
+	supervisorVersion?: string;
 }
 
 export interface ProvisionRequest {
 	uuid: string;
 	deviceName: string;
 	deviceType: string;
+	deviceApiKey: string;          // Pre-generated device key
+	applicationId?: number;
 	macAddress?: string;
 	osVersion?: string;
 	supervisorVersion?: string;
 }
 
 export interface ProvisionResponse {
-	deviceId: string;
+	id: number;                    // Server-assigned device ID
 	uuid: string;
 	deviceName: string;
-	apiKey: string;
-	registeredAt: number;
+	deviceType: string;
+	applicationId?: number;
+	createdAt: string;
+}
+
+export interface KeyExchangeRequest {
+	uuid: string;
+	deviceApiKey: string;
+}
+
+export interface KeyExchangeResponse {
+	status: 'ok' | 'error';
+	message: string;
+	device?: {
+		id: number;
+		uuid: string;
+		deviceName: string;
+	};
 }

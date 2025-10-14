@@ -20,8 +20,9 @@
       ],
       "env": {
         "USE_REAL_DOCKER": "true",
-        "CLOUD_API_ENDPOINT": "https://c62928c9-34b3-42c3-9eb2-e97f2b5c3fd9.mock.pstmn.io",
-        "LOG_COMPRESSION": "false"
+        "CLOUD_API_ENDPOINT": "https://5eeb2cea-372f-44bf-b399-14bfd8d191ca.mock.pstmn.io",
+        "LOG_COMPRESSION": "false",
+        "PROVISIONING_API_KEY": "your_provisioning_api_key_64_chars_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       }
     },
     {
