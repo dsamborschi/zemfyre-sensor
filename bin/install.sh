@@ -185,7 +185,7 @@ function display_banner() {
         --padding "2 6" \
         "${TITLE}"
 
-    echo " display_banner finished"
+
 }
 
 function display_section() {
@@ -689,21 +689,21 @@ function main() {
     CLOUD_API_ENDPOINT="${CLOUD_API_ENDPOINT:-}"
     
     if [ "$IS_CI_MODE" = false ] && [ -z "$PROVISIONING_API_KEY" ]; then
-        gum format ""
+        echo ""
         gum format "### 🔐 Device Provisioning Setup"
-        gum format ""
+        echo ""
         gum format "Enter your **provisioning API key** to enable automatic device registration."
         gum format "Leave blank to skip (you can provision manually later)."
-        gum format ""
-        echo -n "Provisioning API Key: "
-        read -s PROVISIONING_API_KEY
+        echo ""
+        read -p "Provisioning API Key: " -s PROVISIONING_API_KEY
         echo ""
         
         if [ -n "$PROVISIONING_API_KEY" ]; then
-            gum format "Cloud API Endpoint [default: http://10.0.0.60:4002]:"
-            read CLOUD_API_ENDPOINT
+            echo ""
+            read -p "Cloud API Endpoint [http://10.0.0.60:4002]: " CLOUD_API_ENDPOINT
             CLOUD_API_ENDPOINT="${CLOUD_API_ENDPOINT:-http://10.0.0.60:4002}"
         fi
+        echo ""
     fi
 
     display_section "User Input Summary"

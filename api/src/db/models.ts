@@ -27,6 +27,11 @@ export interface Device {
   storage_total?: number;
   cpu_usage?: number;
   cpu_temp?: number;
+  // Security fields
+  device_api_key_hash?: string;
+  fleet_id?: string;
+  provisioned_at?: Date;
+  provisioned_by_key_id?: string;
   created_at: Date;
   modified_at: Date;
 }

@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -6,9 +39,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const grafana_1 = __importDefault(require("./routes/grafana"));
-const docker_1 = __importDefault(require("./routes/docker"));
 const notify_1 = __importDefault(require("./routes/notify"));
-const cloud_1 = __importDefault(require("./routes/cloud"));
+const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
+let cloudRoutes;
+if (USE_POSTGRES) {
+    console.log('🐘 Using PostgreSQL backend for device state');
+    cloudRoutes = require('./routes/cloud-postgres').default;
+}
+else {
+    console.log('💾 Using in-memory backend for device state');
+    cloudRoutes = require('./routes/cloud').default;
+}
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3002;
 app.use((0, cors_1.default)());
@@ -57,6 +98,8 @@ app.get('/api/docs', (req, res) => {
                 'POST /notify': 'Send system notification'
             },
             cloud: {
+                'POST /api/v1/device/register': 'Register new device (two-phase auth - provisioning key)',
+                'POST /api/v1/device/:uuid/key-exchange': 'Exchange keys (two-phase auth - device key)',
                 'GET /api/v1/device/:uuid/state': 'Device polls for target state (ETag cached)',
                 'POST /api/v1/device/:uuid/logs': 'Device uploads logs',
                 'PATCH /api/v1/device/state': 'Device reports current state + metrics',
@@ -72,14 +115,14 @@ app.get('/api/docs', (req, res) => {
             'Grafana management requires GRAFANA_API_TOKEN environment variable',
             'Docker operations require /var/run/docker.sock volume mount',
             'Cloud endpoints support multi-device IoT fleet management',
-            'Devices poll for target state using ETag caching'
+            'Devices poll for target state using ETag caching',
+            'Two-phase authentication: provisioning key (fleet) + device key (unique per device)'
         ]
     });
 });
 app.use(grafana_1.default);
-app.use(docker_1.default);
 app.use(notify_1.default);
-app.use(cloud_1.default);
+app.use(cloudRoutes);
 app.use((req, res) => {
     res.status(404).json({
         error: 'Not found',
@@ -96,6 +139,24 @@ app.use((err, req, res, next) => {
 });
 async function startServer() {
     console.log('🚀 Initializing Zemfyre Unified API...\n');
+    if (USE_POSTGRES) {
+        try {
+            const db = await Promise.resolve().then(() => __importStar(require('./db/connection')));
+            const connected = await db.testConnection();
+            if (!connected) {
+                console.error('❌ Failed to connect to PostgreSQL. Falling back to in-memory mode.');
+                cloudRoutes = require('./routes/cloud').default;
+            }
+            else {
+                await db.initializeSchema();
+            }
+        }
+        catch (error) {
+            console.error('❌ Database initialization error:', error);
+            console.log('⚠️  Falling back to in-memory mode');
+            cloudRoutes = require('./routes/cloud').default;
+        }
+    }
     const server = app.listen(PORT, () => {
         console.log('='.repeat(80));
         console.log('☁️  Zemfyre Unified API Server');
@@ -111,6 +172,8 @@ async function startServer() {
         console.log(`  GET    /containers                     - List containers`);
         console.log(`  POST   /containers/:id/restart         - Restart container`);
         console.log('\nCloud Device Management:');
+        console.log(`  POST   /api/v1/device/register         - Register device (provisioning)`);
+        console.log(`  POST   /api/v1/device/:uuid/key-exchange - Key exchange (provisioning)`);
         console.log(`  GET    /api/v1/devices                 - List all devices`);
         console.log(`  POST   /api/v1/devices/:uuid/target-state - Set device target`);
         console.log(`  PATCH  /api/v1/device/state            - Device reports state`);

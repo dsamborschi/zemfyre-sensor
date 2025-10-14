@@ -4,6 +4,8 @@
  */
 
 import express from 'express';
+import bcrypt from 'bcrypt';
+import rateLimit from 'express-rate-limit';
 import {
   DeviceModel,
   DeviceTargetStateModel,
@@ -11,8 +13,52 @@ import {
   DeviceMetricsModel,
   DeviceLogsModel,
 } from '../db/models';
+import {
+  validateProvisioningKey,
+  incrementProvisioningKeyUsage
+} from '../utils/provisioning-keys';
+import {
+  logAuditEvent,
+  logProvisioningAttempt,
+  checkProvisioningRateLimit,
+  AuditEventType,
+  AuditSeverity
+} from '../utils/audit-logger';
 
 export const router = express.Router();
+
+// ============================================================================
+// Rate Limiting Middleware
+// ============================================================================
+
+// Rate limit for provisioning endpoint - 5 attempts per 15 minutes per IP
+const provisioningLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 5,
+  message: 'Too many provisioning attempts from this IP, please try again later',
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: async (req, res) => {
+    await logAuditEvent({
+      eventType: AuditEventType.RATE_LIMIT_EXCEEDED,
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+      severity: AuditSeverity.WARNING,
+      details: { endpoint: '/api/v1/device/register' }
+    });
+    res.status(429).json({
+      error: 'Too many requests',
+      message: 'Too many provisioning attempts from this IP, please try again later'
+    });
+  }
+});
+
+// Rate limit for key exchange - 10 attempts per hour
+const keyExchangeLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 10,
+  message: 'Too many key exchange attempts, please try again later'
+});
 
 // ============================================================================
 // Provisioning & Authentication Endpoints
@@ -22,17 +68,30 @@ export const router = express.Router();
  * Register new device with provisioning API key
  * POST /api/v1/device/register
  * 
- * Implements two-phase authentication:
- * 1. Device sends deviceApiKey during registration
- * 2. Server stores both provisioningApiKey and deviceApiKey
- * 3. After key exchange, only deviceApiKey is valid
+ * Implements two-phase authentication with security enhancements:
+ * 1. Validates provisioning key against database (not TODO anymore!)
+ * 2. Hashes device API key before storage
+ * 3. Rate limits provisioning attempts
+ * 4. Logs all provisioning events for audit trail
  */
-router.post('/api/v1/device/register', async (req, res) => {
+router.post('/api/v1/device/register', provisioningLimiter, async (req, res) => {
+  const ipAddress = req.ip;
+  const userAgent = req.headers['user-agent'];
+  let provisioningKeyRecord: any = null;
+
   try {
     const { uuid, deviceName, deviceType, deviceApiKey, applicationId, macAddress, osVersion, supervisorVersion } = req.body;
     const provisioningApiKey = req.headers.authorization?.replace('Bearer ', '');
 
+    // Validate required fields
     if (!uuid || !deviceName || !deviceType || !deviceApiKey) {
+      await logAuditEvent({
+        eventType: AuditEventType.PROVISIONING_FAILED,
+        ipAddress,
+        userAgent,
+        severity: AuditSeverity.WARNING,
+        details: { reason: 'Missing required fields', uuid: uuid?.substring(0, 8) }
+      });
       return res.status(400).json({
         error: 'Missing required fields',
         message: 'uuid, deviceName, deviceType, and deviceApiKey are required'
@@ -40,32 +99,80 @@ router.post('/api/v1/device/register', async (req, res) => {
     }
 
     if (!provisioningApiKey) {
+      await logAuditEvent({
+        eventType: AuditEventType.PROVISIONING_FAILED,
+        deviceUuid: uuid,
+        ipAddress,
+        userAgent,
+        severity: AuditSeverity.WARNING,
+        details: { reason: 'Missing provisioning API key' }
+      });
       return res.status(401).json({
         error: 'Unauthorized',
         message: 'Provisioning API key required in Authorization header'
       });
     }
 
-    // TODO: Validate provisioningApiKey against fleet/application in production
-    // For now, accept any provisioning key for testing
+    // SECURITY: Check provisioning rate limit for this IP
+    await checkProvisioningRateLimit(ipAddress!);
 
-    console.log('🔐 Device registration request:', {
-      uuid: uuid.substring(0, 8) + '...',
-      deviceName,
-      deviceType,
-      applicationId,
+    // SECURITY: Validate provisioning key against database
+    console.log('🔐 Validating provisioning key...');
+    const keyValidation = await validateProvisioningKey(provisioningApiKey, ipAddress);
+    
+    if (!keyValidation.valid) {
+      await logProvisioningAttempt(ipAddress!, uuid, null, false, keyValidation.error, userAgent);
+      return res.status(401).json({
+        error: 'Invalid provisioning key',
+        message: keyValidation.error
+      });
+    }
+
+    provisioningKeyRecord = keyValidation.keyRecord!;
+    console.log('✅ Provisioning key validated for fleet:', provisioningKeyRecord.fleet_id);
+
+    await logAuditEvent({
+      eventType: AuditEventType.PROVISIONING_STARTED,
+      deviceUuid: uuid,
+      ipAddress,
+      userAgent,
+      severity: AuditSeverity.INFO,
+      details: {
+        deviceName,
+        deviceType,
+        fleetId: provisioningKeyRecord.fleet_id
+      }
     });
 
     // Check if device already exists
     let device = await DeviceModel.getByUuid(uuid);
     
     if (device) {
-      console.log('⚠️  Device already registered, updating metadata...');
-    } else {
-      // Create new device
-      device = await DeviceModel.getOrCreate(uuid);
-      console.log('✅ New device created');
+      console.log('⚠️  Device already registered, preventing duplicate registration');
+      await logAuditEvent({
+        eventType: AuditEventType.PROVISIONING_FAILED,
+        deviceUuid: uuid,
+        ipAddress,
+        severity: AuditSeverity.WARNING,
+        details: { reason: 'Device already registered', existingDeviceId: device.id }
+      });
+      
+      // Log failed attempt but don't reveal device exists (security)
+      await logProvisioningAttempt(ipAddress!, uuid, provisioningKeyRecord.id, false, 'Device already registered', userAgent);
+      
+      return res.status(409).json({
+        error: 'Device registration failed',
+        message: 'This device is already registered'
+      });
     }
+
+    // Create new device
+    device = await DeviceModel.getOrCreate(uuid);
+    console.log('✅ New device created');
+
+    // SECURITY: Hash device API key before storage (NEVER store plain text!)
+    const deviceApiKeyHash = await bcrypt.hash(deviceApiKey, 10);
+    console.log('🔒 Device API key hashed for secure storage');
 
     // Store device metadata in the database
     device = await DeviceModel.update(uuid, {
@@ -76,11 +183,35 @@ router.post('/api/v1/device/register', async (req, res) => {
       mac_address: macAddress,
       os_version: osVersion,
       supervisor_version: supervisorVersion,
+      device_api_key_hash: deviceApiKeyHash,
+      fleet_id: provisioningKeyRecord.fleet_id,
+      provisioned_by_key_id: provisioningKeyRecord.id,
+      provisioned_at: new Date(),
       is_online: true,
       is_active: true
     });
 
-    console.log(`✅ Device metadata stored: ${deviceName} (${deviceType}) - State: registered, Status: online`)
+    console.log(`✅ Device metadata stored: ${deviceName} (${deviceType}) - State: registered, Status: online`);
+
+    // Increment provisioning key usage counter
+    await incrementProvisioningKeyUsage(provisioningKeyRecord.id);
+
+    // Log successful provisioning
+    await logAuditEvent({
+      eventType: AuditEventType.DEVICE_REGISTERED,
+      deviceUuid: uuid,
+      ipAddress,
+      userAgent,
+      severity: AuditSeverity.INFO,
+      details: {
+        deviceId: device.id,
+        deviceName,
+        deviceType,
+        fleetId: provisioningKeyRecord.fleet_id
+      }
+    });
+
+    await logProvisioningAttempt(ipAddress!, uuid, provisioningKeyRecord.id, true, undefined, userAgent);
 
     const response = {
       id: device.id,
@@ -88,14 +219,33 @@ router.post('/api/v1/device/register', async (req, res) => {
       deviceName: deviceName,
       deviceType: deviceType,
       applicationId: applicationId,
+      fleetId: provisioningKeyRecord.fleet_id,
       createdAt: device.created_at.toISOString(),
     };
 
     console.log('✅ Device registered successfully:', response.id);
-
     res.status(200).json(response);
+
   } catch (error: any) {
-    console.error('Error registering device:', error);
+    console.error('❌ Error registering device:', error);
+    
+    await logAuditEvent({
+      eventType: AuditEventType.PROVISIONING_FAILED,
+      ipAddress,
+      userAgent,
+      severity: AuditSeverity.ERROR,
+      details: { error: error.message }
+    });
+
+    await logProvisioningAttempt(
+      ipAddress!, 
+      req.body.uuid, 
+      provisioningKeyRecord?.id || null, 
+      false, 
+      error.message,
+      userAgent
+    );
+
     res.status(500).json({
       error: 'Failed to register device',
       message: error.message
@@ -107,16 +257,29 @@ router.post('/api/v1/device/register', async (req, res) => {
  * Exchange keys - verify device can authenticate with deviceApiKey
  * POST /api/v1/device/:uuid/key-exchange
  * 
- * Device must authenticate with deviceApiKey
- * Server verifies and removes provisioning key
+ * SECURITY ENHANCED:
+ * - Verifies deviceApiKey against hashed value in database
+ * - Uses bcrypt.compare for secure verification
+ * - Logs authentication events
  */
-router.post('/api/v1/device/:uuid/key-exchange', async (req, res) => {
+router.post('/api/v1/device/:uuid/key-exchange', keyExchangeLimiter, async (req, res) => {
+  const ipAddress = req.ip;
+  const userAgent = req.headers['user-agent'];
+
   try {
     const { uuid } = req.params;
     const { deviceApiKey } = req.body;
     const authKey = req.headers.authorization?.replace('Bearer ', '');
 
     if (!deviceApiKey || !authKey) {
+      await logAuditEvent({
+        eventType: AuditEventType.KEY_EXCHANGE_FAILED,
+        deviceUuid: uuid,
+        ipAddress,
+        userAgent,
+        severity: AuditSeverity.WARNING,
+        details: { reason: 'Missing credentials' }
+      });
       return res.status(400).json({
         error: 'Missing credentials',
         message: 'deviceApiKey required in body and Authorization header'
@@ -124,6 +287,14 @@ router.post('/api/v1/device/:uuid/key-exchange', async (req, res) => {
     }
 
     if (deviceApiKey !== authKey) {
+      await logAuditEvent({
+        eventType: AuditEventType.KEY_EXCHANGE_FAILED,
+        deviceUuid: uuid,
+        ipAddress,
+        userAgent,
+        severity: AuditSeverity.WARNING,
+        details: { reason: 'Key mismatch between body and header' }
+      });
       return res.status(401).json({
         error: 'Key mismatch',
         message: 'deviceApiKey in body must match Authorization header'
@@ -136,16 +307,63 @@ router.post('/api/v1/device/:uuid/key-exchange', async (req, res) => {
     const device = await DeviceModel.getByUuid(uuid);
     
     if (!device) {
+      await logAuditEvent({
+        eventType: AuditEventType.KEY_EXCHANGE_FAILED,
+        deviceUuid: uuid,
+        ipAddress,
+        userAgent,
+        severity: AuditSeverity.WARNING,
+        details: { reason: 'Device not found' }
+      });
       return res.status(404).json({
         error: 'Device not found',
         message: `Device ${uuid} not registered`
       });
     }
 
-    // TODO: In production, verify deviceApiKey matches what was registered
-    // and remove provisioningApiKey from storage
+    // SECURITY: Verify deviceApiKey against hashed value in database
+    if (!device.device_api_key_hash) {
+      await logAuditEvent({
+        eventType: AuditEventType.KEY_EXCHANGE_FAILED,
+        deviceUuid: uuid,
+        ipAddress,
+        userAgent,
+        severity: AuditSeverity.ERROR,
+        details: { reason: 'No API key hash stored for device' }
+      });
+      return res.status(500).json({
+        error: 'Configuration error',
+        message: 'Device API key not configured'
+      });
+    }
 
-    console.log('✅ Key exchange successful');
+    const keyMatches = await bcrypt.compare(deviceApiKey, device.device_api_key_hash);
+    
+    if (!keyMatches) {
+      await logAuditEvent({
+        eventType: AuditEventType.AUTHENTICATION_FAILED,
+        deviceUuid: uuid,
+        ipAddress,
+        userAgent,
+        severity: AuditSeverity.WARNING,
+        details: { reason: 'Invalid device API key' }
+      });
+      return res.status(401).json({
+        error: 'Authentication failed',
+        message: 'Invalid device API key'
+      });
+    }
+
+    console.log('✅ Key exchange successful - device API key verified');
+
+    await logAuditEvent({
+      eventType: AuditEventType.KEY_EXCHANGE_SUCCESS,
+      deviceUuid: uuid,
+      ipAddress,
+      userAgent,
+      severity: AuditSeverity.INFO,
+      details: { deviceName: device.device_name }
+    });
 
     res.json({
       status: 'ok',
@@ -157,7 +375,17 @@ router.post('/api/v1/device/:uuid/key-exchange', async (req, res) => {
       }
     });
   } catch (error: any) {
-    console.error('Error during key exchange:', error);
+    console.error('❌ Error during key exchange:', error);
+    
+    await logAuditEvent({
+      eventType: AuditEventType.KEY_EXCHANGE_FAILED,
+      deviceUuid: req.params.uuid,
+      ipAddress,
+      userAgent,
+      severity: AuditSeverity.ERROR,
+      details: { error: error.message }
+    });
+
     res.status(500).json({
       error: 'Key exchange failed',
       message: error.message
