@@ -174,7 +174,7 @@ export class CloudLogBackend implements LogBackend {
 		// Compress if enabled
 		let body: string | Buffer = ndjson;
 		const headers: Record<string, string> = {
-			'Content-Type': 'application/json',
+			'Content-Type': 'application/x-ndjson',
 		};
 		
 		if (this.config.compression) {
@@ -189,7 +189,7 @@ export class CloudLogBackend implements LogBackend {
 		const response = await fetch(endpoint, {
 			method: 'POST',
 			headers,
-			body : JSON.stringify(logs),
+			body,
 			signal: this.abortController.signal,
 		});
 		

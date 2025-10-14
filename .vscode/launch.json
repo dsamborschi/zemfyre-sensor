@@ -20,7 +20,7 @@
       ],
       "env": {
         "USE_REAL_DOCKER": "true",
-        "CLOUD_API_ENDPOINT": "https://5eeb2cea-372f-44bf-b399-14bfd8d191ca.mock.pstmn.io",
+        "CLOUD_API_ENDPOINT": "http://localhost:4002",
         "LOG_COMPRESSION": "false",
         "PROVISIONING_API_KEY": "your_provisioning_api_key_64_chars_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       }

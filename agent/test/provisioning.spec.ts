@@ -87,7 +87,7 @@ describe('DeviceManager - Two-Phase Provisioning', () => {
   let mockProvisioningConfig: ProvisioningConfig;
 
   const mockProvisioningApiKey = 'a'.repeat(64);
-  const mockCloudUrl = 'http://cloud.example.com';
+  const mockCloudUrl = 'https://5eeb2cea-372f-44bf-b399-14bfd8d191ca.mock.pstmn.io';
 
   beforeEach(async () => {
     // Clean database
