@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, computed } from 'vue'
 import { useDevicesStore } from '../../stores/devices'
-import { useApplicationManagerStore } from '../../stores/application-manager'
+import { useApplicationManagerStore } from '../../stores/device-manager'
 import { useModal, useToast } from 'vuestic-ui'
 import type { AddDeviceRequest } from '../../data/types/device'
 import ApplicationCard from '../applications/cards/ApplicationCard.vue'

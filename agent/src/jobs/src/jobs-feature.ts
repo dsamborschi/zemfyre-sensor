@@ -46,7 +46,7 @@ export class JobsFeature extends EventEmitter implements Feature {
     this.notifier = notifier;
     this.config = config;
     this.jobEngine = new JobEngine(logger);
-    this.topics = this.buildTopics(config.thingName);
+    this.topics = this.buildTopics(config.deviceUuid);
   }
 
   getName(): string {
@@ -63,7 +63,7 @@ export class JobsFeature extends EventEmitter implements Feature {
       return;
     }
 
-    this.logger.info(`${JobsFeature.TAG}: Starting Jobs feature for thing: ${this.config.thingName}`);
+    this.logger.info(`${JobsFeature.TAG}: Starting Jobs feature for device: ${this.config.deviceUuid}`);
     
     try {
       // Subscribe to all necessary topics
@@ -212,7 +212,7 @@ export class JobsFeature extends EventEmitter implements Feature {
       clientToken: randomUUID()
     };
 
-    const topic = `$aws/things/${this.config.thingName}/jobs/${jobData.jobId}/update`;
+    const topic = `$iot/device/${this.config.deviceUuid}/jobs/${jobData.jobId}/update`;
     const payload = JSON.stringify(updateRequest);
 
     try {
@@ -238,7 +238,7 @@ export class JobsFeature extends EventEmitter implements Feature {
 
     const jobData: JobExecutionData = {
       jobId: response.execution.jobId,
-      thingName: response.execution.thingName,
+      deviceUuid: response.execution.deviceUuid || response.execution.thingName,
       jobDocument: response.execution.jobDocument,
       status: response.execution.status,
       queuedAt: response.execution.queuedAt ? new Date(response.execution.queuedAt) : undefined,
@@ -304,7 +304,7 @@ export class JobsFeature extends EventEmitter implements Feature {
     if (event.execution) {
       const jobData: JobExecutionData = {
         jobId: event.execution.jobId,
-        thingName: event.execution.thingName,
+        deviceUuid: event.execution.deviceUuid || event.execution.thingName,
         jobDocument: event.execution.jobDocument,
         status: event.execution.status,
         queuedAt: event.execution.queuedAt ? new Date(event.execution.queuedAt) : undefined,
@@ -399,16 +399,16 @@ export class JobsFeature extends EventEmitter implements Feature {
   }
 
   /**
-   * Build MQTT topic patterns for the given thing name
+   * Build MQTT topic patterns for the given device UUID
    */
-  private buildTopics(thingName: string): JobsTopics {
+  private buildTopics(deviceUuid: string): JobsTopics {
     return {
-      startNext: `$aws/things/${thingName}/jobs/start-next`,
-      startNextAccepted: `$aws/things/${thingName}/jobs/start-next/accepted`,
-      startNextRejected: `$aws/things/${thingName}/jobs/start-next/rejected`,
-      updateAccepted: `$aws/things/${thingName}/jobs/+/update/accepted`,
-      updateRejected: `$aws/things/${thingName}/jobs/+/update/rejected`,
-      notifyNext: `$aws/things/${thingName}/jobs/notify-next`
+      startNext: `$iot/device/${deviceUuid}/jobs/start-next`,
+      startNextAccepted: `$iot/device/${deviceUuid}/jobs/start-next/accepted`,
+      startNextRejected: `$iot/device/${deviceUuid}/jobs/start-next/rejected`,
+      updateAccepted: `$iot/device/${deviceUuid}/jobs/+/update/accepted`,
+      updateRejected: `$iot/device/${deviceUuid}/jobs/+/update/rejected`,
+      notifyNext: `$iot/device/${deviceUuid}/jobs/notify-next`
     };
   }
 

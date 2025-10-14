@@ -123,7 +123,7 @@ export type JobDocument = z.infer<typeof JobDocumentSchema>;
  */
 export interface JobExecutionData {
   jobId: string;
-  thingName: string;
+  deviceUuid: string;
   jobDocument: JobDocument;
   status: JobStatus;
   queuedAt?: Date | undefined;
@@ -185,7 +185,7 @@ export interface JobsTopics {
  */
 export interface JobsConfig {
   enabled: boolean;
-  thingName: string;
+  deviceUuid: string;
   handlerDirectory: string;
   maxConcurrentJobs?: number;
   defaultHandlerTimeout?: number;

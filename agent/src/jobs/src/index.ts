@@ -13,7 +13,7 @@ import { JobsConfig, MqttConnection } from './types';
  */
 export function createJobsFeature(
   mqttConnection: MqttConnection,
-  config: Partial<JobsConfig> & { thingName: string }
+  config: Partial<JobsConfig> & { deviceUuid: string }
 ): JobsFeature {
   const logger = new ConsoleLogger();
   const notifier = new DefaultClientBaseNotifier(logger);

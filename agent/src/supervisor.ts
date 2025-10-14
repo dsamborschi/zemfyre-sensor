@@ -24,6 +24,7 @@ import { ContainerLogMonitor } from './logging/monitor';
 import type { LogBackend } from './logging/types';
 import { SSHTunnelManager } from './remote-access/ssh-tunnel';
 import { EnhancedJobEngine } from './jobs/src/enhanced-job-engine';
+import { SensorPublishFeature } from './sensor-publish';
 
 export default class DeviceSupervisor {
 	private containerManager!: ContainerManager;
@@ -35,8 +36,10 @@ export default class DeviceSupervisor {
 	private logMonitor?: ContainerLogMonitor;
 	private sshTunnel?: SSHTunnelManager;
 	private jobEngine?: EnhancedJobEngine;
+	private sensorPublish?: SensorPublishFeature;
 
 	private readonly ENABLE_JOB_ENGINE = process.env.ENABLE_JOB_ENGINE === 'true';
+	private readonly ENABLE_SENSOR_PUBLISH = process.env.ENABLE_SENSOR_PUBLISH === 'true';
 	private readonly DEVICE_API_PORT = parseInt(process.env.DEVICE_API_PORT || '48484', 10);
 	private readonly RECONCILIATION_INTERVAL = parseInt(
 		process.env.RECONCILIATION_INTERVAL_MS || '30000',
@@ -73,7 +76,10 @@ export default class DeviceSupervisor {
 			// 8. Initialize Job Engine (if enabled)
 			await this.initializeJobEngine();
 
-			// 9. Start auto-reconciliation
+			// 9. Initialize Sensor Publish Feature (if enabled)
+			await this.initializeSensorPublish();
+
+			// 10. Start auto-reconciliation
 			this.startAutoReconciliation();
 
 			console.log('='.repeat(80));
@@ -357,6 +363,88 @@ export default class DeviceSupervisor {
 			console.error('❌ Failed to initialize Job Engine:', error);
 			console.log('   Continuing without Job Engine');
 			this.jobEngine = undefined;
+		}
+	}
+
+	private async initializeSensorPublish(): Promise<void> {
+		if (!this.ENABLE_SENSOR_PUBLISH) {
+			console.log('⚠️  Sensor Publish disabled (set ENABLE_SENSOR_PUBLISH=true to enable)');
+			return;
+		}
+
+		console.log('📡 Initializing Sensor Publish Feature...');
+
+		try {
+			// Get device UUID
+			const deviceInfo = await this.deviceManager.getDeviceInfo();
+			if (!deviceInfo || !deviceInfo.uuid) {
+				console.error('❌ Device UUID not available, cannot initialize Sensor Publish');
+				return;
+			}
+
+			// Parse sensor configuration from environment
+			const sensorConfigStr = process.env.SENSOR_PUBLISH_CONFIG;
+			if (!sensorConfigStr) {
+				console.warn('⚠️  No SENSOR_PUBLISH_CONFIG environment variable found');
+				console.log('   Set SENSOR_PUBLISH_CONFIG with JSON configuration');
+				return;
+			}
+
+			let sensorConfig;
+			try {
+				sensorConfig = JSON.parse(sensorConfigStr);
+			} catch (error) {
+				console.error('❌ Failed to parse SENSOR_PUBLISH_CONFIG:', error);
+				return;
+			}
+
+			// Create MQTT connection wrapper (assuming you have MQTT backend available)
+			const mqttConnection = {
+				publish: async (topic: string, payload: string | Buffer, qos?: 0 | 1 | 2) => {
+					// If MQTT backend is available, use it
+					if (this.logBackends.find(b => b.constructor.name === 'MqttLogBackend')) {
+						const mqttBackend = this.logBackends.find(b => b.constructor.name === 'MqttLogBackend') as any;
+						if (mqttBackend && mqttBackend.publish) {
+							await mqttBackend.publish(topic, payload.toString(), qos);
+						}
+					} else {
+						console.warn('⚠️  MQTT backend not available, sensor data not published');
+					}
+				},
+				isConnected: () => {
+					const mqttBackend = this.logBackends.find(b => b.constructor.name === 'MqttLogBackend') as any;
+					return mqttBackend ? mqttBackend.isConnected() : false;
+				}
+			};
+
+			// Create simple logger
+			const sensorLogger = {
+				info: (message: string) => console.log(`[SensorPublish] ${message}`),
+				warn: (message: string) => console.warn(`[SensorPublish] ${message}`),
+				error: (message: string) => console.error(`[SensorPublish] ${message}`),
+				debug: (message: string) => {
+					if (process.env.SENSOR_PUBLISH_DEBUG === 'true') {
+						console.log(`[SensorPublish][DEBUG] ${message}`);
+					}
+				}
+			};
+
+			this.sensorPublish = new SensorPublishFeature(
+				sensorConfig,
+				mqttConnection,
+				sensorLogger,
+				deviceInfo.uuid
+			);
+
+			await this.sensorPublish.start();
+
+			console.log('✅ Sensor Publish Feature initialized');
+			console.log(`   Sensors configured: ${sensorConfig.sensors?.length || 0}`);
+			console.log('   MQTT Topic pattern: $iot/device/{deviceUuid}/sensor/{topic}');
+		} catch (error) {
+			console.error('❌ Failed to initialize Sensor Publish:', error);
+			console.log('   Continuing without Sensor Publish');
+			this.sensorPublish = undefined;
 		}
 	}
 

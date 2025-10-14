@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { useApplicationManagerStore } from '../../../../stores/application-manager'
+import { useApplicationManagerStore } from '../../../../stores/device-manager'
 import { VaCard, VaCardTitle, VaCardContent, VaIcon, VaBadge } from 'vuestic-ui'
 
 const applicationStore = useApplicationManagerStore()

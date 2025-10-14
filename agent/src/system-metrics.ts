@@ -83,15 +83,8 @@ export interface SystemMetrics {
  */
 export async function getNetworkInterfaces(): Promise<NetworkInterfaceInfo[]> {
 	try {
-		console.log('[Metrics] Fetching network interfaces...');
 		const interfaces = await systeminformation.networkInterfaces();
-		console.log(`[Metrics] Total interfaces found: ${interfaces.length}`);
-		if (interfaces.length > 0) {
-			console.log('[Metrics] First interface sample:', JSON.stringify(interfaces[0], null, 2));
-		}
-
 		const defaultIface = await systeminformation.networkInterfaceDefault();
-		console.log('[Metrics] Default interface:', defaultIface);
 
 		const formatted = interfaces.map((iface) => {
 			const base: NetworkInterfaceInfo = {
@@ -116,11 +109,7 @@ export async function getNetworkInterfaces(): Promise<NetworkInterfaceInfo[]> {
 			return base;
 		});
 
-		console.log(`[Metrics] Returning ${formatted.length} network interfaces`);
-		if (formatted.length > 0) {
-			console.log('[Metrics] Sample network interface:', formatted[0]);
-		}
-
+		console.log(`[Metrics] Network interfaces: ${formatted.length} found`);
 		return formatted;
 	} catch (error) {
 		console.error('[Metrics] Failed to get network interfaces:', error);
@@ -326,17 +315,12 @@ export async function isUndervolted(): Promise<boolean> {
  */
 export async function getTopProcesses(): Promise<ProcessInfo[]> {
 	try {
-		console.log('[Metrics] Fetching process list...');
-		
 		// Try to get all processes including system processes
 		const processes = await systeminformation.processes();
 		
-		console.log(`[Metrics] Total processes found: ${processes.list.length}`);
-		console.log(`[Metrics] Process data sample:`, JSON.stringify(processes.list.slice(0, 2), null, 2));
-		
 		// If systeminformation returns empty, try fallback method
 		if (processes.list.length === 0) {
-			console.log('[Metrics] systeminformation returned 0 processes, trying ps command fallback...');
+			console.log('[Metrics] No processes from systeminformation, using fallback');
 			return await getTopProcessesFallback();
 		}
 		
@@ -345,8 +329,6 @@ export async function getTopProcesses(): Promise<ProcessInfo[]> {
 		const userProcesses = processes.list.filter(proc => 
 			!proc.name.startsWith('[') && proc.name !== ''
 		);
-		
-		console.log(`[Metrics] User processes after filtering: ${userProcesses.length}`);
 		
 		// Sort by combined CPU and memory score (weighted)
 		// CPU gets 60% weight, memory gets 40% weight
@@ -359,8 +341,6 @@ export async function getTopProcesses(): Promise<ProcessInfo[]> {
 		// Take top 10
 		const topProcs = sortedProcesses.slice(0, 10);
 		
-		console.log(`[Metrics] Returning top ${topProcs.length} processes`);
-		
 		// Format for our interface
 		const formattedProcs = topProcs.map(proc => ({
 			pid: proc.pid,
@@ -370,8 +350,7 @@ export async function getTopProcesses(): Promise<ProcessInfo[]> {
 			command: proc.command || proc.name,
 		}));
 		
-		console.log('[Metrics] Sample processes:', formattedProcs.slice(0, 3));
-		
+		console.log(`[Metrics] Top processes: ${formattedProcs.length} collected`);
 		return formattedProcs;
 	} catch (error) {
 		console.error('[Metrics] Failed to get top processes:', error);
@@ -389,28 +368,14 @@ async function getTopProcessesFallback(): Promise<ProcessInfo[]> {
 	try {
 		// Use ps command to get process info
 		// Format: PID %CPU %MEM COMMAND
-		const { stdout, stderr } = await exec('ps aux --sort=-%cpu | head -n 11 | tail -n +2');
-		
-		console.log('[Metrics] ps command stdout length:', stdout.length);
-		console.log('[Metrics] ps command stderr:', stderr);
-		
-		if (stdout.length === 0) {
-			console.log('[Metrics] ps command returned empty output');
-			// Try simpler ps command
-			const { stdout: simpleOut } = await exec('ps aux');
-			console.log('[Metrics] Simple ps output length:', simpleOut.length);
-			console.log('[Metrics] Simple ps first 500 chars:', simpleOut.substring(0, 500));
-		}
+		const { stdout } = await exec('ps aux --sort=-%cpu | head -n 11 | tail -n +2');
 		
 		const lines = stdout.trim().split('\n');
-		console.log('[Metrics] ps output lines:', lines.length);
-		
 		const processes: ProcessInfo[] = [];
 		
 		for (const line of lines) {
 			// Parse ps output: USER PID %CPU %MEM VSZ RSS TTY STAT START TIME COMMAND
 			const parts = line.trim().split(/\s+/);
-			console.log('[Metrics] Parsing line with', parts.length, 'parts:', parts.slice(0, 5));
 			
 			if (parts.length >= 11) {
 				const pid = parseInt(parts[1]);
@@ -429,10 +394,7 @@ async function getTopProcessesFallback(): Promise<ProcessInfo[]> {
 			}
 		}
 		
-		console.log(`[Metrics] Fallback found ${processes.length} processes`);
-		if (processes.length > 0) {
-			console.log('[Metrics] First process:', processes[0]);
-		}
+		console.log(`[Metrics] Fallback: ${processes.length} processes found`);
 		return processes;
 	} catch (error) {
 		console.error('[Metrics] Fallback method also failed:', error);

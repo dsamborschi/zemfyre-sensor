@@ -21,7 +21,10 @@
       "env": {
         "CLOUD_API_ENDPOINT": "http://localhost:4002",
         "LOG_COMPRESSION": "true",
-        "PROVISIONING_API_KEY": "your_provisioning_api_key_64_chars_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+        "ENABLE_SENSOR_PUBLISH": "true",
+        "ENABLE_JOB_ENGINE": "true",
+        "PROVISIONING_API_KEY": "your_provisioning_api_key_64_chars_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "SENSOR_PUBLISH_CONFIG": "{\"sensors\":[{\"name\":\"sensor1\",\"addr\":\"/tmp/sensor1.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000}]}"
       }
     },
     {
