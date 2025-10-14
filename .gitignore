@@ -50,5 +50,6 @@ Thumbs.db
 *.tmp
 *.temp
 .cache/
+balena/
 
 
