@@ -17,7 +17,6 @@ if (Test-Path $dbPath) {
 }
 
 # Set environment variables
-$env:USE_REAL_DOCKER = "false"  # Don't need Docker for provisioning test
 $env:CLOUD_API_ENDPOINT = "http://localhost:4002"
 $env:PROVISIONING_API_KEY = "test-provisioning-key-64chars-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 $env:DEVICE_NAME = "TestDevice-AutoDetect"

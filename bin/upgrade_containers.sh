@@ -47,7 +47,6 @@ cat > "$ENV_FILE" <<EOF
 DOCKER_TAG=${DOCKER_TAG}
 DEVICE_TYPE=${DEVICE_TYPE}
 MY_IP=${MY_IP}
-USE_REAL_DOCKER=true
 EOF
 
 # Add provisioning config if provided

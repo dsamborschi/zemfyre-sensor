@@ -14,7 +14,6 @@ services:
           - /var/run/docker.sock:/var/run/docker.sock
           - agent-data:/app/data
         environment:
-          - USE_REAL_DOCKER=${USE_REAL_DOCKER:-true}
           - NODE_ENV=production
           - DATABASE_PATH=/app/data/database.sqlite
           - MQTT_BROKER=mqtt://mosquitto:1883

@@ -112,9 +112,9 @@ export class ContainerManager extends EventEmitter {
 	private lastSavedCurrentStateHash: string = '';
 	private lastSavedTargetStateHash: string = '';
 
-	constructor(useRealDocker: boolean = false) {
+	constructor() {
 		super();
-		this.useRealDocker = useRealDocker;
+		this.useRealDocker = true;
 		console.log(`[ContainerManager] Creating DockerManager (platform: ${process.platform})`);
 		this.dockerManager = new DockerManager();
 	}
@@ -128,10 +128,8 @@ export class ContainerManager extends EventEmitter {
 		// Load target state from database
 		await this.loadTargetStateFromDB();
 		
-		// Sync current state from Docker if using real Docker
-		if (this.useRealDocker) {
-			await this.syncCurrentStateFromDocker();
-		}
+		// Sync current state from Docker
+		await this.syncCurrentStateFromDocker();
 		
 		console.log('✅ ContainerManager initialized');
 	}

@@ -36,7 +36,6 @@ export default class DeviceSupervisor {
 	private sshTunnel?: SSHTunnelManager;
 	private jobEngine?: EnhancedJobEngine;
 
-	private readonly USE_REAL_DOCKER = process.env.USE_REAL_DOCKER === 'true';
 	private readonly ENABLE_JOB_ENGINE = process.env.ENABLE_JOB_ENGINE === 'true';
 	private readonly DEVICE_API_PORT = parseInt(process.env.DEVICE_API_PORT || '48484', 10);
 	private readonly RECONCILIATION_INTERVAL = parseInt(
@@ -81,7 +80,6 @@ export default class DeviceSupervisor {
 			console.log('✅ Device Supervisor initialized successfully!');
 			console.log('='.repeat(80));
 			console.log(`Device API: http://localhost:${this.DEVICE_API_PORT}`);
-			console.log(`Docker Mode: ${this.USE_REAL_DOCKER ? 'REAL' : 'SIMULATED'}`);
 			console.log(`Auto-reconciliation: ${this.RECONCILIATION_INTERVAL}ms`);
 			console.log(`Cloud API: ${this.CLOUD_API_ENDPOINT || 'Not configured'}`);
 			console.log('='.repeat(80));
@@ -210,19 +208,17 @@ export default class DeviceSupervisor {
 
 	private async initializeContainerManager(): Promise<void> {
 		console.log('🐳 Initializing container manager...');
-		this.containerManager = new ContainerManager(this.USE_REAL_DOCKER);
+		this.containerManager = new ContainerManager();
 		await this.containerManager.init();
 
-		// Set up log monitor if using real Docker
-		if (this.USE_REAL_DOCKER) {
-			const docker = this.containerManager.getDocker();
-			if (docker) {
-				// Use all configured log backends
-				this.logMonitor = new ContainerLogMonitor(docker, this.logBackends);
-				this.containerManager.setLogMonitor(this.logMonitor);
-				await this.containerManager.attachLogsToAllContainers();
-				console.log(`✅ Log monitor attached to container manager (${this.logBackends.length} backend(s))`);
-			}
+		// Set up log monitor
+		const docker = this.containerManager.getDocker();
+		if (docker) {
+			// Use all configured log backends
+			this.logMonitor = new ContainerLogMonitor(docker, this.logBackends);
+			this.containerManager.setLogMonitor(this.logMonitor);
+			await this.containerManager.attachLogsToAllContainers();
+			console.log(`✅ Log monitor attached to container manager (${this.logBackends.length} backend(s))`);
 		}
 
 		console.log('✅ Container manager initialized');
@@ -365,12 +361,8 @@ export default class DeviceSupervisor {
 	}
 
 	private startAutoReconciliation(): void {
-		if (this.USE_REAL_DOCKER) {
-			this.containerManager.startAutoReconciliation(this.RECONCILIATION_INTERVAL);
-			console.log(`✅ Auto-reconciliation started (${this.RECONCILIATION_INTERVAL}ms)`);
-		} else {
-			console.log('⚠️  Auto-reconciliation disabled (simulation mode)');
-		}
+		this.containerManager.startAutoReconciliation(this.RECONCILIATION_INTERVAL);
+		console.log(`✅ Auto-reconciliation started (${this.RECONCILIATION_INTERVAL}ms)`);
 	}
 
 	public async stop(): Promise<void> {

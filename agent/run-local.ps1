@@ -6,7 +6,6 @@ Write-Host "🚀 Starting Device Agent (Windows + Docker Desktop)" -ForegroundCo
 Write-Host "=" * 80
 
 # Set environment variables
-$env:USE_REAL_DOCKER = "true"
 $env:CLOUD_API_ENDPOINT = "https://ce19202b-7e1a-4ea5-bb03-ef891d53ea3c.mock.pstmn.io"
 $env:NODE_ENV = "development"
 $env:DATABASE_PATH = "./data/database.sqlite"
@@ -18,7 +17,6 @@ $env:ENABLE_CLOUD_LOGGING = "false"
 
 Write-Host ""
 Write-Host "Environment Configuration:" -ForegroundColor Yellow
-Write-Host "  USE_REAL_DOCKER: $env:USE_REAL_DOCKER"
 Write-Host "  CLOUD_API_ENDPOINT: $env:CLOUD_API_ENDPOINT"
 Write-Host "  DATABASE_PATH: $env:DATABASE_PATH"
 Write-Host "  DEVICE_API_PORT: $env:DEVICE_API_PORT"
