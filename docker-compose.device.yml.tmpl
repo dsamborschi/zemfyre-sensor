@@ -14,15 +14,15 @@ services:
           - /var/run/docker.sock:/var/run/docker.sock
           - agent-data:/app/data
         environment:
-          - USE_REAL_DOCKER=true
+          - USE_REAL_DOCKER=${USE_REAL_DOCKER:-true}
           - NODE_ENV=production
           - DATABASE_PATH=/app/data/database.sqlite
           - MQTT_BROKER=mqtt://mosquitto:1883
           - ENABLE_FILE_LOGGING=false
           - MAX_LOGS=500
-          - CLOUD_API_ENDPOINT=http://10.0.0.60:4002
+          - CLOUD_API_ENDPOINT=${CLOUD_API_ENDPOINT:-}
           - LOG_COMPRESSION=true
-          - PROVISIONING_API_KEY=your_provisioning_api_key_64_chars_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+          - PROVISIONING_API_KEY=${PROVISIONING_API_KEY:-}
           - DEVICE_API_PORT=48484
           # SSH Reverse Tunnel (Remote Access)
           - ENABLE_REMOTE_ACCESS=${ENABLE_REMOTE_ACCESS:-false}

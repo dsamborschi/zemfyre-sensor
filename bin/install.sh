@@ -370,6 +370,8 @@ function upgrade_docker_containers() {
         DEVICE_TYPE="$DEVICE_TYPE" \
         GIT_BRANCH="${BRANCH}" \
         MODE="${MODE}" \
+        PROVISIONING_API_KEY="${PROVISIONING_API_KEY:-}" \
+        CLOUD_API_ENDPOINT="${CLOUD_API_ENDPOINT:-}" \
         "${UPGRADE_SCRIPT_PATH}"
 }
 
@@ -682,11 +684,39 @@ function main() {
         }
     fi
 
+    # 🔹 Provisioning Setup
+    PROVISIONING_API_KEY="${PROVISIONING_API_KEY:-}"
+    CLOUD_API_ENDPOINT="${CLOUD_API_ENDPOINT:-}"
+    
+    if [ "$IS_CI_MODE" = false ] && [ -z "$PROVISIONING_API_KEY" ]; then
+        gum format ""
+        gum format "### 🔐 Device Provisioning Setup"
+        gum format ""
+        gum format "Enter your **provisioning API key** to enable automatic device registration."
+        gum format "Leave blank to skip (you can provision manually later)."
+        gum format ""
+        echo -n "Provisioning API Key: "
+        read -s PROVISIONING_API_KEY
+        echo ""
+        
+        if [ -n "$PROVISIONING_API_KEY" ]; then
+            gum format "Cloud API Endpoint [default: http://10.0.0.60:4002]:"
+            read CLOUD_API_ENDPOINT
+            CLOUD_API_ENDPOINT="${CLOUD_API_ENDPOINT:-http://10.0.0.60:4002}"
+        fi
+    fi
+
     display_section "User Input Summary"
     gum format "**Manage Network:**     ${MANAGE_NETWORK}"
     gum format "**Branch/Tag:**         \`${BRANCH}\`"
     gum format "**System Upgrade:**     ${SYSTEM_UPGRADE}"
     gum format "**Docker Tag Prefix:**  \`${DOCKER_TAG}\`"
+    if [ -n "$PROVISIONING_API_KEY" ]; then
+        gum format "**Provisioning:**       ✅ Enabled"
+        gum format "**Cloud Endpoint:**     \`${CLOUD_API_ENDPOINT}\`"
+    else
+        gum format "**Provisioning:**       ⚠️  Skipped (manual setup required)"
+    fi
 
     if [ ! -d "${IOTISTIC_REPO_DIR}" ]; then
         mkdir "${IOTISTIC_REPO_DIR}"
