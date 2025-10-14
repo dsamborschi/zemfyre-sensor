@@ -695,7 +695,7 @@ function main() {
         gum format "Enter your **provisioning API key** to enable automatic device registration."
         gum format "Leave blank to skip (you can provision manually later)."
         echo ""
-        read -p "Provisioning API Key: " -s PROVISIONING_API_KEY
+        read -p "Provisioning API Key: " PROVISIONING_API_KEY
         echo ""
         
         if [ -n "$PROVISIONING_API_KEY" ]; then
