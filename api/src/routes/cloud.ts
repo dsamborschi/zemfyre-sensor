@@ -60,16 +60,27 @@ router.post('/api/v1/device/register', async (req, res) => {
     let device = await DeviceModel.getByUuid(uuid);
     
     if (device) {
-      console.log('⚠️  Device already registered, updating...');
-      // Update existing device
-      // In production, you might want to validate this is a re-registration scenario
+      console.log('⚠️  Device already registered, updating metadata...');
     } else {
       // Create new device
       device = await DeviceModel.getOrCreate(uuid);
+      console.log('✅ New device created');
     }
 
-    // Store device metadata (implementation depends on your DeviceModel)
-    // For now, we'll just return success with the device info
+    // Store device metadata in the database
+    device = await DeviceModel.update(uuid, {
+      device_name: deviceName,
+      device_type: deviceType,
+      provisioning_state: 'registered',
+      status: 'online',
+      mac_address: macAddress,
+      os_version: osVersion,
+      supervisor_version: supervisorVersion,
+      is_online: true,
+      is_active: true
+    });
+
+    console.log(`✅ Device metadata stored: ${deviceName} (${deviceType}) - State: registered, Status: online`)
 
     const response = {
       id: device.id,
@@ -271,6 +282,18 @@ router.patch('/api/v1/device/state', async (req, res) => {
         }
       );
 
+      // Update device table with IP address and system info
+      const updateFields: any = {};
+      if (deviceState.ip_address) updateFields.ip_address = deviceState.ip_address;
+      if (deviceState.local_ip) updateFields.ip_address = deviceState.local_ip; // Agent sends local_ip
+      if (deviceState.mac_address) updateFields.mac_address = deviceState.mac_address;
+      if (deviceState.os_version) updateFields.os_version = deviceState.os_version;
+      if (deviceState.supervisor_version) updateFields.supervisor_version = deviceState.supervisor_version;
+      
+      if (Object.keys(updateFields).length > 0) {
+        await DeviceModel.update(uuid, updateFields);
+      }
+
       // Record metrics if provided
       if (
         deviceState.cpu_usage !== undefined ||
@@ -320,6 +343,8 @@ router.get('/api/v1/devices', async (req, res) => {
           uuid: device.uuid,
           device_name: device.device_name,
           device_type: device.device_type,
+          provisioning_state: device.provisioning_state,
+          status: device.status,
           is_online: device.is_online,
           last_connectivity_event: device.last_connectivity_event,
           ip_address: device.ip_address,

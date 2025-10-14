@@ -268,6 +268,35 @@ export async function getHostname(): Promise<string> {
 	}
 }
 
+/**
+ * Get primary MAC address (from default network interface)
+ */
+export async function getMacAddress(): Promise<string | undefined> {
+	try {
+		const defaultIface = await systeminformation.networkInterfaceDefault();
+		const interfaces = await systeminformation.networkInterfaces();
+		const primaryInterface = interfaces.find(i => i.iface === defaultIface);
+		return primaryInterface?.mac || undefined;
+	} catch (error) {
+		console.error('[Metrics] Failed to get MAC address:', error);
+		return undefined;
+	}
+}
+
+/**
+ * Get OS version string
+ */
+export async function getOsVersion(): Promise<string | undefined> {
+	try {
+		const osInfo = await systeminformation.osInfo();
+		// Format: "Debian GNU/Linux 12 (bookworm)" or similar
+		return `${osInfo.distro} ${osInfo.release}${osInfo.codename ? ` (${osInfo.codename})` : ''}`;
+	} catch (error) {
+		console.error('[Metrics] Failed to get OS version:', error);
+		return undefined;
+	}
+}
+
 // ============================================================================
 // HEALTH CHECKS
 // ============================================================================

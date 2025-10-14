@@ -328,6 +328,8 @@ export class ApiBinder extends EventEmitter {
 			[deviceInfo.uuid]: {
 				apps: currentState.apps,
 				is_online: true,
+				os_version: deviceInfo.osVersion,
+				supervisor_version: deviceInfo.supervisorVersion,
 			},
 		};
 		
@@ -343,6 +345,12 @@ export class ApiBinder extends EventEmitter {
 				stateReport[deviceInfo.uuid].temperature = metrics.cpu_temp ?? undefined;
 				stateReport[deviceInfo.uuid].uptime = metrics.uptime;
 				
+				// Get IP address from network interfaces
+				const primaryInterface = metrics.network_interfaces.find(i => i.default);
+				if (primaryInterface?.ip4) {
+					stateReport[deviceInfo.uuid].local_ip = primaryInterface.ip4;
+				}
+				
 				this.lastMetricsTime = now;
 			} catch (error) {
 				console.warn('⚠️  Failed to collect metrics:', error);
@@ -354,6 +362,8 @@ export class ApiBinder extends EventEmitter {
 			[deviceInfo.uuid]: {
 				apps: currentState.apps,
 				is_online: true,
+				os_version: deviceInfo.osVersion,
+				supervisor_version: deviceInfo.supervisorVersion,
 			},
 		};
 		

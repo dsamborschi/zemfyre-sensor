@@ -25,7 +25,7 @@ services:
             - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
             - POSTGRES_INITDB_ARGS=-E UTF8
         ports:
-            - "${DB_PORT_EXT:-5432}:5432"
+            - "5432:5432"
         volumes:
             - zemfyre-pg-data:/var/lib/postgresql/data
             - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro

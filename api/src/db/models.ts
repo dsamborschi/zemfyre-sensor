@@ -12,6 +12,8 @@ export interface Device {
   uuid: string;
   device_name?: string;
   device_type?: string;
+  provisioning_state?: string;
+  status?: string;
   is_online: boolean;
   is_active: boolean;
   last_connectivity_event?: Date;

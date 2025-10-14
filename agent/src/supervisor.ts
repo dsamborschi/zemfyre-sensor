@@ -106,17 +106,27 @@ export default class DeviceSupervisor {
 		
 		// Auto-provision if not yet provisioned, cloud endpoint is set, AND provisioning key is available
 		const provisioningApiKey = process.env.PROVISIONING_API_KEY;
-		if (!deviceInfo.provisioned && this.CLOUD_API_ENDPOINT && provisioningApiKey) {
+		if (!deviceInfo.provisioned && provisioningApiKey && this.CLOUD_API_ENDPOINT) {
 			console.log('⚙️  Auto-provisioning device with two-phase authentication...');
 			try {
+				// Auto-detect system information if not provided via env vars
+				const { getMacAddress, getOsVersion } = await import('./system-metrics.js');
+				const macAddress = process.env.MAC_ADDRESS || await getMacAddress();
+				const osVersion = process.env.OS_VERSION || await getOsVersion();
+				
+				console.log('📊 System information detected:', {
+					macAddress: macAddress ? `${macAddress.substring(0, 8)}...` : 'unknown',
+					osVersion: osVersion || 'unknown',
+				});
+				
 				await this.deviceManager.provision({
 					provisioningApiKey, // Required for two-phase auth
 					deviceName: process.env.DEVICE_NAME || `device-${deviceInfo.uuid.slice(0, 8)}`,
 					deviceType: process.env.DEVICE_TYPE || 'standalone',
 					apiEndpoint: this.CLOUD_API_ENDPOINT,
 					applicationId: process.env.APPLICATION_ID ? parseInt(process.env.APPLICATION_ID, 10) : undefined,
-					macAddress: process.env.MAC_ADDRESS,
-					osVersion: process.env.OS_VERSION,
+					macAddress,
+					osVersion,
 					supervisorVersion: process.env.SUPERVISOR_VERSION || '1.0.0',
 				});
 				deviceInfo = this.deviceManager.getDeviceInfo();
