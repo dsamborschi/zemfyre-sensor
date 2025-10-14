@@ -157,6 +157,11 @@ export class ContainerManager extends EventEmitter {
 			if (snapshots.length > 0) {
 				this.targetState = JSON.parse(snapshots[0].state);
 				
+				// Load the hash for future comparisons
+				if (snapshots[0].stateHash) {
+					this.lastSavedTargetStateHash = snapshots[0].stateHash;
+				}
+				
 				// Sanitize loaded state to ensure ports are strings
 				this.sanitizeState(this.targetState);
 				
@@ -186,7 +191,7 @@ export class ContainerManager extends EventEmitter {
 			
 			const stateJson = JSON.stringify(this.targetState);
 			
-			// Delete old target snapshots and insert new
+			// Delete old target snapshots and insert new (with hash)
 			await db.models('stateSnapshot')
 				.where({ type: 'target' })
 				.delete();
@@ -194,6 +199,7 @@ export class ContainerManager extends EventEmitter {
 			await db.models('stateSnapshot').insert({
 				type: 'target',
 				state: stateJson,
+				stateHash: stateHash,
 			});
 			console.log('✅ Saved target state to database');
 		} catch (error) {
@@ -219,7 +225,7 @@ export class ContainerManager extends EventEmitter {
 			
 			const stateJson = JSON.stringify(this.currentState);
 			
-			// Delete old current snapshots and insert new
+			// Delete old current snapshots and insert new (with hash)
 			await db.models('stateSnapshot')
 				.where({ type: 'current' })
 				.delete();
@@ -227,6 +233,7 @@ export class ContainerManager extends EventEmitter {
 			await db.models('stateSnapshot').insert({
 				type: 'current',
 				state: stateJson,
+				stateHash: stateHash,
 			});
 		} catch (error) {
 			console.error('Failed to save current state to DB:', error);
