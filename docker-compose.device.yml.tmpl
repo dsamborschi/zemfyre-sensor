@@ -20,7 +20,9 @@ services:
           - MQTT_BROKER=mqtt://mosquitto:1883
           - ENABLE_FILE_LOGGING=false
           - MAX_LOGS=500
-          - CLOUD_API_ENDPOINT=https://2c3bc43a-45f3-49c1-b03b-e2069cf3d97a.mock.pstmn.io
+          - CLOUD_API_ENDPOINT=http://10.0.0.60:4002
+          - LOG_COMPRESSION=true
+          - PROVISIONING_API_KEY=your_provisioning_api_key_64_chars_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
           - DEVICE_API_PORT=48484
           # SSH Reverse Tunnel (Remote Access)
           - ENABLE_REMOTE_ACCESS=${ENABLE_REMOTE_ACCESS:-false}

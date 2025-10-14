@@ -21,7 +21,7 @@
       "env": {
         "USE_REAL_DOCKER": "true",
         "CLOUD_API_ENDPOINT": "http://localhost:4002",
-        "LOG_COMPRESSION": "false",
+        "LOG_COMPRESSION": "true",
         "PROVISIONING_API_KEY": "your_provisioning_api_key_64_chars_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
       }
     },
