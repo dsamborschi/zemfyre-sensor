@@ -25,6 +25,7 @@ import type { LogBackend } from './logging/types';
 import { SSHTunnelManager } from './remote-access/ssh-tunnel';
 import { EnhancedJobEngine } from './jobs/src/enhanced-job-engine';
 import { SensorPublishFeature } from './sensor-publish';
+import { ShadowFeature, ShadowConfig } from './shadow';
 
 export default class DeviceSupervisor {
 	private containerManager!: ContainerManager;
@@ -37,9 +38,11 @@ export default class DeviceSupervisor {
 	private sshTunnel?: SSHTunnelManager;
 	private jobEngine?: EnhancedJobEngine;
 	private sensorPublish?: SensorPublishFeature;
-
+	private shadowFeature?: ShadowFeature;
+	
 	private readonly ENABLE_JOB_ENGINE = process.env.ENABLE_JOB_ENGINE === 'true';
 	private readonly ENABLE_SENSOR_PUBLISH = process.env.ENABLE_SENSOR_PUBLISH === 'true';
+	private readonly ENABLE_SHADOW = process.env.ENABLE_SHADOW === 'true';
 	private readonly DEVICE_API_PORT = parseInt(process.env.DEVICE_API_PORT || '48484', 10);
 	private readonly RECONCILIATION_INTERVAL = parseInt(
 		process.env.RECONCILIATION_INTERVAL_MS || '30000',
@@ -79,7 +82,10 @@ export default class DeviceSupervisor {
 			// 9. Initialize Sensor Publish Feature (if enabled)
 			await this.initializeSensorPublish();
 
-			// 10. Start auto-reconciliation
+			// 10. Initialize Shadow Feature (if enabled)
+			await this.initializeShadowFeature();
+
+			// 11. Start auto-reconciliation
 			this.startAutoReconciliation();
 
 			console.log('='.repeat(80));
@@ -448,6 +454,134 @@ export default class DeviceSupervisor {
 		}
 	}
 
+	private async initializeShadowFeature(): Promise<void> {
+		if (!this.ENABLE_SHADOW) {
+			console.log('⏭️  Shadow Feature disabled (set ENABLE_SHADOW=true to enable)');
+			return;
+		}
+
+		console.log('🔮 Initializing Shadow Feature...');
+
+		try {
+			// Get device UUID (thing name)
+			const deviceInfo = await this.deviceManager.getDeviceInfo();
+			if (!deviceInfo || !deviceInfo.uuid) {
+				console.error('❌ Device UUID not available, cannot initialize Shadow Feature');
+				return;
+			}
+
+			// Parse shadow configuration from environment
+			const shadowConfig: ShadowConfig = {
+				enabled: true,
+				shadowName: process.env.SHADOW_NAME || 'device-state',
+				inputFile: process.env.SHADOW_INPUT_FILE,
+				outputFile: process.env.SHADOW_OUTPUT_FILE || `${process.env.DATA_DIR || '/app/data'}/shadow-document.json`,
+				syncOnDelta: process.env.SHADOW_SYNC_ON_DELTA !== 'false',
+				enableFileMonitor: process.env.SHADOW_FILE_MONITOR === 'true',
+				publishInterval: process.env.SHADOW_PUBLISH_INTERVAL 
+					? parseInt(process.env.SHADOW_PUBLISH_INTERVAL, 10) 
+					: undefined,
+			};
+
+			// Create MQTT connection wrapper (reusing the same pattern as SensorPublish)
+			const mqttConnection = {
+				publish: async (topic: string, payload: string | Buffer, qos?: 0 | 1 | 2) => {
+					// If MQTT backend is available, use it
+					const mqttBackend = this.logBackends.find(b => b.constructor.name === 'MqttLogBackend') as any;
+					if (mqttBackend && mqttBackend.publish) {
+						await mqttBackend.publish(topic, payload.toString(), qos);
+					} else {
+						console.warn('⚠️  MQTT backend not available, shadow updates not published');
+					}
+				},
+				subscribe: async (topic: string, qos?: 0 | 1 | 2, handler?: (topic: string, payload: Buffer) => void) => {
+					const mqttBackend = this.logBackends.find(b => b.constructor.name === 'MqttLogBackend') as any;
+					if (mqttBackend && mqttBackend.subscribe) {
+						await mqttBackend.subscribe(topic, qos, handler);
+					} else {
+						console.warn('⚠️  MQTT backend not available, cannot subscribe to shadow topics');
+					}
+				},
+				unsubscribe: async (topic: string) => {
+					const mqttBackend = this.logBackends.find(b => b.constructor.name === 'MqttLogBackend') as any;
+					if (mqttBackend && mqttBackend.unsubscribe) {
+						await mqttBackend.unsubscribe(topic);
+					}
+				},
+				isConnected: () => {
+					const mqttBackend = this.logBackends.find(b => b.constructor.name === 'MqttLogBackend') as any;
+					return mqttBackend ? mqttBackend.isConnected() : false;
+				}
+			};
+
+			// Create simple logger
+			const shadowLogger = {
+				info: (message: string) => console.log(`[Shadow] ${message}`),
+				warn: (message: string) => console.warn(`[Shadow] ${message}`),
+				error: (message: string) => console.error(`[Shadow] ${message}`),
+				debug: (message: string) => {
+					if (process.env.SHADOW_DEBUG === 'true') {
+						console.log(`[Shadow][DEBUG] ${message}`);
+					}
+				}
+			};
+
+			this.shadowFeature = new ShadowFeature(
+				shadowConfig,
+				mqttConnection,
+				shadowLogger,
+				deviceInfo.uuid
+			);
+
+			// Set up event handlers
+			this.shadowFeature.on('started', () => {
+				console.log('✅ Shadow Feature started');
+			});
+
+			this.shadowFeature.on('update-accepted', (response) => {
+				if (process.env.SHADOW_DEBUG === 'true') {
+					console.log(`[Shadow] Update accepted (version: ${response.version})`);
+				}
+			});
+
+			this.shadowFeature.on('update-rejected', (error) => {
+				console.error(`[Shadow] Update rejected: ${error.message} (code: ${error.code})`);
+			});
+
+			this.shadowFeature.on('delta-updated', (event) => {
+				console.log(`[Shadow] Delta received (version: ${event.version})`);
+				if (process.env.SHADOW_DEBUG === 'true') {
+					console.log(`[Shadow] Delta state:`, event.state);
+				}
+			});
+
+			this.shadowFeature.on('error', (error) => {
+				console.error(`[Shadow] Error: ${error.message}`);
+			});
+
+			await this.shadowFeature.start();
+
+			console.log('✅ Shadow Feature initialized');
+			console.log(`   Shadow name: ${shadowConfig.shadowName}`);
+			console.log(`   Thing name: ${deviceInfo.uuid}`);
+			console.log(`   Auto-sync on delta: ${shadowConfig.syncOnDelta}`);
+			console.log(`   File monitor: ${shadowConfig.enableFileMonitor ? 'Enabled' : 'Disabled'}`);
+			if (shadowConfig.inputFile) {
+				console.log(`   Input file: ${shadowConfig.inputFile}`);
+			}
+			if (shadowConfig.outputFile) {
+				console.log(`   Output file: ${shadowConfig.outputFile}`);
+			}
+			if (shadowConfig.publishInterval) {
+				console.log(`   Publish interval: ${shadowConfig.publishInterval}ms`);
+			}
+		} catch (error) {
+			console.error('❌ Failed to initialize Shadow Feature:', error);
+			console.log('   Continuing without Shadow Feature');
+			this.shadowFeature = undefined;
+		}
+	}
+
 	private startAutoReconciliation(): void {
 		this.containerManager.startAutoReconciliation(this.RECONCILIATION_INTERVAL);
 		console.log(`✅ Auto-reconciliation started (${this.RECONCILIATION_INTERVAL}ms)`);
@@ -457,6 +591,18 @@ export default class DeviceSupervisor {
 		console.log('🛑 Stopping Device Supervisor...');
 
 		try {
+			// Stop Shadow Feature
+			if (this.shadowFeature) {
+				await this.shadowFeature.stop();
+				console.log('✅ Shadow Feature stopped');
+			}
+
+			// Stop Sensor Publish
+			if (this.sensorPublish) {
+				await this.sensorPublish.stop();
+				console.log('✅ Sensor Publish stopped');
+			}
+
 			// Stop Job Engine
 			if (this.jobEngine) {
 				// Clean up any scheduled or running jobs

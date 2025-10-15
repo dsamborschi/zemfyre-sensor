@@ -1,5 +1,0 @@
-/* Minimal Material UI CSS placeholder for offline use. For full offline support, download the real MUI CSS. */
-body { font-family: 'Roboto', Arial, sans-serif; background: #f5f5f5; margin: 0; }
-.MuiAppBar-root { background: #1976d2; color: #fff; }
-.MuiButton-root { margin-left: 8px; }
-.MuiContainer-root { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); padding: 32px; margin-top: 32px; }

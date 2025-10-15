@@ -40,16 +40,7 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const grafana_1 = __importDefault(require("./routes/grafana"));
 const notify_1 = __importDefault(require("./routes/notify"));
-const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
-let cloudRoutes;
-if (USE_POSTGRES) {
-    console.log('🐘 Using PostgreSQL backend for device state');
-    cloudRoutes = require('./routes/cloud-postgres').default;
-}
-else {
-    console.log('💾 Using in-memory backend for device state');
-    cloudRoutes = require('./routes/cloud').default;
-}
+const cloud_1 = __importDefault(require("./routes/cloud"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3002;
 app.use((0, cors_1.default)());
@@ -69,7 +60,7 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
     res.json({
         status: 'ok',
-        service: 'Zemfyre Unified API',
+        service: 'Iotistic Unified API',
         version: '2.0.0',
         documentation: '/api/docs'
     });
@@ -122,7 +113,7 @@ app.get('/api/docs', (req, res) => {
 });
 app.use(grafana_1.default);
 app.use(notify_1.default);
-app.use(cloudRoutes);
+app.use(cloud_1.default);
 app.use((req, res) => {
     res.status(404).json({
         error: 'Not found',
@@ -139,23 +130,19 @@ app.use((err, req, res, next) => {
 });
 async function startServer() {
     console.log('🚀 Initializing Zemfyre Unified API...\n');
-    if (USE_POSTGRES) {
-        try {
-            const db = await Promise.resolve().then(() => __importStar(require('./db/connection')));
-            const connected = await db.testConnection();
-            if (!connected) {
-                console.error('❌ Failed to connect to PostgreSQL. Falling back to in-memory mode.');
-                cloudRoutes = require('./routes/cloud').default;
-            }
-            else {
-                await db.initializeSchema();
-            }
+    try {
+        const db = await Promise.resolve().then(() => __importStar(require('./db/connection')));
+        const connected = await db.testConnection();
+        if (!connected) {
+            console.error('❌ Failed to connect to PostgreSQL database');
+            process.exit(1);
         }
-        catch (error) {
-            console.error('❌ Database initialization error:', error);
-            console.log('⚠️  Falling back to in-memory mode');
-            cloudRoutes = require('./routes/cloud').default;
-        }
+        await db.initializeSchema();
+        console.log('✅ PostgreSQL database initialized successfully\n');
+    }
+    catch (error) {
+        console.error('❌ Database initialization error:', error);
+        process.exit(1);
     }
     const server = app.listen(PORT, () => {
         console.log('='.repeat(80));

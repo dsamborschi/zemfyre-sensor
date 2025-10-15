@@ -23,4 +23,5 @@ RUN apt-get update && apt-get install -y libnotify-bin
 
 EXPOSE 3002
 
-CMD ["npm", "start"]
+# Run node directly to avoid npm output buffering
+CMD ["node", "dist/index.js"]

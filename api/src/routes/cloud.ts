@@ -406,7 +406,7 @@ router.post('/api/v1/device/:uuid/key-exchange', keyExchangeLimiter, async (req,
 router.get('/api/v1/device/:uuid/state', async (req, res) => {
   try {
     const { uuid } = req.params;
-    const ifNoneMatch = req.headers['if-none-match'];
+    const ifNoneMatch = req.headers['If-None-Match'];
 
     // Get or create device
     await DeviceModel.getOrCreate(uuid);
@@ -414,8 +414,11 @@ router.get('/api/v1/device/:uuid/state', async (req, res) => {
     // Get target state
     const targetState = await DeviceTargetStateModel.get(uuid);
 
+    console.log(`📡 Device ${uuid.substring(0, 8)}... polling for target state`);
+    
     if (!targetState) {
       // No target state yet - return empty state
+      console.log('   No target state found - returning empty');
       const emptyState = { [uuid]: { apps: {} } };
       const etag = Buffer.from(JSON.stringify(emptyState))
         .toString('base64')
@@ -425,11 +428,19 @@ router.get('/api/v1/device/:uuid/state', async (req, res) => {
 
     // Generate ETag
     const etag = DeviceTargetStateModel.generateETag(targetState);
+    
+    console.log(`   Version: ${targetState.version}, Updated: ${targetState.updated_at}`);
+    console.log(`   Generated ETag: ${etag}`);
+    console.log(`   Client ETag:    ${ifNoneMatch || 'none'}`);
+    console.log(`   Apps in DB: ${JSON.stringify(Object.keys(targetState.apps || {}))}`);
 
     // Check if client has current version
     if (ifNoneMatch && ifNoneMatch === etag) {
+      console.log('   ✅ ETags match - returning 304 Not Modified');
       return res.status(304).end();
     }
+    
+    console.log('   🎯 ETags differ - sending new state');
 
     // Return target state
     const response = {

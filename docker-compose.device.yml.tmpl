@@ -16,7 +16,7 @@ services:
         environment:
           - NODE_ENV=production
           - DATABASE_PATH=/app/data/database.sqlite
-          - MQTT_BROKER=mqtt://mosquitto:1883
+          - MQTT_BROKER=mqtt://localhost:5883
           - ENABLE_FILE_LOGGING=false
           - MAX_LOGS=500
           - CLOUD_API_ENDPOINT=${CLOUD_API_ENDPOINT:-}

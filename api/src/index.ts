@@ -9,18 +9,8 @@ import cors from 'cors';
 // Import route modules
 import grafanaRoutes from './routes/grafana';
 import notifyRoutes from './routes/notify';
+import cloudRoutes from './routes/cloud';
 
-// Choose cloud routes based on configuration
-const USE_POSTGRES = process.env.USE_POSTGRES === 'true';
-let cloudRoutes: any;
-
-if (USE_POSTGRES) {
-  console.log('🐘 Using PostgreSQL backend for device state');
-  cloudRoutes = require('./routes/cloud-postgres').default;
-} else {
-  console.log('💾 Using in-memory backend for device state');
-  cloudRoutes = require('./routes/cloud').default;
-}
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -50,7 +40,7 @@ app.use((req, res, next) => {
 app.get('/', (req, res) => {
   res.json({
     status: 'ok',
-    service: 'Zemfyre Unified API',
+    service: 'Iotistic Unified API',
     version: '2.0.0',
     documentation: '/api/docs'
   });
@@ -131,29 +121,27 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 async function startServer() {
   console.log('🚀 Initializing Zemfyre Unified API...\n');
 
-  // Initialize database if using PostgreSQL
-  if (USE_POSTGRES) {
-    try {
-      const db = await import('./db/connection');
-      const connected = await db.testConnection();
-      
-      if (!connected) {
-        console.error('❌ Failed to connect to PostgreSQL. Falling back to in-memory mode.');
-        cloudRoutes = require('./routes/cloud').default;
-      } else {
-        // Initialize schema
-        await db.initializeSchema();
-      }
-    } catch (error) {
-      console.error('❌ Database initialization error:', error);
-      console.log('⚠️  Falling back to in-memory mode');
-      cloudRoutes = require('./routes/cloud').default;
+  // Initialize PostgreSQL database
+  try {
+    const db = await import('./db/connection');
+    const connected = await db.testConnection();
+    
+    if (!connected) {
+      console.error('❌ Failed to connect to PostgreSQL database');
+      process.exit(1);
     }
+    
+    // Initialize schema
+    await db.initializeSchema();
+    console.log('✅ PostgreSQL database initialized successfully\n');
+  } catch (error) {
+    console.error('❌ Database initialization error:', error);
+    process.exit(1);
   }
 
   const server = app.listen(PORT, () => {
     console.log('='.repeat(80));
-    console.log('☁️  Zemfyre Unified API Server');
+    console.log('☁️  Iotistic Unified API Server');
     console.log('='.repeat(80));
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Documentation: http://localhost:${PORT}/api/docs`);

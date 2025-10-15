@@ -47,13 +47,24 @@ export class MqttLogBackend implements LogBackend {
 
 	public async connect(): Promise<void> {
 		return new Promise((resolve, reject) => {
+			// Add connection timeout (10 seconds)
+			const connectionTimeout = setTimeout(() => {
+				if (!this.connected && this.client) {
+					this.debugLog('Connection timeout - MQTT broker not responding');
+					this.client.end(true); // Force close
+					reject(new Error(`MQTT connection timeout after 10s: ${this.options.brokerUrl}`));
+				}
+			}, 10000);
+
 			try {
 				this.client = mqtt.connect(this.options.brokerUrl, {
 					...this.options.clientOptions,
 					reconnectPeriod: 5000,
+					connectTimeout: 10000, // 10 second timeout
 				});
 
 				this.client.on('connect', () => {
+					clearTimeout(connectionTimeout);
 					this.connected = true;
 					this.debugLog('Connected to MQTT broker');
 					resolve();
@@ -62,6 +73,7 @@ export class MqttLogBackend implements LogBackend {
 				this.client.on('error', (error: Error) => {
 					this.debugLog('MQTT error: ' + error.message);
 					if (!this.connected) {
+						clearTimeout(connectionTimeout);
 						reject(error);
 					}
 				});
@@ -76,10 +88,12 @@ export class MqttLogBackend implements LogBackend {
 				});
 
 				this.client.on('close', () => {
+					clearTimeout(connectionTimeout);
 					this.connected = false;
 					this.debugLog('MQTT connection closed');
 				});
 			} catch (error) {
+				clearTimeout(connectionTimeout);
 				reject(error);
 			}
 		});
@@ -242,5 +256,87 @@ export class MqttLogBackend implements LogBackend {
 
 	public isConnected(): boolean {
 		return this.connected;
+	}
+
+	// Additional methods for direct MQTT operations (used by Shadow feature)
+	public async publish(topic: string, payload: string | Buffer, qos?: 0 | 1 | 2): Promise<void> {
+		if (!this.client || !this.connected) {
+			throw new Error('MQTT client not connected');
+		}
+
+		return new Promise((resolve, reject) => {
+			this.client!.publish(
+				topic,
+				payload,
+				{ qos: qos !== undefined ? qos : this.options.qos },
+				(error?: Error) => {
+					if (error) {
+						reject(error);
+					} else {
+						resolve();
+					}
+				}
+			);
+		});
+	}
+
+	public async subscribe(topic: string, qos?: 0 | 1 | 2, handler?: (topic: string, payload: Buffer) => void): Promise<void> {
+		if (!this.client || !this.connected) {
+			throw new Error('MQTT client not connected');
+		}
+
+		return new Promise((resolve, reject) => {
+			this.client!.subscribe(topic, { qos: qos !== undefined ? qos : this.options.qos }, (error) => {
+				if (error) {
+					reject(error);
+				} else {
+					if (handler) {
+						// Set up message handler for this topic
+						this.client!.on('message', (receivedTopic, payload) => {
+							if (this.topicMatches(receivedTopic, topic)) {
+								handler(receivedTopic, payload);
+							}
+						});
+					}
+					resolve();
+				}
+			});
+		});
+	}
+
+	public async unsubscribe(topic: string): Promise<void> {
+		if (!this.client || !this.connected) {
+			throw new Error('MQTT client not connected');
+		}
+
+		return new Promise((resolve, reject) => {
+			this.client!.unsubscribe(topic, (error) => {
+				if (error) {
+					reject(error);
+				} else {
+					resolve();
+				}
+			});
+		});
+	}
+
+	// Helper to match MQTT topics with wildcards
+	private topicMatches(actualTopic: string, filterTopic: string): boolean {
+		const actualParts = actualTopic.split('/');
+		const filterParts = filterTopic.split('/');
+
+		for (let i = 0; i < filterParts.length; i++) {
+			if (filterParts[i] === '#') {
+				return true; // Multi-level wildcard matches everything after
+			}
+			if (filterParts[i] === '+') {
+				continue; // Single-level wildcard matches any single level
+			}
+			if (actualParts[i] !== filterParts[i]) {
+				return false;
+			}
+		}
+
+		return actualParts.length === filterParts.length;
 	}
 }

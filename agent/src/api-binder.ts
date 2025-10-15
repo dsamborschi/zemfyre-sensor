@@ -198,6 +198,10 @@ export class ApiBinder extends EventEmitter {
 		const endpoint = `${this.config.cloudApiEndpoint}/api/v1/device/${deviceInfo.uuid}/state`;
 		
 		try {
+			console.log('📡 Polling target state...');
+			console.log(`   Endpoint: ${endpoint}`);
+			console.log(`   Current ETag: ${this.targetStateETag || 'none'}`);
+			
 			const response = await fetch(endpoint, {
 				method: 'GET',
 				headers: {
@@ -207,9 +211,10 @@ export class ApiBinder extends EventEmitter {
 				signal: AbortSignal.timeout(this.config.apiTimeout),
 			});
 			
+			console.log(`   Response Status: ${response.status}`);
+			
 			// 304 Not Modified - target state unchanged
 			if (response.status === 304) {
-				console.log('📡 Target state unchanged (304)');
 				return;
 			}
 			
@@ -219,6 +224,7 @@ export class ApiBinder extends EventEmitter {
 			
 			// Get ETag for next request
 			const etag = response.headers.get('etag');
+			console.log(`   New ETag from server: ${etag || 'none'}`);
 			if (etag) {
 				this.targetStateETag = etag;
 			}

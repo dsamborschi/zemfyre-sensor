@@ -1,6 +1,0 @@
-/* Minimal Roboto font-face for offline use. For full offline support, download the Roboto font files and reference them here. */
-@font-face {
-  font-family: 'Roboto';
-  src: local('Roboto'), local('Arial');
-}
-body { font-family: 'Roboto', Arial, sans-serif; }

@@ -1,19 +1,16 @@
+/**
+ * Main Jest configuration - runs all tests (unit + integration)
+ */
+
 module.exports = {
-  preset: 'ts-jest',
-  testEnvironment: 'node',
-  roots: ['<rootDir>/test'],
-  testMatch: ['**/*.spec.ts'],
-  moduleFileExtensions: ['ts', 'js', 'json'],
+  projects: [
+    '<rootDir>/jest.config.unit.js',
+    '<rootDir>/jest.config.integration.js',
+  ],
   collectCoverageFrom: [
     'src/**/*.ts',
     '!src/**/*.d.ts',
     '!src/migrations/**',
   ],
   coverageDirectory: 'coverage',
-  verbose: true,
-  globals: {
-    'ts-jest': {
-      tsconfig: '<rootDir>/test/tsconfig.json'
-    }
-  }
 };

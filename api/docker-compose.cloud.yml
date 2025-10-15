@@ -8,7 +8,6 @@
 #   - Zemfyre API server with Balena-style endpoints
 #
 # Environment variables (configure in .env):
-#   - USE_POSTGRES=true         # Enable PostgreSQL backend
 #   - DB_PASSWORD=<password>    # PostgreSQL password
 #   - DB_PORT_EXT=5432          # External PostgreSQL port
 #   - API_PORT_EXT=3002         # External API port
@@ -22,13 +21,18 @@ services:
         environment:
             - POSTGRES_DB=iotistic
             - POSTGRES_USER=postgres
-            - POSTGRES_PASSWORD=${DB_PASSWORD:-postgres}
-            - POSTGRES_INITDB_ARGS=-E UTF8
+            - POSTGRES_PASSWORD=postgres
         ports:
             - "5432:5432"
         volumes:
             - zemfyre-pg-data:/var/lib/postgresql/data
             - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+            - ./database/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+            - ./database/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+        command: >
+            postgres
+            -c config_file=/etc/postgresql/postgresql.conf
+            -c hba_file=/etc/postgresql/pg_hba.conf
         healthcheck:
             test: ["CMD-SHELL", "pg_isready -U postgres"]
             interval: 10s
@@ -43,10 +47,16 @@ services:
             dockerfile: Dockerfile
         container_name: iotistic-api
         restart: always
+        tty: true
+        stdin_open: true
+        logging:
+            driver: "json-file"
+            options:
+                max-size: "10m"
+                max-file: "3"
         environment:
             - PORT=3002
-            - NODE_ENV=production
-            - USE_POSTGRES=${USE_POSTGRES:-false}
+            - NODE_ENV=development
             - DB_HOST=postgres
             - DB_PORT=5432
             - DB_NAME=iotistic
@@ -56,11 +66,23 @@ services:
             - GRAFANA_API_TOKEN=${GRAFANA_API_TOKEN}
             - DISPLAY=${DISPLAY}
             - DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}
+            - FORCE_COLOR=1
+            - DEBUG=*
         ports:
             - "${API_PORT_EXT:-4002}:3002"
         depends_on:
             postgres:
                 condition: service_healthy
+        networks:
+           - zemfyre-net
+    mosquitto:
+        image: eclipse-mosquitto
+        restart: always
+        ports:
+          - "${MOSQUITTO_PORT_EXT:-5883}:1883"
+          - "${MOSQUITTO_WS_PORT_EXT:-59001}:9001"
+        volumes:
+          - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
         networks:
            - zemfyre-net
 

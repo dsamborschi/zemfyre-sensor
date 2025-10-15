@@ -21,9 +21,14 @@
     "start:old-api": "node dist/api/server.js",
     "lint": "eslint src --ext .ts",
     "test": "jest",
+    "test:unit": "jest --config jest.config.unit.js",
+    "test:integration": "jest --config jest.config.integration.js",
     "test:watch": "jest --watch",
+    "test:watch:unit": "jest --config jest.config.unit.js --watch",
+    "test:watch:integration": "jest --config jest.config.integration.js --watch",
     "test:coverage": "jest --coverage",
-    "test:provisioning": "jest provisioning.spec.ts"
+    "test:coverage:unit": "jest --config jest.config.unit.js --coverage",
+    "test:coverage:integration": "jest --config jest.config.integration.js --coverage"
   },
   "bin": {
     "device-cli": "./dist/cli/device-cli.js"

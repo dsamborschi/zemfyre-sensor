@@ -21,105 +21,42 @@
       "env": {
         "CLOUD_API_ENDPOINT": "http://localhost:4002",
         "LOG_COMPRESSION": "true",
-        "ENABLE_SENSOR_PUBLISH": "true",
+        "ENABLE_SENSOR_PUBLISH": "true",  
         "ENABLE_JOB_ENGINE": "true",
+        "MQTT_BROKER": "mqtt://localhost:5883",
+        "ENABLE_SHADOW": "true",
         "PROVISIONING_API_KEY": "your_provisioning_api_key_64_chars_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
         "SENSOR_PUBLISH_CONFIG": "{\"sensors\":[{\"name\":\"sensor1\",\"addr\":\"/tmp/sensor1.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000}]}"
       }
     },
     {
-      "name": "Debug Application Manager (Server Only)",
-      "type": "node",
-      "request": "launch",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["tsx", "watch", "src/api/server.ts"],
-      "cwd": "${workspaceFolder}/application-manager",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"],
-      "restart": true,
-      "sourceMaps": true,
-      "env": {
-        "NODE_ENV": "development"
-
-      }
-    },
-    {
-      "name": "Debug Application Manager (Real Docker)",
-      "type": "node",
-      "request": "launch",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["tsx", "watch", "src/api/server.ts"],
-      "cwd": "${workspaceFolder}/application-manager",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"],
-      "restart": true,
-      "sourceMaps": true,
-      "env": {
-        "NODE_ENV": "development"
-      }
-    },
-    {
-      "name": "Debug Application Manager (Cloud Mode)",
+      "name": "Debug API",
       "type": "node",
       "request": "launch",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev:cloud"],
-      "cwd": "${workspaceFolder}/application-manager",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "${workspaceFolder}/api",
       "console": "integratedTerminal",
       "internalConsoleOptions": "neverOpen",
       "skipFiles": ["<node_internals>/**"],
       "restart": true,
       "sourceMaps": true,
+      
+      "resolveSourceMapLocations": [
+        "${workspaceFolder}/**",
+        "!**/node_modules/**"
+      ],
       "env": {
-        "CLOUD_API_ENDPOINT": "http://localhost:8000"
+            "PORT":"4002",
+            "NODE_ENV":"development",
+            "DB_HOST":"localhost",
+            "DB_PORT":"5432",
+            "DB_NAME":"iotistic",
+            "DB_USER":"postgres",
+            "DB_PASSWORD":"postgres",
+            "DB_POOL_SIZE":"20",
+            "FORCE_COLOR":"1"
       }
-    },
-    {
-      "name": "Debug API Binder Test",
-      "type": "node",
-      "request": "launch",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["tsx", "src/api-binder.ts"],
-      "cwd": "${workspaceFolder}/application-manager",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"],
-      "sourceMaps": true
-    },
-    {
-      "name": "Debug Network Integration Test",
-      "type": "node",
-      "request": "launch",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["tsx", "test-network-integration.ts"],
-      "cwd": "${workspaceFolder}/application-manager",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"],
-      "sourceMaps": true
-    },
-    {
-      "name": "Debug Network Reconciliation Test",
-      "type": "node",
-      "request": "launch",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["tsx", "test-network-reconciliation.ts"],
-      "cwd": "${workspaceFolder}/application-manager",
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
-      "skipFiles": ["<node_internals>/**"],
-      "sourceMaps": true
-    },
-    {
-      "name": "Attach to Running Application Manager",
-      "type": "node",
-      "request": "attach",
-      "port": 9229,
-      "restart": true,
-      "skipFiles": ["<node_internals>/**"],
-      "sourceMaps": true
     }
   ]
 }
