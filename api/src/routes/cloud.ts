@@ -406,7 +406,7 @@ router.post('/api/v1/device/:uuid/key-exchange', keyExchangeLimiter, async (req,
 router.get('/api/v1/device/:uuid/state', async (req, res) => {
   try {
     const { uuid } = req.params;
-    const ifNoneMatch = req.headers['If-None-Match'];
+    const ifNoneMatch = req.headers['if-none-match'];
 
     // Get or create device
     await DeviceModel.getOrCreate(uuid);

@@ -5,6 +5,7 @@
 
 import { query, transaction } from './connection';
 import { PoolClient } from 'pg';
+ import crypto from 'crypto';
 
 // Types
 export interface Device {
@@ -222,14 +223,17 @@ export class DeviceTargetStateModel {
   /**
    * Generate ETag for target state
    */
-  static generateETag(state: DeviceTargetState): string {
-    const data = {
-      apps: state.apps,
-      version: state.version,
-      updated_at: state.updated_at
-    };
-    return Buffer.from(JSON.stringify(data)).toString('base64').substring(0, 32);
-  }
+
+
+static generateETag(state: DeviceTargetState): string {
+  const payload = JSON.stringify({
+    version: state.version,
+    apps: state.apps,
+    config: state.config,
+  });
+  return crypto.createHash('sha1').update(payload).digest('hex');
+}
+
 }
 
 /**

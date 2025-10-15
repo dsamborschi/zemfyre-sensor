@@ -206,7 +206,7 @@ export class ApiBinder extends EventEmitter {
 				method: 'GET',
 				headers: {
 					'Content-Type': 'application/json',
-					...(this.targetStateETag && { 'If-None-Match': this.targetStateETag }),
+					...(this.targetStateETag && { 'if-none-match': this.targetStateETag }),
 				},
 				signal: AbortSignal.timeout(this.config.apiTimeout),
 			});
