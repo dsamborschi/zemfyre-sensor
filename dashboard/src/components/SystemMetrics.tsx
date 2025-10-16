@@ -98,6 +98,7 @@ export function SystemMetrics({
   networkInterfaces = []
 }: SystemMetricsProps) {
   const [selectedMetric, setSelectedMetric] = useState<'cpu' | 'memory' | 'network'>('cpu');
+  const [timePeriod, setTimePeriod] = useState<'30min' | '6h' | '12h' | '24h'>('30min');
 
   // Calculate running and total apps/services
   const runningApps = applications.filter(app => app.status === "running").length;
@@ -271,16 +272,29 @@ export function SystemMetrics({
                 <h3 className="text-gray-900 mb-1">Telemetry</h3>
                 <p className="text-gray-600">System performance metrics</p>
               </div>
-              <Select value={selectedMetric} onValueChange={(value: any) => setSelectedMetric(value)}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cpu">CPU Usage</SelectItem>
-                  <SelectItem value="memory">Memory Usage</SelectItem>
-                  <SelectItem value="network">Network Activity</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-2">
+                <Select value={timePeriod} onValueChange={(value: any) => setTimePeriod(value)}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30min">30 minutes</SelectItem>
+                    <SelectItem value="6h">6 hours</SelectItem>
+                    <SelectItem value="12h">12 hours</SelectItem>
+                    <SelectItem value="24h">24 hours</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={selectedMetric} onValueChange={(value: any) => setSelectedMetric(value)}>
+                  <SelectTrigger className="w-[160px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cpu">CPU Usage</SelectItem>
+                    <SelectItem value="memory">Memory Usage</SelectItem>
+                    <SelectItem value="network">Network Activity</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {selectedMetric === 'cpu' && (
