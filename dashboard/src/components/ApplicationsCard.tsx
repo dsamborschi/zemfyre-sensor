@@ -418,15 +418,11 @@ export function ApplicationsCard({
                           </span>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3 text-sm text-gray-500">
-                        <span>App ID: {app.appId}</span>
-                        {app.services && app.services.length > 0 && (
-                          <>
-                            <span>•</span>
-                            <span>{app.services.length} service{app.services.length !== 1 ? 's' : ''}</span>
-                          </>
-                        )}
-                      </div>
+                      {app.services && app.services.length > 0 && (
+                        <div className="text-sm text-gray-500">
+                          {app.services.length} service{app.services.length !== 1 ? 's' : ''}
+                        </div>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2">
@@ -434,26 +430,26 @@ export function ApplicationsCard({
                         onClick={() => handleSyncApplication(app)} 
                         size="sm"
                         variant="outline"
-                        className="h-7 text-xs"
+                        className="h-8 w-8 p-0"
                         disabled={app.syncStatus === "syncing"}
+                        title="Sync"
                       >
-                        <RefreshCw className={`w-3 h-3 mr-1.5 ${app.syncStatus === "syncing" ? "animate-spin" : ""}`} />
-                        Sync
+                        <RefreshCw className={`w-4 h-4 ${app.syncStatus === "syncing" ? "animate-spin" : ""}`} />
                       </Button>
 
                       <Button 
                         onClick={() => openServiceModal(app)} 
                         size="sm"
                         variant="outline"
-                        className="h-7 text-xs"
+                        className="h-8 w-8 p-0"
+                        title="Add Service"
                       >
-                        <Plus className="w-3 h-3 mr-1.5" />
-                        Add Service
+                        <Plus className="w-4 h-4" />
                       </Button>
 
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground h-9 w-9">
+                          <button className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground h-8 w-8">
                             <MoreVertical className="w-4 h-4" />
                           </button>
                         </DropdownMenuTrigger>
@@ -500,7 +496,7 @@ export function ApplicationsCard({
                           <div key={`${service.serviceId}-${idx}`} className="bg-white rounded p-2 border border-gray-100">
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex-1 min-w-0">
-                                <div className="flex items-center gap-2 mb-0.5">
+                                <div className="flex items-center gap-2">
                                   <span className="font-medium text-gray-900 text-sm">{service.serviceName}</span>
                                   {service.status && (
                                     <Badge variant="outline" className={`text-xs ${statusColors[service.status]}`}>
@@ -508,7 +504,6 @@ export function ApplicationsCard({
                                     </Badge>
                                   )}
                                 </div>
-                                <div className="text-xs text-gray-500 truncate">{service.imageName || service.config.image}</div>
                               </div>
                               <div className="flex items-center gap-1.5">
                                 <Button
@@ -519,10 +514,10 @@ export function ApplicationsCard({
                                     toast.info(`Starting ${service.serviceName}`);
                                   }}
                                   disabled={service.status === "running" || service.status === "syncing"}
-                                  className="h-7 text-xs border-green-200 hover:bg-green-50 hover:text-green-700 disabled:opacity-50"
+                                  className="h-8 w-8 p-0 border-green-200 hover:bg-green-50 hover:text-green-700 disabled:opacity-50"
+                                  title="Start"
                                 >
-                                  <Play className="w-3 h-3 mr-1.5" />
-                                  Start
+                                  <Play className="w-4 h-4" />
                                 </Button>
                                 <Button
                                   variant="outline"
@@ -532,19 +527,19 @@ export function ApplicationsCard({
                                     toast.info(`Stopping ${service.serviceName}`);
                                   }}
                                   disabled={service.status === "stopped" || service.status === "syncing" || !service.status}
-                                  className="h-7 text-xs border-red-200 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                                  className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                                  title="Stop"
                                 >
-                                  <Square className="w-3 h-3 mr-1.5" />
-                                  Stop
+                                  <Square className="w-4 h-4" />
                                 </Button>
                                 <Button
                                   variant="outline"
                                   size="sm"
                                   onClick={() => openServiceModal(app, service)}
-                                  className="h-7 text-xs"
+                                  className="h-8 w-8 p-0"
+                                  title="Edit"
                                 >
-                                  <Pen className="w-3 h-3 mr-1.5" />
-                                  Edit
+                                  <Pen className="w-4 h-4" />
                                 </Button>
                               </div>
                             </div>
