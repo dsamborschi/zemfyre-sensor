@@ -26,7 +26,7 @@ export function Header({ isAuthenticated = true }: HeaderProps) {
           </div>
           <div className="hidden sm:block">
             <h1 className="text-lg font-bold text-gray-900 leading-tight">Iotistic</h1>
-            <p className="text-xs text-gray-600">Device Management Platform</p>
+            <p className="text-xs text-gray-600">Your Device Management Platform</p>
           </div>
         </div>
 

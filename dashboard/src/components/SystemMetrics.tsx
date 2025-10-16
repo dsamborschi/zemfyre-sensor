@@ -1,6 +1,7 @@
 import { Cpu, HardDrive, MemoryStick, Activity, Wifi, Thermometer, Zap, Clock, Package } from "lucide-react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
 import {
   LineChart,
@@ -149,12 +150,19 @@ export function SystemMetrics({
     { name: "systemd", cpu: 4.2, memory: 3.1, pid: 1 },
   ];
 
+  const scrollToSection = (id: string) => {
+    const element = document.getElementById(id);
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   return (
     <div className="flex-1 bg-gray-50 overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
         {/* Header */}
         <div className="space-y-4">
-          <div className="flex items-start justify-between">
+          <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-gray-900 mb-2">{device.name}</h1>
               <div className="flex items-center gap-3">
@@ -174,6 +182,43 @@ export function SystemMetrics({
                 <span className="text-gray-600">•</span>
                 <span className="text-gray-600">{device.ipAddress}</span>
               </div>
+            </div>
+
+            {/* Quick Navigation Links */}
+            <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
+              <span className="text-xs text-gray-500 mr-2">Jump to:</span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => scrollToSection('applications-section')}
+                className="text-xs"
+              >
+                Applications
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => scrollToSection('mqtt-section')}
+                className="text-xs"
+              >
+                MQTT
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => scrollToSection('analytics-section')}
+                className="text-xs"
+              >
+                Analytics
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => scrollToSection('processes-section')}
+                className="text-xs"
+              >
+                Processes
+              </Button>
             </div>
           </div>
           
@@ -332,31 +377,39 @@ export function SystemMetrics({
           </Card>
 
           {/* Applications */}
-          <ApplicationsCard
-            deviceId={device.id}
-            applications={applications}
-            onAddApplication={onAddApplication}
-            onUpdateApplication={onUpdateApplication}
-            onRemoveApplication={onRemoveApplication}
-            onToggleStatus={onToggleAppStatus}
-            onToggleServiceStatus={onToggleServiceStatus}
-          />
+          <div id="applications-section">
+            <ApplicationsCard
+              deviceId={device.id}
+              applications={applications}
+              onAddApplication={onAddApplication}
+              onUpdateApplication={onUpdateApplication}
+              onRemoveApplication={onRemoveApplication}
+              onToggleStatus={onToggleAppStatus}
+              onToggleServiceStatus={onToggleServiceStatus}
+            />
+          </div>
 
           {/* Network Interfaces */}
           <NetworkingCard interfaces={networkInterfaces} />
 
           {/* MQTT Broker */}
-          <MqttBrokerCard deviceId={device.deviceUuid} />
+          <div id="mqtt-section">
+            <MqttBrokerCard deviceId={device.deviceUuid} />
 
-          {/* MQTT Metrics */}
-          <MqttMetricsCard deviceId={device.deviceUuid} />
+            {/* MQTT Metrics */}
+            <div className="mt-4 md:mt-6">
+              <MqttMetricsCard deviceId={device.deviceUuid} />
+            </div>
+          </div>
         </div>
 
         {/* Analytics Card */}
-        <AnalyticsCard deviceName={device.name} />
+        <div id="analytics-section">
+          <AnalyticsCard deviceName={device.name} />
+        </div>
 
         {/* Top Processes */}
-        <Card className="p-4 md:p-6">
+        <Card className="p-4 md:p-6" id="processes-section">
           <div className="mb-4">
             <h3 className="text-gray-900 mb-1">Top Processes</h3>
             <p className="text-gray-600">Most resource-intensive processes</p>
