@@ -235,19 +235,7 @@ export function AddEditDeviceDialog({
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="last-seen">Last Seen</Label>
-            <Input
-              id="last-seen"
-              value={formData.lastSeen}
-              onChange={(e) => setFormData({ ...formData, lastSeen: e.target.value })}
-              disabled={!isEditMode}
-              className={!isEditMode ? "bg-gray-50" : ""}
-            />
-            <p className="text-gray-600">
-              {isEditMode ? "Update when the device was last active" : "Will be set automatically when device connects"}
-            </p>
-          </div>
+    
 
           {!isEditMode && (
             <div className="space-y-4 pt-4 border-t">
