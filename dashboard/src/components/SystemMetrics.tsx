@@ -345,7 +345,7 @@ export function SystemMetrics({
           <NetworkingCard interfaces={networkInterfaces} />
 
           {/* MQTT Broker */}
-          <MqttBrokerCard />
+          <MqttBrokerCard deviceId={device.id} />
         </div>
 
         {/* Analytics Card */}

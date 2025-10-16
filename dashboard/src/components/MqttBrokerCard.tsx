@@ -12,13 +12,7 @@ interface MqttTopic {
 }
 
 // Mock MQTT topic data following $iot/device/<device-id>/<subtopic> pattern
-const generateMockTopics = (): MqttTopic[] => {
-  const deviceIds = [
-    "a3f8c9d2-4e1b-4a9f-b7d3-c2e8f5a1b6d4",
-    "b8e4d1c3-9f2a-4d6e-a5c7-d9f3e8b2a7c1",
-    "c5d9f2e4-3a7b-4c8e-d1f6-e8a3c9b5d7f2"
-  ];
-
+const generateMockTopics = (deviceId: string): MqttTopic[] => {
   return [
     {
       name: "$iot",
@@ -27,10 +21,11 @@ const generateMockTopics = (): MqttTopic[] => {
         {
           name: "device",
           messageCount: 0,
-          children: deviceIds.map(deviceId => ({
-            name: deviceId,
-            messageCount: 0,
-            children: [
+          children: [
+            {
+              name: deviceId,
+              messageCount: 0,
+              children: [
               {
                 name: "telemetry",
                 messageCount: 142,
@@ -76,7 +71,8 @@ const generateMockTopics = (): MqttTopic[] => {
                 lastMessage: JSON.stringify({ type: "alert", level: "warning" }),
               }
             ]
-          }))
+            }
+          ]
         }
       ]
     }
@@ -139,8 +135,12 @@ const TopicNode = ({ topic, level = 0 }: { topic: MqttTopic; level?: number }) =
   );
 };
 
-export function MqttBrokerCard() {
-  const [topics] = useState<MqttTopic[]>(generateMockTopics());
+interface MqttBrokerCardProps {
+  deviceId: string;
+}
+
+export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
+  const [topics] = useState<MqttTopic[]>(generateMockTopics(deviceId));
   const [isConnected] = useState(true);
 
   // Calculate total messages
@@ -185,7 +185,7 @@ export function MqttBrokerCard() {
         <div>
           <p className="text-xs text-gray-500 mb-1">Active Topics</p>
           <p className="text-lg font-semibold text-gray-900">
-            {topics[0]?.children?.[0]?.children?.length || 0}
+            {topics[0]?.children?.[0]?.children?.[0]?.children?.length || 0}
           </p>
         </div>
       </div>
