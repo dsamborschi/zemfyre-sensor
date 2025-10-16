@@ -395,12 +395,10 @@ export function SystemMetrics({
           {/* MQTT Broker */}
           <div id="mqtt-section">
             <MqttBrokerCard deviceId={device.deviceUuid} />
-
-            {/* MQTT Metrics */}
-            <div className="mt-4 md:mt-6">
-              <MqttMetricsCard deviceId={device.deviceUuid} />
-            </div>
           </div>
+
+          {/* MQTT Metrics */}
+          <MqttMetricsCard deviceId={device.deviceUuid} />
         </div>
 
         {/* Analytics Card */}
