@@ -3,7 +3,6 @@ import { Cpu, HardDrive, MemoryStick, Activity, Wifi, Thermometer, Zap, Clock, P
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
-import { Progress } from "./ui/progress";
 import {
   Select,
   SelectContent,
@@ -241,17 +240,23 @@ export function SystemMetrics({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           {metrics.map((metric, index) => {
             const Icon = metric.icon;
-            const progressColorClass = 
-              metric.color === 'blue' ? 'bg-blue-600' :
-              metric.color === 'purple' ? 'bg-purple-600' :
-              metric.color === 'green' ? 'bg-green-600' :
-              metric.color === 'orange' ? 'bg-orange-600' : 'bg-gray-600';
             
-            const progressBgClass = 
-              metric.color === 'blue' ? 'bg-blue-100' :
-              metric.color === 'purple' ? 'bg-purple-100' :
-              metric.color === 'green' ? 'bg-green-100' :
-              metric.color === 'orange' ? 'bg-orange-100' : 'bg-gray-100';
+            const getProgressColors = (color: string) => {
+              switch(color) {
+                case 'blue':
+                  return { bg: '#dbeafe', bar: '#2563eb' }; // blue-100, blue-600
+                case 'purple':
+                  return { bg: '#e9d5ff', bar: '#9333ea' }; // purple-200, purple-600
+                case 'green':
+                  return { bg: '#dcfce7', bar: '#16a34a' }; // green-100, green-600
+                case 'orange':
+                  return { bg: '#ffedd5', bar: '#ea580c' }; // orange-100, orange-600
+                default:
+                  return { bg: '#f3f4f6', bar: '#4b5563' }; // gray-100, gray-600
+              }
+            };
+
+            const colors = getProgressColors(metric.color);
 
             return (
               <Card key={index} className="p-4 md:p-6">
@@ -269,12 +274,20 @@ export function SystemMetrics({
                     <Icon className={`w-5 h-5 ${metric.iconColor}`} />
                   </div>
                 </div>
-                <div className={`relative h-2 w-full overflow-hidden rounded-full ${progressBgClass}`}>
+                {metric.label !== "Applications" && (
                   <div 
-                    className={`h-full transition-all ${progressColorClass}`}
-                    style={{ width: `${metric.progress}%` }}
-                  />
-                </div>
+                    className="relative h-3 w-full overflow-hidden rounded-full"
+                    style={{ backgroundColor: colors.bg }}
+                  >
+                    <div 
+                      className="h-full transition-all"
+                      style={{ 
+                        width: `${metric.progress}%`,
+                        backgroundColor: colors.bar
+                      }}
+                    />
+                  </div>
+                )}
               </Card>
             );
           })}
