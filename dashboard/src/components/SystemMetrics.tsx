@@ -458,11 +458,11 @@ export function SystemMetrics({
 
           {/* MQTT Metrics */}
           <MqttMetricsCard deviceId={device.deviceUuid} />
-        </div>
 
-        {/* Analytics Card */}
-        <div id="analytics-section">
-          <AnalyticsCard deviceName={device.name} />
+          {/* Analytics Card */}
+          <div id="analytics-section">
+            <AnalyticsCard deviceName={device.name} />
+          </div>
         </div>
 
         {/* Top Processes */}
