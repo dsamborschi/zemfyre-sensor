@@ -468,28 +468,28 @@ export function SystemMetrics({
         {/* Top Processes */}
         <Card className="p-4 md:p-6" id="processes-section">
           <div className="mb-4">
-            <h3 className="text-gray-900 mb-1">Top Processes</h3>
-            <p className="text-gray-600">Most resource-intensive processes</p>
+            <h3 className="text-lg text-gray-900 font-medium mb-1">Top Processes</h3>
+            <p className="text-sm text-gray-600">Most resource-intensive processes</p>
           </div>
-          <div className="overflow-x-auto -mx-4 md:mx-0">
+          <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 md:py-3 px-2 md:px-4 text-gray-600">Process</th>
-                  <th className="text-left py-2 md:py-3 px-2 md:px-4 text-gray-600 hidden sm:table-cell">PID</th>
-                  <th className="text-left py-2 md:py-3 px-2 md:px-4 text-gray-600">CPU %</th>
-                  <th className="text-left py-2 md:py-3 px-2 md:px-4 text-gray-600 hidden md:table-cell">Memory %</th>
-                  <th className="text-left py-2 md:py-3 px-2 md:px-4 text-gray-600 hidden lg:table-cell">CPU Usage</th>
+                  <th className="text-left py-3 px-0 text-sm font-medium text-gray-600">Process</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 hidden sm:table-cell">PID</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">CPU %</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 hidden md:table-cell">Memory %</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 hidden lg:table-cell">CPU Usage</th>
                 </tr>
               </thead>
               <tbody>
                 {processes.map((process, index) => (
                   <tr key={index} className="border-b border-gray-100 last:border-0">
-                    <td className="py-2 md:py-3 px-2 md:px-4 text-gray-900">{process.name}</td>
-                    <td className="py-2 md:py-3 px-2 md:px-4 text-gray-600 hidden sm:table-cell">{process.pid}</td>
-                    <td className="py-2 md:py-3 px-2 md:px-4 text-gray-900">{process.cpu}%</td>
-                    <td className="py-2 md:py-3 px-2 md:px-4 text-gray-900 hidden md:table-cell">{process.memory}%</td>
-                    <td className="py-2 md:py-3 px-2 md:px-4 hidden lg:table-cell">
+                    <td className="py-3 px-0 text-gray-900">{process.name}</td>
+                    <td className="py-3 px-4 text-gray-600 hidden sm:table-cell">{process.pid}</td>
+                    <td className="py-3 px-4 text-gray-900">{process.cpu}%</td>
+                    <td className="py-3 px-4 text-gray-900 hidden md:table-cell">{process.memory}%</td>
+                    <td className="py-3 px-4 hidden lg:table-cell">
                       <div className="flex items-center gap-2">
                         <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[120px]">
                           <div
