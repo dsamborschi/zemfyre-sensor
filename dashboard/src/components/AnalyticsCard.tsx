@@ -21,12 +21,20 @@ import {
 type MetricType = "ram" | "cpu" | "storage" | "temperature" | "network";
 type TimePeriod = "30min" | "6h" | "12h" | "24h";
 
-interface AnalyticsCardProps {
-  deviceName?: string;
+interface Process {
+  name: string;
+  cpu: number;
+  memory: number;
+  pid: number;
 }
 
-// Mock data for different processes
-const generateProcessData = (timePeriod: TimePeriod) => {
+interface AnalyticsCardProps {
+  deviceName?: string;
+  processes?: Process[];
+}
+
+// Mock data for different processes based on actual process data
+const generateProcessData = (timePeriod: TimePeriod, processes: Process[], metricType: MetricType) => {
   const dataPointsMap = {
     "30min": 30,
     "6h": 36,
@@ -38,15 +46,18 @@ const generateProcessData = (timePeriod: TimePeriod) => {
   const data = [];
 
   for (let i = 0; i < dataPoints; i++) {
-    const timeStr = `${String(i).padStart(2, '0')}:${String((i * 5) % 60).padStart(2, '0')}`;
+    const timeStr = `${String(Math.floor(i * (24 / dataPoints))).padStart(2, '0')}:${String((i * 5) % 60).padStart(2, '0')}`;
 
-    data.push({
-      time: timeStr,
-      general: 20 + Math.random() * 15 + Math.sin(i / 10) * 10,
-      influxdb: 35 + Math.random() * 20 + Math.cos(i / 8) * 15,
-      nodered: 15 + Math.random() * 10 + Math.sin(i / 12) * 8,
-      grafana: 25 + Math.random() * 12 + Math.cos(i / 15) * 10,
+    const dataPoint: any = { time: timeStr };
+    
+    // Generate data for each process based on their current metrics
+    processes.forEach(process => {
+      const baseValue = metricType === 'cpu' ? process.cpu : process.memory;
+      // Add some variation over time
+      dataPoint[process.name] = Math.max(0, baseValue + Math.random() * 10 - 5 + Math.sin(i / 10) * 5);
     });
+
+    data.push(dataPoint);
   }
 
   return data;
@@ -67,16 +78,28 @@ const timePeriodOptions = [
   { value: "24h", label: "24 hours" },
 ];
 
-export function AnalyticsCard({ deviceName = "Device 1" }: AnalyticsCardProps) {
-  const [selectedMetric, setSelectedMetric] = useState<MetricType>("ram");
+// Colors for different processes
+const processColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
+
+export function AnalyticsCard({ deviceName = "Device 1", processes = [] }: AnalyticsCardProps) {
+  const [selectedMetric, setSelectedMetric] = useState<MetricType>("cpu");
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("24h");
 
-  const chartData = generateProcessData(timePeriod);
+  // Use default processes if none provided
+  const defaultProcesses = [
+    { name: "node", cpu: 18.5, memory: 12.3, pid: 1234 },
+    { name: "postgres", cpu: 12.2, memory: 8.7, pid: 5678 },
+    { name: "nginx", cpu: 8.1, memory: 5.2, pid: 9012 },
+    { name: "docker", cpu: 6.5, memory: 15.6, pid: 3456 },
+    { name: "systemd", cpu: 4.2, memory: 3.1, pid: 1 },
+  ];
+
+  const activeProcesses = processes.length > 0 ? processes : defaultProcesses;
+  const chartData = generateProcessData(timePeriod, activeProcesses, selectedMetric);
 
   const getMetricUnit = () => {
     switch (selectedMetric) {
       case "ram":
-        return "%";
       case "cpu":
         return "%";
       case "storage":
@@ -132,38 +155,17 @@ export function AnalyticsCard({ deviceName = "Device 1" }: AnalyticsCardProps) {
           <YAxis stroke="#6b7280" />
           <Tooltip />
           <Legend />
-          <Line
-            type="monotone"
-            dataKey="general"
-            stroke="#3b82f6"
-            strokeWidth={2}
-            dot={false}
-            name="General"
-          />
-          <Line
-            type="monotone"
-            dataKey="influxdb"
-            stroke="#10b981"
-            strokeWidth={2}
-            dot={false}
-            name="InfluxDB"
-          />
-          <Line
-            type="monotone"
-            dataKey="nodered"
-            stroke="#f59e0b"
-            strokeWidth={2}
-            dot={false}
-            name="Node-RED"
-          />
-          <Line
-            type="monotone"
-            dataKey="grafana"
-            stroke="#ef4444"
-            strokeWidth={2}
-            dot={false}
-            name="Grafana"
-          />
+          {activeProcesses.map((process, index) => (
+            <Line
+              key={process.name}
+              type="monotone"
+              dataKey={process.name}
+              stroke={processColors[index % processColors.length]}
+              strokeWidth={2}
+              dot={false}
+              name={process.name}
+            />
+          ))}
         </LineChart>
       </ResponsiveContainer>
     </Card>

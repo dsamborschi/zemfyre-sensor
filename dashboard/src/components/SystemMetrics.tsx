@@ -462,7 +462,7 @@ export function SystemMetrics({
 
         {/* Analytics Card */}
         <div id="analytics-section">
-          <AnalyticsCard deviceName={device.name} />
+          <AnalyticsCard deviceName={device.name} processes={processes} />
         </div>
 
         {/* Top Processes */}
