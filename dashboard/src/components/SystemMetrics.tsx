@@ -102,6 +102,39 @@ export function SystemMetrics({
   // Calculate running and total apps/services
   const runningApps = applications.filter(app => app.status === "running").length;
   const totalApps = applications.length;
+  
+  // Calculate sync status for applications
+  const syncingApps = applications.filter(app => app.syncStatus === "syncing").length;
+  const errorApps = applications.filter(app => app.syncStatus === "error").length;
+  const pendingApps = applications.filter(app => app.syncStatus === "pending").length;
+  const syncedApps = applications.filter(app => app.syncStatus === "synced").length;
+  
+  // Show total apps count as the main value
+  const getAppValue = () => {
+    return totalApps === 0 ? "0" : `${totalApps}`;
+  };
+  
+  // Determine the subtitle for applications - show aggregate status
+  const getAppSubtitle = () => {
+    if (totalApps === 0) return "No apps";
+    
+    const statuses = [];
+    
+    if (errorApps > 0) statuses.push(`${errorApps} Error`);
+    if (syncingApps > 0) statuses.push(`${syncingApps} Syncing`);
+    if (pendingApps > 0) statuses.push(`${pendingApps} Pending`);
+    if (syncedApps > 0) statuses.push(`${syncedApps} Synced`);
+    
+    return statuses.join(', ') || `${totalApps} Running`;
+  };
+  
+  const getAppSubtitleColor = () => {
+    // Priority: Error (red) > Syncing (blue) > Pending (yellow) > default (gray)
+    if (errorApps > 0) return "text-red-600";
+    if (syncingApps > 0) return "text-blue-600";
+    if (pendingApps > 0) return "text-yellow-600";
+    return "text-gray-500";
+  };
 
   const metrics = [
     {
@@ -134,12 +167,13 @@ export function SystemMetrics({
     {
       icon: Package,
       label: "Applications",
-      value: `${runningApps}/${totalApps}`,
+      value: getAppValue(),
       progress: totalApps > 0 ? (runningApps / totalApps) * 100 : 0,
       color: "orange",
       bgColor: "bg-orange-50",
       iconColor: "text-orange-600",
-      subtitle: "Running",
+      subtitle: getAppSubtitle(),
+      subtitleColor: getAppSubtitleColor(),
     },
   ];
 
@@ -263,12 +297,42 @@ export function SystemMetrics({
                 <div className="flex items-start justify-between mb-3">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-gray-600 mb-2">{metric.label}</p>
-                    <div className="flex items-baseline gap-2">
-                      <p className="text-2xl font-bold text-gray-900">{metric.value}</p>
-                      {metric.subtitle && (
-                        <span className="text-sm text-gray-500">{metric.subtitle}</span>
-                      )}
-                    </div>
+                    <p className="text-2xl font-bold text-gray-900 mb-2">{metric.value}</p>
+                    {metric.subtitle && metric.label === "Applications" ? (
+                      // Special rendering for Applications with status badges
+                      <div className="flex flex-wrap gap-1.5">
+                        {errorApps > 0 && (
+                          <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200 text-xs px-2 py-0.5">
+                            {errorApps} Error
+                          </Badge>
+                        )}
+                        {syncingApps > 0 && (
+                          <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 text-xs px-2 py-0.5">
+                            {syncingApps} Syncing
+                          </Badge>
+                        )}
+                        {pendingApps > 0 && (
+                          <Badge variant="outline" className="bg-yellow-50 text-yellow-700 border-yellow-200 text-xs px-2 py-0.5">
+                            {pendingApps} Pending
+                          </Badge>
+                        )}
+                        {syncedApps > 0 && (
+                          <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 text-xs px-2 py-0.5">
+                            {syncedApps} Synced
+                          </Badge>
+                        )}
+                        {totalApps > 0 && errorApps === 0 && syncingApps === 0 && pendingApps === 0 && syncedApps === 0 && (
+                          <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200 text-xs px-2 py-0.5">
+                            {totalApps} Running
+                          </Badge>
+                        )}
+                      </div>
+                    ) : metric.subtitle ? (
+                      // Regular subtitle for other metrics
+                      <span className={`text-sm font-medium ${(metric as any).subtitleColor || 'text-gray-500'}`}>
+                        {metric.subtitle}
+                      </span>
+                    ) : null}
                   </div>
                   <div className={`w-10 h-10 ${metric.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
                     <Icon className={`w-5 h-5 ${metric.iconColor}`} />
