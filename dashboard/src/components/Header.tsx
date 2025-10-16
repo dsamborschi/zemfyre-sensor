@@ -24,9 +24,9 @@ export function Header({ isAuthenticated = true }: HeaderProps) {
           <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
             <Server className="w-6 h-6 text-white" />
           </div>
-          <div className="hidden sm:block">
-            <h1 className="text-lg font-bold text-gray-900 leading-tight">Iotistic</h1>
-            <p className="text-xs text-gray-600">Your Device Management Platform</p>
+          <div>
+            <h1 className="text-lg font-extrabold text-gray-900 leading-tight">Iotistic</h1>
+            <p className="text-xs text-gray-600 hidden sm:block">Your Device Management Platform</p>
           </div>
         </div>
 
