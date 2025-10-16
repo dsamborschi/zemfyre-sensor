@@ -1,8 +1,16 @@
+import { useState } from "react";
 import { Cpu, HardDrive, MemoryStick, Activity, Wifi, Thermometer, Zap, Clock, Package } from "lucide-react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import { Progress } from "./ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import {
   LineChart,
   Line,
@@ -89,6 +97,8 @@ export function SystemMetrics({
   onToggleServiceStatus = () => {},
   networkInterfaces = []
 }: SystemMetricsProps) {
+  const [selectedMetric, setSelectedMetric] = useState<'cpu' | 'memory' | 'network'>('cpu');
+
   // Calculate running and total apps/services
   const runningApps = applications.filter(app => app.status === "running").length;
   const totalApps = applications.length;
@@ -254,110 +264,115 @@ export function SystemMetrics({
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-          {/* CPU Usage Chart */}
+          {/* Telemetry Chart - Combined CPU, Memory, and Network */}
           <Card className="p-4 md:p-6">
-            <div className="mb-4">
-              <h3 className="text-gray-900 mb-1">CPU Usage</h3>
-              <p className="text-gray-600">Real-time processor activity</p>
+            <div className="mb-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-gray-900 mb-1">Telemetry</h3>
+                <p className="text-gray-600">System performance metrics</p>
+              </div>
+              <Select value={selectedMetric} onValueChange={(value: any) => setSelectedMetric(value)}>
+                <SelectTrigger className="w-[180px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cpu">CPU Usage</SelectItem>
+                  <SelectItem value="memory">Memory Usage</SelectItem>
+                  <SelectItem value="network">Network Activity</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <ResponsiveContainer width="100%" height={250}>
-              <AreaChart data={cpuHistory}>
-                <defs>
-                  <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="time" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
-                <Tooltip />
-                <Area
-                  type="monotone"
-                  dataKey="value"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorCpu)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </Card>
 
-          {/* Memory Usage Chart */}
-          <Card className="p-4 md:p-6">
-            <div className="mb-4">
-              <h3 className="text-gray-900 mb-1">Memory Usage</h3>
-              <p className="text-gray-600">RAM allocation over time</p>
-            </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={memoryHistory}>
-                <defs>
-                  <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                  </linearGradient>
-                  <linearGradient id="colorAvailable" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="time" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
-                <Tooltip />
-                <Legend />
-                <Area
-                  type="monotone"
-                  dataKey="used"
-                  stackId="1"
-                  stroke="#8b5cf6"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorUsed)"
-                />
-                <Area
-                  type="monotone"
-                  dataKey="available"
-                  stackId="1"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  fillOpacity={1}
-                  fill="url(#colorAvailable)"
-                />
-              </AreaChart>
-            </ResponsiveContainer>
-          </Card>
+            {selectedMetric === 'cpu' && (
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={cpuHistory}>
+                  <defs>
+                    <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="time" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip />
+                  <Area
+                    type="monotone"
+                    dataKey="value"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorCpu)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
 
-          {/* Network Activity Chart */}
-          <Card className="p-4 md:p-6">
-            <div className="mb-4">
-              <h3 className="text-gray-900 mb-1">Network Activity</h3>
-              <p className="text-gray-600">Download and upload speeds (MB/s)</p>
-            </div>
-            <ResponsiveContainer width="100%" height={200}>
-              <LineChart data={networkHistory}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="time" stroke="#6b7280" />
-                <YAxis stroke="#6b7280" />
-                <Tooltip />
-                <Legend />
-                <Line
-                  type="monotone"
-                  dataKey="download"
-                  stroke="#3b82f6"
-                  strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="upload"
-                  stroke="#10b981"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
-            </ResponsiveContainer>
+            {selectedMetric === 'memory' && (
+              <ResponsiveContainer width="100%" height={250}>
+                <AreaChart data={memoryHistory}>
+                  <defs>
+                    <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                    </linearGradient>
+                    <linearGradient id="colorAvailable" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="time" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip />
+                  <Legend />
+                  <Area
+                    type="monotone"
+                    dataKey="used"
+                    stackId="1"
+                    stroke="#8b5cf6"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorUsed)"
+                  />
+                  <Area
+                    type="monotone"
+                    dataKey="available"
+                    stackId="1"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    fillOpacity={1}
+                    fill="url(#colorAvailable)"
+                  />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+
+            {selectedMetric === 'network' && (
+              <ResponsiveContainer width="100%" height={250}>
+                <LineChart data={networkHistory}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="time" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip />
+                  <Legend />
+                  <Line
+                    type="monotone"
+                    dataKey="download"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="upload"
+                    stroke="#10b981"
+                    strokeWidth={2}
+                    dot={false}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            )}
           </Card>
 
           {/* System Info */}
