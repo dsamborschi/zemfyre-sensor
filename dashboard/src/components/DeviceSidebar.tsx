@@ -13,6 +13,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "./ui/tooltip";
 import { cn } from "./ui/utils";
 
 export interface Device {
@@ -94,8 +100,9 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
   };
 
   return (
-    <div className="w-full lg:w-80 lg:border-r border-gray-200 bg-white h-full flex flex-col overflow-hidden">
-      <div className="p-6 border-b border-gray-200 flex-shrink-0">
+    <TooltipProvider>
+      <div className="w-full lg:w-80 lg:border-r border-gray-200 bg-white h-full flex flex-col overflow-hidden">
+        <div className="p-6 border-b border-gray-200 flex-shrink-0">
         <div className="flex items-start justify-between mb-2">
           <div>
             <h2 className="text-gray-900 mb-1">Devices</h2>
@@ -229,7 +236,20 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between gap-2 mb-1">
-                      <h3 className="text-gray-900 truncate">{device.name}</h3>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <h3 className="text-gray-900 truncate">
+                            {device.name.length > 15 
+                              ? `${device.name.substring(0, 15)}...` 
+                              : device.name}
+                          </h3>
+                        </TooltipTrigger>
+                        {device.name.length > 15 && (
+                          <TooltipContent>
+                            <p>{device.name}</p>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
                     </div>
                     
                     <div className="flex items-center gap-2 mb-2">
@@ -279,5 +299,6 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
         </div>
       </div>
     </div>
+    </TooltipProvider>
   );
 }
