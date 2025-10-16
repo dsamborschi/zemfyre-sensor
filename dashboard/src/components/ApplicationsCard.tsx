@@ -137,6 +137,8 @@ export function ApplicationsCard({
   // Service modal state
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteAppConfirmOpen, setDeleteAppConfirmOpen] = useState(false);
+  const [appToDelete, setAppToDelete] = useState<Application | null>(null);
   const [useCustomImage, setUseCustomImage] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [selectedAppForService, setSelectedAppForService] = useState<Application | null>(null);
@@ -355,6 +357,17 @@ export function ApplicationsCard({
     toast.success(`Service "${editingService.serviceName}" deleted successfully`);
   };
 
+  const handleRemoveApplication = () => {
+    if (!appToDelete) {
+      return;
+    }
+
+    onRemoveApplication(appToDelete.id);
+    setDeleteAppConfirmOpen(false);
+    setAppToDelete(null);
+    toast.success(`${appToDelete.appName || appToDelete.name} removed`);
+  };
+
   return (
     <>
       <Card className="p-4 md:p-6">
@@ -467,8 +480,8 @@ export function ApplicationsCard({
                           <DropdownMenuItem
                             className="text-red-600"
                             onClick={() => {
-                              onRemoveApplication(app.id);
-                              toast.success(`${app.appName || app.name} removed`);
+                              setAppToDelete(app);
+                              setDeleteAppConfirmOpen(true);
                             }}
                           >
                             Remove
@@ -745,6 +758,28 @@ export function ApplicationsCard({
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteService}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Application Confirmation Dialog */}
+      <AlertDialog open={deleteAppConfirmOpen} onOpenChange={setDeleteAppConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Application</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the application <strong>"{appToDelete?.appName || appToDelete?.name}"</strong>? 
+              This will remove all associated services and cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleRemoveApplication}
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
             >
               Delete
