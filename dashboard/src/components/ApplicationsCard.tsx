@@ -394,10 +394,10 @@ export function ApplicationsCard({
               return (
                 <div
                   key={app.id}
-                  className="border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors"
+                  className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors"
                 >
                   {/* Application Header */}
-                  <div className="flex items-center gap-3 p-3">
+                  <div className="flex items-center gap-3 p-3 bg-gray-50">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <h4 className="text-gray-900 truncate font-medium">{app.appName || app.name}</h4>
@@ -489,7 +489,7 @@ export function ApplicationsCard({
 
                   {/* Services List */}
                   {app.services && app.services.length > 0 && (
-                    <div className="border-t border-gray-200 bg-gray-50/50">
+                    <div className="border-t border-gray-200 bg-white">
                       <div className="p-3 space-y-2">
                         <h5 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Services</h5>
                         {app.services.map((service, idx) => (
