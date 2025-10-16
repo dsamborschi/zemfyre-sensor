@@ -241,6 +241,18 @@ export function SystemMetrics({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
           {metrics.map((metric, index) => {
             const Icon = metric.icon;
+            const progressColorClass = 
+              metric.color === 'blue' ? 'bg-blue-600' :
+              metric.color === 'purple' ? 'bg-purple-600' :
+              metric.color === 'green' ? 'bg-green-600' :
+              metric.color === 'orange' ? 'bg-orange-600' : 'bg-gray-600';
+            
+            const progressBgClass = 
+              metric.color === 'blue' ? 'bg-blue-100' :
+              metric.color === 'purple' ? 'bg-purple-100' :
+              metric.color === 'green' ? 'bg-green-100' :
+              metric.color === 'orange' ? 'bg-orange-100' : 'bg-gray-100';
+
             return (
               <Card key={index} className="p-4 md:p-6">
                 <div className="flex items-start justify-between mb-4">
@@ -257,7 +269,12 @@ export function SystemMetrics({
                     <Icon className={`w-5 h-5 ${metric.iconColor}`} />
                   </div>
                 </div>
-                <Progress value={metric.progress} className="h-2" />
+                <div className={`relative h-2 w-full overflow-hidden rounded-full ${progressBgClass}`}>
+                  <div 
+                    className={`h-full transition-all ${progressColorClass}`}
+                    style={{ width: `${metric.progress}%` }}
+                  />
+                </div>
               </Card>
             );
           })}
