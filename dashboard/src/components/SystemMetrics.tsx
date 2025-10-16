@@ -297,34 +297,34 @@ export function SystemMetrics({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
           {/* Telemetry Chart - Combined CPU, Memory, and Network */}
           <Card className="p-4 md:p-6">
-            <div className="mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-lg text-gray-900 font-medium">Telemetry</h3>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  <Select value={timePeriod} onValueChange={(value: any) => setTimePeriod(value)}>
-                    <SelectTrigger className="w-[120px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="30min">30 minutes</SelectItem>
-                      <SelectItem value="6h">6 hours</SelectItem>
-                      <SelectItem value="12h">12 hours</SelectItem>
-                      <SelectItem value="24h">24 hours</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Select value={selectedMetric} onValueChange={(value: any) => setSelectedMetric(value)}>
-                    <SelectTrigger className="w-[160px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="cpu">CPU Usage</SelectItem>
-                      <SelectItem value="memory">Memory Usage</SelectItem>
-                      <SelectItem value="network">Network Activity</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+            <div className="mb-4 space-y-3">
+              <div>
+                <h3 className="text-lg text-gray-900 font-medium mb-1">Telemetry</h3>
+                <p className="text-sm text-gray-600">System performance metrics</p>
               </div>
-              <p className="text-sm text-gray-600">System performance metrics</p>
+              <div className="flex items-center gap-2">
+                <Select value={timePeriod} onValueChange={(value: any) => setTimePeriod(value)}>
+                  <SelectTrigger className="w-[120px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="30min">30 minutes</SelectItem>
+                    <SelectItem value="6h">6 hours</SelectItem>
+                    <SelectItem value="12h">12 hours</SelectItem>
+                    <SelectItem value="24h">24 hours</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={selectedMetric} onValueChange={(value: any) => setSelectedMetric(value)}>
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cpu">CPU Usage</SelectItem>
+                    <SelectItem value="memory">Memory Usage</SelectItem>
+                    <SelectItem value="network">Network Activity</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
             {selectedMetric === 'cpu' && (
