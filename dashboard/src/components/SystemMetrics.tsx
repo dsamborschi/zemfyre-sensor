@@ -329,7 +329,7 @@ export function SystemMetrics({
 
             {selectedMetric === 'cpu' && (
               <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={cpuHistory}>
+                <AreaChart data={cpuHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                   <defs>
                     <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -337,8 +337,8 @@ export function SystemMetrics({
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="time" stroke="#6b7280" />
-                  <YAxis stroke="#6b7280" />
+                  <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
+                  <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
                   <Tooltip />
                   <Area
                     type="monotone"
@@ -354,7 +354,7 @@ export function SystemMetrics({
 
             {selectedMetric === 'memory' && (
               <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={memoryHistory}>
+                <AreaChart data={memoryHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                   <defs>
                     <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
@@ -366,8 +366,8 @@ export function SystemMetrics({
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="time" stroke="#6b7280" />
-                  <YAxis stroke="#6b7280" />
+                  <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
+                  <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
                   <Tooltip />
                   <Legend />
                   <Area
@@ -394,10 +394,10 @@ export function SystemMetrics({
 
             {selectedMetric === 'network' && (
               <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={networkHistory}>
+                <LineChart data={networkHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="time" stroke="#6b7280" />
-                  <YAxis stroke="#6b7280" />
+                  <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
+                  <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
                   <Tooltip />
                   <Legend />
                   <Line

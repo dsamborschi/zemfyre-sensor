@@ -149,10 +149,10 @@ export function AnalyticsCard({ deviceName = "Device 1", processes = [] }: Analy
       </div>
 
       <ResponsiveContainer width="100%" height={250}>
-        <LineChart data={chartData}>
+        <LineChart data={chartData} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-          <XAxis dataKey="time" stroke="#6b7280" />
-          <YAxis stroke="#6b7280" />
+          <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
+          <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
           <Tooltip />
           <Legend />
           {activeProcesses.map((process, index) => (

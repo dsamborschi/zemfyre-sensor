@@ -117,7 +117,7 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
             <p className="text-gray-600 text-xs">Published and received messages per second</p>
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={metrics.messageRateHistory}>
+            <AreaChart data={metrics.messageRateHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
               <defs>
                 <linearGradient id="colorPublished" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -135,7 +135,7 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
                 tick={{ fontSize: 11 }}
                 interval="preserveStartEnd"
               />
-              <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
+              <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} width={40} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
               <Area
@@ -167,7 +167,7 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
             <p className="text-gray-600 text-xs">Inbound and outbound data transfer (KB/s)</p>
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={metrics.throughputHistory}>
+            <LineChart data={metrics.throughputHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="time" 
@@ -175,7 +175,7 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
                 tick={{ fontSize: 11 }}
                 interval="preserveStartEnd"
               />
-              <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
+              <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} width={40} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
               <Line
@@ -203,7 +203,7 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
             <p className="text-gray-600 text-xs">Connected clients and active subscriptions</p>
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={metrics.connectionHistory}>
+            <LineChart data={metrics.connectionHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="time" 
@@ -211,7 +211,7 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
                 tick={{ fontSize: 11 }}
                 interval="preserveStartEnd"
               />
-              <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} />
+              <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} width={40} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
               <Line
