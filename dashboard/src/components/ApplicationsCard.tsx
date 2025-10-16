@@ -25,6 +25,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { Input } from "./ui/input";
@@ -397,66 +398,63 @@ export function ApplicationsCard({
                   className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors"
                 >
                   {/* Application Header */}
-                  <div className="flex items-center gap-3 p-3 bg-gray-50">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="text-gray-900 truncate font-medium">{app.appName || app.name}</h4>
-                        <div className="flex items-center gap-1">
-                          <SyncIcon className={`w-3 h-3 ${
-                            app.syncStatus === "synced" ? "text-green-600" :
-                            app.syncStatus === "error" ? "text-red-600" :
-                            app.syncStatus === "syncing" ? "text-blue-600" :
-                            "text-yellow-600"
-                          }`} />
-                          <span className={`text-xs ${
-                            app.syncStatus === "synced" ? "text-green-600" :
-                            app.syncStatus === "error" ? "text-red-600" :
-                            app.syncStatus === "syncing" ? "text-blue-600" :
-                            "text-yellow-600"
-                          }`}>
-                            {app.syncStatus}
-                          </span>
+                  <div className="p-3 bg-gray-50 space-y-3">
+                    {/* Title Row */}
+                    <div className="flex items-start gap-2">
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-gray-900 font-medium mb-1">{app.appName || app.name}</h4>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <div className="flex items-center gap-1">
+                            <SyncIcon className={`w-3 h-3 ${
+                              app.syncStatus === "synced" ? "text-green-600" :
+                              app.syncStatus === "error" ? "text-red-600" :
+                              app.syncStatus === "syncing" ? "text-blue-600" :
+                              "text-yellow-600"
+                            }`} />
+                            <span className={`text-xs ${
+                              app.syncStatus === "synced" ? "text-green-600" :
+                              app.syncStatus === "error" ? "text-red-600" :
+                              app.syncStatus === "syncing" ? "text-blue-600" :
+                              "text-yellow-600"
+                            }`}>
+                              {app.syncStatus}
+                            </span>
+                          </div>
+                          {app.services && app.services.length > 0 && (
+                            <>
+                              <span className="text-gray-400">•</span>
+                              <span className="text-sm text-gray-500">
+                                {app.services.length} service{app.services.length !== 1 ? 's' : ''}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
-                      {app.services && app.services.length > 0 && (
-                        <div className="text-sm text-gray-500">
-                          {app.services.length} service{app.services.length !== 1 ? 's' : ''}
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <Button 
-                        onClick={() => handleSyncApplication(app)} 
-                        size="sm"
-                        variant="outline"
-                        className="h-8 w-8 p-0"
-                        disabled={app.syncStatus === "syncing"}
-                        title="Sync"
-                      >
-                        <RefreshCw className={`w-4 h-4 ${app.syncStatus === "syncing" ? "animate-spin" : ""}`} />
-                      </Button>
-
-                      <Button 
-                        onClick={() => openServiceModal(app)} 
-                        size="sm"
-                        variant="outline"
-                        className="h-8 w-8 p-0"
-                        title="Add Service"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </Button>
-
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                          <button className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground h-8 w-8">
+                          <button className="inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground h-8 w-8 flex-shrink-0">
                             <MoreVertical className="w-4 h-4" />
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           <DropdownMenuItem
+                            onClick={() => handleSyncApplication(app)}
+                            disabled={app.syncStatus === "syncing"}
+                          >
+                            <RefreshCw className={`w-4 h-4 mr-2 ${app.syncStatus === "syncing" ? "animate-spin" : ""}`} />
+                            Sync to Device
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => openServiceModal(app)}
+                          >
+                            <Plus className="w-4 h-4 mr-2" />
+                            Add Service
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
                             onClick={() => openEditAppModal(app)}
                           >
+                            <Pen className="w-4 h-4 mr-2" />
                             Edit
                           </DropdownMenuItem>
                           <DropdownMenuItem
@@ -473,6 +471,7 @@ export function ApplicationsCard({
                           >
                             Restart
                           </DropdownMenuItem>
+                          <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-red-600"
                             onClick={() => {
@@ -480,6 +479,7 @@ export function ApplicationsCard({
                               setDeleteAppConfirmOpen(true);
                             }}
                           >
+                            <Trash2 className="w-4 h-4 mr-2" />
                             Remove
                           </DropdownMenuItem>
                         </DropdownMenuContent>
