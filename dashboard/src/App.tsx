@@ -797,8 +797,8 @@ export default function App() {
         </div>
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
-          {/* Mobile Header with Menu Button */}
-          <div className="lg:hidden bg-white border-b border-gray-200 p-4 flex items-center gap-3">
+          {/* Mobile Header with Menu Button - Sticky at top */}
+          <div className="lg:hidden bg-white border-b border-gray-200 p-4 flex items-center gap-3 sticky top-0 z-10">
             <Button
               variant="outline"
               size="icon"
@@ -807,8 +807,8 @@ export default function App() {
               <Menu className="w-5 h-5" />
             </Button>
             <div>
-              <h2 className="text-gray-900">{selectedDevice.name}</h2>
-              <p className="text-gray-600">{selectedDevice.ipAddress}</p>
+              <h2 className="font-semibold text-gray-900">{selectedDevice.name}</h2>
+              <p className="text-sm text-gray-600">{selectedDevice.ipAddress}</p>
             </div>
           </div>
 

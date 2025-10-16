@@ -170,8 +170,8 @@ export function SystemMetrics({
   return (
     <div className="flex-1 bg-gray-50 overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
-        {/* Header */}
-        <div className="space-y-4">
+        {/* Header - Hidden on mobile (shown in sticky header instead) */}
+        <div className="hidden lg:block space-y-4">
           <div className="flex items-start justify-between gap-4">
             <div>
               <h1 className="text-gray-900 mb-2">{device.name}</h1>
