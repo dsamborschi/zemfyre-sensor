@@ -514,7 +514,11 @@ export function ApplicationsCard({
                                     toast.info(`Starting ${service.serviceName}`);
                                   }}
                                   disabled={service.status === "running" || service.status === "syncing"}
-                                  className="h-8 w-8 p-0 border-green-200 hover:bg-green-50 hover:text-green-700 disabled:opacity-50"
+                                  className={`h-8 w-8 p-0 ${
+                                    service.status === "running" || service.status === "syncing"
+                                      ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                                      : "border-green-300 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-400"
+                                  }`}
                                   title="Start"
                                 >
                                   <Play className="w-4 h-4" />
@@ -527,7 +531,11 @@ export function ApplicationsCard({
                                     toast.info(`Stopping ${service.serviceName}`);
                                   }}
                                   disabled={service.status === "stopped" || service.status === "syncing" || !service.status}
-                                  className="h-8 w-8 p-0 border-red-200 hover:bg-red-50 hover:text-red-700 disabled:opacity-50"
+                                  className={`h-8 w-8 p-0 ${
+                                    service.status === "stopped" || service.status === "syncing" || !service.status
+                                      ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                                      : "border-red-300 bg-red-50 text-red-700 hover:bg-red-100 hover:border-red-400"
+                                  }`}
                                   title="Stop"
                                 >
                                   <Square className="w-4 h-4" />
