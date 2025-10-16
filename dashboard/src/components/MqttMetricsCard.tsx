@@ -83,7 +83,7 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
    
-          <h3 className="text-gray-900 font-medium mb-1">MQTT Metrics</h3>
+          <h3 className="text-lg text-gray-900 font-medium mb-1">MQTT Metrics</h3>
         </div>
         <p className="text-gray-600 text-sm">Real-time broker statistics and performance</p>
       </div>
