@@ -50,14 +50,14 @@ export function Header({ isAuthenticated = true }: HeaderProps) {
                       <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" />
                       <AvatarFallback>JD</AvatarFallback>
                     </Avatar>
-                    <span className="hidden md:inline text-gray-900">John Doe</span>
+                    <span className="hidden md:inline text-gray-900">Dan Sam</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>
                     <div className="flex flex-col">
-                      <span>John Doe</span>
-                      <span className="text-gray-500">john.doe@company.com</span>
+                      <span>Dan Sam</span>
+                      <span className="text-gray-500">dan.sam@company.com</span>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
