@@ -172,7 +172,7 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
     <Card className="p-4 md:p-6">
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-gray-900">MQTT Broker</h3>
+          <h3 className="text-gray-900">MQTT Topics</h3>
           <div className="flex items-center gap-2">
             <Activity className={cn(
               "w-4 h-4",
