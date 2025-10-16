@@ -20,6 +20,7 @@ import { ApplicationsCard, Application } from "./ApplicationsCard";
 import { NetworkingCard, NetworkInterface } from "./NetworkingCard";
 import { AnalyticsCard } from "./AnalyticsCard";
 import { MqttBrokerCard } from "./MqttBrokerCard";
+import { MqttMetricsCard } from "./MqttMetricsCard";
 
 interface SystemMetricsProps {
   device: Device;
@@ -346,6 +347,9 @@ export function SystemMetrics({
 
           {/* MQTT Broker */}
           <MqttBrokerCard deviceId={device.deviceUuid} />
+
+          {/* MQTT Metrics */}
+          <MqttMetricsCard deviceId={device.deviceUuid} />
         </div>
 
         {/* Analytics Card */}
