@@ -88,12 +88,12 @@ const generateMockTopics = (deviceId: string): MqttTopic[] => {
 };
 
 const TopicNode = ({ topic, level = 0 }: { topic: MqttTopic; level?: number }) => {
-  const [isExpanded, setIsExpanded] = useState(level < 3);
+  const [isExpanded, setIsExpanded] = useState(true);
   const hasChildren = topic.children && topic.children.length > 0;
 
   // Reset expansion state when topic name changes (e.g., device UUID changes)
   useEffect(() => {
-    setIsExpanded(level < 3);
+    setIsExpanded(true);
   }, [topic.name, level]);
 
   return (
