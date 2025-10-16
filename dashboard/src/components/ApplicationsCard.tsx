@@ -372,15 +372,15 @@ export function ApplicationsCard({
   return (
     <>
       <Card className="p-4 md:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-gray-900 mb-1">Applications</h3>
-            <p className="text-gray-600">Docker containers and services</p>
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-lg text-gray-900 font-medium">Applications</h3>
+            <Button onClick={openAddAppModal} size="sm" className="flex-shrink-0">
+              <Plus className="w-4 h-4 mr-2" />
+              Add App
+            </Button>
           </div>
-          <Button onClick={openAddAppModal} size="sm">
-            <Plus className="w-4 h-4 mr-2" />
-            Add App
-          </Button>
+          <p className="text-sm text-gray-600">Docker containers and services</p>
         </div>
 
         {applications.length === 0 ? (

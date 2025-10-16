@@ -115,37 +115,37 @@ export function AnalyticsCard({ deviceName = "Device 1", processes = [] }: Analy
 
   return (
     <Card className="p-4 md:p-6">
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h3 className="text-gray-900 mb-1">Analytics</h3>
-          <p className="text-gray-600">Process performance metrics</p>
+      <div className="mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-lg text-gray-900 font-medium">Analytics</h3>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Select value={timePeriod} onValueChange={(value: any) => setTimePeriod(value)}>
+              <SelectTrigger className="w-[120px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {timePeriodOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <Select value={selectedMetric} onValueChange={(value: any) => setSelectedMetric(value)}>
+              <SelectTrigger className="w-[160px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {metricOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          <Select value={timePeriod} onValueChange={(value: any) => setTimePeriod(value)}>
-            <SelectTrigger className="w-[120px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {timePeriodOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          <Select value={selectedMetric} onValueChange={(value: any) => setSelectedMetric(value)}>
-            <SelectTrigger className="w-[160px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {metricOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  {option.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <p className="text-sm text-gray-600">Process performance metrics</p>
       </div>
 
       <ResponsiveContainer width="100%" height={250}>

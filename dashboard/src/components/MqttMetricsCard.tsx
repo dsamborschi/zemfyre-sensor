@@ -132,10 +132,10 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
               <XAxis 
                 dataKey="time" 
                 stroke="#6b7280" 
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 10 }}
                 interval="preserveStartEnd"
               />
-              <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} width={40} />
+              <YAxis stroke="#6b7280" tick={{ fontSize: 10 }} width={40} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
               <Area
@@ -172,10 +172,10 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
               <XAxis 
                 dataKey="time" 
                 stroke="#6b7280" 
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 10 }}
                 interval="preserveStartEnd"
               />
-              <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} width={40} />
+              <YAxis stroke="#6b7280" tick={{ fontSize: 10 }} width={40} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
               <Line
@@ -208,10 +208,10 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
               <XAxis 
                 dataKey="time" 
                 stroke="#6b7280" 
-                tick={{ fontSize: 11 }}
+                tick={{ fontSize: 10 }}
                 interval="preserveStartEnd"
               />
-              <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} width={40} />
+              <YAxis stroke="#6b7280" tick={{ fontSize: 10 }} width={40} />
               <Tooltip />
               <Legend wrapperStyle={{ fontSize: '12px' }} />
               <Line
