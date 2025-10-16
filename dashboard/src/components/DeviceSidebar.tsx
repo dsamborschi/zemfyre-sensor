@@ -23,6 +23,7 @@ import { cn } from "./ui/utils";
 
 export interface Device {
   id: string;
+  deviceUuid: string;
   name: string;
   type: "desktop" | "laptop" | "mobile" | "server" | "gateway" | "edge-device" | "iot-hub" | "plc" | "controller" | "sensor-node";
   status: "online" | "offline" | "warning";

@@ -14,6 +14,7 @@ import { Header } from "./components/Header";
 const mockDevices: Device[] = [
   {
     id: "1",
+    deviceUuid: "a3f8c9d2-4e1b-4a9f-b7d3-c2e8f5a1b6d4",
     name: "Assembly Line Gateway",
     type: "gateway",
     status: "online",
@@ -25,6 +26,7 @@ const mockDevices: Device[] = [
   },
   {
     id: "2",
+    deviceUuid: "b8e4d1c3-9f2a-4d6e-a5c7-d9f3e8b2a7c1",
     name: "Quality Control Station",
     type: "edge-device",
     status: "online",
@@ -36,6 +38,7 @@ const mockDevices: Device[] = [
   },
   {
     id: "3",
+    deviceUuid: "c5d9f2e4-3a7b-4c8e-d1f6-e8a3c9b5d7f2",
     name: "Warehouse Sensor Hub",
     type: "iot-hub",
     status: "online",
@@ -47,6 +50,7 @@ const mockDevices: Device[] = [
   },
   {
     id: "4",
+    deviceUuid: "d6e2a8f4-5c9b-4d7e-a3f8-e1c4b9d6a2f5",
     name: "Conveyor Belt Monitor",
     type: "plc",
     status: "warning",
@@ -58,6 +62,7 @@ const mockDevices: Device[] = [
   },
   {
     id: "5",
+    deviceUuid: "e7f3b9c5-6d1a-4e8f-b2c9-f4d7a3e8b1c6",
     name: "HVAC Control Unit",
     type: "controller",
     status: "online",
@@ -69,6 +74,7 @@ const mockDevices: Device[] = [
   },
   {
     id: "6",
+    deviceUuid: "f8a4c1d6-7e2b-4f9a-c3d8-a5e9b2f7c4d1",
     name: "Environmental Sensor Node",
     type: "sensor-node",
     status: "online",
@@ -80,6 +86,7 @@ const mockDevices: Device[] = [
   },
   {
     id: "7",
+    deviceUuid: "a1b5d2e7-8f3c-4a1b-d4e9-b6f1c5a8d3e2",
     name: "Packaging Line Gateway",
     type: "gateway",
     status: "offline",
@@ -91,6 +98,7 @@ const mockDevices: Device[] = [
   },
   {
     id: "8",
+    deviceUuid: "b2c6e3f8-9a4d-4b2c-e5f1-c7a2d6b9e4f3",
     name: "Cold Storage Monitor",
     type: "edge-device",
     status: "online",

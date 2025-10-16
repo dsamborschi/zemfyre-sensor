@@ -30,22 +30,18 @@ const deviceGroups = [
   { value: "mobile", label: "Mobile Device" },
 ];
 
-// Function to generate random provisioning key
+// Helper function to generate provisioning key
 const generateProvisioningKey = () => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  const segments = 4;
-  const segmentLength = 8;
-  const key = [];
-  
-  for (let i = 0; i < segments; i++) {
-    let segment = '';
-    for (let j = 0; j < segmentLength; j++) {
-      segment += chars.charAt(Math.floor(Math.random() * chars.length));
-    }
-    key.push(segment);
-  }
-  
-  return key.join('-');
+  return `PROV-${Math.random().toString(36).substring(2, 15).toUpperCase()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
+};
+
+// Helper function to generate UUID v4
+const generateUuid = () => {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
 };
 
 export function AddEditDeviceDialog({
@@ -128,6 +124,7 @@ export function AddEditDeviceDialog({
 
     onSave({
       ...(device?.id ? { id: device.id } : {}),
+      deviceUuid: device?.deviceUuid || generateUuid(),
       name: formData.name,
       type: formData.type,
       ipAddress: formData.ipAddress,

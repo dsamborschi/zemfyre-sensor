@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { ChevronRight, ChevronDown, Activity, Circle } from "lucide-react";
@@ -11,8 +11,16 @@ interface MqttTopic {
   children?: MqttTopic[];
 }
 
+// Helper function to generate random message count
+const randomCount = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
 // Mock MQTT topic data following $iot/device/<device-id>/<subtopic> pattern
 const generateMockTopics = (deviceId: string): MqttTopic[] => {
+  const tempCount = randomCount(50, 150);
+  const humidityCount = randomCount(40, 120);
+  const onlineCount = randomCount(10, 40);
+  const uptimeCount = randomCount(10, 40);
+  
   return [
     {
       name: "$iot",
@@ -28,46 +36,46 @@ const generateMockTopics = (deviceId: string): MqttTopic[] => {
               children: [
               {
                 name: "telemetry",
-                messageCount: 142,
+                messageCount: tempCount + humidityCount,
                 lastMessage: JSON.stringify({ temperature: 23.5, humidity: 65 }),
                 children: [
                   {
                     name: "temperature",
-                    messageCount: 89,
+                    messageCount: tempCount,
                     lastMessage: "23.5",
                   },
                   {
                     name: "humidity",
-                    messageCount: 53,
+                    messageCount: humidityCount,
                     lastMessage: "65",
                   }
                 ]
               },
               {
                 name: "status",
-                messageCount: 45,
+                messageCount: onlineCount + uptimeCount,
                 lastMessage: JSON.stringify({ online: true, uptime: 3600 }),
                 children: [
                   {
                     name: "online",
-                    messageCount: 23,
+                    messageCount: onlineCount,
                     lastMessage: "true",
                   },
                   {
                     name: "uptime",
-                    messageCount: 22,
+                    messageCount: uptimeCount,
                     lastMessage: "3600",
                   }
                 ]
               },
               {
                 name: "commands",
-                messageCount: 12,
+                messageCount: randomCount(5, 25),
                 lastMessage: JSON.stringify({ action: "restart" }),
               },
               {
                 name: "events",
-                messageCount: 8,
+                messageCount: randomCount(3, 20),
                 lastMessage: JSON.stringify({ type: "alert", level: "warning" }),
               }
             ]
@@ -80,8 +88,13 @@ const generateMockTopics = (deviceId: string): MqttTopic[] => {
 };
 
 const TopicNode = ({ topic, level = 0 }: { topic: MqttTopic; level?: number }) => {
-  const [isExpanded, setIsExpanded] = useState(level < 2);
+  const [isExpanded, setIsExpanded] = useState(level < 3);
   const hasChildren = topic.children && topic.children.length > 0;
+
+  // Reset expansion state when topic name changes (e.g., device UUID changes)
+  useEffect(() => {
+    setIsExpanded(level < 3);
+  }, [topic.name, level]);
 
   return (
     <div>
@@ -140,8 +153,10 @@ interface MqttBrokerCardProps {
 }
 
 export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
-  const [topics] = useState<MqttTopic[]>(generateMockTopics(deviceId));
   const [isConnected] = useState(true);
+
+  // Regenerate topics when deviceId changes
+  const topics = useMemo(() => generateMockTopics(deviceId), [deviceId]);
 
   // Calculate total messages
   const countMessages = (topics: MqttTopic[]): number => {
