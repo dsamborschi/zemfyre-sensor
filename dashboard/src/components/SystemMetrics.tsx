@@ -27,6 +27,7 @@ interface SystemMetricsProps {
   networkHistory?: Array<{ time: string; download: number; upload: number }>;
   applications?: Application[];
   onAddApplication?: (app: Omit<Application, "id">) => void;
+  onUpdateApplication?: (app: Application) => void;
   onRemoveApplication?: (appId: string) => void;
   onToggleAppStatus?: (appId: string) => void;
   onToggleServiceStatus?: (appId: string, serviceId: number, action: "start" | "stop") => void;
@@ -79,6 +80,7 @@ export function SystemMetrics({
   networkHistory = networkData,
   applications = [],
   onAddApplication = () => {},
+  onUpdateApplication = () => {},
   onRemoveApplication = () => {},
   onToggleAppStatus = () => {},
   onToggleServiceStatus = () => {},
@@ -332,6 +334,7 @@ export function SystemMetrics({
             deviceId={device.id}
             applications={applications}
             onAddApplication={onAddApplication}
+            onUpdateApplication={onUpdateApplication}
             onRemoveApplication={onRemoveApplication}
             onToggleStatus={onToggleAppStatus}
             onToggleServiceStatus={onToggleServiceStatus}

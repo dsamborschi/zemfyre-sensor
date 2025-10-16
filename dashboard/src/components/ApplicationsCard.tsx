@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, CheckCircle2, XCircle, Clock, Play, Square, MoreVertical, Pen } from "lucide-react";
+import { Plus, CheckCircle2, XCircle, Clock, Play, Square, MoreVertical, Pen, RefreshCw, Trash2 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -12,6 +12,16 @@ import {
   DialogTitle,
 } from "./ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "./ui/alert-dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -21,7 +31,7 @@ import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
-import { toast } from "sonner@2.0.3";
+import { toast } from "sonner";
 
 // Popular Docker images sorted alphabetically
 const popularDockerImages = [
@@ -82,6 +92,7 @@ interface ApplicationsCardProps {
   deviceId: string;
   applications: Application[];
   onAddApplication: (app: Omit<Application, "id">) => void;
+  onUpdateApplication?: (app: Application) => void;
   onRemoveApplication: (appId: string) => void;
   onToggleStatus: (appId: string) => void;
   onToggleServiceStatus?: (appId: string, serviceId: number, action: "start" | "stop") => void;
@@ -111,11 +122,13 @@ export function ApplicationsCard({
   deviceId,
   applications,
   onAddApplication,
+  onUpdateApplication = () => {},
   onRemoveApplication,
   onToggleStatus,
   onToggleServiceStatus = () => {},
 }: ApplicationsCardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingApp, setEditingApp] = useState<Application | null>(null);
   const [newApp, setNewApp] = useState({
     appId: "",
     appName: "",
@@ -123,6 +136,7 @@ export function ApplicationsCard({
 
   // Service modal state
   const [serviceDialogOpen, setServiceDialogOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [useCustomImage, setUseCustomImage] = useState(false);
   const [editingService, setEditingService] = useState<Service | null>(null);
   const [selectedAppForService, setSelectedAppForService] = useState<Application | null>(null);
@@ -142,23 +156,50 @@ export function ApplicationsCard({
       return;
     }
 
-    // Generate a random app ID (4-digit number between 1000-9999)
-    const randomAppId = Math.floor(1000 + Math.random() * 9000);
+    if (editingApp) {
+      // Update existing application
+      const updatedApp = {
+        ...editingApp,
+        appName: newApp.appName,
+        name: newApp.appName, // For backward compatibility
+      };
+      onUpdateApplication(updatedApp);
+      toast.success("Application updated successfully");
+    } else {
+      // Generate a random app ID (4-digit number between 1000-9999)
+      const randomAppId = Math.floor(1000 + Math.random() * 9000);
 
-    onAddApplication({
-      appId: randomAppId,
-      appName: newApp.appName,
-      name: newApp.appName, // For backward compatibility
-      image: "", // Placeholder, actual images are defined in services
-      status: "stopped",
-      syncStatus: "pending",
-      services: [], // Services will be added separately
-      uptime: "0m",
-    });
+      onAddApplication({
+        appId: randomAppId,
+        appName: newApp.appName,
+        name: newApp.appName, // For backward compatibility
+        image: "", // Placeholder, actual images are defined in services
+        status: "stopped",
+        syncStatus: "pending",
+        services: [], // Services will be added separately
+        uptime: "0m",
+      });
+      toast.success("Application added successfully");
+    }
 
     setNewApp({ appId: "", appName: "" });
+    setEditingApp(null);
     setDialogOpen(false);
-    toast.success("Application added successfully");
+  };
+
+  const openEditAppModal = (app: Application) => {
+    setEditingApp(app);
+    setNewApp({
+      appId: app.appId.toString(),
+      appName: app.appName,
+    });
+    setDialogOpen(true);
+  };
+
+  const openAddAppModal = () => {
+    setEditingApp(null);
+    setNewApp({ appId: "", appName: "" });
+    setDialogOpen(true);
   };
 
   const openServiceModal = (app: Application, service?: Service) => {
@@ -190,14 +231,34 @@ export function ApplicationsCard({
   };
 
   const handleSaveService = () => {
-    if (!selectedAppForService || !newService.serviceId || !newService.serviceName || !newService.imageName) {
+    // Validate required fields
+    if (!selectedAppForService) {
+      toast.error("No application selected");
+      return;
+    }
+    
+    if (!newService.serviceName) {
+      toast.error("Service name is required");
+      return;
+    }
+    
+    if (!newService.imageName) {
+      toast.error("Docker image is required");
       return;
     }
 
     try {
       const updatedApp = { ...selectedAppForService };
+      
+      // Auto-generate service ID if not editing
+      const serviceId = editingService 
+        ? editingService.serviceId 
+        : (updatedApp.services.length > 0 
+            ? Math.max(...updatedApp.services.map(s => s.serviceId)) + 1 
+            : 1);
+      
       const newServiceObj: Service = {
-        serviceId: parseInt(newService.serviceId),
+        serviceId: serviceId,
         serviceName: newService.serviceName,
         imageName: newService.imageName,
         appId: selectedAppForService.appId,
@@ -209,6 +270,8 @@ export function ApplicationsCard({
           volumes: newService.volumes ? newService.volumes.split("\n").filter(v => v.trim()) : [],
           labels: newService.labels ? JSON.parse(newService.labels) : {},
         },
+        status: "stopped",
+        uptime: "0m",
       };
 
       if (editingService) {
@@ -225,7 +288,9 @@ export function ApplicationsCard({
       // Sort services alphabetically by serviceName
       updatedApp.services.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
 
-      onAddApplication(updatedApp);
+      // Use onUpdateApplication instead of onAddApplication
+      onUpdateApplication(updatedApp);
+      
       setServiceDialogOpen(false);
       setSelectedAppForService(null);
       setEditingService(null);
@@ -240,8 +305,54 @@ export function ApplicationsCard({
       });
       toast.success(editingService ? "Service updated successfully" : "Service added successfully");
     } catch (error) {
+      console.error("Error saving service:", error);
       toast.error("Invalid JSON in environment or labels");
     }
+  };
+
+  const handleSyncApplication = (app: Application) => {
+    // Update app to syncing status
+    const updatedApp = { ...app, syncStatus: "syncing" as const };
+    onUpdateApplication(updatedApp);
+    toast.info(`Syncing ${app.appName || app.name} to device...`);
+
+    // Simulate sync process (2 seconds)
+    setTimeout(() => {
+      const syncedApp = { ...app, syncStatus: "synced" as const };
+      onUpdateApplication(syncedApp);
+      toast.success(`${app.appName || app.name} synced successfully!`);
+    }, 2000);
+  };
+
+  const handleDeleteService = () => {
+    if (!selectedAppForService || !editingService) {
+      return;
+    }
+
+    const updatedApp = { ...selectedAppForService };
+    
+    // Remove the service from the services array
+    updatedApp.services = updatedApp.services.filter(s => s.serviceId !== editingService.serviceId);
+
+    // Update the application
+    onUpdateApplication(updatedApp);
+    
+    // Close dialogs and reset state
+    setDeleteConfirmOpen(false);
+    setServiceDialogOpen(false);
+    setSelectedAppForService(null);
+    setEditingService(null);
+    setNewService({
+      serviceId: "",
+      serviceName: "",
+      imageName: "",
+      ports: "",
+      environment: "",
+      volumes: "",
+      labels: "",
+    });
+    
+    toast.success(`Service "${editingService.serviceName}" deleted successfully`);
   };
 
   return (
@@ -252,7 +363,7 @@ export function ApplicationsCard({
             <h3 className="text-gray-900 mb-1">Applications</h3>
             <p className="text-gray-600">Docker containers and services</p>
           </div>
-          <Button onClick={() => setDialogOpen(true)} size="sm">
+          <Button onClick={openAddAppModal} size="sm">
             <Plus className="w-4 h-4 mr-2" />
             Add App
           </Button>
@@ -307,6 +418,17 @@ export function ApplicationsCard({
 
                     <div className="flex items-center gap-2">
                       <Button 
+                        onClick={() => handleSyncApplication(app)} 
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        disabled={app.syncStatus === "syncing"}
+                      >
+                        <RefreshCw className={`w-3 h-3 mr-1.5 ${app.syncStatus === "syncing" ? "animate-spin" : ""}`} />
+                        Sync
+                      </Button>
+
+                      <Button 
                         onClick={() => openServiceModal(app)} 
                         size="sm"
                         variant="outline"
@@ -323,6 +445,11 @@ export function ApplicationsCard({
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          <DropdownMenuItem
+                            onClick={() => openEditAppModal(app)}
+                          >
+                            Edit
+                          </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {
                               toast.info(`Viewing logs for ${app.appName || app.name}`);
@@ -420,13 +547,21 @@ export function ApplicationsCard({
         )}
       </Card>
 
-      {/* Add Application Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      {/* Add/Edit Application Dialog */}
+      <Dialog open={dialogOpen} onOpenChange={(open) => {
+        setDialogOpen(open);
+        if (!open) {
+          setEditingApp(null);
+          setNewApp({ appId: "", appName: "" });
+        }
+      }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Add Application</DialogTitle>
+            <DialogTitle>{editingApp ? "Edit Application" : "Add Application"}</DialogTitle>
             <DialogDescription>
-              Create a new application container. Services can be added to the application after creation.
+              {editingApp 
+                ? "Update the application name" 
+                : "Create a new application container. Services can be added to the application after creation."}
             </DialogDescription>
           </DialogHeader>
 
@@ -439,15 +574,21 @@ export function ApplicationsCard({
                 value={newApp.appName}
                 onChange={(e) => setNewApp({ ...newApp, appName: e.target.value })}
               />
-              <p className="text-xs text-gray-500">Descriptive name for the application (e.g., web-server, database, api-gateway). An ID will be automatically assigned.</p>
+              <p className="text-xs text-gray-500">Descriptive name for the application (e.g., web-server, database, api-gateway).{!editingApp && " An ID will be automatically assigned."}</p>
             </div>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            <Button variant="outline" onClick={() => {
+              setDialogOpen(false);
+              setEditingApp(null);
+              setNewApp({ appId: "", appName: "" });
+            }}>
               Cancel
             </Button>
-            <Button onClick={handleAddApplication}>Add Application</Button>
+            <Button onClick={handleAddApplication}>
+              {editingApp ? "Update Application" : "Add Application"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -481,8 +622,8 @@ export function ApplicationsCard({
               {!useCustomImage ? (
                 <>
                   <Select
-                    value={newApp.image}
-                    onValueChange={(value) => setNewApp({ ...newApp, image: value })}
+                    value={newService.imageName}
+                    onValueChange={(value) => setNewService({ ...newService, imageName: value })}
                   >
                     <SelectTrigger id="app-image">
                       <SelectValue placeholder="Select a Docker image" />
@@ -509,8 +650,8 @@ export function ApplicationsCard({
                   <Input
                     id="app-image-custom"
                     placeholder="your-registry/image:tag"
-                    value={newApp.image}
-                    onChange={(e) => setNewApp({ ...newApp, image: e.target.value })}
+                    value={newService.imageName}
+                    onChange={(e) => setNewService({ ...newService, imageName: e.target.value })}
                   />
                   <Button
                     variant="link"
@@ -565,16 +706,52 @@ export function ApplicationsCard({
            
           </div>
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setServiceDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleSaveService}>
-              {editingService ? "Update Service" : "Add Service"}
-            </Button>
+          <DialogFooter className="gap-2">
+            <div className="flex-1">
+              {editingService && (
+                <Button 
+                  variant="destructive" 
+                  onClick={() => setDeleteConfirmOpen(true)}
+                  className="mr-auto"
+                >
+                  <Trash2 className="w-4 h-4 mr-2" />
+                  Delete Service
+                </Button>
+              )}
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setServiceDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleSaveService}>
+                {editingService ? "Update Service" : "Add Service"}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Service Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Service</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete the service <strong>"{editingService?.serviceName}"</strong>? 
+              This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteService}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

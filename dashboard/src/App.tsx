@@ -581,6 +581,15 @@ export default function App() {
     }));
   };
 
+  const handleUpdateApplication = (updatedApp: Application) => {
+    setApplications(prev => ({
+      ...prev,
+      [selectedDeviceId]: (prev[selectedDeviceId] || []).map(app =>
+        app.id === updatedApp.id ? updatedApp : app
+      ),
+    }));
+  };
+
   const handleRemoveApplication = (appId: string) => {
     setApplications(prev => ({
       ...prev,
@@ -789,6 +798,7 @@ export default function App() {
           networkHistory={networkHistory}
           applications={deviceApplications}
           onAddApplication={handleAddApplication}
+          onUpdateApplication={handleUpdateApplication}
           onRemoveApplication={handleRemoveApplication}
           onToggleAppStatus={handleToggleAppStatus}
           onToggleServiceStatus={handleToggleServiceStatus}
