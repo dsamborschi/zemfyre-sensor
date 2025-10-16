@@ -137,13 +137,16 @@ export function ApplicationsCard({
   });
 
   const handleAddApplication = () => {
-    if (!newApp.appId || !newApp.appName) {
+    if (!newApp.appName) {
       toast.error("Please fill in all required fields");
       return;
     }
 
+    // Generate a random app ID (4-digit number between 1000-9999)
+    const randomAppId = Math.floor(1000 + Math.random() * 9000);
+
     onAddApplication({
-      appId: parseInt(newApp.appId),
+      appId: randomAppId,
       appName: newApp.appName,
       name: newApp.appName, // For backward compatibility
       image: "", // Placeholder, actual images are defined in services
@@ -429,18 +432,6 @@ export function ApplicationsCard({
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="app-id">Application ID *</Label>
-              <Input
-                id="app-id"
-                type="number"
-                placeholder="1001"
-                value={newApp.appId}
-                onChange={(e) => setNewApp({ ...newApp, appId: e.target.value })}
-              />
-              <p className="text-xs text-gray-500">Unique numeric identifier for this application</p>
-            </div>
-
-            <div className="space-y-2">
               <Label htmlFor="app-name">Application Name *</Label>
               <Input
                 id="app-name"
@@ -448,7 +439,7 @@ export function ApplicationsCard({
                 value={newApp.appName}
                 onChange={(e) => setNewApp({ ...newApp, appName: e.target.value })}
               />
-              <p className="text-xs text-gray-500">Descriptive name for the application (e.g., web-server, database, api-gateway)</p>
+              <p className="text-xs text-gray-500">Descriptive name for the application (e.g., web-server, database, api-gateway). An ID will be automatically assigned.</p>
             </div>
           </div>
 

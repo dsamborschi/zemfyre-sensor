@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Monitor, Smartphone, Server, Laptop, Search, Filter, X } from "lucide-react";
+import { Monitor, Smartphone, Server, Laptop, Search, Plus,Filter, Edit, X } from "lucide-react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { ScrollArea } from "./ui/scroll-area";
@@ -31,6 +31,8 @@ interface DeviceSidebarProps {
   devices: Device[];
   selectedDeviceId: string;
   onSelectDevice: (deviceId: string) => void;
+  onAddDevice: () => void;
+  onEditDevice: (device: Device) => void;
 }
 
 const deviceIcons = {
@@ -58,7 +60,7 @@ const statusBadgeColors = {
   warning: "bg-yellow-100 text-yellow-700 border-yellow-200",
 };
 
-export function DeviceSidebar({ devices, selectedDeviceId, onSelectDevice }: DeviceSidebarProps) {
+export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDevice , onSelectDevice }: DeviceSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilters, setStatusFilters] = useState<string[]>(["online", "offline", "warning"]);
   const [typeFilters, setTypeFilters] = useState<string[]>(["desktop", "laptop", "mobile", "server", "gateway", "edge-device", "iot-hub", "plc", "controller", "sensor-node"]);
@@ -92,12 +94,20 @@ export function DeviceSidebar({ devices, selectedDeviceId, onSelectDevice }: Dev
   };
 
   return (
-    <div className="w-full lg:w-80 lg:border-l border-gray-200 bg-white h-full flex flex-col overflow-hidden">
+    <div className="w-full lg:w-80 lg:border-r border-gray-200 bg-white h-full flex flex-col overflow-hidden">
       <div className="p-6 border-b border-gray-200 flex-shrink-0">
-        <h2 className="text-gray-900 mb-1">Devices</h2>
-        <p className="text-gray-600">
-          {devices.filter(d => d.status === "online").length} of {devices.length} online
-        </p>
+        <div className="flex items-start justify-between mb-2">
+          <div>
+            <h2 className="text-gray-900 mb-1">Devices</h2>
+            <p className="text-gray-600">
+              {devices.filter(d => d.status === "online").length} of {devices.length} online
+            </p>
+          </div>
+          <Button size="sm" onClick={onAddDevice}>
+            <Plus className="w-4 h-4 mr-1" />
+            Add
+          </Button>
+        </div>
       </div>
 
       {/* Search and Filter */}
@@ -149,42 +159,6 @@ export function DeviceSidebar({ devices, selectedDeviceId, onSelectDevice }: Dev
               
               <DropdownMenuLabel>Device Type</DropdownMenuLabel>
               <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("gateway")}
-                onCheckedChange={() => toggleTypeFilter("gateway")}
-              >
-                Gateway
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("edge-device")}
-                onCheckedChange={() => toggleTypeFilter("edge-device")}
-              >
-                Edge Device
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("iot-hub")}
-                onCheckedChange={() => toggleTypeFilter("iot-hub")}
-              >
-                IoT Hub
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("plc")}
-                onCheckedChange={() => toggleTypeFilter("plc")}
-              >
-                PLC
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("controller")}
-                onCheckedChange={() => toggleTypeFilter("controller")}
-              >
-                Controller
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("sensor-node")}
-                onCheckedChange={() => toggleTypeFilter("sensor-node")}
-              >
-                Sensor Node
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
                 checked={typeFilters.includes("server")}
                 onCheckedChange={() => toggleTypeFilter("server")}
               >
@@ -233,12 +207,14 @@ export function DeviceSidebar({ devices, selectedDeviceId, onSelectDevice }: Dev
               <Card
                 key={device.id}
                 className={cn(
-                  "p-4 cursor-pointer transition-all hover:shadow-md",
+                  "p-4 transition-all hover:shadow-md relative group",
                   isSelected ? "ring-2 ring-blue-500 shadow-md" : ""
                 )}
-                onClick={() => onSelectDevice(device.id)}
               >
-                <div className="flex items-start gap-3">
+                <div 
+                  className="flex items-start gap-3 cursor-pointer"
+                  onClick={() => onSelectDevice(device.id)}
+                >
                   <div className="relative">
                     <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
                       <Icon className="w-5 h-5 text-gray-700" />
@@ -284,6 +260,19 @@ export function DeviceSidebar({ devices, selectedDeviceId, onSelectDevice }: Dev
                     </div>
                   </div>
                 </div>
+
+                {/* Edit Button - appears on hover */}
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEditDevice(device);
+                  }}
+                >
+                  <Edit className="w-4 h-4" />
+                </Button>
               </Card>
             );
           })}

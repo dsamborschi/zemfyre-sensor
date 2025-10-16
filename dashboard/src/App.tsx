@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { DeviceSidebar, Device } from "./components/DeviceSidebar";
+import { AddEditDeviceDialog } from "./components/AddEditDeviceDialog";
 import { SystemMetrics } from "./components/SystemMetrics";
 import { Application } from "./components/ApplicationsCard";
 import { Toaster } from "./components/ui/sonner";
 import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
 import { Menu } from "lucide-react";
-import { TopNavigation } from "./components/TopNavigation";
+
 import { toast } from "sonner";
 import { Header } from "./components/Header";
 
@@ -529,9 +530,38 @@ export default function App() {
   const [networkHistory, setNetworkHistory] = useState<Array<{ time: string; download: number; upload: number }>>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [applications, setApplications] = useState<Record<string, Application[]>>(initialApplications);
-
+  const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
+  const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const selectedDevice = devices.find((d) => d.id === selectedDeviceId) || devices[0];
   const deviceApplications = applications[selectedDeviceId] || [];
+
+
+    const handleAddDevice = () => {
+    setEditingDevice(null);
+    setDeviceDialogOpen(true);
+  };
+
+  const handleEditDevice = (device: Device) => {
+    setEditingDevice(device);
+    setDeviceDialogOpen(true);
+  };
+
+  const handleSaveDevice = (deviceData: Omit<Device, "id"> & { id?: string }) => {
+    if (deviceData.id) {
+      // Edit existing device
+      setDevices(prev =>
+        prev.map(d => (d.id === deviceData.id ? { ...d, ...deviceData } : d))
+      );
+    } else {
+      // Add new device
+      const newDevice: Device = {
+        id: `${devices.length + 1}`,
+        ...deviceData,
+      };
+      setDevices(prev => [...prev, newDevice]);
+      setSelectedDeviceId(newDevice.id);
+    }
+  };
 
   const handleSelectDevice = (deviceId: string) => {
     setSelectedDeviceId(deviceId);
@@ -724,6 +754,16 @@ export default function App() {
      <Header />
 
       <div className="flex flex-1 overflow-hidden">
+                {/* Desktop Sidebar - Hidden on mobile, positioned on right */}
+        <div className="hidden lg:block">
+          <DeviceSidebar
+            devices={devices}
+            selectedDeviceId={selectedDeviceId}
+            onSelectDevice={handleSelectDevice}
+            onAddDevice={handleAddDevice}
+            onEditDevice={handleEditDevice}
+          />
+        </div>
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Mobile Header with Menu Button */}
@@ -756,14 +796,7 @@ export default function App() {
         />
       </div>
 
-        {/* Desktop Sidebar - Hidden on mobile, positioned on right */}
-        <div className="hidden lg:block">
-          <DeviceSidebar
-            devices={devices}
-            selectedDeviceId={selectedDeviceId}
-            onSelectDevice={handleSelectDevice}
-          />
-        </div>
+
 
         {/* Mobile Drawer - Opens from right */}
         <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
@@ -772,10 +805,20 @@ export default function App() {
               devices={devices}
               selectedDeviceId={selectedDeviceId}
               onSelectDevice={handleSelectDevice}
+              onAddDevice={handleAddDevice}
+              onEditDevice={handleEditDevice}
             />
           </SheetContent>
         </Sheet>
       </div>
+
+       {/* Add/Edit Device Dialog */}
+      <AddEditDeviceDialog
+        open={deviceDialogOpen}
+        onOpenChange={setDeviceDialogOpen}
+        device={editingDevice}
+        onSave={handleSaveDevice}
+      />
 
       <Toaster />
     </div>

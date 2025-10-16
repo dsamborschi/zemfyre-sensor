@@ -1893,7 +1893,7 @@ const toggleAutoRefresh = () => {
           placeholder="e.g., web-stack"
         />
         <div class="mt-2 text-sm text-gray-600">
-          Application ID: {{ newApplication.appId }}
+          Iotistic ID: {{ newApplication.appId }}
         </div>
       </div>
 
