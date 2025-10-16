@@ -80,7 +80,7 @@ services:
         restart: always
         ports:
           - "${MOSQUITTO_PORT_EXT:-5883}:1883"
-          - "${MOSQUITTO_WS_PORT_EXT:-59001}:9001"
+          - "${MOSQUITTO_WS_PORT_EXT:-59002}:9001"
         volumes:
           - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
         networks:

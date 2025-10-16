@@ -1,0 +1,783 @@
+import { useState, useEffect } from "react";
+import { DeviceSidebar, Device } from "./components/DeviceSidebar";
+import { SystemMetrics } from "./components/SystemMetrics";
+import { Application } from "./components/ApplicationsCard";
+import { Toaster } from "./components/ui/sonner";
+import { Sheet, SheetContent } from "./components/ui/sheet";
+import { Button } from "./components/ui/button";
+import { Menu } from "lucide-react";
+import { TopNavigation } from "./components/TopNavigation";
+import { toast } from "sonner";
+import { Header } from "./components/Header";
+
+const mockDevices: Device[] = [
+  {
+    id: "1",
+    name: "Assembly Line Gateway",
+    type: "gateway",
+    status: "online",
+    ipAddress: "192.168.1.10",
+    lastSeen: "Just now",
+    cpu: 68,
+    memory: 72,
+    disk: 45,
+  },
+  {
+    id: "2",
+    name: "Quality Control Station",
+    type: "edge-device",
+    status: "online",
+    ipAddress: "192.168.1.11",
+    lastSeen: "2 mins ago",
+    cpu: 45,
+    memory: 85,
+    disk: 62,
+  },
+  {
+    id: "3",
+    name: "Warehouse Sensor Hub",
+    type: "iot-hub",
+    status: "online",
+    ipAddress: "192.168.1.25",
+    lastSeen: "5 mins ago",
+    cpu: 32,
+    memory: 58,
+    disk: 38,
+  },
+  {
+    id: "4",
+    name: "Conveyor Belt Monitor",
+    type: "plc",
+    status: "warning",
+    ipAddress: "192.168.1.12",
+    lastSeen: "10 mins ago",
+    cpu: 88,
+    memory: 92,
+    disk: 78,
+  },
+  {
+    id: "5",
+    name: "HVAC Control Unit",
+    type: "controller",
+    status: "online",
+    ipAddress: "192.168.1.30",
+    lastSeen: "15 mins ago",
+    cpu: 25,
+    memory: 48,
+    disk: 55,
+  },
+  {
+    id: "6",
+    name: "Environmental Sensor Node",
+    type: "sensor-node",
+    status: "online",
+    ipAddress: "192.168.1.45",
+    lastSeen: "1 min ago",
+    cpu: 18,
+    memory: 35,
+    disk: 68,
+  },
+  {
+    id: "7",
+    name: "Packaging Line Gateway",
+    type: "gateway",
+    status: "offline",
+    ipAddress: "192.168.1.50",
+    lastSeen: "2 hours ago",
+    cpu: 0,
+    memory: 0,
+    disk: 42,
+  },
+  {
+    id: "8",
+    name: "Cold Storage Monitor",
+    type: "edge-device",
+    status: "online",
+    ipAddress: "192.168.1.13",
+    lastSeen: "Just now",
+    cpu: 15,
+    memory: 28,
+    disk: 88,
+  },
+];
+
+// Helper function to generate random variation
+const randomVariation = (base: number, range: number = 5) => {
+  const variation = (Math.random() - 0.5) * range * 2;
+  return Math.max(0, Math.min(100, base + variation));
+};
+
+// Helper function to generate time labels
+const generateTimeLabel = (offset: number) => {
+  const now = new Date();
+  now.setMinutes(now.getMinutes() - offset * 5);
+  return now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
+};
+
+// Mock network interfaces for each device
+const mockNetworkInterfaces: Record<string, any[]> = {
+  "1": [
+    {
+      id: "eth0",
+      type: "ethernet",
+      ipAddress: "192.168.1.10",
+      status: "connected",
+      speed: "1000 Mbps",
+    },
+    {
+      id: "wlan0",
+      type: "wifi",
+      ipAddress: "192.168.1.55",
+      status: "connected",
+      signal: 85,
+    },
+  ],
+  "2": [
+    {
+      id: "eth0",
+      type: "ethernet",
+      ipAddress: "192.168.1.11",
+      status: "connected",
+      speed: "1000 Mbps",
+    },
+  ],
+  "3": [
+    {
+      id: "wlan0",
+      type: "wifi",
+      ipAddress: "192.168.1.25",
+      status: "connected",
+      signal: 92,
+    },
+  ],
+  "4": [
+    {
+      id: "eth0",
+      type: "ethernet",
+      ipAddress: "192.168.1.12",
+      status: "connected",
+      speed: "1000 Mbps",
+    },
+    {
+      id: "wlan0",
+      type: "wifi",
+      ipAddress: "192.168.1.60",
+      status: "disconnected",
+      signal: 0,
+    },
+  ],
+  "5": [
+    {
+      id: "wlan0",
+      type: "wifi",
+      ipAddress: "192.168.1.30",
+      status: "connected",
+      signal: 78,
+    },
+  ],
+  "6": [
+    {
+      id: "wwan0",
+      type: "mobile",
+      ipAddress: "10.45.12.89",
+      status: "connected",
+      signal: 72,
+    },
+    {
+      id: "wlan0",
+      type: "wifi",
+      ipAddress: "192.168.1.45",
+      status: "connected",
+      signal: 88,
+    },
+  ],
+  "7": [
+    {
+      id: "eth0",
+      type: "ethernet",
+      ipAddress: "192.168.1.50",
+      status: "disconnected",
+      speed: "100 Mbps",
+    },
+  ],
+  "8": [
+    {
+      id: "eth0",
+      type: "ethernet",
+      ipAddress: "192.168.1.13",
+      status: "connected",
+      speed: "10 Gbps",
+    },
+    {
+      id: "eth1",
+      type: "ethernet",
+      ipAddress: "10.0.0.5",
+      status: "connected",
+      speed: "10 Gbps",
+    },
+  ],
+  "9": [
+    {
+      id: "wwan0",
+      type: "mobile",
+      ipAddress: "10.45.13.102",
+      status: "connected",
+      signal: 68,
+    },
+    {
+      id: "wlan0",
+      type: "wifi",
+      ipAddress: "192.168.1.46",
+      status: "connected",
+      signal: 95,
+    },
+  ],
+  "10": [
+    {
+      id: "eth0",
+      type: "ethernet",
+      ipAddress: "192.168.1.14",
+      status: "connected",
+      speed: "1000 Mbps",
+    },
+  ],
+};
+
+// Initial mock applications for each device
+const initialApplications: Record<string, Application[]> = {
+  "1": [
+    {
+      id: "app-1",
+      appId: 1001,
+      appName: "web-server",
+      name: "web-server",
+      image: "nginx:latest",
+      status: "running",
+      syncStatus: "synced",
+      port: "80",
+      uptime: "5d 12h",
+      services: [
+        {
+          serviceId: 1,
+          serviceName: "nginx",
+          imageName: "nginx:latest",
+          appId: 1001,
+          appName: "web-server",
+          config: {
+            image: "nginx:latest",
+            ports: ["8080:80", "8443:443"],
+            environment: {
+              ENV: "production",
+              NGINX_HOST: "localhost",
+            },
+            volumes: ["nginx-config:/etc/nginx"],
+          },
+          status: "running",
+          uptime: "5d 12h",
+        },
+      ],
+    },
+    {
+      id: "app-2",
+      appId: 1002,
+      appName: "database",
+      name: "database",
+      image: "postgres:14",
+      status: "running",
+      syncStatus: "synced",
+      port: "5432",
+      uptime: "5d 12h",
+      services: [
+        {
+          serviceId: 1,
+          serviceName: "postgres",
+          imageName: "postgres:14-alpine",
+          appId: 1002,
+          appName: "database",
+          config: {
+            image: "postgres:14-alpine",
+            ports: ["5432:5432"],
+            environment: {
+              POSTGRES_PASSWORD: "***",
+              POSTGRES_DB: "production",
+              POSTGRES_USER: "admin",
+            },
+            volumes: ["postgres-data:/var/lib/postgresql/data"],
+          },
+          status: "running",
+          uptime: "5d 12h",
+        },
+      ],
+    },
+    {
+      id: "app-3",
+      appId: 1003,
+      appName: "redis-cache",
+      name: "redis-cache",
+      image: "redis:alpine",
+      status: "running",
+      syncStatus: "syncing",
+      port: "6379",
+      uptime: "2d 4h",
+      services: [
+        {
+          serviceId: 1,
+          serviceName: "redis",
+          imageName: "redis:7-alpine",
+          appId: 1003,
+          appName: "redis-cache",
+          config: {
+            image: "redis:7-alpine",
+            ports: ["6379:6379"],
+            environment: {},
+          },
+          status: "running",
+          uptime: "2d 4h",
+        },
+      ],
+    },
+  ],
+  "2": [
+    {
+      id: "app-4",
+      appId: 2001,
+      appName: "mongodb-cluster",
+      name: "mongodb-cluster",
+      image: "mongo:6",
+      status: "running",
+      syncStatus: "synced",
+      port: "27017",
+      uptime: "8d 3h",
+      services: [
+        {
+          serviceId: 1,
+          serviceName: "mongodb",
+          imageName: "mongo:6",
+          appId: 2001,
+          appName: "mongodb-cluster",
+          config: {
+            image: "mongo:6",
+            ports: ["27017:27017"],
+            environment: {
+              MONGO_INITDB_ROOT_USERNAME: "admin",
+              MONGO_INITDB_ROOT_PASSWORD: "***",
+            },
+            volumes: ["mongodb-data:/data/db", "mongodb-config:/data/configdb"],
+          },
+          status: "running",
+          uptime: "8d 3h",
+        },
+      ],
+    },
+    {
+      id: "app-5",
+      appId: 2002,
+      appName: "api-service",
+      name: "api-service",
+      image: "node:18-alpine",
+      status: "running",
+      syncStatus: "error",
+      port: "3000",
+      uptime: "1d 2h",
+      services: [
+        {
+          serviceId: 1,
+          serviceName: "api",
+          imageName: "node:18-alpine",
+          appId: 2002,
+          appName: "api-service",
+          config: {
+            image: "node:18-alpine",
+            ports: ["3000:3000"],
+            environment: {
+              NODE_ENV: "production",
+              API_KEY: "***",
+              DATABASE_URL: "mongodb://mongodb:27017/apidb",
+            },
+          },
+          status: "running",
+          uptime: "1d 2h",
+        },
+      ],
+    },
+  ],
+  "3": [
+    {
+      id: "app-6",
+      appId: 3001,
+      appName: "dev-server",
+      name: "dev-server",
+      image: "node:18",
+      status: "running",
+      syncStatus: "synced",
+      port: "3000",
+      uptime: "4h 20m",
+      services: [
+        {
+          serviceId: 1,
+          serviceName: "dev-app",
+          imageName: "node:18",
+          appId: 3001,
+          appName: "dev-server",
+          config: {
+            image: "node:18",
+            ports: ["3000:3000"],
+            environment: {
+              NODE_ENV: "development",
+            },
+          },
+          status: "running",
+          uptime: "4h 20m",
+        },
+      ],
+    },
+  ],
+  "4": [
+    {
+      id: "app-7",
+      appId: 4001,
+      appName: "test-runner",
+      name: "test-runner",
+      image: "cypress/included:12",
+      status: "stopped",
+      syncStatus: "pending",
+      uptime: "0m",
+      services: [
+        {
+          serviceId: 1,
+          serviceName: "cypress",
+          imageName: "cypress/included:12",
+          appId: 4001,
+          appName: "test-runner",
+          config: {
+            image: "cypress/included:12",
+            environment: {},
+          },
+          status: "stopped",
+          uptime: "0m",
+        },
+      ],
+    },
+  ],
+  "10": [
+    {
+      id: "app-8",
+      appId: 10001,
+      appName: "web-app",
+      name: "web-app",
+      image: "nginx:alpine",
+      status: "running",
+      syncStatus: "synced",
+      port: "80",
+      uptime: "3d 8h",
+      services: [
+        {
+          serviceId: 1,
+          serviceName: "nginx",
+          imageName: "nginx:alpine",
+          appId: 10001,
+          appName: "web-app",
+          config: {
+            image: "nginx:alpine",
+            ports: ["80:80"],
+          },
+          status: "running",
+          uptime: "3d 8h",
+        },
+      ],
+    },
+    {
+      id: "app-9",
+      appId: 10002,
+      appName: "api-gateway",
+      name: "api-gateway",
+      image: "traefik:latest",
+      status: "running",
+      syncStatus: "synced",
+      port: "8080",
+      uptime: "3d 8h",
+      services: [
+        {
+          serviceId: 1,
+          serviceName: "traefik",
+          imageName: "traefik:latest",
+          appId: 10002,
+          appName: "api-gateway",
+          config: {
+            image: "traefik:latest",
+            ports: ["8080:8080", "443:443"],
+            environment: {
+              TRAEFIK_LOG_LEVEL: "INFO",
+            },
+            labels: {
+              "traefik.enable": "true",
+            },
+          },
+          status: "running",
+          uptime: "3d 8h",
+        },
+      ],
+    },
+  ],
+};
+
+export default function App() {
+  const [selectedDeviceId, setSelectedDeviceId] = useState(mockDevices[0].id);
+  const [devices, setDevices] = useState(mockDevices);
+  const [cpuHistory, setCpuHistory] = useState<Array<{ time: string; value: number }>>([]);
+  const [memoryHistory, setMemoryHistory] = useState<Array<{ time: string; used: number; available: number }>>([]);
+  const [networkHistory, setNetworkHistory] = useState<Array<{ time: string; download: number; upload: number }>>([]);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [applications, setApplications] = useState<Record<string, Application[]>>(initialApplications);
+
+  const selectedDevice = devices.find((d) => d.id === selectedDeviceId) || devices[0];
+  const deviceApplications = applications[selectedDeviceId] || [];
+
+  const handleSelectDevice = (deviceId: string) => {
+    setSelectedDeviceId(deviceId);
+    setSidebarOpen(false); // Close sidebar on mobile after selection
+  };
+
+  const handleAddApplication = (app: Omit<Application, "id">) => {
+    const newApp: Application = {
+      ...app,
+      id: `app-${Date.now()}`,
+      // Ensure services array exists
+      services: app.services || [],
+    };
+    setApplications(prev => ({
+      ...prev,
+      [selectedDeviceId]: [...(prev[selectedDeviceId] || []), newApp],
+    }));
+  };
+
+  const handleRemoveApplication = (appId: string) => {
+    setApplications(prev => ({
+      ...prev,
+      [selectedDeviceId]: (prev[selectedDeviceId] || []).filter(app => app.id !== appId),
+    }));
+  };
+
+  const handleToggleAppStatus = (appId: string) => {
+    setApplications(prev => ({
+      ...prev,
+      [selectedDeviceId]: (prev[selectedDeviceId] || []).map(app =>
+        app.id === appId
+          ? {
+              ...app,
+              status: app.status === "running" ? "stopped" : "running",
+              uptime: app.status === "running" ? "0m" : app.uptime,
+            }
+          : app
+      ),
+    }));
+  };
+
+  const handleToggleServiceStatus = (appId: string, serviceId: number, action: "start" | "stop") => {
+    setApplications(prev => ({
+      ...prev,
+      [selectedDeviceId]: (prev[selectedDeviceId] || []).map(app => {
+        if (app.id !== appId) return app;
+        
+        return {
+          ...app,
+          services: app.services?.map(service => {
+            if (service.serviceId !== serviceId) return service;
+            
+            // Set status to syncing first, then change after a delay
+            if (action === "start") {
+              // Start service
+              setTimeout(() => {
+                setApplications(prevApps => ({
+                  ...prevApps,
+                  [selectedDeviceId]: (prevApps[selectedDeviceId] || []).map(a => {
+                    if (a.id !== appId) return a;
+                    return {
+                      ...a,
+                      services: a.services?.map(s => 
+                        s.serviceId === serviceId ? { ...s, status: "running" } : s
+                      ),
+                    };
+                  }),
+                }));
+              }, 1500); // Simulate 1.5s delay
+              
+              return { ...service, status: "syncing" };
+            } else {
+              // Stop service
+              setTimeout(() => {
+                setApplications(prevApps => ({
+                  ...prevApps,
+                  [selectedDeviceId]: (prevApps[selectedDeviceId] || []).map(a => {
+                    if (a.id !== appId) return a;
+                    return {
+                      ...a,
+                      services: a.services?.map(s => 
+                        s.serviceId === serviceId ? { ...s, status: "stopped" } : s
+                      ),
+                    };
+                  }),
+                }));
+              }, 1500); // Simulate 1.5s delay
+              
+              return { ...service, status: "syncing" };
+            }
+          }),
+        };
+      }),
+    }));
+  };
+
+  // Initialize history data
+  useEffect(() => {
+    const initialCpuHistory = Array.from({ length: 10 }, (_, i) => ({
+      time: generateTimeLabel(9 - i),
+      value: randomVariation(selectedDevice.cpu, 10),
+    }));
+    setCpuHistory(initialCpuHistory);
+
+    const initialMemoryHistory = Array.from({ length: 10 }, (_, i) => {
+      const used = randomVariation(selectedDevice.memory * 0.16, 1);
+      return {
+        time: generateTimeLabel(9 - i),
+        used,
+        available: 16 - used,
+      };
+    });
+    setMemoryHistory(initialMemoryHistory);
+
+    const initialNetworkHistory = Array.from({ length: 10 }, (_, i) => ({
+      time: generateTimeLabel(9 - i),
+      download: Math.random() * 30 + 10,
+      upload: Math.random() * 15 + 3,
+    }));
+    setNetworkHistory(initialNetworkHistory);
+  }, [selectedDeviceId]);
+
+  // Simulate real-time data updates
+  useEffect(() => {
+    const interval = setInterval(() => {
+      // Update device metrics
+      setDevices(prevDevices =>
+        prevDevices.map(device => {
+          // Don't update offline devices
+          if (device.status === "offline") return device;
+
+          const newCpu = randomVariation(device.cpu, 3);
+          const newMemory = randomVariation(device.memory, 2);
+          
+          // Update status based on metrics
+          let newStatus: "online" | "offline" | "warning" = "online";
+          if (newCpu > 85 || newMemory > 90) {
+            newStatus = "warning";
+          }
+
+          return {
+            ...device,
+            cpu: Math.round(newCpu),
+            memory: Math.round(newMemory),
+            status: newStatus,
+            lastSeen: device.id === selectedDeviceId ? "Just now" : device.lastSeen,
+          };
+        })
+      );
+
+      // Update chart history for selected device
+      const currentDevice = devices.find(d => d.id === selectedDeviceId);
+      if (currentDevice && currentDevice.status !== "offline") {
+        // Update CPU history
+        setCpuHistory(prev => {
+          const newValue = randomVariation(currentDevice.cpu, 5);
+          const newEntry = { time: generateTimeLabel(0), value: newValue };
+          return [...prev.slice(1), newEntry];
+        });
+
+        // Update memory history
+        setMemoryHistory(prev => {
+          const used = randomVariation(currentDevice.memory * 0.16, 0.5);
+          const newEntry = {
+            time: generateTimeLabel(0),
+            used,
+            available: 16 - used,
+          };
+          return [...prev.slice(1), newEntry];
+        });
+
+        // Update network history
+        setNetworkHistory(prev => {
+          const newEntry = {
+            time: generateTimeLabel(0),
+            download: Math.random() * 30 + 10,
+            upload: Math.random() * 15 + 3,
+          };
+          return [...prev.slice(1), newEntry];
+        });
+      }
+    }, 3000); // Update every 3 seconds
+
+    return () => clearInterval(interval);
+  }, [selectedDeviceId, devices]);
+
+  return (
+    <div className="flex flex-col h-screen overflow-hidden">
+      {/* Header*/}
+     <Header />
+
+      <div className="flex flex-1 overflow-hidden">
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Mobile Header with Menu Button */}
+          <div className="lg:hidden bg-white border-b border-gray-200 p-4 flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setSidebarOpen(true)}
+            >
+              <Menu className="w-5 h-5" />
+            </Button>
+            <div>
+              <h2 className="text-gray-900">{selectedDevice.name}</h2>
+              <p className="text-gray-600">{selectedDevice.ipAddress}</p>
+            </div>
+          </div>
+
+          {/* System Metrics */}
+          <SystemMetrics
+          device={selectedDevice}
+          cpuHistory={cpuHistory}
+          memoryHistory={memoryHistory}
+          networkHistory={networkHistory}
+          applications={deviceApplications}
+          onAddApplication={handleAddApplication}
+          onRemoveApplication={handleRemoveApplication}
+          onToggleAppStatus={handleToggleAppStatus}
+          onToggleServiceStatus={handleToggleServiceStatus}
+          networkInterfaces={mockNetworkInterfaces[selectedDeviceId] || []}
+        />
+      </div>
+
+        {/* Desktop Sidebar - Hidden on mobile, positioned on right */}
+        <div className="hidden lg:block">
+          <DeviceSidebar
+            devices={devices}
+            selectedDeviceId={selectedDeviceId}
+            onSelectDevice={handleSelectDevice}
+          />
+        </div>
+
+        {/* Mobile Drawer - Opens from right */}
+        <Sheet open={sidebarOpen} onOpenChange={setSidebarOpen}>
+          <SheetContent side="right" className="p-0 w-80">
+            <DeviceSidebar
+              devices={devices}
+              selectedDeviceId={selectedDeviceId}
+              onSelectDevice={handleSelectDevice}
+            />
+          </SheetContent>
+        </Sheet>
+      </div>
+
+      <Toaster />
+    </div>
+  );
+}
