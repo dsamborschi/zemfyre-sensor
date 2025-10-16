@@ -260,23 +260,23 @@ export function SystemMetrics({
 
             return (
               <Card key={index} className="p-4 md:p-6">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <p className="text-gray-600 mb-1">{metric.label}</p>
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm text-gray-600 mb-2">{metric.label}</p>
                     <div className="flex items-baseline gap-2">
-                      <p className="text-gray-900">{metric.value}</p>
+                      <p className="text-2xl font-bold text-gray-900">{metric.value}</p>
                       {metric.subtitle && (
                         <span className="text-sm text-gray-500">{metric.subtitle}</span>
                       )}
                     </div>
                   </div>
-                  <div className={`w-10 h-10 ${metric.bgColor} rounded-lg flex items-center justify-center`}>
+                  <div className={`w-10 h-10 ${metric.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
                     <Icon className={`w-5 h-5 ${metric.iconColor}`} />
                   </div>
                 </div>
                 {metric.label !== "Applications" && (
                   <div 
-                    className="relative h-3 w-full overflow-hidden rounded-full"
+                    className="relative h-2 w-full overflow-hidden rounded-full"
                     style={{ backgroundColor: colors.bg }}
                   >
                     <div 

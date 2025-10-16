@@ -6,6 +6,7 @@ import { Application } from "./components/ApplicationsCard";
 import { Toaster } from "./components/ui/sonner";
 import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
+import { Badge } from "./components/ui/badge";
 import { Menu } from "lucide-react";
 
 import { toast } from "sonner";
@@ -806,9 +807,23 @@ export default function App() {
             >
               <Menu className="w-5 h-5" />
             </Button>
-            <div>
+            <div className="flex-1 min-w-0">
               <h2 className="font-semibold text-gray-900">{selectedDevice.name}</h2>
-              <p className="text-sm text-gray-600">{selectedDevice.ipAddress}</p>
+              <div className="flex items-center gap-2 mt-1">
+                <Badge
+                  variant="outline"
+                  className={
+                    selectedDevice.status === "online"
+                      ? "bg-green-100 text-green-700 border-green-200 text-xs"
+                      : selectedDevice.status === "warning"
+                      ? "bg-yellow-100 text-yellow-700 border-yellow-200 text-xs"
+                      : "bg-gray-100 text-gray-700 border-gray-200 text-xs"
+                  }
+                >
+                  {selectedDevice.status}
+                </Badge>
+                <span className="text-xs text-gray-600">{selectedDevice.ipAddress}</span>
+              </div>
             </div>
           </div>
 
