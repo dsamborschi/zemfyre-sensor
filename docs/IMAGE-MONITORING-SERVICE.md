@@ -212,23 +212,28 @@ VALUES
 
 ## Configuration
 
-### Default Settings
+### Check Interval
 
-```typescript
-// Check interval: 60 minutes
-const imageMonitor = new ImageMonitorService(60);
+**Default**: 60 minutes (1 hour)
+
+**Environment Variable**: `IMAGE_MONITOR_INTERVAL_MINUTES`
+
+```bash
+# Check every 30 minutes
+IMAGE_MONITOR_INTERVAL_MINUTES=30 npm start
+
+# Check every 6 hours  
+IMAGE_MONITOR_INTERVAL_MINUTES=360 npm start
+
+# Check once per day
+IMAGE_MONITOR_INTERVAL_MINUTES=1440 npm start
 ```
 
-### Customization
-
-To change the check interval, modify in `src/index.ts`:
-
+**Code Configuration** (in `src/services/image-monitor.ts`):
 ```typescript
-// Check every 30 minutes instead
-const { imageMonitor } = await import('./services/image-monitor');
-// Set interval to 30 minutes
-imageMonitor = new ImageMonitorService(30);
-imageMonitor.start();
+// Configurable via environment variable
+const checkIntervalMinutes = parseInt(process.env.IMAGE_MONITOR_INTERVAL_MINUTES || '60', 10);
+export const imageMonitor = new ImageMonitorService(checkIntervalMinutes);
 ```
 
 ### Enable/Disable Per Image
