@@ -20,6 +20,8 @@
   roles:
     - system
     - network
+    - kiosk
+    # - docker
 
 
 

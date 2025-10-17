@@ -26,4 +26,4 @@ docker run --rm -it \
   -e ANSIBLE_HOST_KEY_CHECKING=False \
   -v "$PROJECT_ROOT:/workspace" \
   $IMAGE_NAME \
-  ansible-playbook -i /workspace/ansible/hosts.ini /workspace/ansible/deploy.yml "$@"
+  ansible-playbook -i /workspace/ansible/hosts.ini /workspace/ansible/deploy.kiosk.yml "$@"
