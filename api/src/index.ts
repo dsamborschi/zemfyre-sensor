@@ -70,6 +70,12 @@ app.get('/api/docs', (req, res) => {
       notifications: {
         'POST /notify': 'Send system notification'
       },
+ 
+      provisioningKeys: {
+        'POST /api/v1/provisioning-keys': 'Create new provisioning key for fleet',
+        'GET /api/v1/provisioning-keys?fleetId=xxx': 'List provisioning keys for a fleet',
+        'DELETE /api/v1/provisioning-keys/:keyId': 'Revoke a provisioning key'
+      },
       cloud: {
         'POST /api/v1/device/register': 'Register new device (two-phase auth - provisioning key)',
         'POST /api/v1/device/:uuid/key-exchange': 'Exchange keys (two-phase auth - device key)',
@@ -139,6 +145,15 @@ async function startServer() {
     process.exit(1);
   }
 
+  // Start heartbeat monitor for device connectivity
+  try {
+    const heartbeatMonitor = await import('./services/heartbeat-monitor');
+    heartbeatMonitor.default.start();
+  } catch (error) {
+    console.error('⚠️  Failed to start heartbeat monitor:', error);
+    // Don't exit - this is not critical for API operation
+  }
+
   const server = app.listen(PORT, () => {
     console.log('='.repeat(80));
     console.log('☁️  Iotistic Unified API Server');
@@ -165,16 +180,34 @@ async function startServer() {
   });
 
   // Graceful shutdown
-  process.on('SIGTERM', () => {
+  process.on('SIGTERM', async () => {
     console.log('SIGTERM received, shutting down gracefully...');
+    
+    // Stop heartbeat monitor
+    try {
+      const heartbeatMonitor = await import('./services/heartbeat-monitor');
+      heartbeatMonitor.default.stop();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
     server.close(() => {
       console.log('Server closed');
       process.exit(0);
     });
   });
 
-  process.on('SIGINT', () => {
+  process.on('SIGINT', async () => {
     console.log('\nSIGINT received, shutting down gracefully...');
+    
+    // Stop heartbeat monitor
+    try {
+      const heartbeatMonitor = await import('./services/heartbeat-monitor');
+      heartbeatMonitor.default.stop();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
     server.close(() => {
       console.log('Server closed');
       process.exit(0);

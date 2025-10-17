@@ -73,8 +73,13 @@ export interface DeviceMetrics {
 export class DeviceModel {
   /**
    * Get or create device by UUID
+   * Also logs when a device comes back online after being offline
    */
   static async getOrCreate(uuid: string): Promise<Device> {
+    // First, check if device exists and was offline
+    const existingDevice = await this.getByUuid(uuid);
+    const wasOffline = existingDevice && !existingDevice.is_online;
+    
     const result = await query<Device>(
       `INSERT INTO devices (uuid, is_online, is_active)
        VALUES ($1, true, true)
@@ -84,6 +89,30 @@ export class DeviceModel {
        RETURNING *`,
       [uuid]
     );
+    
+    // Log when device comes back online
+    if (wasOffline && existingDevice) {
+      const offlineDurationMs = Date.now() - new Date(existingDevice.modified_at).getTime();
+      const offlineDurationMin = Math.floor(offlineDurationMs / 1000 / 60);
+      
+      // Import at top of file needed
+      const { logAuditEvent, AuditEventType, AuditSeverity } = require('../utils/audit-logger');
+      
+      await logAuditEvent({
+        eventType: AuditEventType.DEVICE_ONLINE,
+        deviceUuid: uuid,
+        severity: AuditSeverity.INFO,
+        details: {
+          deviceName: existingDevice.device_name || 'Unknown',
+          wasOfflineAt: existingDevice.modified_at,
+          offlineDurationMinutes: offlineDurationMin,
+          cameOnlineAt: new Date().toISOString()
+        }
+      });
+      
+      console.log(`✅ Device ${existingDevice.device_name || uuid.substring(0, 8)} came back online after ${offlineDurationMin} minutes`);
+    }
+    
     return result.rows[0];
   }
 

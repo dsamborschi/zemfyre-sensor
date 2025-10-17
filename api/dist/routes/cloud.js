@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -7,6 +40,7 @@ exports.router = void 0;
 const express_1 = __importDefault(require("express"));
 const bcrypt_1 = __importDefault(require("bcrypt"));
 const express_rate_limit_1 = __importDefault(require("express-rate-limit"));
+const connection_1 = require("../db/connection");
 const models_1 = require("../db/models");
 const provisioning_keys_1 = require("../utils/provisioning-keys");
 const audit_logger_1 = require("../utils/audit-logger");
@@ -35,6 +69,115 @@ const keyExchangeLimiter = (0, express_rate_limit_1.default)({
     windowMs: 60 * 60 * 1000,
     max: 10,
     message: 'Too many key exchange attempts, please try again later'
+});
+exports.router.post('/api/v1/provisioning-keys', async (req, res) => {
+    try {
+        const { fleetId, maxDevices = 100, expiresInDays = 365, description } = req.body;
+        if (!fleetId || typeof fleetId !== 'string') {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'fleetId is required and must be a string'
+            });
+        }
+        if (maxDevices && (typeof maxDevices !== 'number' || maxDevices < 1 || maxDevices > 10000)) {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'maxDevices must be a number between 1 and 10000'
+            });
+        }
+        if (expiresInDays && (typeof expiresInDays !== 'number' || expiresInDays < 1 || expiresInDays > 3650)) {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'expiresInDays must be a number between 1 and 3650 (10 years)'
+            });
+        }
+        console.log(`🔑 Creating provisioning key for fleet: ${fleetId}`);
+        const { id, key } = await (0, provisioning_keys_1.createProvisioningKey)(fleetId, maxDevices, expiresInDays, description, 'api-admin');
+        const expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + expiresInDays);
+        console.log(`✅ Provisioning key created: ${id}`);
+        res.status(201).json({
+            id,
+            key,
+            fleetId,
+            maxDevices,
+            expiresAt: expiresAt.toISOString(),
+            description,
+            warning: 'Store this key securely - it cannot be retrieved again!'
+        });
+    }
+    catch (error) {
+        console.error('❌ Error creating provisioning key:', error);
+        res.status(500).json({
+            error: 'Failed to create provisioning key',
+            message: error.message
+        });
+    }
+});
+exports.router.get('/api/v1/provisioning-keys', async (req, res) => {
+    try {
+        const { fleetId } = req.query;
+        if (!fleetId || typeof fleetId !== 'string') {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'fleetId query parameter is required'
+            });
+        }
+        console.log(`📋 Listing provisioning keys for fleet: ${fleetId}`);
+        const keys = await (0, provisioning_keys_1.listProvisioningKeys)(fleetId);
+        const sanitizedKeys = keys.map(k => ({
+            id: k.id,
+            fleet_id: k.fleet_id,
+            description: k.description,
+            max_devices: k.max_devices,
+            devices_provisioned: k.devices_provisioned,
+            expires_at: k.expires_at,
+            is_active: k.is_active,
+            created_at: k.created_at,
+            created_by: k.created_by,
+            last_used_at: k.last_used_at,
+        }));
+        res.json({
+            fleet_id: fleetId,
+            count: sanitizedKeys.length,
+            keys: sanitizedKeys
+        });
+    }
+    catch (error) {
+        console.error('❌ Error listing provisioning keys:', error);
+        res.status(500).json({
+            error: 'Failed to list provisioning keys',
+            message: error.message
+        });
+    }
+});
+exports.router.delete('/api/v1/provisioning-keys/:keyId', async (req, res) => {
+    try {
+        const { keyId } = req.params;
+        const { reason } = req.body;
+        if (!keyId) {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'keyId is required'
+            });
+        }
+        console.log(`🚫 Revoking provisioning key: ${keyId}`);
+        await (0, provisioning_keys_1.revokeProvisioningKey)(keyId, reason);
+        console.log(`✅ Provisioning key revoked: ${keyId}`);
+        res.json({
+            status: 'ok',
+            message: 'Provisioning key revoked',
+            keyId,
+            reason
+        });
+    }
+    catch (error) {
+        console.error('❌ Error revoking provisioning key:', error);
+        res.status(500).json({
+            error: 'Failed to revoke provisioning key',
+            message: error.message
+        });
+    }
 });
 exports.router.post('/api/v1/device/register', provisioningLimiter, async (req, res) => {
     const ipAddress = req.ip;
@@ -291,7 +434,7 @@ exports.router.post('/api/v1/device/:uuid/key-exchange', keyExchangeLimiter, asy
 exports.router.get('/api/v1/device/:uuid/state', async (req, res) => {
     try {
         const { uuid } = req.params;
-        const ifNoneMatch = req.headers['If-None-Match'];
+        const ifNoneMatch = req.headers['if-none-match'];
         await models_1.DeviceModel.getOrCreate(uuid);
         const targetState = await models_1.DeviceTargetStateModel.get(uuid);
         console.log(`📡 Device ${uuid.substring(0, 8)}... polling for target state`);
@@ -621,6 +764,56 @@ exports.router.get('/api/v1/devices/:uuid/metrics', async (req, res) => {
         });
     }
 });
+exports.router.patch('/api/v1/devices/:uuid/active', async (req, res) => {
+    try {
+        const { uuid } = req.params;
+        const { is_active } = req.body;
+        if (typeof is_active !== 'boolean') {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'is_active must be a boolean (true or false)'
+            });
+        }
+        const device = await models_1.DeviceModel.getByUuid(uuid);
+        if (!device) {
+            return res.status(404).json({
+                error: 'Device not found',
+                message: `Device ${uuid} not found`
+            });
+        }
+        const updatedDevice = await models_1.DeviceModel.update(uuid, { is_active });
+        const action = is_active ? 'enabled' : 'disabled';
+        console.log(`${is_active ? '✅' : '🚫'} Device ${action}: ${device.device_name || uuid.substring(0, 8) + '...'}`);
+        await (0, audit_logger_1.logAuditEvent)({
+            eventType: is_active ? audit_logger_1.AuditEventType.DEVICE_REGISTERED : audit_logger_1.AuditEventType.DEVICE_OFFLINE,
+            deviceUuid: uuid,
+            severity: audit_logger_1.AuditSeverity.INFO,
+            details: {
+                action: `device_${action}`,
+                deviceName: device.device_name,
+                previousState: device.is_active,
+                newState: is_active
+            }
+        });
+        res.json({
+            status: 'ok',
+            message: `Device ${action}`,
+            device: {
+                uuid: updatedDevice.uuid,
+                device_name: updatedDevice.device_name,
+                is_active: updatedDevice.is_active,
+                is_online: updatedDevice.is_online
+            }
+        });
+    }
+    catch (error) {
+        console.error('Error updating device active status:', error);
+        res.status(500).json({
+            error: 'Failed to update device status',
+            message: error.message
+        });
+    }
+});
 exports.router.delete('/api/v1/devices/:uuid', async (req, res) => {
     try {
         const { uuid } = req.params;
@@ -642,6 +835,642 @@ exports.router.delete('/api/v1/devices/:uuid', async (req, res) => {
         console.error('Error deleting device:', error);
         res.status(500).json({
             error: 'Failed to delete device',
+            message: error.message
+        });
+    }
+});
+exports.router.get('/api/v1/admin/heartbeat', async (req, res) => {
+    try {
+        const heartbeatMonitor = await Promise.resolve().then(() => __importStar(require('../services/heartbeat-monitor')));
+        const config = heartbeatMonitor.default.getConfig();
+        res.json({
+            status: 'ok',
+            heartbeat: config
+        });
+    }
+    catch (error) {
+        console.error('Error getting heartbeat config:', error);
+        res.status(500).json({
+            error: 'Failed to get heartbeat configuration',
+            message: error.message
+        });
+    }
+});
+exports.router.post('/api/v1/admin/heartbeat/check', async (req, res) => {
+    try {
+        console.log('🔍 Manual heartbeat check triggered');
+        const heartbeatMonitor = await Promise.resolve().then(() => __importStar(require('../services/heartbeat-monitor')));
+        await heartbeatMonitor.default.checkNow();
+        res.json({
+            status: 'ok',
+            message: 'Heartbeat check completed'
+        });
+    }
+    catch (error) {
+        console.error('Error during manual heartbeat check:', error);
+        res.status(500).json({
+            error: 'Failed to perform heartbeat check',
+            message: error.message
+        });
+    }
+});
+exports.router.post('/api/v1/applications', async (req, res) => {
+    try {
+        const { appName, slug, description, defaultConfig } = req.body;
+        if (!appName || typeof appName !== 'string') {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'appName is required and must be a string'
+            });
+        }
+        if (!slug || typeof slug !== 'string') {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'slug is required and must be a string (URL-safe identifier)'
+            });
+        }
+        if (defaultConfig && typeof defaultConfig !== 'object') {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'defaultConfig must be an object'
+            });
+        }
+        const existingApp = await (0, connection_1.query)('SELECT id, app_name FROM applications WHERE slug = $1', [slug]);
+        if (existingApp.rows.length > 0) {
+            return res.status(409).json({
+                error: 'Conflict',
+                message: `Application with slug "${slug}" already exists (ID: ${existingApp.rows[0].id})`
+            });
+        }
+        const idResult = await (0, connection_1.query)("SELECT nextval('global_app_id_seq') as nextval");
+        const appId = idResult.rows[0].nextval;
+        const result = await (0, connection_1.query)(`INSERT INTO applications (id, app_name, slug, description, default_config)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING *`, [
+            appId,
+            appName,
+            slug,
+            description || '',
+            JSON.stringify(defaultConfig || { services: [] })
+        ]);
+        const app = result.rows[0];
+        await (0, connection_1.query)(`INSERT INTO app_service_ids (entity_type, entity_id, entity_name, metadata, created_by)
+       VALUES ($1, $2, $3, $4, $5)`, [
+            'app',
+            appId,
+            appName,
+            JSON.stringify({ slug, description }),
+            req.headers['x-user-id'] || 'system'
+        ]);
+        console.log(`✅ Created application template: ${appName} (ID: ${appId}, slug: ${slug})`);
+        res.status(201).json({
+            appId: app.id,
+            appName: app.app_name,
+            slug: app.slug,
+            description: app.description,
+            defaultConfig: typeof app.default_config === 'string'
+                ? JSON.parse(app.default_config)
+                : app.default_config,
+            createdAt: app.created_at
+        });
+    }
+    catch (error) {
+        console.error('Error creating application template:', error);
+        res.status(500).json({
+            error: 'Failed to create application template',
+            message: error.message
+        });
+    }
+});
+exports.router.get('/api/v1/applications', async (req, res) => {
+    try {
+        const { search } = req.query;
+        let sql = 'SELECT * FROM applications WHERE 1=1';
+        const params = [];
+        if (search && typeof search === 'string') {
+            params.push(`%${search}%`);
+            sql += ` AND (app_name ILIKE $${params.length} OR description ILIKE $${params.length})`;
+        }
+        sql += ' ORDER BY id DESC';
+        const result = await (0, connection_1.query)(sql, params);
+        const applications = result.rows.map(app => ({
+            appId: app.id,
+            appName: app.app_name,
+            slug: app.slug,
+            description: app.description,
+            defaultConfig: typeof app.default_config === 'string'
+                ? JSON.parse(app.default_config)
+                : app.default_config,
+            createdAt: app.created_at,
+            modifiedAt: app.modified_at
+        }));
+        res.json({
+            count: applications.length,
+            applications
+        });
+    }
+    catch (error) {
+        console.error('Error listing applications:', error);
+        res.status(500).json({
+            error: 'Failed to list applications',
+            message: error.message
+        });
+    }
+});
+exports.router.get('/api/v1/applications/:appId', async (req, res) => {
+    try {
+        const appId = parseInt(req.params.appId);
+        if (isNaN(appId)) {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'appId must be a number'
+            });
+        }
+        const result = await (0, connection_1.query)('SELECT * FROM applications WHERE id = $1', [appId]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Not found',
+                message: `Application with ID ${appId} not found`
+            });
+        }
+        const app = result.rows[0];
+        res.json({
+            appId: app.id,
+            appName: app.app_name,
+            slug: app.slug,
+            description: app.description,
+            defaultConfig: typeof app.default_config === 'string'
+                ? JSON.parse(app.default_config)
+                : app.default_config,
+            createdAt: app.created_at,
+            modifiedAt: app.modified_at
+        });
+    }
+    catch (error) {
+        console.error('Error getting application:', error);
+        res.status(500).json({
+            error: 'Failed to get application',
+            message: error.message
+        });
+    }
+});
+exports.router.patch('/api/v1/applications/:appId', async (req, res) => {
+    try {
+        const appId = parseInt(req.params.appId);
+        const { appName, description, defaultConfig } = req.body;
+        if (isNaN(appId)) {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'appId must be a number'
+            });
+        }
+        const updates = [];
+        const params = [];
+        let paramIndex = 1;
+        if (appName !== undefined) {
+            params.push(appName);
+            updates.push(`app_name = $${paramIndex++}`);
+        }
+        if (description !== undefined) {
+            params.push(description);
+            updates.push(`description = $${paramIndex++}`);
+        }
+        if (defaultConfig !== undefined) {
+            params.push(JSON.stringify(defaultConfig));
+            updates.push(`default_config = $${paramIndex++}`);
+        }
+        updates.push(`modified_at = CURRENT_TIMESTAMP`);
+        if (updates.length === 1) {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'At least one field must be provided for update'
+            });
+        }
+        params.push(appId);
+        const sql = `UPDATE applications SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`;
+        const result = await (0, connection_1.query)(sql, params);
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Not found',
+                message: `Application with ID ${appId} not found`
+            });
+        }
+        const app = result.rows[0];
+        console.log(`✅ Updated application template: ${app.app_name} (ID: ${appId})`);
+        res.json({
+            appId: app.id,
+            appName: app.app_name,
+            slug: app.slug,
+            description: app.description,
+            defaultConfig: typeof app.default_config === 'string'
+                ? JSON.parse(app.default_config)
+                : app.default_config,
+            modifiedAt: app.modified_at
+        });
+    }
+    catch (error) {
+        console.error('Error updating application:', error);
+        res.status(500).json({
+            error: 'Failed to update application',
+            message: error.message
+        });
+    }
+});
+exports.router.delete('/api/v1/applications/:appId', async (req, res) => {
+    try {
+        const appId = parseInt(req.params.appId);
+        if (isNaN(appId)) {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'appId must be a number'
+            });
+        }
+        const devicesUsing = await (0, connection_1.query)(`SELECT device_uuid, apps 
+       FROM device_target_state 
+       WHERE apps::text LIKE $1`, [`%"appId":${appId}%`]);
+        if (devicesUsing.rows.length > 0) {
+            return res.status(409).json({
+                error: 'Conflict',
+                message: `Cannot delete application: ${devicesUsing.rows.length} device(s) are using this app`,
+                devicesAffected: devicesUsing.rows.map(r => r.device_uuid)
+            });
+        }
+        const result = await (0, connection_1.query)('DELETE FROM applications WHERE id = $1 RETURNING app_name', [appId]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Not found',
+                message: `Application with ID ${appId} not found`
+            });
+        }
+        console.log(`🗑️  Deleted application template: ${result.rows[0].app_name} (ID: ${appId})`);
+        res.json({
+            status: 'ok',
+            message: 'Application template deleted',
+            appId
+        });
+    }
+    catch (error) {
+        console.error('Error deleting application:', error);
+        res.status(500).json({
+            error: 'Failed to delete application',
+            message: error.message
+        });
+    }
+});
+exports.router.post('/api/v1/devices/:uuid/apps', async (req, res) => {
+    try {
+        const { uuid } = req.params;
+        const { appId, services } = req.body;
+        if (!appId || typeof appId !== 'number') {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'appId is required and must be a number'
+            });
+        }
+        if (!services || !Array.isArray(services)) {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'services is required and must be an array'
+            });
+        }
+        const appResult = await (0, connection_1.query)('SELECT * FROM applications WHERE id = $1', [appId]);
+        if (appResult.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Not found',
+                message: `Application ${appId} not found in catalog`
+            });
+        }
+        const app = appResult.rows[0];
+        const device = await models_1.DeviceModel.getByUuid(uuid);
+        if (!device) {
+            return res.status(404).json({
+                error: 'Not found',
+                message: `Device ${uuid} not found`
+            });
+        }
+        const currentTarget = await models_1.DeviceTargetStateModel.get(uuid);
+        const currentApps = currentTarget?.apps || {};
+        const servicesWithIds = await Promise.all(services.map(async (service, index) => {
+            const idResult = await (0, connection_1.query)("SELECT nextval('global_service_id_seq') as nextval");
+            const serviceId = idResult.rows[0].nextval;
+            await (0, connection_1.query)(`INSERT INTO app_service_ids (entity_type, entity_id, entity_name, metadata, created_by)
+           VALUES ($1, $2, $3, $4, $5)`, [
+                'service',
+                serviceId,
+                service.serviceName,
+                JSON.stringify({
+                    appId,
+                    appName: app.app_name,
+                    imageName: service.image
+                }),
+                req.headers['x-user-id'] || 'system'
+            ]);
+            return {
+                serviceId,
+                serviceName: service.serviceName,
+                imageName: service.image,
+                config: {
+                    ...(service.ports && { ports: service.ports }),
+                    ...(service.environment && { environment: service.environment }),
+                    ...(service.volumes && { volumes: service.volumes }),
+                    ...(service.config || {})
+                }
+            };
+        }));
+        const newApps = {
+            ...currentApps,
+            [appId]: {
+                appId,
+                appName: app.app_name,
+                services: servicesWithIds
+            }
+        };
+        await models_1.DeviceTargetStateModel.set(uuid, newApps, currentTarget?.config || {});
+        console.log(`🚀 Deployed app ${appId} (${app.app_name}) to device ${uuid.substring(0, 8)}...`);
+        console.log(`   Services: ${servicesWithIds.map(s => s.serviceName).join(', ')}`);
+        res.status(201).json({
+            status: 'ok',
+            message: 'Application deployed to device',
+            deviceUuid: uuid,
+            appId,
+            appName: app.app_name,
+            services: servicesWithIds
+        });
+    }
+    catch (error) {
+        console.error('Error deploying application:', error);
+        res.status(500).json({
+            error: 'Failed to deploy application',
+            message: error.message
+        });
+    }
+});
+exports.router.patch('/api/v1/devices/:uuid/apps/:appId', async (req, res) => {
+    try {
+        const { uuid, appId: appIdStr } = req.params;
+        const { services } = req.body;
+        const appId = parseInt(appIdStr);
+        if (isNaN(appId)) {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'appId must be a number'
+            });
+        }
+        if (!services || !Array.isArray(services)) {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'services is required and must be an array'
+            });
+        }
+        const currentTarget = await models_1.DeviceTargetStateModel.get(uuid);
+        if (!currentTarget) {
+            return res.status(404).json({
+                error: 'Not found',
+                message: `Device ${uuid} has no target state`
+            });
+        }
+        const currentApps = currentTarget.apps || {};
+        if (!currentApps[appId]) {
+            return res.status(404).json({
+                error: 'Not found',
+                message: `App ${appId} not deployed on device ${uuid}`
+            });
+        }
+        const servicesWithIds = await Promise.all(services.map(async (service) => {
+            const idResult = await (0, connection_1.query)("SELECT nextval('global_service_id_seq') as nextval");
+            const serviceId = idResult.rows[0].nextval;
+            return {
+                serviceId,
+                serviceName: service.serviceName,
+                imageName: service.image,
+                config: {
+                    ...(service.ports && { ports: service.ports }),
+                    ...(service.environment && { environment: service.environment }),
+                    ...(service.volumes && { volumes: service.volumes }),
+                    ...(service.config || {})
+                }
+            };
+        }));
+        currentApps[appId].services = servicesWithIds;
+        await models_1.DeviceTargetStateModel.set(uuid, currentApps, currentTarget.config || {});
+        console.log(`✅ Updated app ${appId} on device ${uuid.substring(0, 8)}...`);
+        res.json({
+            status: 'ok',
+            message: 'Application updated on device',
+            deviceUuid: uuid,
+            appId,
+            services: servicesWithIds
+        });
+    }
+    catch (error) {
+        console.error('Error updating application:', error);
+        res.status(500).json({
+            error: 'Failed to update application',
+            message: error.message
+        });
+    }
+});
+exports.router.delete('/api/v1/devices/:uuid/apps/:appId', async (req, res) => {
+    try {
+        const { uuid, appId: appIdStr } = req.params;
+        const appId = parseInt(appIdStr);
+        if (isNaN(appId)) {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'appId must be a number'
+            });
+        }
+        const currentTarget = await models_1.DeviceTargetStateModel.get(uuid);
+        if (!currentTarget) {
+            return res.status(404).json({
+                error: 'Not found',
+                message: `Device ${uuid} has no target state`
+            });
+        }
+        const currentApps = currentTarget.apps || {};
+        if (!currentApps[appId]) {
+            return res.status(404).json({
+                error: 'Not found',
+                message: `App ${appId} not deployed on device ${uuid}`
+            });
+        }
+        const appName = currentApps[appId].appName;
+        delete currentApps[appId];
+        await models_1.DeviceTargetStateModel.set(uuid, currentApps, currentTarget.config || {});
+        console.log(`🗑️  Removed app ${appId} (${appName}) from device ${uuid.substring(0, 8)}...`);
+        res.json({
+            status: 'ok',
+            message: 'Application removed from device',
+            deviceUuid: uuid,
+            appId,
+            appName
+        });
+    }
+    catch (error) {
+        console.error('Error removing application:', error);
+        res.status(500).json({
+            error: 'Failed to remove application',
+            message: error.message
+        });
+    }
+});
+exports.router.post('/api/v1/apps/next-id', async (req, res) => {
+    try {
+        const { appName, metadata } = req.body;
+        if (!appName || typeof appName !== 'string') {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'appName is required and must be a string'
+            });
+        }
+        const idResult = await (0, connection_1.query)("SELECT nextval('global_app_id_seq') as nextval");
+        const appId = idResult.rows[0].nextval;
+        await (0, connection_1.query)(`INSERT INTO app_service_ids (entity_type, entity_id, entity_name, metadata, created_by)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (entity_type, entity_id) DO UPDATE SET
+         entity_name = $3,
+         metadata = $4`, [
+            'app',
+            appId,
+            appName,
+            metadata ? JSON.stringify(metadata) : '{}',
+            req.headers['x-user-id'] || 'system'
+        ]);
+        console.log(`✅ Generated app ID ${appId} for "${appName}"`);
+        res.json({
+            appId,
+            appName,
+            metadata: metadata || {}
+        });
+    }
+    catch (error) {
+        console.error('Error generating app ID:', error);
+        res.status(500).json({
+            error: 'Failed to generate app ID',
+            message: error.message
+        });
+    }
+});
+exports.router.post('/api/v1/services/next-id', async (req, res) => {
+    try {
+        const { serviceName, appId, imageName, metadata } = req.body;
+        if (!serviceName || typeof serviceName !== 'string') {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'serviceName is required and must be a string'
+            });
+        }
+        if (!appId || typeof appId !== 'number') {
+            return res.status(400).json({
+                error: 'Invalid request',
+                message: 'appId is required and must be a number'
+            });
+        }
+        const idResult = await (0, connection_1.query)("SELECT nextval('global_service_id_seq') as nextval");
+        const serviceId = idResult.rows[0].nextval;
+        const fullMetadata = {
+            appId,
+            ...(imageName && { imageName }),
+            ...(metadata || {})
+        };
+        await (0, connection_1.query)(`INSERT INTO app_service_ids (entity_type, entity_id, entity_name, metadata, created_by)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT (entity_type, entity_id) DO UPDATE SET
+         entity_name = $3,
+         metadata = $4`, [
+            'service',
+            serviceId,
+            serviceName,
+            JSON.stringify(fullMetadata),
+            req.headers['x-user-id'] || 'system'
+        ]);
+        console.log(`✅ Generated service ID ${serviceId} for "${serviceName}" (app ${appId})`);
+        res.json({
+            serviceId,
+            serviceName,
+            appId,
+            imageName,
+            metadata: fullMetadata
+        });
+    }
+    catch (error) {
+        console.error('Error generating service ID:', error);
+        res.status(500).json({
+            error: 'Failed to generate service ID',
+            message: error.message
+        });
+    }
+});
+exports.router.get('/api/v1/apps-services/registry', async (req, res) => {
+    try {
+        const { type } = req.query;
+        let sql = 'SELECT * FROM app_service_ids WHERE 1=1';
+        const params = [];
+        if (type === 'app' || type === 'service') {
+            params.push(type);
+            sql += ` AND entity_type = $${params.length}`;
+        }
+        sql += ' ORDER BY entity_id DESC';
+        const result = await (0, connection_1.query)(sql, params);
+        res.json({
+            count: result.rows.length,
+            items: result.rows.map(row => ({
+                id: row.id,
+                type: row.entity_type,
+                entityId: row.entity_id,
+                name: row.entity_name,
+                metadata: row.metadata,
+                createdBy: row.created_by,
+                createdAt: row.created_at
+            }))
+        });
+    }
+    catch (error) {
+        console.error('Error fetching app/service registry:', error);
+        res.status(500).json({
+            error: 'Failed to fetch registry',
+            message: error.message
+        });
+    }
+});
+exports.router.get('/api/v1/apps-services/:type/:id', async (req, res) => {
+    try {
+        const { type, id } = req.params;
+        if (type !== 'app' && type !== 'service') {
+            return res.status(400).json({
+                error: 'Invalid type',
+                message: 'type must be "app" or "service"'
+            });
+        }
+        const entityId = parseInt(id);
+        if (isNaN(entityId)) {
+            return res.status(400).json({
+                error: 'Invalid ID',
+                message: 'id must be a number'
+            });
+        }
+        const result = await (0, connection_1.query)('SELECT * FROM app_service_ids WHERE entity_type = $1 AND entity_id = $2', [type, entityId]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                error: 'Not found',
+                message: `${type} with ID ${entityId} not found`
+            });
+        }
+        const row = result.rows[0];
+        res.json({
+            id: row.id,
+            type: row.entity_type,
+            entityId: row.entity_id,
+            name: row.entity_name,
+            metadata: row.metadata,
+            createdBy: row.created_by,
+            createdAt: row.created_at
+        });
+    }
+    catch (error) {
+        console.error('Error fetching app/service:', error);
+        res.status(500).json({
+            error: 'Failed to fetch app/service',
             message: error.message
         });
     }

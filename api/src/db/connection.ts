@@ -9,7 +9,7 @@ import { Pool, PoolClient, QueryResult } from 'pg';
 const dbConfig = {
   host: process.env.DB_HOST || 'localhost',
   port: parseInt(process.env.DB_PORT || '5432'),
-  database: process.env.DB_NAME || 'zemfyre',
+  database: process.env.DB_NAME || 'iotistic',
   user: process.env.DB_USER || 'postgres',
   password: process.env.DB_PASSWORD || 'postgres',
   max: parseInt(process.env.DB_POOL_SIZE || '20'),

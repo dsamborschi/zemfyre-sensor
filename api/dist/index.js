@@ -88,6 +88,11 @@ app.get('/api/docs', (req, res) => {
             notifications: {
                 'POST /notify': 'Send system notification'
             },
+            provisioningKeys: {
+                'POST /api/v1/provisioning-keys': 'Create new provisioning key for fleet',
+                'GET /api/v1/provisioning-keys?fleetId=xxx': 'List provisioning keys for a fleet',
+                'DELETE /api/v1/provisioning-keys/:keyId': 'Revoke a provisioning key'
+            },
             cloud: {
                 'POST /api/v1/device/register': 'Register new device (two-phase auth - provisioning key)',
                 'POST /api/v1/device/:uuid/key-exchange': 'Exchange keys (two-phase auth - device key)',
@@ -144,9 +149,16 @@ async function startServer() {
         console.error('❌ Database initialization error:', error);
         process.exit(1);
     }
+    try {
+        const heartbeatMonitor = await Promise.resolve().then(() => __importStar(require('./services/heartbeat-monitor')));
+        heartbeatMonitor.default.start();
+    }
+    catch (error) {
+        console.error('⚠️  Failed to start heartbeat monitor:', error);
+    }
     const server = app.listen(PORT, () => {
         console.log('='.repeat(80));
-        console.log('☁️  Zemfyre Unified API Server');
+        console.log('☁️  Iotistic Unified API Server');
         console.log('='.repeat(80));
         console.log(`Server running on http://localhost:${PORT}`);
         console.log(`Documentation: http://localhost:${PORT}/api/docs`);
@@ -168,15 +180,27 @@ async function startServer() {
         console.log(`  POST   /notify                         - Send notification`);
         console.log('='.repeat(80) + '\n');
     });
-    process.on('SIGTERM', () => {
+    process.on('SIGTERM', async () => {
         console.log('SIGTERM received, shutting down gracefully...');
+        try {
+            const heartbeatMonitor = await Promise.resolve().then(() => __importStar(require('./services/heartbeat-monitor')));
+            heartbeatMonitor.default.stop();
+        }
+        catch (error) {
+        }
         server.close(() => {
             console.log('Server closed');
             process.exit(0);
         });
     });
-    process.on('SIGINT', () => {
+    process.on('SIGINT', async () => {
         console.log('\nSIGINT received, shutting down gracefully...');
+        try {
+            const heartbeatMonitor = await Promise.resolve().then(() => __importStar(require('./services/heartbeat-monitor')));
+            heartbeatMonitor.default.stop();
+        }
+        catch (error) {
+        }
         server.close(() => {
             console.log('Server closed');
             process.exit(0);
