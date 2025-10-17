@@ -7,6 +7,7 @@
 
 import poolWrapper from '../db/connection';
 import axios from 'axios';
+import { trivyScanner, TrivyScanResult } from './trivy-scanner';
 
 const pool = poolWrapper.pool;
 
@@ -191,26 +192,63 @@ export class ImageMonitorService {
         return;
       }
 
+      // Perform security scan with Trivy (if enabled)
+      let securityScan: TrivyScanResult | undefined;
+      const trivyEnabled = process.env.TRIVY_ENABLED !== 'false';
+      
+      if (trivyEnabled) {
+        console.log(`[ImageMonitor] Scanning ${image.image_name}:${tag.name} for vulnerabilities...`);
+        securityScan = await trivyScanner.scanImage(image.image_name, tag.name);
+        
+        if (securityScan.success) {
+          console.log(`[ImageMonitor] Security scan: ${trivyScanner.getSecuritySummary(securityScan)}`);
+        }
+      }
+
+      // Prepare metadata
+      const metadata: any = {
+        last_updated: tag.last_updated,
+        digest: tag.digest,
+        architectures: tag.images.map(img => img.architecture),
+        auto_detected: true,
+        source: 'image_monitor'
+      };
+
+      // Add security scan results
+      if (securityScan) {
+        metadata.security_scan = {
+          scanned_at: securityScan.scannedAt,
+          status: securityScan.scanStatus,
+          vulnerabilities: securityScan.vulnerabilities,
+          summary: trivyScanner.getSecuritySummary(securityScan),
+          details: securityScan.details
+        };
+      }
+
+      // Determine initial status based on security scan
+      let initialStatus = 'pending';
+      const autoRejectCritical = process.env.TRIVY_AUTO_REJECT_CRITICAL === 'true';
+      
+      if (securityScan && autoRejectCritical && securityScan.scanStatus === 'failed') {
+        initialStatus = 'rejected';
+        console.log(`[ImageMonitor] ❌ Auto-rejected ${image.image_name}:${tag.name} due to critical vulnerabilities`);
+      }
+
       // Create approval request
       await pool.query(
         `INSERT INTO image_approval_requests 
          (image_id, image_name, tag_name, status, requested_at, metadata) 
-         VALUES ($1, $2, $3, 'pending', NOW(), $4)`,
+         VALUES ($1, $2, $3, $4, NOW(), $5)`,
         [
           image.id,
           image.image_name,
           tag.name,
-          JSON.stringify({
-            last_updated: tag.last_updated,
-            digest: tag.digest,
-            architectures: tag.images.map(img => img.architecture),
-            auto_detected: true,
-            source: 'image_monitor'
-          })
+          initialStatus,
+          JSON.stringify(metadata)
         ]
       );
 
-      console.log(`[ImageMonitor] ✅ Created approval request for ${image.image_name}:${tag.name}`);
+      console.log(`[ImageMonitor] ✅ Created approval request for ${image.image_name}:${tag.name} (status: ${initialStatus})`);
     } catch (err) {
       console.error(`[ImageMonitor] Error creating approval request for ${image.image_name}:${tag.name}:`, err);
     }

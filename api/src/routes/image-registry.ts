@@ -631,4 +631,133 @@ router.post('/images/monitor/trigger', async (req: Request, res: Response) => {
   }
 });
 
+// =============================================================================
+// Security Scanning Endpoints
+// =============================================================================
+
+/**
+ * POST /api/v1/images/:imageName/:tag/scan
+ * Manually trigger a security scan for a specific image tag
+ */
+router.post('/images/:imageName/:tag/scan', async (req: Request, res: Response) => {
+  try {
+    const { imageName, tag } = req.params;
+    const { trivyScanner } = await import('../services/trivy-scanner');
+
+    console.log(`[API] Triggering security scan for ${imageName}:${tag}`);
+
+    const scanResult = await trivyScanner.scanImage(imageName, tag);
+
+    return res.status(200).json({
+      message: 'Security scan completed',
+      scan: scanResult,
+      summary: trivyScanner.getSecuritySummary(scanResult),
+    });
+  } catch (error) {
+    console.error('Error scanning image:', error);
+    return res.status(500).json({
+      error: 'Failed to scan image',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * GET /api/v1/images/approvals/:id/security
+ * Get security scan results for an approval request
+ */
+router.get('/images/approvals/:id/security', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const result = await pool.query(
+      `SELECT 
+        image_name,
+        tag_name,
+        metadata->>'security_scan' as security_scan,
+        created_at
+       FROM image_approval_requests
+       WHERE id = $1`,
+      [id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Approval request not found' });
+    }
+
+    const approval = result.rows[0];
+    const securityScan = approval.security_scan ? JSON.parse(approval.security_scan) : null;
+
+    return res.status(200).json({
+      image_name: approval.image_name,
+      tag_name: approval.tag_name,
+      security_scan: securityScan,
+      created_at: approval.created_at,
+    });
+  } catch (error) {
+    console.error('Error fetching security scan:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch security scan',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
+/**
+ * GET /api/v1/images/security/summary
+ * Get security summary for all approval requests
+ */
+router.get('/images/security/summary', async (req: Request, res: Response) => {
+  try {
+    const result = await pool.query(
+      `SELECT 
+        id,
+        image_name,
+        tag_name,
+        status,
+        metadata->'security_scan'->>'status' as scan_status,
+        metadata->'security_scan'->'vulnerabilities'->>'critical' as critical,
+        metadata->'security_scan'->'vulnerabilities'->>'high' as high,
+        metadata->'security_scan'->'vulnerabilities'->>'medium' as medium,
+        metadata->'security_scan'->'vulnerabilities'->>'low' as low,
+        metadata->'security_scan'->>'scanned_at' as scanned_at,
+        created_at
+       FROM image_approval_requests
+       WHERE metadata->'security_scan' IS NOT NULL
+       ORDER BY created_at DESC
+       LIMIT 100`
+    );
+
+    const summary = {
+      total: result.rows.length,
+      passed: result.rows.filter(r => r.scan_status === 'passed').length,
+      warning: result.rows.filter(r => r.scan_status === 'warning').length,
+      failed: result.rows.filter(r => r.scan_status === 'failed').length,
+      approvals: result.rows.map(row => ({
+        id: row.id,
+        image_name: row.image_name,
+        tag_name: row.tag_name,
+        status: row.status,
+        scan_status: row.scan_status,
+        vulnerabilities: {
+          critical: parseInt(row.critical || '0', 10),
+          high: parseInt(row.high || '0', 10),
+          medium: parseInt(row.medium || '0', 10),
+          low: parseInt(row.low || '0', 10),
+        },
+        scanned_at: row.scanned_at,
+        created_at: row.created_at,
+      })),
+    };
+
+    return res.status(200).json(summary);
+  } catch (error) {
+    console.error('Error fetching security summary:', error);
+    return res.status(500).json({
+      error: 'Failed to fetch security summary',
+      message: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+});
+
 export default router;

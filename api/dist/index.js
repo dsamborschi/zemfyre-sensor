@@ -44,6 +44,7 @@ const cloud_1 = __importDefault(require("./routes/cloud"));
 const webhooks_1 = __importDefault(require("./routes/webhooks"));
 const rollouts_1 = __importDefault(require("./routes/rollouts"));
 const image_registry_1 = __importDefault(require("./routes/image-registry"));
+const device_jobs_1 = __importDefault(require("./routes/device-jobs"));
 const rollout_monitor_1 = require("./jobs/rollout-monitor");
 const connection_1 = __importDefault(require("./db/connection"));
 const app = (0, express_1.default)();
@@ -121,6 +122,22 @@ app.get('/api/docs', (req, res) => {
                 'PUT /api/v1/images/:imageId/tags/:tagId': 'Update tag details',
                 'DELETE /api/v1/images/:imageId/tags/:tagId': 'Remove tag from image',
                 'GET /api/v1/images/categories': 'Get list of image categories'
+            },
+            deviceJobs: {
+                'GET /api/v1/jobs/templates': 'List all job templates',
+                'POST /api/v1/jobs/templates': 'Create new job template',
+                'GET /api/v1/jobs/templates/:id': 'Get job template details',
+                'PUT /api/v1/jobs/templates/:id': 'Update job template',
+                'DELETE /api/v1/jobs/templates/:id': 'Delete job template',
+                'POST /api/v1/jobs/execute': 'Execute job on device(s)',
+                'GET /api/v1/jobs/executions': 'List job executions (query: status, device_uuid)',
+                'GET /api/v1/jobs/executions/:id': 'Get job execution details',
+                'POST /api/v1/jobs/executions/:id/cancel': 'Cancel job execution',
+                'GET /api/v1/devices/:uuid/jobs/next': 'Device polling endpoint (get next job)',
+                'PATCH /api/v1/devices/:uuid/jobs/:jobId/status': 'Device reports job status',
+                'GET /api/v1/devices/:uuid/jobs': 'Get device job history',
+                'GET /api/v1/jobs/handlers': 'List reusable job handlers',
+                'POST /api/v1/jobs/handlers': 'Create new job handler'
             }
         },
         notes: [
@@ -138,6 +155,7 @@ app.use(cloud_1.default);
 app.use('/api/v1/webhooks', webhooks_1.default);
 app.use('/api/v1', rollouts_1.default);
 app.use('/api/v1', image_registry_1.default);
+app.use('/api/v1', device_jobs_1.default);
 app.use((req, res) => {
     res.status(404).json({
         error: 'Not found',

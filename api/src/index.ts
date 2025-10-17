@@ -13,6 +13,7 @@ import cloudRoutes from './routes/cloud';
 import webhookRoutes from './routes/webhooks';
 import rolloutRoutes from './routes/rollouts';
 import imageRegistryRoutes from './routes/image-registry';
+import deviceJobsRoutes from './routes/device-jobs';
 
 // Import jobs
 import { getRolloutMonitor } from './jobs/rollout-monitor';
@@ -106,6 +107,22 @@ app.get('/api/docs', (req, res) => {
         'PUT /api/v1/images/:imageId/tags/:tagId': 'Update tag details',
         'DELETE /api/v1/images/:imageId/tags/:tagId': 'Remove tag from image',
         'GET /api/v1/images/categories': 'Get list of image categories'
+      },
+      deviceJobs: {
+        'GET /api/v1/jobs/templates': 'List all job templates',
+        'POST /api/v1/jobs/templates': 'Create new job template',
+        'GET /api/v1/jobs/templates/:id': 'Get job template details',
+        'PUT /api/v1/jobs/templates/:id': 'Update job template',
+        'DELETE /api/v1/jobs/templates/:id': 'Delete job template',
+        'POST /api/v1/jobs/execute': 'Execute job on device(s)',
+        'GET /api/v1/jobs/executions': 'List job executions (query: status, device_uuid)',
+        'GET /api/v1/jobs/executions/:id': 'Get job execution details',
+        'POST /api/v1/jobs/executions/:id/cancel': 'Cancel job execution',
+        'GET /api/v1/devices/:uuid/jobs/next': 'Device polling endpoint (get next job)',
+        'PATCH /api/v1/devices/:uuid/jobs/:jobId/status': 'Device reports job status',
+        'GET /api/v1/devices/:uuid/jobs': 'Get device job history',
+        'GET /api/v1/jobs/handlers': 'List reusable job handlers',
+        'POST /api/v1/jobs/handlers': 'Create new job handler'
       }
     },
     notes: [
@@ -125,6 +142,7 @@ app.use(cloudRoutes);
 app.use('/api/v1/webhooks', webhookRoutes);
 app.use('/api/v1', rolloutRoutes);
 app.use('/api/v1', imageRegistryRoutes);
+app.use('/api/v1', deviceJobsRoutes);
 
 // 404 handler
 app.use((req, res) => {

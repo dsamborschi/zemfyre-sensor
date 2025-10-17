@@ -24,6 +24,7 @@ import { ContainerLogMonitor } from './logging/monitor';
 import type { LogBackend } from './logging/types';
 import { SSHTunnelManager } from './remote-access/ssh-tunnel';
 import { EnhancedJobEngine } from './jobs/src/enhanced-job-engine';
+import { CloudJobsAdapter } from './jobs/cloud-jobs-adapter';
 import { SensorPublishFeature } from './sensor-publish';
 import { ShadowFeature, ShadowConfig } from './shadow';
 
@@ -37,10 +38,12 @@ export default class DeviceSupervisor {
 	private logMonitor?: ContainerLogMonitor;
 	private sshTunnel?: SSHTunnelManager;
 	private jobEngine?: EnhancedJobEngine;
+	private cloudJobsAdapter?: CloudJobsAdapter;
 	private sensorPublish?: SensorPublishFeature;
 	private shadowFeature?: ShadowFeature;
 	
 	private readonly ENABLE_JOB_ENGINE = process.env.ENABLE_JOB_ENGINE === 'true';
+	private readonly ENABLE_CLOUD_JOBS = process.env.ENABLE_CLOUD_JOBS === 'true';
 	private readonly ENABLE_SENSOR_PUBLISH = process.env.ENABLE_SENSOR_PUBLISH === 'true';
 	private readonly ENABLE_SHADOW = process.env.ENABLE_SHADOW === 'true';
 	private readonly DEVICE_API_PORT = parseInt(process.env.DEVICE_API_PORT || '48484', 10);
@@ -79,13 +82,16 @@ export default class DeviceSupervisor {
 			// 8. Initialize Job Engine (if enabled)
 			await this.initializeJobEngine();
 
-			// 9. Initialize Sensor Publish Feature (if enabled)
+			// 9. Initialize Cloud Jobs Adapter (if enabled)
+			await this.initializeCloudJobsAdapter();
+
+			// 10. Initialize Sensor Publish Feature (if enabled)
 			await this.initializeSensorPublish();
 
-			// 10. Initialize Shadow Feature (if enabled)
+			// 11. Initialize Shadow Feature (if enabled)
 			await this.initializeShadowFeature();
 
-			// 11. Start auto-reconciliation
+			// 12. Start auto-reconciliation
 			this.startAutoReconciliation();
 
 			console.log('='.repeat(80));
@@ -372,6 +378,70 @@ export default class DeviceSupervisor {
 		}
 	}
 
+	private async initializeCloudJobsAdapter(): Promise<void> {
+		if (!this.ENABLE_CLOUD_JOBS) {
+			console.log('⚠️  Cloud Jobs disabled (set ENABLE_CLOUD_JOBS=true to enable)');
+			return;
+		}
+
+		// Cloud jobs requires job engine
+		if (!this.jobEngine) {
+			console.error('❌ Cloud Jobs requires Job Engine to be enabled');
+			console.log('   Set ENABLE_JOB_ENGINE=true to enable Cloud Jobs');
+			return;
+		}
+
+		console.log('☁️  Initializing Cloud Jobs Adapter...');
+
+		try {
+			// Get device UUID
+			const deviceInfo = await this.deviceManager.getDeviceInfo();
+			if (!deviceInfo || !deviceInfo.uuid) {
+				console.error('❌ Device UUID not available, cannot initialize Cloud Jobs');
+				return;
+			}
+
+			// Get cloud API URL from environment
+			const cloudApiUrl = process.env.CLOUD_API_URL || this.CLOUD_API_ENDPOINT;
+			if (!cloudApiUrl) {
+				console.error('❌ CLOUD_API_URL not configured');
+				console.log('   Set CLOUD_API_URL environment variable (e.g., http://your-cloud-server:4002/api/v1)');
+				return;
+			}
+
+			// Get polling interval (default: 30 seconds)
+			const pollingIntervalMs = parseInt(
+				process.env.CLOUD_JOBS_POLLING_INTERVAL || '30000',
+				10
+			);
+
+			// Create CloudJobsAdapter
+			this.cloudJobsAdapter = new CloudJobsAdapter(
+				{
+					cloudApiUrl,
+					deviceUuid: deviceInfo.uuid,
+					pollingIntervalMs,
+					maxRetries: 3,
+					enableLogging: true
+				},
+				this.jobEngine
+			);
+
+			// Start polling for jobs
+			this.cloudJobsAdapter.start();
+
+			console.log('✅ Cloud Jobs Adapter initialized');
+			console.log(`   Cloud API: ${cloudApiUrl}`);
+			console.log(`   Device UUID: ${deviceInfo.uuid}`);
+			console.log(`   Polling interval: ${pollingIntervalMs}ms (${pollingIntervalMs / 1000}s)`);
+			console.log('   Status: Polling for jobs...');
+		} catch (error) {
+			console.error('❌ Failed to initialize Cloud Jobs Adapter:', error);
+			console.log('   Continuing without Cloud Jobs');
+			this.cloudJobsAdapter = undefined;
+		}
+	}
+
 	private async initializeSensorPublish(): Promise<void> {
 		if (!this.ENABLE_SENSOR_PUBLISH) {
 			console.log('⚠️  Sensor Publish disabled (set ENABLE_SENSOR_PUBLISH=true to enable)');
@@ -607,6 +677,12 @@ export default class DeviceSupervisor {
 			if (this.jobEngine) {
 				// Clean up any scheduled or running jobs
 				console.log('✅ Job Engine cleanup');
+			}
+
+			// Stop Cloud Jobs Adapter
+			if (this.cloudJobsAdapter) {
+				this.cloudJobsAdapter.stop();
+				console.log('✅ Cloud Jobs Adapter stopped');
 			}
 
 			// Stop SSH tunnel
