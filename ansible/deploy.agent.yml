@@ -10,10 +10,6 @@
     nm_ip: "192.168.2.30/24"
     nm_gateway: ""
     nm_dns: ""
-    
-  pre_tasks:
-    - name: Load environment variables from environment
-
   roles:
     - system
     - network
