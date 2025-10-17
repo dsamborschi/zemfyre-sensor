@@ -10,6 +10,13 @@ import cors from 'cors';
 import grafanaRoutes from './routes/grafana';
 import notifyRoutes from './routes/notify';
 import cloudRoutes from './routes/cloud';
+import webhookRoutes from './routes/webhooks';
+import rolloutRoutes from './routes/rollouts';
+import imageRegistryRoutes from './routes/image-registry';
+
+// Import jobs
+import { getRolloutMonitor } from './jobs/rollout-monitor';
+import poolWrapper from './db/connection';
 
 
 const app = express();
@@ -88,6 +95,17 @@ app.get('/api/docs', (req, res) => {
         'POST /api/v1/devices/:uuid/target-state': 'Set device target state',
         'GET /api/v1/devices/:uuid/current-state': 'Get device current state',
         'DELETE /api/v1/devices/:uuid/target-state': 'Clear device target state'
+      },
+      imageRegistry: {
+        'GET /api/v1/images': 'List approved images (query: status, category, search)',
+        'GET /api/v1/images/:id': 'Get image details with all tags',
+        'POST /api/v1/images': 'Add new image to approved registry',
+        'PUT /api/v1/images/:id': 'Update image details',
+        'DELETE /api/v1/images/:id': 'Remove image from registry',
+        'POST /api/v1/images/:id/tags': 'Add new tag to image',
+        'PUT /api/v1/images/:imageId/tags/:tagId': 'Update tag details',
+        'DELETE /api/v1/images/:imageId/tags/:tagId': 'Remove tag from image',
+        'GET /api/v1/images/categories': 'Get list of image categories'
       }
     },
     notes: [
@@ -104,6 +122,9 @@ app.get('/api/docs', (req, res) => {
 app.use(grafanaRoutes);
 app.use(notifyRoutes);
 app.use(cloudRoutes);
+app.use('/api/v1/webhooks', webhookRoutes);
+app.use('/api/v1', rolloutRoutes);
+app.use('/api/v1', imageRegistryRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -151,6 +172,16 @@ async function startServer() {
     heartbeatMonitor.default.start();
   } catch (error) {
     console.error('⚠️  Failed to start heartbeat monitor:', error);
+    // Don't exit - this is not critical for API operation
+  }
+
+  // Start rollout monitor for image updates
+  try {
+    const rolloutMonitor = getRolloutMonitor(poolWrapper.pool);
+    rolloutMonitor.start();
+    console.log('✅ Rollout Monitor started');
+  } catch (error) {
+    console.error('⚠️  Failed to start rollout monitor:', error);
     // Don't exit - this is not critical for API operation
   }
 

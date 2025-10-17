@@ -72,7 +72,7 @@ export function Navbar() {
               <DropdownMenuContent align="end" className="w-56">
                 <DropdownMenuLabel>
                   <div className="flex flex-col">
-                    <span>Dan Sam</span>
+                    <span>John Doe</span>
                     <span className="text-gray-500">john@example.com</span>
                   </div>
                 </DropdownMenuLabel>

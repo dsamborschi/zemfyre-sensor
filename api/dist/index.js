@@ -41,6 +41,11 @@ const cors_1 = __importDefault(require("cors"));
 const grafana_1 = __importDefault(require("./routes/grafana"));
 const notify_1 = __importDefault(require("./routes/notify"));
 const cloud_1 = __importDefault(require("./routes/cloud"));
+const webhooks_1 = __importDefault(require("./routes/webhooks"));
+const rollouts_1 = __importDefault(require("./routes/rollouts"));
+const image_registry_1 = __importDefault(require("./routes/image-registry"));
+const rollout_monitor_1 = require("./jobs/rollout-monitor");
+const connection_1 = __importDefault(require("./db/connection"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3002;
 app.use((0, cors_1.default)());
@@ -105,6 +110,17 @@ app.get('/api/docs', (req, res) => {
                 'POST /api/v1/devices/:uuid/target-state': 'Set device target state',
                 'GET /api/v1/devices/:uuid/current-state': 'Get device current state',
                 'DELETE /api/v1/devices/:uuid/target-state': 'Clear device target state'
+            },
+            imageRegistry: {
+                'GET /api/v1/images': 'List approved images (query: status, category, search)',
+                'GET /api/v1/images/:id': 'Get image details with all tags',
+                'POST /api/v1/images': 'Add new image to approved registry',
+                'PUT /api/v1/images/:id': 'Update image details',
+                'DELETE /api/v1/images/:id': 'Remove image from registry',
+                'POST /api/v1/images/:id/tags': 'Add new tag to image',
+                'PUT /api/v1/images/:imageId/tags/:tagId': 'Update tag details',
+                'DELETE /api/v1/images/:imageId/tags/:tagId': 'Remove tag from image',
+                'GET /api/v1/images/categories': 'Get list of image categories'
             }
         },
         notes: [
@@ -119,6 +135,9 @@ app.get('/api/docs', (req, res) => {
 app.use(grafana_1.default);
 app.use(notify_1.default);
 app.use(cloud_1.default);
+app.use('/api/v1/webhooks', webhooks_1.default);
+app.use('/api/v1', rollouts_1.default);
+app.use('/api/v1', image_registry_1.default);
 app.use((req, res) => {
     res.status(404).json({
         error: 'Not found',
@@ -155,6 +174,14 @@ async function startServer() {
     }
     catch (error) {
         console.error('⚠️  Failed to start heartbeat monitor:', error);
+    }
+    try {
+        const rolloutMonitor = (0, rollout_monitor_1.getRolloutMonitor)(connection_1.default.pool);
+        rolloutMonitor.start();
+        console.log('✅ Rollout Monitor started');
+    }
+    catch (error) {
+        console.error('⚠️  Failed to start rollout monitor:', error);
     }
     const server = app.listen(PORT, () => {
         console.log('='.repeat(80));

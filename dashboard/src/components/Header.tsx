@@ -13,9 +13,12 @@ import { toast } from "sonner@2.0.3";
 
 interface HeaderProps {
   isAuthenticated?: boolean;
+  onLogout?: () => void;
+  userEmail?: string;
+  userName?: string;
 }
 
-export function Header({ isAuthenticated = true }: HeaderProps) {
+export function Header({  isAuthenticated = true, onLogout = () => {},userEmail = "john.doe@company.com",userName = "John Doe"}: HeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="px-4 md:px-6 py-3 flex items-center justify-between">
@@ -48,16 +51,16 @@ export function Header({ isAuthenticated = true }: HeaderProps) {
                   <Button variant="ghost" className="flex items-center gap-2 px-2">
                     <Avatar className="w-8 h-8">
                       <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" />
-                      <AvatarFallback>JD</AvatarFallback>
+                      <AvatarFallback>{userName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                     </Avatar>
-                    <span className="hidden md:inline text-gray-900">Dan Sam</span>
+                    <span className="hidden md:inline text-gray-900">{userName}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>
                     <div className="flex flex-col">
-                      <span>Dan Sam</span>
-                      <span className="text-gray-500">dan.sam@company.com</span>
+                      <span>{userName}</span>
+                      <span className="text-gray-500">{userEmail}</span>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
@@ -74,7 +77,12 @@ export function Header({ isAuthenticated = true }: HeaderProps) {
                     Help & Support
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => toast.success("Logged out successfully")}>
+                  <DropdownMenuItem 
+                    onClick={() => {
+                      onLogout();
+                      toast.success("Logged out successfully");
+                    }}
+                  >
                     <LogOut className="w-4 h-4 mr-2" />
                     Log out
                   </DropdownMenuItem>

@@ -8,6 +8,7 @@ import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
 import { Menu } from "lucide-react";
+import { LoginPage } from "./components/LoginPage";
 
 import { toast } from "sonner";
 import { Header } from "./components/Header";
@@ -546,6 +547,9 @@ const initialApplications: Record<string, Application[]> = {
 };
 
 export default function App() {
+   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+  const [userName, setUserName] = useState("");
   const [selectedDeviceId, setSelectedDeviceId] = useState(mockDevices[0].id);
   const [devices, setDevices] = useState(mockDevices);
   const [cpuHistory, setCpuHistory] = useState<Array<{ time: string; value: number }>>([]);
@@ -584,6 +588,24 @@ export default function App() {
       setDevices(prev => [...prev, newDevice]);
       setSelectedDeviceId(newDevice.id);
     }
+  };
+
+  const handleLogin = (email: string, password: string) => {
+    // In a real app, you would validate credentials with a backend
+    // For demo purposes, we accept any login
+    setIsAuthenticated(true);
+    setUserEmail(email);
+    // Extract name from email or use a default
+    const name = email.split('@')[0].split('.').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1)
+    ).join(' ');
+    setUserName(name || "User");
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    setUserEmail("");
+    setUserName("");
   };
 
   const handleSelectDevice = (deviceId: string) => {
@@ -780,10 +802,27 @@ export default function App() {
     return () => clearInterval(interval);
   }, [selectedDeviceId, devices]);
 
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <>
+        <LoginPage onLogin={handleLogin} />
+        <Toaster />
+      </>
+    );
+  }
+
   return (
+
     <div className="flex flex-col h-screen overflow-hidden">
-      {/* Header*/}
-     <Header />
+
+           {/* Header */}
+      <Header 
+        isAuthenticated={isAuthenticated}
+        onLogout={handleLogout}
+        userEmail={userEmail}
+        userName={userName}
+      />
 
       <div className="flex flex-1 overflow-hidden">
                 {/* Desktop Sidebar - Hidden on mobile, positioned on right */}

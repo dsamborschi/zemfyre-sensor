@@ -44,7 +44,10 @@ const connection_1 = require("../db/connection");
 const models_1 = require("../db/models");
 const provisioning_keys_1 = require("../utils/provisioning-keys");
 const audit_logger_1 = require("../utils/audit-logger");
+const event_sourcing_1 = require("../services/event-sourcing");
+const event_sourcing_2 = __importDefault(require("../config/event-sourcing"));
 exports.router = express_1.default.Router();
+const eventPublisher = new event_sourcing_1.EventPublisher();
 const provisioningLimiter = (0, express_rate_limit_1.default)({
     windowMs: 15 * 60 * 1000,
     max: 5,
@@ -274,6 +277,22 @@ exports.router.post('/api/v1/device/register', provisioningLimiter, async (req, 
         });
         console.log(`✅ Device metadata stored: ${deviceName} (${deviceType}) - State: registered, Status: online`);
         await (0, provisioning_keys_1.incrementProvisioningKeyUsage)(provisioningKeyRecord.id);
+        await eventPublisher.publish('device.provisioned', 'device', uuid, {
+            device_name: deviceName,
+            device_type: deviceType,
+            fleet_id: provisioningKeyRecord.fleet_id,
+            provisioned_at: new Date().toISOString(),
+            ip_address: ipAddress,
+            mac_address: macAddress,
+            os_version: osVersion,
+            supervisor_version: supervisorVersion
+        }, {
+            metadata: {
+                user_agent: userAgent,
+                provisioning_key_id: provisioningKeyRecord.id,
+                endpoint: '/api/v1/device/register'
+            }
+        });
         await (0, audit_logger_1.logAuditEvent)({
             eventType: audit_logger_1.AuditEventType.DEVICE_REGISTERED,
             deviceUuid: uuid,
@@ -507,6 +526,36 @@ exports.router.patch('/api/v1/device/state', async (req, res) => {
                 supervisor_version: deviceState.supervisor_version,
                 uptime: deviceState.uptime,
             });
+            const oldState = await models_1.DeviceCurrentStateModel.get(uuid);
+            const stateChanged = !oldState || !(0, event_sourcing_1.objectsAreEqual)(oldState.apps, deviceState.apps);
+            if (event_sourcing_2.default.shouldPublishStateUpdate(stateChanged)) {
+                await eventPublisher.publish('current_state.updated', 'device', uuid, {
+                    apps: deviceState.apps || {},
+                    config: deviceState.config || {},
+                    system_info: {
+                        ip_address: deviceState.ip_address || deviceState.local_ip,
+                        mac_address: deviceState.mac_address,
+                        os_version: deviceState.os_version,
+                        supervisor_version: deviceState.supervisor_version,
+                        uptime: deviceState.uptime,
+                        cpu_usage: deviceState.cpu_usage,
+                        memory_usage: deviceState.memory_usage,
+                        storage_usage: deviceState.storage_usage
+                    },
+                    apps_count: Object.keys(deviceState.apps || {}).length,
+                    reported_at: new Date().toISOString(),
+                    changed_from: oldState ? {
+                        apps_count: Object.keys(oldState.apps || {}).length
+                    } : null
+                }, {
+                    metadata: {
+                        ip_address: req.ip,
+                        endpoint: '/api/v1/device/state',
+                        change_detection: stateChanged ? 'apps_changed' : 'no_change',
+                        config_mode: event_sourcing_2.default.PUBLISH_STATE_UPDATES
+                    }
+                });
+            }
             const updateFields = {};
             if (deviceState.ip_address)
                 updateFields.ip_address = deviceState.ip_address;
@@ -659,9 +708,27 @@ exports.router.post('/api/v1/devices/:uuid/target-state', async (req, res) => {
                 message: 'Body must contain apps object'
             });
         }
+        const oldTargetState = await models_1.DeviceTargetStateModel.get(uuid);
         const targetState = await models_1.DeviceTargetStateModel.set(uuid, apps, config || {});
         console.log(`🎯 Target state updated for device ${uuid.substring(0, 8)}...`);
         console.log(`   Apps: ${Object.keys(apps).length}, Version: ${targetState.version}`);
+        await eventPublisher.publish('target_state.updated', 'device', uuid, {
+            new_state: { apps, config },
+            old_state: oldTargetState ? {
+                apps: typeof oldTargetState.apps === 'string' ? JSON.parse(oldTargetState.apps) : oldTargetState.apps,
+                config: typeof oldTargetState.config === 'string' ? JSON.parse(oldTargetState.config) : oldTargetState.config
+            } : { apps: {}, config: {} },
+            version: targetState.version,
+            apps_added: Object.keys(apps).filter(appId => !oldTargetState?.apps?.[appId]),
+            apps_removed: oldTargetState ? Object.keys(oldTargetState.apps || {}).filter(appId => !apps[appId]) : [],
+            apps_count: Object.keys(apps).length
+        }, {
+            metadata: {
+                ip_address: req.ip,
+                user_agent: req.headers['user-agent'],
+                endpoint: '/api/v1/devices/:uuid/target-state'
+            }
+        });
         res.json({
             status: 'ok',
             message: 'Target state updated',
@@ -784,6 +851,20 @@ exports.router.patch('/api/v1/devices/:uuid/active', async (req, res) => {
         const updatedDevice = await models_1.DeviceModel.update(uuid, { is_active });
         const action = is_active ? 'enabled' : 'disabled';
         console.log(`${is_active ? '✅' : '🚫'} Device ${action}: ${device.device_name || uuid.substring(0, 8) + '...'}`);
+        await eventPublisher.publish(is_active ? 'device.online' : 'device.offline', 'device', uuid, {
+            device_name: device.device_name,
+            device_type: device.device_type,
+            previous_state: device.is_active,
+            new_state: is_active,
+            reason: is_active ? 'administratively enabled' : 'administratively disabled',
+            changed_at: new Date().toISOString()
+        }, {
+            metadata: {
+                ip_address: req.ip,
+                user_agent: req.headers['user-agent'],
+                endpoint: '/api/v1/devices/:uuid/active'
+            }
+        });
         await (0, audit_logger_1.logAuditEvent)({
             eventType: is_active ? audit_logger_1.AuditEventType.DEVICE_REGISTERED : audit_logger_1.AuditEventType.DEVICE_OFFLINE,
             deviceUuid: uuid,
