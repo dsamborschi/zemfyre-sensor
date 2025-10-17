@@ -31,6 +31,8 @@ services:
           - SSH_KEY_PATH=${SSH_KEY_PATH:-/app/data/ssh/id_rsa}
           - SSH_AUTO_RECONNECT=${SSH_AUTO_RECONNECT:-true}
           - SSH_RECONNECT_DELAY=${SSH_RECONNECT_DELAY:-5000}
+          - ENABLE_CLOUD_JOBS=true
+          - ENABLE_JOB_ENGINE=true
 
 volumes:
   agent-data:
