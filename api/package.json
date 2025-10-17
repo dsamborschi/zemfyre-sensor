@@ -18,6 +18,7 @@
     "device-management"
   ],
   "dependencies": {
+    "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dockerode": "^4.0.0",

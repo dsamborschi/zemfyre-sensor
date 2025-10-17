@@ -185,6 +185,16 @@ async function startServer() {
     // Don't exit - this is not critical for API operation
   }
 
+  // Start image monitor for Docker Hub polling
+  try {
+    const { imageMonitor } = await import('./services/image-monitor');
+    imageMonitor.start();
+    console.log('✅ Image Monitor started');
+  } catch (error) {
+    console.error('⚠️  Failed to start image monitor:', error);
+    // Don't exit - this is not critical for API operation
+  }
+
   const server = app.listen(PORT, () => {
     console.log('='.repeat(80));
     console.log('☁️  Iotistic Unified API Server');
@@ -222,6 +232,14 @@ async function startServer() {
       // Ignore errors during shutdown
     }
     
+    // Stop image monitor
+    try {
+      const { imageMonitor } = await import('./services/image-monitor');
+      imageMonitor.stop();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
     server.close(() => {
       console.log('Server closed');
       process.exit(0);
@@ -235,6 +253,14 @@ async function startServer() {
     try {
       const heartbeatMonitor = await import('./services/heartbeat-monitor');
       heartbeatMonitor.default.stop();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
+    // Stop image monitor
+    try {
+      const { imageMonitor } = await import('./services/image-monitor');
+      imageMonitor.stop();
     } catch (error) {
       // Ignore errors during shutdown
     }
