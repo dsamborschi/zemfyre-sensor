@@ -16,7 +16,7 @@ The Image Monitoring Service automatically polls Docker Hub for new tags on appr
 │     └─ For each image:                                      │
 │         ├─ Fetch tags from Docker Hub API                   │
 │         ├─ Compare with existing tags in database          │
-│         └─ Create approval requests for new tags           │
+│         └─ Create approval request for MOST RECENT new tag │
 │                                                              │
 │  2. Auto-Approval Request Creation                          │
 │     ├─ Includes metadata (digest, architectures, etc.)     │

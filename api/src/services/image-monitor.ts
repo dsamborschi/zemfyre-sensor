@@ -156,10 +156,11 @@ export class ImageMonitorService {
 
       console.log(`[ImageMonitor] Found ${newTags.length} new tags for ${image_name}`);
 
-      // Create approval requests for new tags
-      for (const tag of newTags) {
-        await this.createApprovalRequest(image, tag);
-      }
+      // Only create approval request for the MOST RECENT tag
+      // Tags are already sorted by last_updated DESC from Docker Hub
+      const mostRecentTag = newTags[0];
+      console.log(`[ImageMonitor] Creating approval request for most recent tag: ${image_name}:${mostRecentTag.name}`);
+      await this.createApprovalRequest(image, mostRecentTag);
 
     } catch (err: any) {
       if (err.response?.status === 404) {
