@@ -245,4 +245,6 @@ export class ImageMonitorService {
 }
 
 // Singleton instance
-export const imageMonitor = new ImageMonitorService(60); // Check every 60 minutes
+// Can be configured via IMAGE_MONITOR_INTERVAL_MINUTES env var (default: 60)
+const checkIntervalMinutes = parseInt(process.env.IMAGE_MONITOR_INTERVAL_MINUTES || '60', 10);
+export const imageMonitor = new ImageMonitorService(checkIntervalMinutes);
