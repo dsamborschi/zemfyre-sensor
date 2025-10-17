@@ -238,65 +238,59 @@ export function AddEditDeviceDialog({
     
 
           {!isEditMode && (
-            <div className="space-y-4 pt-4 border-t">
+            <div className="space-y-4 pt-4 border-t border-gray-200">
               <div className="space-y-2">
-                <Label htmlFor="provisioning-key">Provisioning Key</Label>
-                <div className="flex gap-2">
-                  <div className="relative flex-1">
-                    <Input
-                      id="provisioning-key"
-                      value={provisioningKey}
-                      readOnly
-                      className="font-mono pr-20"
-                    />
-                    <div className="absolute top-1/2 -translate-y-1/2 right-2 flex gap-1">
+                <Label htmlFor="provisioning-key" className="text-sm font-semibold text-gray-900">Provisioning Key</Label>
+                <div className="relative">
+                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-md px-3 py-2.5">
+                    <code className="flex-1 font-mono text-sm text-gray-900 select-all">
+                      {provisioningKey}
+                    </code>
+                    <div className="flex gap-1 ml-2">
                       <Button
                         type="button"
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7"
+                        className="h-8 w-8 hover:bg-gray-200"
                         onClick={copyProvisioningKey}
                       >
-                        {copiedKey ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4" />}
+                        {copiedKey ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-600" />}
                       </Button>
                       <Button
                         type="button"
                         size="icon"
                         variant="ghost"
-                        className="h-7 w-7"
+                        className="h-8 w-8 hover:bg-gray-200"
                         onClick={regenerateProvisioningKey}
                       >
-                        <RefreshCw className="w-4 h-4" />
+                        <RefreshCw className="w-4 h-4 text-gray-600" />
                       </Button>
                     </div>
                   </div>
                 </div>
-                <p className="text-gray-600">
+                <p className="text-xs text-gray-500">
                   Use this key during device provisioning. You can regenerate it if needed.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="install-command">Install Command</Label>
-                <div className="relative">
-                  <Textarea
-                    id="install-command"
-                    value={installCommand}
-                    readOnly
-                    rows={2}
-                    className="font-mono text-sm bg-gray-900 text-green-400 pr-12 resize-none"
-                  />
+                <Label htmlFor="install-command" className="text-sm font-semibold text-gray-900">Install Command</Label>
+                <div className="relative bg-black border border-gray-700 rounded-md px-4 py-3" style={{ backgroundColor: '#0d1117' }}>
+                  <code className="block font-mono text-sm whitespace-pre-wrap break-all select-all pr-10" style={{ color: '#00ff41' }}>
+                    {installCommand}
+                  </code>
                   <Button
                     type="button"
                     size="icon"
                     variant="ghost"
-                    className="absolute top-2 right-2 text-green-400 hover:text-green-300 hover:bg-gray-800"
+                    className="absolute top-2 right-2 h-8 w-8 hover:bg-gray-800/50"
+                    style={{ color: '#00ff41' }}
                     onClick={copyInstallCommand}
                   >
                     {copiedCommand ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </Button>
                 </div>
-                <p className="text-gray-600">
+                <p className="text-xs text-gray-500">
                   Run this command on the device to install the agent and connect it to Iotistic
                 </p>
               </div>
