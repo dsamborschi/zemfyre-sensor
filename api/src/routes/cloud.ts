@@ -28,7 +28,7 @@ import {
   AuditEventType,
   AuditSeverity
 } from '../utils/audit-logger';
-import { EventPublisher } from '../services/event-sourcing';
+import { EventPublisher, objectsAreEqual } from '../services/event-sourcing';
 import EventSourcingConfig from '../config/event-sourcing';
 
 export const router = express.Router();
@@ -722,9 +722,9 @@ router.patch('/api/v1/device/state', async (req, res) => {
       // 🎉 EVENT SOURCING: Publish current state updated event
       // NOTE: Uses EventSourcingConfig to determine if we should publish
       const oldState = await DeviceCurrentStateModel.get(uuid);
-      const stateChanged = !oldState || 
-        JSON.stringify(oldState.apps) !== JSON.stringify(deviceState.apps) ||
-        Object.keys(deviceState.apps || {}).length !== Object.keys(oldState.apps || {}).length;
+      
+      // Use hash comparison for efficient change detection
+      const stateChanged = !oldState || !objectsAreEqual(oldState.apps, deviceState.apps);
 
       // Check config to see if we should publish state updates
       if (EventSourcingConfig.shouldPublishStateUpdate(stateChanged)) {

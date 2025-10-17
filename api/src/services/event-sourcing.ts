@@ -468,7 +468,23 @@ export async function publishReconciliationCycle(
 }
 
 /**
- * Helper: Calculate changed fields between two objects
+ * Helper: Calculate hash of an object for comparison
+ */
+function calculateObjectHash(obj: any): string {
+  if (obj === null || obj === undefined) {
+    return '';
+  }
+  
+  // Stringify with sorted keys for consistent hashing
+  const normalized = JSON.stringify(obj, Object.keys(obj).sort());
+  
+  return crypto.createHash('sha256')
+    .update(normalized)
+    .digest('hex');
+}
+
+/**
+ * Helper: Calculate changed fields between two objects (using hash comparison)
  */
 function calculateChangedFields(oldObj: any, newObj: any): string[] {
   const changed: string[] = [];
@@ -479,12 +495,22 @@ function calculateChangedFields(oldObj: any, newObj: any): string[] {
   ]);
 
   for (const key of allKeys) {
-    if (JSON.stringify(oldObj?.[key]) !== JSON.stringify(newObj?.[key])) {
+    const oldHash = calculateObjectHash(oldObj?.[key]);
+    const newHash = calculateObjectHash(newObj?.[key]);
+    
+    if (oldHash !== newHash) {
       changed.push(key);
     }
   }
 
   return changed;
+}
+
+/**
+ * Helper: Check if two objects are equal using hash comparison
+ */
+export function objectsAreEqual(obj1: any, obj2: any): boolean {
+  return calculateObjectHash(obj1) === calculateObjectHash(obj2);
 }
 
 // ============================================================================
