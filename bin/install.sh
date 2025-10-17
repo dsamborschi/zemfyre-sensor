@@ -349,7 +349,7 @@ function run_ansible_playbook() {
     sudo -E -u ${USER} ${SUDO_ARGS[@]} \
         ARCHITECTURE="$ARCHITECTURE" \
         DEVICE_TYPE="$DEVICE_TYPE" \
-        ~/installer_venv/bin/ansible-playbook deploy.yml -e "device_type=$DEVICE_TYPE" -e "architecture=$ARCHITECTURE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
+        ~/installer_venv/bin/ansible-playbook deploy.agent.yml -e "device_type=$DEVICE_TYPE" -e "architecture=$ARCHITECTURE" "${ANSIBLE_PLAYBOOK_ARGS[@]}"
 }
 
 

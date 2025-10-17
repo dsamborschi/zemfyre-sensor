@@ -13,9 +13,6 @@
     
   pre_tasks:
     - name: Load environment variables from environment
-      set_fact:
-        grafana_port_ext: "{{ lookup('env', 'GRAFANA_PORT_EXT') | default('53000') }}"
-        admin_port: "{{ lookup('env', 'ADMIN_PORT_EXT') | default('51850') }}"
 
   roles:
     - system
