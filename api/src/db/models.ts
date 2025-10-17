@@ -97,6 +97,28 @@ export class DeviceModel {
       
       // Import at top of file needed
       const { logAuditEvent, AuditEventType, AuditSeverity } = require('../utils/audit-logger');
+      const { EventPublisher } = require('../services/event-sourcing');
+      
+      // 🎉 EVENT SOURCING: Publish device online event
+      const eventPublisher = new EventPublisher('device_connectivity');
+      await eventPublisher.publish(
+        'device.online',
+        'device',
+        uuid,
+        {
+          device_name: existingDevice.device_name || 'Unknown',
+          was_offline_at: existingDevice.modified_at,
+          offline_duration_minutes: offlineDurationMin,
+          came_online_at: new Date().toISOString(),
+          reason: 'Device resumed communication'
+        },
+        {
+          metadata: {
+            detection_method: 'heartbeat_received',
+            last_seen: existingDevice.last_connectivity_event
+          }
+        }
+      );
       
       await logAuditEvent({
         eventType: AuditEventType.DEVICE_ONLINE,

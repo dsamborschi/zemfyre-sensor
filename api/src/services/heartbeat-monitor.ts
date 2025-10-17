@@ -10,6 +10,7 @@
 
 import { query } from '../db/connection';
 import { logAuditEvent, AuditEventType, AuditSeverity } from '../utils/audit-logger';
+import { EventPublisher } from './event-sourcing';
 
 const HEARTBEAT_STATE_KEY = 'heartbeat_last_check';
 
@@ -20,6 +21,7 @@ export class HeartbeatMonitor {
   private readonly enabled: boolean;
   private lastCheckTime: Date | null = null;
   private apiStartTime: Date;
+  private eventPublisher: EventPublisher;
 
   constructor() {
     // Configuration from environment variables
@@ -27,6 +29,9 @@ export class HeartbeatMonitor {
     this.offlineThreshold = parseInt(process.env.HEARTBEAT_OFFLINE_THRESHOLD || '5'); // 5 minutes default
     this.enabled = process.env.HEARTBEAT_ENABLED !== 'false'; // Enabled by default
     this.apiStartTime = new Date();
+    
+    // Initialize event publisher for connectivity events
+    this.eventPublisher = new EventPublisher('heartbeat_monitor');
   }
 
   /**
@@ -167,6 +172,27 @@ export class HeartbeatMonitor {
           
           console.log(`      - ${deviceDisplay} (last seen: ${lastSeen})`);
           
+          // 🎉 EVENT SOURCING: Publish device offline event
+          await this.eventPublisher.publish(
+            'device.offline',
+            'device',
+            device.uuid,
+            {
+              device_name: device.device_name,
+              last_seen: device.last_connectivity_event,
+              offline_threshold_minutes: this.offlineThreshold,
+              detected_at: now.toISOString(),
+              reason: 'No heartbeat received - detected after API restart',
+              api_downtime_minutes: apiDowntimeMinutes
+            },
+            {
+              metadata: {
+                detection_method: 'heartbeat_monitor',
+                api_restart: true
+              }
+            }
+          );
+          
           await logAuditEvent({
             eventType: AuditEventType.DEVICE_OFFLINE,
             deviceUuid: device.uuid,
@@ -224,6 +250,26 @@ export class HeartbeatMonitor {
             new Date(device.last_connectivity_event).toISOString() : 'never';
           
           console.log(`   - ${deviceDisplay} (last seen: ${lastSeen})`);
+          
+          // 🎉 EVENT SOURCING: Publish device offline event
+          await this.eventPublisher.publish(
+            'device.offline',
+            'device',
+            device.uuid,
+            {
+              device_name: device.device_name,
+              last_seen: device.last_connectivity_event,
+              offline_threshold_minutes: this.offlineThreshold,
+              detected_at: new Date().toISOString(),
+              reason: 'No heartbeat received - exceeded threshold'
+            },
+            {
+              metadata: {
+                detection_method: 'heartbeat_monitor',
+                check_interval_ms: this.checkInterval
+              }
+            }
+          );
           
           // Log to audit trail
           await logAuditEvent({
