@@ -228,6 +228,7 @@ function install_packages() {
         "libffi-dev"
         "libssl-dev"
         "whois"
+        "sqlite3"
     )
 
     if [ "$DISTRO_VERSION_MAJOR" -ge 12 ]; then
@@ -640,6 +641,69 @@ function set_custom_version() {
     DOCKER_TAG=$(curl -sL "$DOCKER_TAG_FILE_URL")
 }
 
+function provisioning_check() {
+
+    PROVISIONING_API_KEY="${PROVISIONING_API_KEY:-}"
+    CLOUD_API_ENDPOINT="${CLOUD_API_ENDPOINT:-}"
+    
+    # Check if device is already provisioned by querying the agent database
+    local DEVICE_PROVISIONED=false
+    local DB_PATH="${IOTISTIC_REPO_DIR}/agent/data/database.sqlite"
+    
+    if [ -f "$DB_PATH" ] && command -v sqlite3 &> /dev/null; then
+        # Check if device is provisioned in the database
+        local PROVISIONED_VALUE=$(sqlite3 "$DB_PATH" "SELECT provisioned FROM device LIMIT 1;" 2>/dev/null || echo "0")
+        if [ "$PROVISIONED_VALUE" = "1" ]; then
+            DEVICE_PROVISIONED=true
+            echo ""
+            gum format "### ✅ Device Already Provisioned"
+            echo ""
+            gum format "This device is already provisioned. Skipping provisioning setup."
+            echo ""
+            
+            # Get device info for display
+            local DEVICE_UUID=$(sqlite3 "$DB_PATH" "SELECT uuid FROM device LIMIT 1;" 2>/dev/null || echo "unknown")
+            local DEVICE_NAME=$(sqlite3 "$DB_PATH" "SELECT deviceName FROM device LIMIT 1;" 2>/dev/null || echo "unknown")
+            gum format "**Device UUID:** \`${DEVICE_UUID}\`"
+            gum format "**Device Name:** \`${DEVICE_NAME}\`"
+            echo ""
+        fi
+    fi
+    
+    # Only prompt for provisioning if not already provisioned, not in CI mode, and no env var set
+    if [ "$DEVICE_PROVISIONED" = false ] && [ "$IS_CI_MODE" = false ] && [ -z "$PROVISIONING_API_KEY" ]; then
+        echo ""
+        gum format "### 🔐 Device Provisioning Setup"
+        echo ""
+        gum format "Enter your **provisioning API key** to enable automatic device registration."
+        gum format "Leave blank to skip (you can provision manually later)."
+        echo ""
+        read -p "Provisioning API Key: " PROVISIONING_API_KEY
+        echo ""
+        
+        if [ -n "$PROVISIONING_API_KEY" ]; then
+            echo ""
+            read -p "Cloud API Endpoint [http://10.0.0.60:4002]: " CLOUD_API_ENDPOINT
+            CLOUD_API_ENDPOINT="${CLOUD_API_ENDPOINT:-http://10.0.0.60:4002}"
+        fi
+        echo ""
+    fi
+
+    display_section "User Input Summary"
+    gum format "**Manage Network:**     ${MANAGE_NETWORK}"
+    gum format "**Branch/Tag:**         \`${BRANCH}\`"
+    gum format "**System Upgrade:**     ${SYSTEM_UPGRADE}"
+    gum format "**Docker Tag Prefix:**  \`${DOCKER_TAG}\`"
+    if [ "$DEVICE_PROVISIONED" = true ]; then
+        gum format "**Provisioning:**       ✅ Already provisioned (skipped)"
+    elif [ -n "$PROVISIONING_API_KEY" ]; then
+        gum format "**Provisioning:**       ✅ Enabled"
+        gum format "**Cloud Endpoint:**     \`${CLOUD_API_ENDPOINT}\`"
+    else
+        gum format "**Provisioning:**       ⚠️  Skipped (manual setup required)"
+    fi
+}
+
 
 function main() {
      # Detect architecture and distro early
@@ -684,44 +748,11 @@ function main() {
         }
     fi
 
-    # 🔹 Provisioning Setup
-    PROVISIONING_API_KEY="${PROVISIONING_API_KEY:-}"
-    CLOUD_API_ENDPOINT="${CLOUD_API_ENDPOINT:-}"
-    
-    if [ "$IS_CI_MODE" = false ] && [ -z "$PROVISIONING_API_KEY" ]; then
-        echo ""
-        gum format "### 🔐 Device Provisioning Setup"
-        echo ""
-        gum format "Enter your **provisioning API key** to enable automatic device registration."
-        gum format "Leave blank to skip (you can provision manually later)."
-        echo ""
-        read -p "Provisioning API Key: " PROVISIONING_API_KEY
-        echo ""
-        
-        if [ -n "$PROVISIONING_API_KEY" ]; then
-            echo ""
-            read -p "Cloud API Endpoint [http://10.0.0.60:4002]: " CLOUD_API_ENDPOINT
-            CLOUD_API_ENDPOINT="${CLOUD_API_ENDPOINT:-http://10.0.0.60:4002}"
-        fi
-        echo ""
-    fi
-
-    display_section "User Input Summary"
-    gum format "**Manage Network:**     ${MANAGE_NETWORK}"
-    gum format "**Branch/Tag:**         \`${BRANCH}\`"
-    gum format "**System Upgrade:**     ${SYSTEM_UPGRADE}"
-    gum format "**Docker Tag Prefix:**  \`${DOCKER_TAG}\`"
-    if [ -n "$PROVISIONING_API_KEY" ]; then
-        gum format "**Provisioning:**       ✅ Enabled"
-        gum format "**Cloud Endpoint:**     \`${CLOUD_API_ENDPOINT}\`"
-    else
-        gum format "**Provisioning:**       ⚠️  Skipped (manual setup required)"
-    fi
-
     if [ ! -d "${IOTISTIC_REPO_DIR}" ]; then
         mkdir "${IOTISTIC_REPO_DIR}"
     fi
 
+    provisioning_check
     initialize_ansible
     initialize_locales
     install_packages

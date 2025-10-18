@@ -4,7 +4,7 @@
  * Tests the Trivy integration by scanning known images.
  */
 
-const { trivyScanner } = require('./dist/services/trivy-scanner');
+const { trivyScanner } = require('../dist/services/trivy-scanner');
 
 async function testTrivyScanner() {
   console.log('🔍 Testing Trivy Security Scanner\n');
