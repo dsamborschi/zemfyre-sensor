@@ -17,14 +17,20 @@ import { Writable } from 'stream';
 import zlib from 'zlib';
 import type { LogBackend, LogMessage, LogFilter } from './types';
 
+/**
+ * Cloud Log Backend Configuration
+ */
 interface CloudLogBackendConfig {
 	cloudEndpoint: string;
 	deviceUuid: string;
-	compression?: boolean; // Default: true
-	bufferSize?: number; // Default: 256KB
-	flushInterval?: number; // Default: 100ms
-	reconnectInterval?: number; // Default: 5000ms
-	maxReconnectInterval?: number; // Default: 300000ms (5min)
+	deviceApiKey?: string;
+	compression?: boolean;
+	batchSize?: number;
+	maxRetries?: number;
+	bufferSize?: number;
+	flushInterval?: number;
+	reconnectInterval?: number;
+	maxReconnectInterval?: number;
 }
 
 export class CloudLogBackend implements LogBackend {
@@ -40,7 +46,10 @@ export class CloudLogBackend implements LogBackend {
 		this.config = {
 			cloudEndpoint: config.cloudEndpoint,
 			deviceUuid: config.deviceUuid,
+			deviceApiKey: config.deviceApiKey ?? '',
 			compression: config.compression ?? true,
+			batchSize: config.batchSize ?? 100,
+			maxRetries: config.maxRetries ?? 3,
 			bufferSize: config.bufferSize ?? 256 * 1024, // 256KB
 			flushInterval: config.flushInterval ?? 100, // 100ms
 			reconnectInterval: config.reconnectInterval ?? 5000, // 5s
@@ -176,6 +185,7 @@ export class CloudLogBackend implements LogBackend {
 		let body: string | Buffer = ndjson;
 		const headers: Record<string, string> = {
 			'Content-Type': 'application/x-ndjson',
+			'X-Device-API-Key': this.config.deviceApiKey || '',
 		};
 		
 		if (this.config.compression) {

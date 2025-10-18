@@ -15,6 +15,7 @@ import { JobDocument, JobExecutionData } from './src/types';
 export interface CloudJobsAdapterConfig {
   cloudApiUrl: string;
   deviceUuid: string;
+  deviceApiKey?: string;
   pollingIntervalMs?: number;
   maxRetries?: number;
   enableLogging?: boolean;
@@ -58,6 +59,7 @@ export class CloudJobsAdapter {
     this.config = {
       cloudApiUrl: config.cloudApiUrl,
       deviceUuid: config.deviceUuid,
+      deviceApiKey: config.deviceApiKey || '',
       pollingIntervalMs: config.pollingIntervalMs || 30000, // 30 seconds default
       maxRetries: config.maxRetries || 3,
       enableLogging: config.enableLogging !== false // Default true
@@ -72,14 +74,17 @@ export class CloudJobsAdapter {
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': `zemfyre-agent/${this.config.deviceUuid}`
+        'User-Agent': `zemfyre-agent/${this.config.deviceUuid}`,
+        'X-Device-API-Key': this.config.deviceApiKey || ''
       }
     });
 
     this.log('CloudJobsAdapter initialized', {
       cloudApiUrl: this.config.cloudApiUrl,
       deviceUuid: this.config.deviceUuid,
-      pollingIntervalMs: this.config.pollingIntervalMs
+      pollingIntervalMs: this.config.pollingIntervalMs,
+      hasApiKey: !!this.config.deviceApiKey,
+      apiKeyLength: this.config.deviceApiKey?.length || 0
     });
   }
 
@@ -132,6 +137,11 @@ export class CloudJobsAdapter {
     }
 
     try {
+      this.log('Polling for jobs', {
+        endpoint: `/api/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/next`,
+        hasApiKey: !!this.config.deviceApiKey
+      }, 'debug');
+      
       const response = await this.httpClient.get<CloudJob>(
         `/api/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/next`
       );

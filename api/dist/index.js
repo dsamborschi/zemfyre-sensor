@@ -51,6 +51,7 @@ const scheduled_jobs_1 = __importDefault(require("./routes/scheduled-jobs"));
 const rollout_monitor_1 = require("./jobs/rollout-monitor");
 const job_scheduler_1 = require("./services/job-scheduler");
 const connection_1 = __importDefault(require("./db/connection"));
+const mqtt_1 = require("./mqtt");
 const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE = `/api/${API_VERSION}`;
 const app = (0, express_1.default)();
@@ -148,6 +149,12 @@ async function startServer() {
     catch (error) {
         console.error('⚠️  Failed to start job scheduler:', error);
     }
+    try {
+        await (0, mqtt_1.initializeMqtt)();
+    }
+    catch (error) {
+        console.error('⚠️  Failed to initialize MQTT:', error);
+    }
     const server = app.listen(PORT, () => {
         console.log('='.repeat(80));
         console.log('☁️  Iotistic Unified API Server');
@@ -156,7 +163,12 @@ async function startServer() {
         console.log('='.repeat(80) + '\n');
     });
     process.on('SIGTERM', async () => {
-        console.log('SIGTERM received, shutting down gracefully...');
+        console.log('\nSIGTERM received, shutting down gracefully...');
+        try {
+            await (0, mqtt_1.shutdownMqtt)();
+        }
+        catch (error) {
+        }
         try {
             const heartbeatMonitor = await Promise.resolve().then(() => __importStar(require('./services/heartbeat-monitor')));
             heartbeatMonitor.default.stop();
@@ -181,6 +193,11 @@ async function startServer() {
     });
     process.on('SIGINT', async () => {
         console.log('\nSIGINT received, shutting down gracefully...');
+        try {
+            await (0, mqtt_1.shutdownMqtt)();
+        }
+        catch (error) {
+        }
         try {
             const heartbeatMonitor = await Promise.resolve().then(() => __importStar(require('./services/heartbeat-monitor')));
             heartbeatMonitor.default.stop();

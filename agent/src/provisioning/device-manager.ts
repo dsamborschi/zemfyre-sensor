@@ -152,7 +152,14 @@ export class DeviceManager {
 		if (!this.deviceInfo) {
 			throw new Error('Device manager not initialized');
 		}
-		return { ...this.deviceInfo };
+		
+		// Ensure backward compatibility: populate apiKey from deviceApiKey if not set
+		const info = { ...this.deviceInfo };
+		if (!info.apiKey && info.deviceApiKey) {
+			info.apiKey = info.deviceApiKey;
+		}
+		
+		return info;
 	}
 
 	/**

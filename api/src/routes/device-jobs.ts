@@ -8,6 +8,7 @@
 import express, { Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import poolWrapper from '../db/connection';
+import deviceAuth, { deviceAuthFromBody } from '../middleware/device-auth';
 
 const router = express.Router();
 const pool = poolWrapper.pool;
@@ -526,7 +527,7 @@ router.get('/devices/:uuid/jobs', async (req: Request, res: Response) => {
  * GET /api/v1/devices/:uuid/jobs/next
  * Get next pending job for device (MQTT endpoint equivalent)
  */
-router.get('/devices/:uuid/jobs/next', async (req: Request, res: Response) => {
+router.get('/devices/:uuid/jobs/next', deviceAuth, async (req: Request, res: Response) => {
   try {
     const { uuid } = req.params;
 
@@ -576,7 +577,7 @@ router.get('/devices/:uuid/jobs/next', async (req: Request, res: Response) => {
  * PATCH /api/v1/devices/:uuid/jobs/:jobId/status
  * Update job status from device
  */
-router.patch('/devices/:uuid/jobs/:jobId/status', async (req: Request, res: Response) => {
+router.patch('/devices/:uuid/jobs/:jobId/status', deviceAuth, async (req: Request, res: Response) => {
   try {
     const { uuid, jobId } = req.params;
     const {

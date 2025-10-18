@@ -21,6 +21,7 @@ import scheduledJobsRoutes from './routes/scheduled-jobs';
 import { getRolloutMonitor } from './jobs/rollout-monitor';
 import { jobScheduler } from './services/job-scheduler';
 import poolWrapper from './db/connection';
+import { initializeMqtt, shutdownMqtt } from './mqtt';
 
 // API Version Configuration - Change here to update all routes
 const API_VERSION = process.env.API_VERSION || 'v1';
@@ -152,6 +153,15 @@ async function startServer() {
     // Don't exit - this is not critical for API operation
   }
 
+  // Initialize MQTT manager for device messages
+  try {
+    await initializeMqtt();
+    // MQTT manager will log its own initialization status
+  } catch (error) {
+    console.error('⚠️  Failed to initialize MQTT:', error);
+    // Don't exit - this is not critical for API operation
+  }
+
   const server = app.listen(PORT, () => {
     console.log('='.repeat(80));
     console.log('☁️  Iotistic Unified API Server');
@@ -162,7 +172,14 @@ async function startServer() {
 
   // Graceful shutdown
   process.on('SIGTERM', async () => {
-    console.log('SIGTERM received, shutting down gracefully...');
+    console.log('\nSIGTERM received, shutting down gracefully...');
+    
+    // Shutdown MQTT
+    try {
+      await shutdownMqtt();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
     
     // Stop heartbeat monitor
     try {
@@ -195,6 +212,13 @@ async function startServer() {
 
   process.on('SIGINT', async () => {
     console.log('\nSIGINT received, shutting down gracefully...');
+    
+    // Shutdown MQTT
+    try {
+      await shutdownMqtt();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
     
     // Stop heartbeat monitor
     try {

@@ -207,6 +207,7 @@ export class ApiBinder extends EventEmitter {
 				method: 'GET',
 				headers: {
 					'Content-Type': 'application/json',
+					'X-Device-API-Key': deviceInfo.apiKey || '',
 					...(this.targetStateETag && { 'if-none-match': this.targetStateETag }),
 				},
 				signal: AbortSignal.timeout(this.config.apiTimeout),
@@ -397,6 +398,7 @@ export class ApiBinder extends EventEmitter {
 				method: 'PATCH',
 				headers: {
 					'Content-Type': 'application/json',
+					'X-Device-API-Key': deviceInfo.apiKey || '',
 				},
 				body: JSON.stringify(reportToSend),
 				signal: AbortSignal.timeout(this.config.apiTimeout),

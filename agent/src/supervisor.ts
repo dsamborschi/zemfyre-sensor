@@ -186,6 +186,7 @@ export default class DeviceSupervisor {
 				const cloudLogBackend = new CloudLogBackend({
 					cloudEndpoint: this.CLOUD_API_ENDPOINT,
 					deviceUuid: deviceInfo.uuid,
+					deviceApiKey: deviceInfo.apiKey,
 					compression: process.env.LOG_COMPRESSION !== 'false', // Default: true
 				});
 				await cloudLogBackend.initialize();
@@ -415,11 +416,20 @@ export default class DeviceSupervisor {
 				10
 			);
 
+			// Debug: Check device info
+			console.log('🔍 Device Info for Cloud Jobs:', {
+				uuid: deviceInfo.uuid,
+				hasApiKey: !!deviceInfo.apiKey,
+				apiKeyLength: deviceInfo.apiKey?.length || 0,
+				apiKeyPreview: deviceInfo.apiKey ? `${deviceInfo.apiKey.substring(0, 8)}...` : 'MISSING'
+			});
+
 			// Create CloudJobsAdapter
 			this.cloudJobsAdapter = new CloudJobsAdapter(
 				{
 					cloudApiUrl,
 					deviceUuid: deviceInfo.uuid,
+					deviceApiKey: deviceInfo.apiKey,
 					pollingIntervalMs,
 					maxRetries: 3,
 					enableLogging: true
@@ -633,7 +643,7 @@ export default class DeviceSupervisor {
 
 			console.log('✅ Shadow Feature initialized');
 			console.log(`   Shadow name: ${shadowConfig.shadowName}`);
-			console.log(`   Thing name: ${deviceInfo.uuid}`);
+			console.log(`   Device id: ${deviceInfo.uuid}`);
 			console.log(`   Auto-sync on delta: ${shadowConfig.syncOnDelta}`);
 			console.log(`   File monitor: ${shadowConfig.enableFileMonitor ? 'Enabled' : 'Disabled'}`);
 			if (shadowConfig.inputFile) {
