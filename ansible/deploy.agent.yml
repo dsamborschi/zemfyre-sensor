@@ -13,6 +13,7 @@
   roles:
     - system
     - network
+    - docker
 
 
 
