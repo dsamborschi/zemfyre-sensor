@@ -38,14 +38,18 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
-const grafana_1 = __importDefault(require("./routes/grafana"));
-const notify_1 = __importDefault(require("./routes/notify"));
 const cloud_1 = __importDefault(require("./routes/cloud"));
+const device_state_1 = __importDefault(require("./routes/device-state"));
+const provisioning_1 = __importDefault(require("./routes/provisioning"));
+const devices_1 = __importDefault(require("./routes/devices"));
+const admin_1 = __importDefault(require("./routes/admin"));
 const webhooks_1 = __importDefault(require("./routes/webhooks"));
 const rollouts_1 = __importDefault(require("./routes/rollouts"));
 const image_registry_1 = __importDefault(require("./routes/image-registry"));
 const device_jobs_1 = __importDefault(require("./routes/device-jobs"));
+const scheduled_jobs_1 = __importDefault(require("./routes/scheduled-jobs"));
 const rollout_monitor_1 = require("./jobs/rollout-monitor");
+const job_scheduler_1 = require("./services/job-scheduler");
 const connection_1 = __importDefault(require("./db/connection"));
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3002;
@@ -149,13 +153,16 @@ app.get('/api/docs', (req, res) => {
         ]
     });
 });
-app.use(grafana_1.default);
-app.use(notify_1.default);
+app.use(provisioning_1.default);
+app.use(devices_1.default);
+app.use(admin_1.default);
 app.use(cloud_1.default);
+app.use(device_state_1.default);
 app.use('/api/v1/webhooks', webhooks_1.default);
 app.use('/api/v1', rollouts_1.default);
 app.use('/api/v1', image_registry_1.default);
 app.use('/api/v1', device_jobs_1.default);
+app.use('/api/v1', scheduled_jobs_1.default);
 app.use((req, res) => {
     res.status(404).json({
         error: 'Not found',
@@ -209,28 +216,18 @@ async function startServer() {
     catch (error) {
         console.error('⚠️  Failed to start image monitor:', error);
     }
+    try {
+        await job_scheduler_1.jobScheduler.start();
+        console.log('✅ Job Scheduler started');
+    }
+    catch (error) {
+        console.error('⚠️  Failed to start job scheduler:', error);
+    }
     const server = app.listen(PORT, () => {
         console.log('='.repeat(80));
         console.log('☁️  Iotistic Unified API Server');
         console.log('='.repeat(80));
         console.log(`Server running on http://localhost:${PORT}`);
-        console.log(`Documentation: http://localhost:${PORT}/api/docs`);
-        console.log('='.repeat(80));
-        console.log('\nGrafana Management:');
-        console.log(`  GET    /grafana/dashboards             - List dashboards`);
-        console.log(`  GET    /grafana/alert-rules            - List alerts`);
-        console.log(`  POST   /grafana/update-alert-threshold - Update threshold`);
-        console.log('\nDocker Management:');
-        console.log(`  GET    /containers                     - List containers`);
-        console.log(`  POST   /containers/:id/restart         - Restart container`);
-        console.log('\nCloud Device Management:');
-        console.log(`  POST   /api/v1/device/register         - Register device (provisioning)`);
-        console.log(`  POST   /api/v1/device/:uuid/key-exchange - Key exchange (provisioning)`);
-        console.log(`  GET    /api/v1/devices                 - List all devices`);
-        console.log(`  POST   /api/v1/devices/:uuid/target-state - Set device target`);
-        console.log(`  PATCH  /api/v1/device/state            - Device reports state`);
-        console.log('\nSystem:');
-        console.log(`  POST   /notify                         - Send notification`);
         console.log('='.repeat(80) + '\n');
     });
     process.on('SIGTERM', async () => {
@@ -244,6 +241,11 @@ async function startServer() {
         try {
             const { imageMonitor } = await Promise.resolve().then(() => __importStar(require('./services/image-monitor')));
             imageMonitor.stop();
+        }
+        catch (error) {
+        }
+        try {
+            job_scheduler_1.jobScheduler.stop();
         }
         catch (error) {
         }
@@ -263,6 +265,11 @@ async function startServer() {
         try {
             const { imageMonitor } = await Promise.resolve().then(() => __importStar(require('./services/image-monitor')));
             imageMonitor.stop();
+        }
+        catch (error) {
+        }
+        try {
+            job_scheduler_1.jobScheduler.stop();
         }
         catch (error) {
         }

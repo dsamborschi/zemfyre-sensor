@@ -7,9 +7,11 @@ import express from 'express';
 import cors from 'cors';
 
 // Import route modules
-import grafanaRoutes from './routes/grafana';
-import notifyRoutes from './routes/notify';
 import cloudRoutes from './routes/cloud';
+import deviceStateRoutes from './routes/device-state';
+import provisioningRoutes from './routes/provisioning';
+import devicesRoutes from './routes/devices';
+import adminRoutes from './routes/admin';
 import webhookRoutes from './routes/webhooks';
 import rolloutRoutes from './routes/rollouts';
 import imageRegistryRoutes from './routes/image-registry';
@@ -138,9 +140,11 @@ app.get('/api/docs', (req, res) => {
 });
 
 // Mount route modules
-app.use(grafanaRoutes);
-app.use(notifyRoutes);
-app.use(cloudRoutes);
+app.use(provisioningRoutes);
+app.use(devicesRoutes);
+app.use(adminRoutes);
+app.use(cloudRoutes); // Legacy - now empty, can be removed
+app.use(deviceStateRoutes);
 app.use('/api/v1/webhooks', webhookRoutes);
 app.use('/api/v1', rolloutRoutes);
 app.use('/api/v1', imageRegistryRoutes);
@@ -230,23 +234,6 @@ async function startServer() {
     console.log('☁️  Iotistic Unified API Server');
     console.log('='.repeat(80));
     console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Documentation: http://localhost:${PORT}/api/docs`);
-    console.log('='.repeat(80));
-    console.log('\nGrafana Management:');
-    console.log(`  GET    /grafana/dashboards             - List dashboards`);
-    console.log(`  GET    /grafana/alert-rules            - List alerts`);
-    console.log(`  POST   /grafana/update-alert-threshold - Update threshold`);
-    console.log('\nDocker Management:');
-    console.log(`  GET    /containers                     - List containers`);
-    console.log(`  POST   /containers/:id/restart         - Restart container`);
-    console.log('\nCloud Device Management:');
-    console.log(`  POST   /api/v1/device/register         - Register device (provisioning)`);
-    console.log(`  POST   /api/v1/device/:uuid/key-exchange - Key exchange (provisioning)`);
-    console.log(`  GET    /api/v1/devices                 - List all devices`);
-    console.log(`  POST   /api/v1/devices/:uuid/target-state - Set device target`);
-    console.log(`  PATCH  /api/v1/device/state            - Device reports state`);
-    console.log('\nSystem:');
-    console.log(`  POST   /notify                         - Send notification`);
     console.log('='.repeat(80) + '\n');
   });
 

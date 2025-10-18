@@ -34,13 +34,7 @@ Invoke-RestMethod -Uri "http://localhost:4002/api/v1/jobs/execute" `
     job_name = "Hourly Health Check"
     job_document = @{
       version = "1.0"
-      steps = @(
-        @{
-          name = "Check Device Health"
-          type = "runCommand"
-          input = @{ command = "uptime" }
-        }
-      )
+      template_id = "6"
     }
     target_type = "all"
     schedule_type = "cron"

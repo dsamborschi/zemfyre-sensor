@@ -212,13 +212,6 @@ export class ContainerManager extends EventEmitter {
 		try {
 			const stateHash = this.getStateHash(this.currentState);
 			
-			// Skip if state hasn't changed (compare hashes)
-			if (stateHash === this.lastSavedCurrentStateHash) {
-				console.log('  Current state unchanged, skipping DB write');
-				return;
-			}
-			
-			console.log('  Current state changed, saving to DB');
 			this.lastSavedCurrentStateHash = stateHash;
 			
 			const stateJson = JSON.stringify(this.currentState);
