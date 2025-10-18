@@ -38,11 +38,11 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
-const cloud_1 = __importDefault(require("./routes/cloud"));
 const device_state_1 = __importDefault(require("./routes/device-state"));
 const provisioning_1 = __importDefault(require("./routes/provisioning"));
 const devices_1 = __importDefault(require("./routes/devices"));
 const admin_1 = __importDefault(require("./routes/admin"));
+const apps_1 = __importDefault(require("./routes/apps"));
 const webhooks_1 = __importDefault(require("./routes/webhooks"));
 const rollouts_1 = __importDefault(require("./routes/rollouts"));
 const image_registry_1 = __importDefault(require("./routes/image-registry"));
@@ -156,7 +156,7 @@ app.get('/api/docs', (req, res) => {
 app.use(provisioning_1.default);
 app.use(devices_1.default);
 app.use(admin_1.default);
-app.use(cloud_1.default);
+app.use(apps_1.default);
 app.use(device_state_1.default);
 app.use('/api/v1/webhooks', webhooks_1.default);
 app.use('/api/v1', rollouts_1.default);

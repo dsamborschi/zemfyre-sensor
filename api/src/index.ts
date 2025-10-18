@@ -7,11 +7,11 @@ import express from 'express';
 import cors from 'cors';
 
 // Import route modules
-import cloudRoutes from './routes/cloud';
 import deviceStateRoutes from './routes/device-state';
 import provisioningRoutes from './routes/provisioning';
 import devicesRoutes from './routes/devices';
 import adminRoutes from './routes/admin';
+import appsRoutes from './routes/apps';
 import webhookRoutes from './routes/webhooks';
 import rolloutRoutes from './routes/rollouts';
 import imageRegistryRoutes from './routes/image-registry';
@@ -143,7 +143,7 @@ app.get('/api/docs', (req, res) => {
 app.use(provisioningRoutes);
 app.use(devicesRoutes);
 app.use(adminRoutes);
-app.use(cloudRoutes); // Legacy - now empty, can be removed
+app.use(appsRoutes);
 app.use(deviceStateRoutes);
 app.use('/api/v1/webhooks', webhookRoutes);
 app.use('/api/v1', rolloutRoutes);
