@@ -555,12 +555,13 @@ router.get('/devices/:uuid/jobs/next', async (req: Request, res: Response) => {
       [result.rows[0].id]
     );
 
+    // Return snake_case to match agent's CloudJob interface
     return res.status(200).json({
-      jobId: result.rows[0].job_id,
-      jobName: result.rows[0].job_name,
-      jobDocument: result.rows[0].job_document,
-      deviceUuid: uuid,
-      queuedAt: result.rows[0].queued_at,
+      job_id: result.rows[0].job_id,
+      job_name: result.rows[0].job_name,
+      job_document: result.rows[0].job_document,
+      timeout_seconds: 3600, // Default 1 hour timeout
+      created_at: result.rows[0].queued_at,
     });
   } catch (error) {
     console.error('Error fetching next job:', error);
@@ -596,7 +597,7 @@ router.patch('/devices/:uuid/jobs/:jobId/status', async (req: Request, res: Resp
     const result = await pool.query(
       `UPDATE device_job_status
        SET 
-        status = $1,
+        status = $1::VARCHAR,
         exit_code = $2,
         stdout = $3,
         stderr = $4,
@@ -605,7 +606,7 @@ router.patch('/devices/:uuid/jobs/:jobId/status', async (req: Request, res: Resp
         failed_step = $7,
         status_details = $8,
         last_updated_at = CURRENT_TIMESTAMP,
-        completed_at = CASE WHEN $1 IN ('SUCCEEDED', 'FAILED', 'TIMED_OUT', 'REJECTED', 'CANCELED') 
+        completed_at = CASE WHEN $1::VARCHAR IN ('SUCCEEDED', 'FAILED', 'TIMED_OUT', 'REJECTED', 'CANCELED') 
                            THEN CURRENT_TIMESTAMP 
                            ELSE completed_at 
                       END
@@ -747,8 +748,8 @@ async function updateJobExecutionStats(jobId: string): Promise<void> {
         succeeded_devices = $1,
         failed_devices = $2,
         in_progress_devices = $3,
-        status = $4,
-        completed_at = CASE WHEN $4 IN ('SUCCEEDED', 'FAILED') THEN CURRENT_TIMESTAMP ELSE completed_at END
+        status = $4::VARCHAR,
+        completed_at = CASE WHEN $4::VARCHAR IN ('SUCCEEDED', 'FAILED') THEN CURRENT_TIMESTAMP ELSE completed_at END
        WHERE job_id = $5`,
       [stats.succeeded, stats.failed, stats.in_progress, jobStatus, jobId]
     );

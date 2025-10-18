@@ -25,8 +25,9 @@
         "ENABLE_JOB_ENGINE": "true",
         "MQTT_BROKER": "mqtt://localhost:5883",
         "ENABLE_SHADOW": "true",
-        "PROVISIONING_API_KEY": "your_provisioning_api_key_64_chars_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
-        "SENSOR_PUBLISH_CONFIG": "{\"sensors\":[{\"name\":\"sensor1\",\"addr\":\"/tmp/sensor1.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000}]}"
+        "PROVISIONING_API_KEY": "e4d08589f91c56b9f1872c8ea5cef082d4b8ae197f2456056f8d234e60efd71a",
+        "SENSOR_PUBLISH_CONFIG": "{\"sensors\":[{\"name\":\"sensor1\",\"addr\":\"/tmp/sensor1.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000}]}",
+        "ENABLE_CLOUD_JOBS": "true",
       }
     },
     {

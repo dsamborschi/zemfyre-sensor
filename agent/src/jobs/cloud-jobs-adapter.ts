@@ -129,7 +129,7 @@ export class CloudJobsAdapter {
 
     try {
       const response = await this.httpClient.get<CloudJob>(
-        `/devices/${this.config.deviceUuid}/jobs/next`
+        `/api/v1/devices/${this.config.deviceUuid}/jobs/next`
       );
 
       // Check if there's a job
@@ -193,14 +193,16 @@ export class CloudJobsAdapter {
         duration: `${duration}ms`
       });
 
-      // Report success
+      // Check exit code to determine success/failure (0 = success, non-zero = failure)
+      const isSuccess = (result.exitCode || 0) === 0;
+      
       await this.updateJobStatus({
-        status: 'SUCCEEDED',
+        status: isSuccess ? 'SUCCEEDED' : 'FAILED',
         exit_code: result.exitCode || 0,
         stdout: result.stdout || '',
         stderr: result.stderr || '',
         status_details: {
-          message: 'Job completed successfully',
+          message: isSuccess ? 'Job completed successfully' : 'Job failed with non-zero exit code',
           duration: duration,
           completedAt: new Date().toISOString()
         }
@@ -248,7 +250,7 @@ export class CloudJobsAdapter {
 
     try {
       await this.httpClient.patch(
-        `/devices/${this.config.deviceUuid}/jobs/${this.currentJobId}/status`,
+        `/api/v1/devices/${this.config.deviceUuid}/jobs/${this.currentJobId}/status`,
         update
       );
 
@@ -304,7 +306,7 @@ export class CloudJobsAdapter {
   async queryJobStatus(jobId: string): Promise<any> {
     try {
       const response = await this.httpClient.get(
-        `/devices/${this.config.deviceUuid}/jobs/${jobId}`
+        `/api/v1/devices/${this.config.deviceUuid}/jobs/${jobId}`
       );
       return response.data;
     } catch (error: any) {
@@ -322,7 +324,7 @@ export class CloudJobsAdapter {
   async getJobHistory(limit: number = 10): Promise<any> {
     try {
       const response = await this.httpClient.get(
-        `/devices/${this.config.deviceUuid}/jobs`,
+        `/api/v1/devices/${this.config.deviceUuid}/jobs`,
         { params: { limit } }
       );
       return response.data;
