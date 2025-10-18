@@ -469,8 +469,45 @@ zemfyre-sensor/
 ├── mosquitto/             # MQTT broker config
 ├── nginx/                 # Reverse proxy config
 ├── nodered/               # Node-RED flows and nodes
+├── sensor-simulator/      # BME688 sensor simulator (for testing)
 └── portainer/             # Container management
 ```
+
+### Sensor Simulator (Testing Without Hardware)
+
+For testing the sensor publish feature without physical BME688 sensors, we provide a complete sensor simulator:
+
+```bash
+# Start the simulator (generates 3 fake sensors by default)
+docker-compose -f docker-compose.dev.yml up -d sensor-simulator
+
+# View logs
+docker-compose logs -f sensor-simulator
+
+# Configure number of sensors
+echo "SIM_NUM_SENSORS=5" > .env
+docker-compose -f docker-compose.dev.yml restart sensor-simulator
+```
+
+**Features:**
+- ✅ Generates realistic BME688 data (temperature, humidity, pressure, gas resistance)
+- ✅ Multiple sensors with independent data streams
+- ✅ Unix domain socket communication
+- ✅ Simulates sensor failures and recovery
+- ✅ Configurable publish intervals (default: 60 seconds)
+- ✅ JSON output format with newline delimiter
+
+**Configuration:**
+All settings via environment variables in `.env`:
+- `SIM_NUM_SENSORS=3` - Number of simulated sensors
+- `SIM_PUBLISH_INTERVAL_MS=60000` - Publish frequency
+- `SIM_ENABLE_FAILURES=true` - Enable random failures
+- `SIM_FAILURE_CHANCE=0.05` - Failure probability (5%)
+- `SIM_LOG_LEVEL=info` - Logging level
+
+See [`sensor-simulator/README.md`](sensor-simulator/README.md) for complete documentation and [`sensor-simulator/QUICKSTART.md`](sensor-simulator/QUICKSTART.md) for getting started.
+
+### Custom Sensor Integration
 
 3. **Add to Docker Compose**:
 ```yaml

@@ -203,8 +203,13 @@ export default class DeviceSupervisor {
 		// MQTT backend (optional)
 		if (process.env.MQTT_BROKER) {
 			try {
+				// Get device UUID for client ID
+				const deviceInfo = this.deviceManager.getDeviceInfo();
 				const mqttBackend = new MqttLogBackend({
 					brokerUrl: process.env.MQTT_BROKER,
+					clientOptions: {
+						clientId: `device_${deviceInfo.uuid}`,
+					},
 					baseTopic: process.env.MQTT_TOPIC || 'device/logs',
 					qos: (process.env.MQTT_QOS ? parseInt(process.env.MQTT_QOS) : 1) as 0 | 1 | 2,
 					enableBatching: process.env.MQTT_BATCH !== 'false',
@@ -214,7 +219,7 @@ export default class DeviceSupervisor {
 				});
 				await mqttBackend.connect();
 				this.logBackends.push(mqttBackend);
-				console.log(`✅ MQTT log backend connected: ${process.env.MQTT_BROKER}`);
+				console.log(`✅ MQTT log backend connected: ${process.env.MQTT_BROKER} (client: device_${deviceInfo.uuid})`);
 			} catch (error) {
 				console.error('⚠️  Failed to connect to MQTT broker:', error);
 				console.log('   Continuing without cloud logging');

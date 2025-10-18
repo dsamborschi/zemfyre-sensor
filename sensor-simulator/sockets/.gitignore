@@ -1,0 +1,5 @@
+# Ignore Unix socket files
+*.sock
+
+# Allow directory structure
+!.gitignore
