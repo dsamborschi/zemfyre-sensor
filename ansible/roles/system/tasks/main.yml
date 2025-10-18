@@ -39,6 +39,22 @@
 
 # ---------------- Docker Installation ----------------
 
+# Clean up any broken Docker repository files from previous runs
+- name: Remove broken Docker repository files
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  loop:
+    - /etc/apt/sources.list.d/docker.list
+    - /etc/apt/keyrings/docker.gpg
+  ignore_errors: true
+
+# Update apt cache after cleanup
+- name: Update apt cache after cleanup
+  ansible.builtin.apt:
+    update_cache: yes
+  ignore_errors: true
+
 # Check if Docker is already installed
 - name: Check if Docker is installed
   ansible.builtin.command: docker --version
