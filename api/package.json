@@ -8,7 +8,12 @@
     "watch": "tsc --watch",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "clean": "rimraf dist"
+    "clean": "rimraf dist",
+    "migrate": "ts-node scripts/migrate.ts run",
+    "migrate:status": "ts-node scripts/migrate.ts status",
+    "migrate:create": "ts-node scripts/migrate.ts create",
+    "migrate:mark-applied": "ts-node scripts/mark-migrations-applied.ts",
+    "migrate:unmark": "ts-node scripts/unmark-migrations.ts"
   },
   "keywords": [
     "iot",

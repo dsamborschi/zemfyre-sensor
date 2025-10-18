@@ -16,12 +16,14 @@ import rolloutRoutes from './routes/rollouts';
 import imageRegistryRoutes from './routes/image-registry';
 import deviceJobsRoutes from './routes/device-jobs';
 import scheduledJobsRoutes from './routes/scheduled-jobs';
+import rotationRoutes from './routes/rotation';
 
 // Import jobs
 import { getRolloutMonitor } from './jobs/rollout-monitor';
 import { jobScheduler } from './services/job-scheduler';
 import poolWrapper from './db/connection';
 import { initializeMqtt, shutdownMqtt } from './mqtt';
+import { initializeSchedulers, shutdownSchedulers } from './services/rotation-scheduler';
 
 // API Version Configuration - Change here to update all routes
 const API_VERSION = process.env.API_VERSION || 'v1';
@@ -74,6 +76,7 @@ app.use(API_BASE, rolloutRoutes);
 app.use(API_BASE, imageRegistryRoutes);
 app.use(API_BASE, deviceJobsRoutes);
 app.use(API_BASE, scheduledJobsRoutes);
+app.use(API_BASE, rotationRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -162,6 +165,15 @@ async function startServer() {
     // Don't exit - this is not critical for API operation
   }
 
+  // Initialize API key rotation schedulers
+  try {
+    initializeSchedulers();
+    console.log('✅ API key rotation schedulers started');
+  } catch (error) {
+    console.error('⚠️  Failed to start rotation schedulers:', error);
+    // Don't exit - this is not critical for API operation
+  }
+
   const server = app.listen(PORT, () => {
     console.log('='.repeat(80));
     console.log('☁️  Iotistic Unified API Server');
@@ -177,6 +189,13 @@ async function startServer() {
     // Shutdown MQTT
     try {
       await shutdownMqtt();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
+    // Shutdown rotation schedulers
+    try {
+      shutdownSchedulers();
     } catch (error) {
       // Ignore errors during shutdown
     }
@@ -216,6 +235,13 @@ async function startServer() {
     // Shutdown MQTT
     try {
       await shutdownMqtt();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
+    // Shutdown rotation schedulers
+    try {
+      shutdownSchedulers();
     } catch (error) {
       // Ignore errors during shutdown
     }

@@ -48,10 +48,12 @@ const rollouts_1 = __importDefault(require("./routes/rollouts"));
 const image_registry_1 = __importDefault(require("./routes/image-registry"));
 const device_jobs_1 = __importDefault(require("./routes/device-jobs"));
 const scheduled_jobs_1 = __importDefault(require("./routes/scheduled-jobs"));
+const rotation_1 = __importDefault(require("./routes/rotation"));
 const rollout_monitor_1 = require("./jobs/rollout-monitor");
 const job_scheduler_1 = require("./services/job-scheduler");
 const connection_1 = __importDefault(require("./db/connection"));
 const mqtt_1 = require("./mqtt");
+const rotation_scheduler_1 = require("./services/rotation-scheduler");
 const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE = `/api/${API_VERSION}`;
 const app = (0, express_1.default)();
@@ -89,6 +91,7 @@ app.use(API_BASE, rollouts_1.default);
 app.use(API_BASE, image_registry_1.default);
 app.use(API_BASE, device_jobs_1.default);
 app.use(API_BASE, scheduled_jobs_1.default);
+app.use(API_BASE, rotation_1.default);
 app.use((req, res) => {
     res.status(404).json({
         error: 'Not found',
@@ -155,6 +158,13 @@ async function startServer() {
     catch (error) {
         console.error('⚠️  Failed to initialize MQTT:', error);
     }
+    try {
+        (0, rotation_scheduler_1.initializeSchedulers)();
+        console.log('✅ API key rotation schedulers started');
+    }
+    catch (error) {
+        console.error('⚠️  Failed to start rotation schedulers:', error);
+    }
     const server = app.listen(PORT, () => {
         console.log('='.repeat(80));
         console.log('☁️  Iotistic Unified API Server');
@@ -166,6 +176,11 @@ async function startServer() {
         console.log('\nSIGTERM received, shutting down gracefully...');
         try {
             await (0, mqtt_1.shutdownMqtt)();
+        }
+        catch (error) {
+        }
+        try {
+            (0, rotation_scheduler_1.shutdownSchedulers)();
         }
         catch (error) {
         }
@@ -195,6 +210,11 @@ async function startServer() {
         console.log('\nSIGINT received, shutting down gracefully...');
         try {
             await (0, mqtt_1.shutdownMqtt)();
+        }
+        catch (error) {
+        }
+        try {
+            (0, rotation_scheduler_1.shutdownSchedulers)();
         }
         catch (error) {
         }

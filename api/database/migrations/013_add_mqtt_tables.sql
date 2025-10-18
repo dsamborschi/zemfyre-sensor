@@ -13,13 +13,13 @@ CREATE TABLE IF NOT EXISTS sensor_data (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_sensor_data_device_uuid ON sensor_data(device_uuid);
-CREATE INDEX idx_sensor_data_sensor_name ON sensor_data(sensor_name);
-CREATE INDEX idx_sensor_data_timestamp ON sensor_data(timestamp DESC);
-CREATE INDEX idx_sensor_data_device_sensor ON sensor_data(device_uuid, sensor_name, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_sensor_data_device_uuid ON sensor_data(device_uuid);
+CREATE INDEX IF NOT EXISTS idx_sensor_data_sensor_name ON sensor_data(sensor_name);
+CREATE INDEX IF NOT EXISTS idx_sensor_data_timestamp ON sensor_data(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_sensor_data_device_sensor ON sensor_data(device_uuid, sensor_name, timestamp DESC);
 
 -- Unique constraint to prevent duplicate sensor readings (optional)
-CREATE UNIQUE INDEX idx_sensor_data_unique ON sensor_data(device_uuid, sensor_name, timestamp);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_sensor_data_unique ON sensor_data(device_uuid, sensor_name, timestamp);
 
 COMMENT ON TABLE sensor_data IS 'Time-series sensor data from devices';
 COMMENT ON COLUMN sensor_data.data IS 'Sensor reading data (flexible JSONB format)';
@@ -36,8 +36,8 @@ CREATE TABLE IF NOT EXISTS device_shadows (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_device_shadows_device_uuid ON device_shadows(device_uuid);
-CREATE INDEX idx_device_shadows_updated_at ON device_shadows(updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_device_shadows_device_uuid ON device_shadows(device_uuid);
+CREATE INDEX IF NOT EXISTS idx_device_shadows_updated_at ON device_shadows(updated_at DESC);
 
 COMMENT ON TABLE device_shadows IS 'Device shadow state (AWS IoT pattern)';
 COMMENT ON COLUMN device_shadows.reported IS 'State reported by the device';
@@ -45,22 +45,46 @@ COMMENT ON COLUMN device_shadows.desired IS 'Desired state from cloud/admin';
 COMMENT ON COLUMN device_shadows.version IS 'Version number for optimistic locking';
 
 -- Device logs table (from MQTT log streaming)
-CREATE TABLE IF NOT EXISTS device_logs (
-    id BIGSERIAL PRIMARY KEY,
-    device_uuid UUID NOT NULL REFERENCES devices(uuid) ON DELETE CASCADE,
-    container_id VARCHAR(255),
-    container_name VARCHAR(255),
-    message TEXT NOT NULL,
-    level VARCHAR(50) DEFAULT 'info',  -- info, warn, error, debug
-    stream VARCHAR(10) DEFAULT 'stdout',  -- stdout, stderr
-    timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+-- Note: Table might already exist with different structure, so we handle both cases
+DO $$
+BEGIN
+    -- Create table if it doesn't exist
+    IF NOT EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'device_logs') THEN
+        CREATE TABLE device_logs (
+            id BIGSERIAL PRIMARY KEY,
+            device_uuid UUID NOT NULL REFERENCES devices(uuid) ON DELETE CASCADE,
+            container_id VARCHAR(255),
+            container_name VARCHAR(255),
+            message TEXT NOT NULL,
+            level VARCHAR(50) DEFAULT 'info',
+            stream VARCHAR(10) DEFAULT 'stdout',
+            timestamp TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    ELSE
+        -- Table exists, add missing columns if needed
+        IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'device_logs' AND column_name = 'container_id') THEN
+            ALTER TABLE device_logs ADD COLUMN container_id VARCHAR(255);
+        END IF;
+        
+        IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'device_logs' AND column_name = 'container_name') THEN
+            ALTER TABLE device_logs ADD COLUMN container_name VARCHAR(255);
+        END IF;
+        
+        IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'device_logs' AND column_name = 'level') THEN
+            ALTER TABLE device_logs ADD COLUMN level VARCHAR(50) DEFAULT 'info';
+        END IF;
+        
+        IF NOT EXISTS (SELECT FROM information_schema.columns WHERE table_name = 'device_logs' AND column_name = 'stream') THEN
+            ALTER TABLE device_logs ADD COLUMN stream VARCHAR(10) DEFAULT 'stdout';
+        END IF;
+    END IF;
+END $$;
 
-CREATE INDEX idx_device_logs_device_uuid ON device_logs(device_uuid);
-CREATE INDEX idx_device_logs_timestamp ON device_logs(timestamp DESC);
-CREATE INDEX idx_device_logs_level ON device_logs(level);
-CREATE INDEX idx_device_logs_container ON device_logs(device_uuid, container_id, timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_device_logs_device_uuid ON device_logs(device_uuid);
+CREATE INDEX IF NOT EXISTS idx_device_logs_timestamp ON device_logs(timestamp DESC);
+CREATE INDEX IF NOT EXISTS idx_device_logs_level ON device_logs(level);
+CREATE INDEX IF NOT EXISTS idx_device_logs_container ON device_logs(device_uuid, container_id, timestamp DESC);
 
 COMMENT ON TABLE device_logs IS 'Container logs streamed from devices via MQTT';
 COMMENT ON COLUMN device_logs.stream IS 'Output stream: stdout or stderr';

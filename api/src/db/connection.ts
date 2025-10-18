@@ -88,26 +88,14 @@ export async function testConnection(): Promise<boolean> {
 
 /**
  * Initialize database schema
+ * @deprecated Use runMigrations() from migrations.ts instead
  */
 export async function initializeSchema(): Promise<void> {
-  const fs = require('fs');
-  const path = require('path');
+  console.warn('⚠️  initializeSchema() is deprecated, using migration system instead');
   
-  try {
-    const schemaPath = path.join(__dirname, '../database/schema.sql');
-    
-    if (!fs.existsSync(schemaPath)) {
-      console.warn('⚠️  Schema file not found, skipping initialization');
-      return;
-    }
-
-    const schema = fs.readFileSync(schemaPath, 'utf8');
-    await query(schema);
-    console.log('✅ Database schema initialized');
-  } catch (error) {
-    console.error('❌ Failed to initialize schema:', error);
-    throw error;
-  }
+  // Import and run migrations
+  const { runMigrations } = await import('./migrations');
+  await runMigrations();
 }
 
 /**
