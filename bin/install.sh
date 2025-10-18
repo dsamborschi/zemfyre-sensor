@@ -165,6 +165,10 @@ function install_prerequisites() {
     sudo apt -y update && sudo apt -y install gnupg
 
     sudo mkdir -p /etc/apt/keyrings
+    
+    # Remove existing charm.gpg to avoid interactive prompt
+    sudo rm -f /etc/apt/keyrings/charm.gpg
+    
     curl -fsSL https://repo.charm.sh/apt/gpg.key | \
         sudo gpg --dearmor -o /etc/apt/keyrings/charm.gpg
     echo "deb [signed-by=/etc/apt/keyrings/charm.gpg] https://repo.charm.sh/apt/ * *" \
