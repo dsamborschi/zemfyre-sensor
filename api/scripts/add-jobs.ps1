@@ -16,3 +16,15 @@ Invoke-RestMethod -Uri "http://localhost:4002/api/v1/jobs/execute" `
     template_id= "1"
     target_type = "all"
   } | ConvertTo-Json -Depth 10)
+
+  Invoke-RestMethod -Uri "http://localhost:4002/api/v1/jobs/execute" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body (@{
+    job_name = "Echo command on Windows"
+    template_id= "6"
+    target_type = "all"
+  } | ConvertTo-Json -Depth 10)
+
+
+
