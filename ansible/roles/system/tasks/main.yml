@@ -99,11 +99,6 @@
     line: "deb [arch={{ architecture }} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian {{ docker_codename | trim }} stable"
     state: present
 
-# Update apt cache
-- name: Update apt cache
-  ansible.builtin.apt:
-    update_cache: yes
-
 # Check if Docker is installed
 - name: Check if Docker is installed
   ansible.builtin.command: docker --version
