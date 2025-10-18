@@ -15,7 +15,7 @@ export const router = express.Router();
  * Get heartbeat monitor status and configuration
  * GET /api/v1/admin/heartbeat
  */
-router.get('/api/v1/admin/heartbeat', async (req, res) => {
+router.get('/admin/heartbeat', async (req, res) => {
   try {
     const heartbeatMonitor = await import('../services/heartbeat-monitor');
     const config = heartbeatMonitor.default.getConfig();
@@ -37,7 +37,7 @@ router.get('/api/v1/admin/heartbeat', async (req, res) => {
  * Manually trigger heartbeat check
  * POST /api/v1/admin/heartbeat/check
  */
-router.post('/api/v1/admin/heartbeat/check', async (req, res) => {
+router.post('/admin/heartbeat/check', async (req, res) => {
   try {
     console.log('🔍 Manual heartbeat check triggered');
     

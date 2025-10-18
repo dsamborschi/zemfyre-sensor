@@ -45,7 +45,7 @@ const eventPublisher = new EventPublisher();
  * 
  * Supports ETag caching - returns 304 if state hasn't changed
  */
-router.get('/api/v1/device/:uuid/state', async (req, res) => {
+router.get('/device/:uuid/state', async (req, res) => {
   try {
     const { uuid } = req.params;
     const ifNoneMatch = req.headers['if-none-match'];
@@ -107,7 +107,7 @@ router.get('/api/v1/device/:uuid/state', async (req, res) => {
  * Device uploads logs
  * POST /api/v1/device/:uuid/logs
  */
-router.post('/api/v1/device/:uuid/logs', async (req, res) => {
+router.post('/device/:uuid/logs', async (req, res) => {
   try {
     const { uuid } = req.params;
     const logs = req.body;
@@ -137,7 +137,7 @@ router.post('/api/v1/device/:uuid/logs', async (req, res) => {
  * Device reports current state
  * PATCH /api/v1/device/state
  */
-router.patch('/api/v1/device/state', async (req, res) => {
+router.patch('/device/state', async (req, res) => {
   try {
     const stateReport = req.body;
 
@@ -198,7 +198,7 @@ router.patch('/api/v1/device/state', async (req, res) => {
           {
             metadata: {
               ip_address: req.ip,
-              endpoint: '/api/v1/device/state',
+              endpoint: '/device/state',
               change_detection: stateChanged ? 'apps_changed' : 'no_change',
               config_mode: EventSourcingConfig.PUBLISH_STATE_UPDATES
             }
@@ -260,7 +260,7 @@ router.patch('/api/v1/device/state', async (req, res) => {
  * Get device target state
  * GET /api/v1/devices/:uuid/target-state
  */
-router.get('/api/v1/devices/:uuid/target-state', async (req, res) => {
+router.get('/devices/:uuid/target-state', async (req, res) => {
   try {
     const { uuid } = req.params;
     const targetState = await DeviceTargetStateModel.get(uuid);
@@ -289,7 +289,7 @@ router.get('/api/v1/devices/:uuid/target-state', async (req, res) => {
  * Set device target state
  * POST /api/v1/devices/:uuid/target-state
  */
-router.post('/api/v1/devices/:uuid/target-state', async (req, res) => {
+router.post('/devices/:uuid/target-state', async (req, res) => {
   try {
     const { uuid } = req.params;
     const { apps, config } = req.body;
@@ -329,7 +329,7 @@ router.post('/api/v1/devices/:uuid/target-state', async (req, res) => {
         metadata: {
           ip_address: req.ip,
           user_agent: req.headers['user-agent'],
-          endpoint: '/api/v1/devices/:uuid/target-state'
+          endpoint: '/devices/:uuid/target-state'
         }
       }
     );
@@ -355,7 +355,7 @@ router.post('/api/v1/devices/:uuid/target-state', async (req, res) => {
  * Update device target state (alias for POST - supports PUT)
  * PUT /api/v1/devices/:uuid/target-state
  */
-router.put('/api/v1/devices/:uuid/target-state', async (req, res) => {
+router.put('/devices/:uuid/target-state', async (req, res) => {
   try {
     const { uuid } = req.params;
     const { apps, config } = req.body;
@@ -395,7 +395,7 @@ router.put('/api/v1/devices/:uuid/target-state', async (req, res) => {
         metadata: {
           ip_address: req.ip,
           user_agent: req.headers['user-agent'],
-          endpoint: '/api/v1/devices/:uuid/target-state'
+          endpoint: '/devices/:uuid/target-state'
         }
       }
     );
@@ -421,7 +421,7 @@ router.put('/api/v1/devices/:uuid/target-state', async (req, res) => {
  * Get device current state
  * GET /api/v1/devices/:uuid/current-state
  */
-router.get('/api/v1/devices/:uuid/current-state', async (req, res) => {
+router.get('/devices/:uuid/current-state', async (req, res) => {
   try {
     const { uuid } = req.params;
     const currentState = await DeviceCurrentStateModel.get(uuid);
@@ -452,7 +452,7 @@ router.get('/api/v1/devices/:uuid/current-state', async (req, res) => {
  * Clear device target state
  * DELETE /api/v1/devices/:uuid/target-state
  */
-router.delete('/api/v1/devices/:uuid/target-state', async (req, res) => {
+router.delete('/devices/:uuid/target-state', async (req, res) => {
   try {
     const { uuid } = req.params;
 
@@ -477,7 +477,7 @@ router.delete('/api/v1/devices/:uuid/target-state', async (req, res) => {
  * Get device logs
  * GET /api/v1/devices/:uuid/logs
  */
-router.get('/api/v1/devices/:uuid/logs', async (req, res) => {
+router.get('/devices/:uuid/logs', async (req, res) => {
   try {
     const { uuid } = req.params;
     const serviceName = req.query.service as string | undefined;
@@ -507,7 +507,7 @@ router.get('/api/v1/devices/:uuid/logs', async (req, res) => {
  * Get device metrics
  * GET /api/v1/devices/:uuid/metrics
  */
-router.get('/api/v1/devices/:uuid/metrics', async (req, res) => {
+router.get('/devices/:uuid/metrics', async (req, res) => {
   try {
     const { uuid } = req.params;
     const limit = parseInt(req.query.limit as string) || 100;

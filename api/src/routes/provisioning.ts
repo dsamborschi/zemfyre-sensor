@@ -56,7 +56,7 @@ const provisioningLimiter = rateLimit({
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
       severity: AuditSeverity.WARNING,
-      details: { endpoint: '/api/v1/device/register' }
+      details: { endpoint: '/device/register' }
     });
     res.status(429).json({
       error: 'Too many requests',
@@ -88,7 +88,7 @@ const keyExchangeLimiter = rateLimit({
  * 
  * Auth: Requires admin authentication (basic implementation for now)
  */
-router.post('/api/v1/provisioning-keys', async (req, res) => {
+router.post('/provisioning-keys', async (req, res) => {
   try {
     const { fleetId, maxDevices = 100, expiresInDays = 365, description } = req.body;
 
@@ -153,7 +153,7 @@ router.post('/api/v1/provisioning-keys', async (req, res) => {
  * 
  * Returns key metadata (NOT the actual keys)
  */
-router.get('/api/v1/provisioning-keys', async (req, res) => {
+router.get('/provisioning-keys', async (req, res) => {
   try {
     const { fleetId } = req.query;
 
@@ -204,7 +204,7 @@ router.get('/api/v1/provisioning-keys', async (req, res) => {
  * Body:
  * - reason: Reason for revocation (optional)
  */
-router.delete('/api/v1/provisioning-keys/:keyId', async (req, res) => {
+router.delete('/provisioning-keys/:keyId', async (req, res) => {
   try {
     const { keyId } = req.params;
     const { reason } = req.body;
@@ -258,7 +258,7 @@ router.delete('/api/v1/provisioning-keys/:keyId', async (req, res) => {
  * - Comprehensive audit logging
  * - Event sourcing for device lifecycle
  */
-router.post('/api/v1/device/register', provisioningLimiter, async (req, res) => {
+router.post('/device/register', provisioningLimiter, async (req, res) => {
   const ipAddress = req.ip;
   const userAgent = req.headers['user-agent'];
   let provisioningKeyRecord: any = null;
@@ -399,7 +399,7 @@ router.post('/api/v1/device/register', provisioningLimiter, async (req, res) => 
         metadata: {
           user_agent: userAgent,
           provisioning_key_id: provisioningKeyRecord.id,
-          endpoint: '/api/v1/device/register'
+          endpoint: '/device/register'
         }
       }
     );
@@ -477,7 +477,7 @@ router.post('/api/v1/device/register', provisioningLimiter, async (req, res) => 
  * - Comprehensive audit logging
  * - No sensitive information in error messages
  */
-router.post('/api/v1/device/:uuid/key-exchange', keyExchangeLimiter, async (req, res) => {
+router.post('/device/:uuid/key-exchange', keyExchangeLimiter, async (req, res) => {
   const ipAddress = req.ip;
   const userAgent = req.headers['user-agent'];
 

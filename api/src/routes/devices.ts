@@ -30,7 +30,7 @@ const eventPublisher = new EventPublisher();
  * List all devices
  * GET /api/v1/devices
  */
-router.get('/api/v1/devices', async (req, res) => {
+router.get('/devices', async (req, res) => {
   try {
     const isOnline = req.query.online === 'true' ? true : 
                      req.query.online === 'false' ? false : 
@@ -86,7 +86,7 @@ router.get('/api/v1/devices', async (req, res) => {
  * Get specific device
  * GET /api/v1/devices/:uuid
  */
-router.get('/api/v1/devices/:uuid', async (req, res) => {
+router.get('/devices/:uuid', async (req, res) => {
   try {
     const { uuid } = req.params;
 
@@ -138,7 +138,7 @@ router.get('/api/v1/devices/:uuid', async (req, res) => {
  * - Quarantine compromised devices
  * - Disable test devices
  */
-router.patch('/api/v1/devices/:uuid/active', async (req, res) => {
+router.patch('/devices/:uuid/active', async (req, res) => {
   try {
     const { uuid } = req.params;
     const { is_active } = req.body;
@@ -180,7 +180,7 @@ router.patch('/api/v1/devices/:uuid/active', async (req, res) => {
         metadata: {
           ip_address: req.ip,
           user_agent: req.headers['user-agent'],
-          endpoint: '/api/v1/devices/:uuid/active'
+          endpoint: '/devices/:uuid/active'
         }
       }
     );
@@ -220,7 +220,7 @@ router.patch('/api/v1/devices/:uuid/active', async (req, res) => {
  * Delete device
  * DELETE /api/v1/devices/:uuid
  */
-router.delete('/api/v1/devices/:uuid', async (req, res) => {
+router.delete('/devices/:uuid', async (req, res) => {
   try {
     const { uuid } = req.params;
 
@@ -273,7 +273,7 @@ router.delete('/api/v1/devices/:uuid', async (req, res) => {
  * 
  * This copies the app template and deploys with device-specific configuration
  */
-router.post('/api/v1/devices/:uuid/apps', async (req, res) => {
+router.post('/devices/:uuid/apps', async (req, res) => {
   try {
     const { uuid } = req.params;
     const { appId, services } = req.body;
@@ -401,7 +401,7 @@ router.post('/api/v1/devices/:uuid/apps', async (req, res) => {
  * 
  * Body: { services: [...] } - replaces services for this app
  */
-router.patch('/api/v1/devices/:uuid/apps/:appId', async (req, res) => {
+router.patch('/devices/:uuid/apps/:appId', async (req, res) => {
   try {
     const { uuid, appId: appIdStr } = req.params;
     const { services } = req.body;
@@ -490,7 +490,7 @@ router.patch('/api/v1/devices/:uuid/apps/:appId', async (req, res) => {
  * Remove app from device
  * DELETE /api/v1/devices/:uuid/apps/:appId
  */
-router.delete('/api/v1/devices/:uuid/apps/:appId', async (req, res) => {
+router.delete('/devices/:uuid/apps/:appId', async (req, res) => {
   try {
     const { uuid, appId: appIdStr } = req.params;
 

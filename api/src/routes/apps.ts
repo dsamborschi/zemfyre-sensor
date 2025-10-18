@@ -30,7 +30,7 @@ export const router = express.Router();
  * 
  * Returns: { appId, appName, slug }
  */
-router.post('/api/v1/applications', async (req, res) => {
+router.post('/applications', async (req, res) => {
   try {
     const { appName, slug, description, defaultConfig } = req.body;
 
@@ -132,7 +132,7 @@ router.post('/api/v1/applications', async (req, res) => {
  * 
  * Query params: ?search=keyword
  */
-router.get('/api/v1/applications', async (req, res) => {
+router.get('/applications', async (req, res) => {
   try {
     const { search } = req.query;
 
@@ -178,7 +178,7 @@ router.get('/api/v1/applications', async (req, res) => {
  * Get specific application template
  * GET /api/v1/applications/:appId
  */
-router.get('/api/v1/applications/:appId', async (req, res) => {
+router.get('/applications/:appId', async (req, res) => {
   try {
     const appId = parseInt(req.params.appId);
 
@@ -230,7 +230,7 @@ router.get('/api/v1/applications/:appId', async (req, res) => {
  * 
  * Body: { appName?, description?, defaultConfig? }
  */
-router.patch('/api/v1/applications/:appId', async (req, res) => {
+router.patch('/applications/:appId', async (req, res) => {
   try {
     const appId = parseInt(req.params.appId);
     const { appName, description, defaultConfig } = req.body;
@@ -311,7 +311,7 @@ router.patch('/api/v1/applications/:appId', async (req, res) => {
  * Delete application template
  * DELETE /api/v1/applications/:appId
  */
-router.delete('/api/v1/applications/:appId', async (req, res) => {
+router.delete('/applications/:appId', async (req, res) => {
   try {
     const appId = parseInt(req.params.appId);
 
@@ -378,7 +378,7 @@ router.delete('/api/v1/applications/:appId', async (req, res) => {
  * Body: { appName: string, metadata?: object }
  * Returns: { appId: number, appName: string }
  */
-router.post('/api/v1/apps/next-id', async (req, res) => {
+router.post('/apps/next-id', async (req, res) => {
   try {
     const { appName, metadata } = req.body;
 
@@ -435,7 +435,7 @@ router.post('/api/v1/apps/next-id', async (req, res) => {
  * Body: { serviceName: string, appId: number, imageName?: string, metadata?: object }
  * Returns: { serviceId: number, serviceName: string, appId: number }
  */
-router.post('/api/v1/services/next-id', async (req, res) => {
+router.post('/services/next-id', async (req, res) => {
   try {
     const { serviceName, appId, imageName, metadata } = req.body;
 
@@ -507,7 +507,7 @@ router.post('/api/v1/services/next-id', async (req, res) => {
  * 
  * Query params: ?type=app|service
  */
-router.get('/api/v1/apps-services/registry', async (req, res) => {
+router.get('/apps-services/registry', async (req, res) => {
   try {
     const { type } = req.query;
 
@@ -551,7 +551,7 @@ router.get('/api/v1/apps-services/registry', async (req, res) => {
  * 
  * Params: type=app|service, id=number
  */
-router.get('/api/v1/apps-services/:type/:id', async (req, res) => {
+router.get('/apps-services/:type/:id', async (req, res) => {
   try {
     const { type, id } = req.params;
 
