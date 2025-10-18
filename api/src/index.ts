@@ -14,9 +14,11 @@ import webhookRoutes from './routes/webhooks';
 import rolloutRoutes from './routes/rollouts';
 import imageRegistryRoutes from './routes/image-registry';
 import deviceJobsRoutes from './routes/device-jobs';
+import scheduledJobsRoutes from './routes/scheduled-jobs';
 
 // Import jobs
 import { getRolloutMonitor } from './jobs/rollout-monitor';
+import { jobScheduler } from './services/job-scheduler';
 import poolWrapper from './db/connection';
 
 
@@ -143,6 +145,7 @@ app.use('/api/v1/webhooks', webhookRoutes);
 app.use('/api/v1', rolloutRoutes);
 app.use('/api/v1', imageRegistryRoutes);
 app.use('/api/v1', deviceJobsRoutes);
+app.use('/api/v1', scheduledJobsRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -213,6 +216,15 @@ async function startServer() {
     // Don't exit - this is not critical for API operation
   }
 
+  // Start job scheduler for scheduled/recurring jobs
+  try {
+    await jobScheduler.start();
+    console.log('✅ Job Scheduler started');
+  } catch (error) {
+    console.error('⚠️  Failed to start job scheduler:', error);
+    // Don't exit - this is not critical for API operation
+  }
+
   const server = app.listen(PORT, () => {
     console.log('='.repeat(80));
     console.log('☁️  Iotistic Unified API Server');
@@ -258,6 +270,13 @@ async function startServer() {
       // Ignore errors during shutdown
     }
     
+    // Stop job scheduler
+    try {
+      jobScheduler.stop();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
     server.close(() => {
       console.log('Server closed');
       process.exit(0);
@@ -279,6 +298,13 @@ async function startServer() {
     try {
       const { imageMonitor } = await import('./services/image-monitor');
       imageMonitor.stop();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
+    // Stop job scheduler
+    try {
+      jobScheduler.stop();
     } catch (error) {
       // Ignore errors during shutdown
     }

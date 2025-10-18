@@ -27,4 +27,28 @@ Invoke-RestMethod -Uri "http://localhost:4002/api/v1/jobs/execute" `
   } | ConvertTo-Json -Depth 10)
 
 
+  Invoke-RestMethod -Uri "http://localhost:4002/api/v1/jobs/schedules" `
+  -Method POST `
+  -ContentType "application/json" `
+  -Body (@{
+    job_name = "Hourly Health Check"
+    job_document = @{
+      version = "1.0"
+      steps = @(
+        @{
+          name = "Check Device Health"
+          type = "runCommand"
+          input = @{ command = "uptime" }
+        }
+      )
+    }
+    target_type = "all"
+    schedule_type = "cron"
+    cron_expression = "0 * * * *"  # Every hour
+    timeout_minutes = 5
+  } | ConvertTo-Json -Depth 10)
+
+  Invoke-RestMethod -Uri "http://localhost:4002/api/v1/jobs/scheduler/status"
+
+
 
