@@ -26,7 +26,7 @@
         "MQTT_BROKER": "mqtt://localhost:5883",
         "ENABLE_SHADOW": "true",
         "PROVISIONING_API_KEY": "e4d08589f91c56b9f1872c8ea5cef082d4b8ae197f2456056f8d234e60efd71a",
-        "SENSOR_PUBLISH_CONFIG": "{\"sensors\":[{\"name\":\"sensor1\",\"addr\":\"../sensor-simulator/sockets/sensor1.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000},{\"name\":\"sensor2\",\"addr\":\"../sensor-simulator/sockets/sensor2.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000},{\"name\":\"sensor3\",\"addr\":\"../sensor-simulator/sockets/sensor3.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000}]}",
+        "SENSOR_PUBLISH_CONFIG": "{\"sensors\":[{\"name\":\"sensor1\",\"enabled\":true,\"addr\":\"../sensor-simulator/sockets/sensor1.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000},{\"name\":\"sensor2\",\"enabled\":true,\"addr\":\"../sensor-simulator/sockets/sensor2.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000},{\"name\":\"sensor3\",\"enabled\":true,\"addr\":\"../sensor-simulator/sockets/sensor3.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000}]}",
         "ENABLE_CLOUD_JOBS": "true"
       }
     },
