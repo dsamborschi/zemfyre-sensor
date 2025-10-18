@@ -263,7 +263,8 @@ export class DeviceManager {
 			throw new Error('Device manager not initialized');
 		}
 
-		const url = `${apiEndpoint}/api/v1/device/register`;
+		const apiVersion = process.env.API_VERSION || 'v1';
+		const url = `${apiEndpoint}/api/${apiVersion}/device/register`;
 		
 		console.log('📡 Registering device with API:', url);
 		console.log('   UUID:', provisionRequest.uuid);
@@ -298,10 +299,11 @@ export class DeviceManager {
 
 	/**
 	 * Exchange keys - verify device can authenticate with deviceApiKey
-	 * POST /api/v1/device/:uuid/key-exchange
+	 * POST /api/${API_VERSION}/device/:uuid/key-exchange
 	 */
 	async exchangeKeys(apiEndpoint: string, uuid: string, deviceApiKey: string): Promise<void> {
-		const url = `${apiEndpoint}/api/v1/device/${uuid}/key-exchange`;
+		const apiVersion = process.env.API_VERSION || 'v1';
+		const url = `${apiEndpoint}/api/${apiVersion}/device/${uuid}/key-exchange`;
 		
 		console.log('🔑 Exchanging keys for device:', uuid);
 
@@ -333,10 +335,11 @@ export class DeviceManager {
 
 	/**
 	 * Check if device already exists and try key exchange
-	 * GET /api/v1/device/:uuid
+	 * GET /api/${API_VERSION}/device/:uuid
 	 */
 	async fetchDevice(apiEndpoint: string, uuid: string, apiKey: string): Promise<any> {
-		const url = `${apiEndpoint}/api/v1/devices/${uuid}`;
+		const apiVersion = process.env.API_VERSION || 'v1';
+		const url = `${apiEndpoint}/api/${apiVersion}/devices/${uuid}`;
 		
 		try {
 			const response = await fetch(url, {

@@ -48,6 +48,7 @@ export class CloudJobsAdapter {
   private currentJobId: string | null = null;
   private httpClient: AxiosInstance;
   private config: Required<CloudJobsAdapterConfig>;
+  private apiVersion: string;
 
   constructor(
     config: CloudJobsAdapterConfig,
@@ -61,6 +62,9 @@ export class CloudJobsAdapter {
       maxRetries: config.maxRetries || 3,
       enableLogging: config.enableLogging !== false // Default true
     };
+    
+    // Get API version from environment or default to v1
+    this.apiVersion = process.env.API_VERSION || 'v1';
 
     // Create HTTP client
     this.httpClient = axios.create({
@@ -129,7 +133,7 @@ export class CloudJobsAdapter {
 
     try {
       const response = await this.httpClient.get<CloudJob>(
-        `/api/v1/devices/${this.config.deviceUuid}/jobs/next`
+        `/api/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/next`
       );
 
       // Check if there's a job
@@ -250,7 +254,7 @@ export class CloudJobsAdapter {
 
     try {
       await this.httpClient.patch(
-        `/api/v1/devices/${this.config.deviceUuid}/jobs/${this.currentJobId}/status`,
+        `/api/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/${this.currentJobId}/status`,
         update
       );
 
@@ -306,7 +310,7 @@ export class CloudJobsAdapter {
   async queryJobStatus(jobId: string): Promise<any> {
     try {
       const response = await this.httpClient.get(
-        `/api/v1/devices/${this.config.deviceUuid}/jobs/${jobId}`
+        `/api/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/${jobId}`
       );
       return response.data;
     } catch (error: any) {
@@ -324,7 +328,7 @@ export class CloudJobsAdapter {
   async getJobHistory(limit: number = 10): Promise<any> {
     try {
       const response = await this.httpClient.get(
-        `/api/v1/devices/${this.config.deviceUuid}/jobs`,
+        `/api/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs`,
         { params: { limit } }
       );
       return response.data;

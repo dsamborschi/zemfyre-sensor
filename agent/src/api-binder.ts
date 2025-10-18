@@ -195,7 +195,8 @@ export class ApiBinder extends EventEmitter {
 			return;
 		}
 		
-		const endpoint = `${this.config.cloudApiEndpoint}/api/v1/device/${deviceInfo.uuid}/state`;
+		const apiVersion = process.env.API_VERSION || 'v1';
+		const endpoint = `${this.config.cloudApiEndpoint}/api/${apiVersion}/device/${deviceInfo.uuid}/state`;
 		
 		try {
 			console.log('📡 Polling target state...');
@@ -388,7 +389,8 @@ export class ApiBinder extends EventEmitter {
 		const reportToSend = includeMetrics ? stateReport : stateOnlyReport;
 		
 		// Send report to cloud
-		const endpoint = `${this.config.cloudApiEndpoint}/api/v1/device/state`;
+		const apiVersion = process.env.API_VERSION || 'v1';
+		const endpoint = `${this.config.cloudApiEndpoint}/api/${apiVersion}/device/state`;
 		
 		try {
 			const response = await fetch(endpoint, {

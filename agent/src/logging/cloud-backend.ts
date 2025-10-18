@@ -166,7 +166,8 @@ export class CloudLogBackend implements LogBackend {
 	}
 	
 	private async sendLogs(logs: LogMessage[]): Promise<void> {
-		const endpoint = `${this.config.cloudEndpoint}/api/v1/device/${this.config.deviceUuid}/logs`;
+		const apiVersion = process.env.API_VERSION || 'v1';
+		const endpoint = `${this.config.cloudEndpoint}/api/${apiVersion}/device/${this.config.deviceUuid}/logs`;
 		
 		// Convert to NDJSON (newline-delimited JSON)
 		const ndjson = logs.map(log => JSON.stringify(log)).join('\n') + '\n';
