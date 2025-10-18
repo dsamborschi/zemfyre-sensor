@@ -39,67 +39,7 @@
 
 # ---------------- Docker Installation ----------------
 
-# Pre-flight: Remove old/malformed Docker repo files
-- name: Remove old docker.list (pre-flight)
-  ansible.builtin.file:
-    path: /etc/apt/sources.list.d/docker.list
-    state: absent
-  ignore_errors: true
-
-# Determine system codename
-- name: Get system codename (robust detection)
-  ansible.builtin.shell: |
-    if command -v lsb_release >/dev/null 2>&1; then
-      lsb_release -cs
-    elif [ -f /etc/os-release ]; then
-      . /etc/os-release
-      echo "$VERSION_CODENAME"
-    else
-      echo "bookworm"  # default fallback for Debian 12+
-    fi
-  register: debian_name
-  changed_when: false
-
-# Normalize codename for Docker repos
-- name: Map unsupported codenames to supported Docker repos
-  ansible.builtin.set_fact:
-    docker_codename: >-
-      {% if debian_name.stdout in ['noble', 'trixie', 'testing', 'sid'] %}
-        bookworm
-      {% elif debian_name.stdout == 'jammy' %}
-        bullseye
-      {% else %}
-        {{ debian_name.stdout }}
-      {% endif %}
-
-# Debug
-- ansible.builtin.debug:
-    msg: "Using Docker codename '{{ docker_codename }}' for '{{ debian_name.stdout }}'"
-
-# Ensure keyrings directory exists
-- name: Ensure /etc/apt/keyrings exists
-  ansible.builtin.file:
-    path: /etc/apt/keyrings
-    state: directory
-    mode: '0755'
-
-# Download Docker GPG key
-- name: Download Docker GPG key
-  ansible.builtin.get_url:
-    url: https://download.docker.com/linux/debian/gpg
-    dest: /etc/apt/keyrings/docker.gpg
-    mode: '0644'
-
-# Add Docker repository safely
-- name: Add Docker repository
-  ansible.builtin.lineinfile:
-    path: /etc/apt/sources.list.d/docker.list
-    create: yes
-    regexp: '^deb .* https://download.docker.com/linux/debian .* stable$'
-    line: "deb [arch={{ architecture }} signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian {{ docker_codename | trim }} stable"
-    state: present
-
-# Check if Docker is installed
+# Check if Docker is already installed
 - name: Check if Docker is installed
   ansible.builtin.command: docker --version
   register: docker_version
@@ -111,13 +51,21 @@
     msg: "Docker already installed: {{ docker_version.stdout }}"
   when: docker_version.rc == 0
 
-# Install Docker using official convenience script if not installed
-- name: Install Docker
+# Install Docker using official convenience script
+# This script handles everything: GPG keys, repository setup, package installation
+- name: Install Docker using official script
   ansible.builtin.shell: |
     curl -fsSL https://get.docker.com -o /tmp/get-docker.sh
     sh /tmp/get-docker.sh
     rm /tmp/get-docker.sh
   when: docker_version.rc != 0
+  register: docker_install
+  changed_when: true
+
+- name: Display Docker installation output
+  ansible.builtin.debug:
+    msg: "{{ docker_install.stdout_lines }}"
+  when: docker_version.rc != 0 and docker_install.stdout_lines is defined
   register: docker_install
   changed_when: true
 
