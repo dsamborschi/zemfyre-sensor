@@ -127,6 +127,22 @@ export class Sensor extends EventEmitter {
   }
 
   /**
+   * Update publish interval (for live configuration changes)
+   */
+  public updateInterval(intervalMs: number): void {
+    if (intervalMs < 1000) {
+      throw new Error(`Invalid interval: minimum 1000ms`);
+    }
+
+    this.config.publishInterval = intervalMs;
+    this.logger.info(`${Sensor.TAG}: Updated interval for '${this.getSensorName()}': ${intervalMs}ms`);
+    
+    // Note: This updates the config but doesn't restart timers
+    // The interval is used when batching, not for periodic publishing
+    // For periodic publishing, you would need to restart buffer timer
+  }
+
+  /**
    * Get sensor name (from config or index-based)
    */
   private getSensorName(): string {
@@ -270,8 +286,8 @@ export class Sensor extends EventEmitter {
     }
     
     try {
-      // Build topic with device UUID
-      const topic = `$iot/device/${this.deviceUuid}/sensor/${this.config.mqttTopic}`;
+      // Build topic with device UUID (no leading $ - reserved for broker system topics)
+      const topic = `iot/device/${this.deviceUuid}/sensor/${this.config.mqttTopic}`;
       
       // Publish as JSON array
       const payload = JSON.stringify({
@@ -393,7 +409,7 @@ export class Sensor extends EventEmitter {
     }
     
     try {
-      const topic = `$iot/device/${this.deviceUuid}/sensor/${this.config.mqttHeartbeatTopic}`;
+      const topic = `iot/device/${this.deviceUuid}/sensor/${this.config.mqttHeartbeatTopic}`;
       const payload = JSON.stringify({
         sensor: this.getSensorName(),
         timestamp: new Date().toISOString(),

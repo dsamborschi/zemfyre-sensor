@@ -264,6 +264,11 @@ export class MqttLogBackend implements LogBackend {
 			throw new Error('MQTT client not connected');
 		}
 
+		// Debug: Log what we're publishing
+		console.log(`📡 MQTT Publish: ${topic}`);
+		console.log(`   QoS: ${qos !== undefined ? qos : this.options.qos}`);
+		console.log(`   Payload size: ${Buffer.byteLength(payload)} bytes`);
+
 		return new Promise((resolve, reject) => {
 			this.client!.publish(
 				topic,
@@ -271,8 +276,10 @@ export class MqttLogBackend implements LogBackend {
 				{ qos: qos !== undefined ? qos : this.options.qos },
 				(error?: Error) => {
 					if (error) {
+						console.error(`❌ MQTT Publish failed for ${topic}:`, error);
 						reject(error);
 					} else {
+						console.log(`✅ MQTT Publish success: ${topic}`);
 						resolve();
 					}
 				}

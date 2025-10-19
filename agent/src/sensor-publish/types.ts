@@ -18,6 +18,7 @@ export const SensorConfigSchema = z.object({
   enabled: z.boolean().optional().default(true),
   addr: z.string(),
   addrPollSec: z.number().optional().default(10),
+  publishInterval: z.number().optional().default(30000), // Publish interval in milliseconds
   bufferTimeMs: z.number().optional().default(0),
   bufferSize: z.number().optional().default(0),
   bufferCapacity: z.number().optional().default(128 * 1024), // 128KB default

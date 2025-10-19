@@ -77,7 +77,17 @@ export enum AuditEventType {
   // Security events
   RATE_LIMIT_EXCEEDED = 'rate_limit_exceeded',
   SUSPICIOUS_ACTIVITY = 'suspicious_activity',
-  UNAUTHORIZED_ACCESS = 'unauthorized_access'
+  UNAUTHORIZED_ACCESS = 'unauthorized_access',
+  
+  // Digital Twin events
+  DEVICE_TWIN_ACCESSED = 'device_twin_accessed',
+  FLEET_TWIN_ACCESSED = 'fleet_twin_accessed',
+  FLEET_HEALTH_ACCESSED = 'fleet_health_accessed',
+  FLEET_ALERTS_ACCESSED = 'fleet_alerts_accessed',
+  
+  // Digital Twin History events (Phase 4)
+  DEVICE_TWIN_HISTORY_ACCESSED = 'device_twin_history_accessed',
+  DEVICE_TWIN_ANOMALIES_ACCESSED = 'device_twin_anomalies_accessed'
 }
 
 export interface AuditLogEntry {

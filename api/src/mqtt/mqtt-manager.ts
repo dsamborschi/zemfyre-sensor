@@ -65,12 +65,20 @@ export interface MetricsData {
 /**
  * MQTT Topic Structure (Convention)
  * 
- * Sensor Data:     device/{uuid}/sensor/{sensorName}/data
- * Shadow Reported: device/{uuid}/shadow/reported
- * Shadow Desired:  device/{uuid}/shadow/desired
- * Logs:            device/{uuid}/logs/{containerId}
- * Metrics:         device/{uuid}/metrics
- * Status:          device/{uuid}/status
+ * IoT Device Format (used by device agent):
+ *   Note: No leading $ - topics starting with $ are reserved for MQTT broker system topics
+ * 
+ *   Sensor Data:        iot/device/{uuid}/sensor/{sensorTopic}
+ *   Shadow - Update:    iot/device/{uuid}/shadow/name/{shadowName}/update
+ *   Shadow - Accepted:  iot/device/{uuid}/shadow/name/{shadowName}/update/accepted
+ *   Shadow - Delta:     iot/device/{uuid}/shadow/name/{shadowName}/update/delta
+ *   Shadow - Documents: iot/device/{uuid}/shadow/name/{shadowName}/update/documents
+ *   Shadow - Rejected:  iot/device/{uuid}/shadow/name/{shadowName}/update/rejected
+ * 
+ * Legacy Format (for logs, metrics, status):
+ *   Logs:            device/{uuid}/logs/{containerId}
+ *   Metrics:         device/{uuid}/metrics
+ *   Status:          device/{uuid}/status
  */
 
 export class MqttManager extends EventEmitter {
@@ -114,6 +122,8 @@ export class MqttManager extends EventEmitter {
 
       this.client.on('connect', () => {
         console.log('✅ Connected to MQTT broker');
+        console.log('📋 Client ID:', this.config.clientId);
+        console.log('🔧 QoS:', this.config.qos);
         this.reconnecting = false;
         this.resubscribe();
         resolve();
@@ -136,6 +146,7 @@ export class MqttManager extends EventEmitter {
       });
 
       this.client.on('message', (topic, payload) => {
+        console.log('📨 Raw MQTT message event fired:', topic);
         this.handleMessage(topic, payload);
       });
     });
@@ -169,35 +180,61 @@ export class MqttManager extends EventEmitter {
       throw new Error('MQTT client not connected');
     }
 
+    // Convert '*' to MQTT wildcard '+'
+    // MQTT wildcards: + (single level), # (multi-level)
+    const mqttDevicePattern = deviceUuid === '*' ? '+' : deviceUuid;
+
     const topicPatterns = topics.map(type => {
       switch (type) {
         case 'sensor':
-          return `device/${deviceUuid}/sensor/+/data`;
+          // Subscribe to IoT sensor data format (matches device agent)
+          // No leading $ - topics starting with $ are reserved for broker system topics
+          return `iot/device/${mqttDevicePattern}/sensor/+`;
         case 'shadow-reported':
-          return `device/${deviceUuid}/shadow/reported`;
+          // Subscribe to IoT Shadow /update topic (device publishes state updates here)
+          // Device publishes to: iot/device/{uuid}/shadow/name/{shadowName}/update
+          return `iot/device/${mqttDevicePattern}/shadow/name/+/update`;
         case 'shadow-desired':
-          return `device/${deviceUuid}/shadow/desired`;
+          // Subscribe to IoT Shadow update/delta (cloud sets desired state)
+          return `iot/device/${mqttDevicePattern}/shadow/name/+/update/delta`;
         case 'logs':
-          return `device/${deviceUuid}/logs/+`;
+          return `device/${mqttDevicePattern}/logs/+`;
         case 'metrics':
-          return `device/${deviceUuid}/metrics`;
+          return `device/${mqttDevicePattern}/metrics`;
         case 'status':
-          return `device/${deviceUuid}/status`;
+          return `device/${mqttDevicePattern}/status`;
         default:
-          return `device/${deviceUuid}/${type}`;
+          return `device/${mqttDevicePattern}/${type}`;
       }
     });
 
-    topicPatterns.forEach(pattern => {
-      this.client!.subscribe(pattern, { qos: this.config.qos }, (err) => {
-        if (err) {
-          console.error(`❌ Failed to subscribe to ${pattern}:`, err);
-        } else {
-          console.log(`✅ Subscribed to ${pattern}`);
-          this.subscriptions.add(pattern);
-        }
+    console.log(`📡 Subscribing to ${topicPatterns.length} topic patterns...`);
+    
+    // Use Promise.all to track all subscriptions
+    const subscriptionPromises = topicPatterns.map(pattern => {
+      return new Promise<void>((resolve, reject) => {
+        console.log('🔍 Attempting to subscribe to:', pattern);
+        this.client!.subscribe(pattern, { qos: this.config.qos }, (err) => {
+          if (err) {
+            console.error(`❌ Failed to subscribe to ${pattern}:`, err);
+            reject(err);
+          } else {
+            console.log(`✅ Subscribed to ${pattern} (QoS: ${this.config.qos})`);
+            this.subscriptions.add(pattern);
+            resolve();
+          }
+        });
       });
     });
+
+    // Wait for all subscriptions and log summary
+    Promise.all(subscriptionPromises)
+      .then(() => {
+        console.log(`✅ Successfully subscribed to ${topicPatterns.length} topics`);
+      })
+      .catch(err => {
+        console.error('❌ Some subscriptions failed:', err);
+      });
   }
 
   /**
@@ -271,7 +308,27 @@ export class MqttManager extends EventEmitter {
     try {
       const message = payload.toString();
       
-      // Parse topic to determine message type and device UUID
+      // Debug: Log ALL incoming messages
+      console.log('🔔 MQTT Message received:', {
+        topic,
+        payloadSize: payload.length,
+        preview: message.substring(0, 200)
+      });
+      
+      // Check if this is an IoT device topic (sensors/shadows)
+      if (topic.startsWith('iot/device/')) {
+        console.log('✅ Detected IoT device topic');
+        
+        // Check if it's a shadow topic or sensor topic
+        if (topic.includes('/shadow/')) {
+          this.handleIotShadowMessage(topic, message);
+        } else if (topic.includes('/sensor/')) {
+          this.handleIotSensorMessage(topic, message);
+        }
+        return;
+      }
+      
+      // Parse standard topic format: device/{uuid}/{type}/...
       const parts = topic.split('/');
       
       if (parts[0] !== 'device' || parts.length < 3) {
@@ -315,6 +372,150 @@ export class MqttManager extends EventEmitter {
 
     } catch (error) {
       console.error('❌ Error handling MQTT message:', error);
+    }
+  }
+
+  /**
+   * Handle IoT Shadow message
+   * Topic formats:
+   *   - Device publishes: iot/device/{uuid}/shadow/name/{shadowName}/update
+   *   - Cloud responses: iot/device/{uuid}/shadow/name/{shadowName}/update/{accepted|delta|rejected|documents}
+   */
+  private handleIotShadowMessage(topic: string, message: string): void {
+    try {
+      // Parse IoT Shadow topic
+      const parts = topic.split('/');
+      
+      if (parts.length < 6 || parts[0] !== 'iot' || parts[1] !== 'device') {
+        console.warn('⚠️  Invalid IoT Shadow topic:', topic);
+        return;
+      }
+
+      const deviceUuid = parts[2];
+      const shadowName = parts[4];
+      const updateType = parts[6] || 'update'; // 'update' (device publish), 'accepted', 'delta', etc.
+
+      // Parse JSON payload
+      let data: any;
+      try {
+        data = JSON.parse(message);
+      } catch (error) {
+        console.error('❌ Failed to parse shadow message:', error);
+        return;
+      }
+
+      console.log(`🔔 Shadow message: ${deviceUuid}/${shadowName} [${updateType}]`);
+
+      // Handle different shadow update types
+      if (updateType === 'update') {
+        // Device publishing state update (treat as reported state)
+        this.handleShadowReported(deviceUuid, shadowName, data);
+      } else if (updateType === 'accepted') {
+        // Device successfully reported state
+        this.handleShadowReported(deviceUuid, shadowName, data);
+      } else if (updateType === 'delta') {
+        // Cloud set desired state (desired !== reported)
+        this.handleShadowDelta(deviceUuid, shadowName, data);
+      } else if (updateType === 'documents') {
+        // Complete shadow document
+        this.handleShadowDocuments(deviceUuid, shadowName, data);
+      } else if (updateType === 'rejected') {
+        // Shadow update was rejected
+        console.error(`❌ Shadow update rejected for ${deviceUuid}/${shadowName}:`, data.message);
+      }
+
+    } catch (error) {
+      console.error('❌ Error handling AWS IoT Shadow message:', error);
+    }
+  }
+
+  /**
+   * Handle shadow reported state (from device)
+   */
+  private handleShadowReported(deviceUuid: string, shadowName: string, data: any): void {
+    // Extract reported state from shadow update response
+    const reported = data.state?.reported || data.state || data;
+    
+    const shadowUpdate: ShadowUpdate = {
+      deviceUuid,
+      reported,
+      timestamp: data.timestamp || new Date().toISOString(),
+      version: data.version || 0
+    };
+
+    console.log(`🌓 Shadow reported from ${deviceUuid}/${shadowName}`);
+    this.emit('shadow', shadowUpdate);
+    this.emit('shadow:reported', shadowUpdate);
+  }
+
+  /**
+   * Handle shadow delta (desired state from cloud)
+   */
+  private handleShadowDelta(deviceUuid: string, shadowName: string, data: any): void {
+    // Delta contains the difference between desired and reported
+    const desired = data.state || data;
+    
+    const shadowUpdate: ShadowUpdate = {
+      deviceUuid,
+      desired,
+      timestamp: data.timestamp || new Date().toISOString(),
+      version: data.version || 0
+    };
+
+    console.log(`🌓 Shadow delta for ${deviceUuid}/${shadowName}`);
+    this.emit('shadow', shadowUpdate);
+    this.emit('shadow:desired', shadowUpdate);
+  }
+
+  /**
+   * Handle shadow documents (complete shadow state)
+   */
+  private handleShadowDocuments(deviceUuid: string, shadowName: string, data: any): void {
+    const shadowUpdate: ShadowUpdate = {
+      deviceUuid,
+      reported: data.current?.state?.reported,
+      desired: data.current?.state?.desired,
+      timestamp: data.timestamp || new Date().toISOString(),
+      version: data.current?.version || 0
+    };
+
+    console.log(`🌓 Shadow documents for ${deviceUuid}/${shadowName}`);
+    this.emit('shadow', shadowUpdate);
+  }
+
+  /**
+   * Handle IoT sensor message
+   * Topic format: iot/device/{uuid}/sensor/{sensorTopic}
+   */
+  private handleIotSensorMessage(topic: string, message: string): void {
+    try {
+      // Parse IoT sensor topic: iot/device/{uuid}/sensor/{sensorTopic}
+      const parts = topic.split('/');
+      
+      if (parts.length < 4 || parts[0] !== 'iot' || parts[1] !== 'device') {
+        console.warn('⚠️  Invalid IoT sensor topic:', topic);
+        return;
+      }
+
+      const deviceUuid = parts[2];
+      const sensorTopic = parts[4]; // temperature, humidity, etc.
+
+      // Parse JSON payload
+      let data: any;
+      try {
+        data = JSON.parse(message);
+      } catch (error) {
+        console.error('❌ Failed to parse sensor message:', error);
+        return;
+      }
+
+      // Extract sensor name from data or use topic as fallback
+      const sensorName = data.sensorName || data.sensor || sensorTopic;
+
+      this.handleSensorData(deviceUuid, sensorName, data);
+
+    } catch (error) {
+      console.error('❌ Error handling AWS IoT sensor message:', error);
     }
   }
 

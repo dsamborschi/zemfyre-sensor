@@ -26,7 +26,9 @@ import { SSHTunnelManager } from './remote-access/ssh-tunnel';
 import { EnhancedJobEngine } from './jobs/src/enhanced-job-engine';
 import { CloudJobsAdapter } from './jobs/cloud-jobs-adapter';
 import { SensorPublishFeature } from './sensor-publish';
+import { SensorConfigHandler } from './sensor-publish/config-handler';
 import { ShadowFeature, ShadowConfig } from './shadow';
+import { TwinStateManager } from './digital-twin/twin-state-manager';
 
 export default class DeviceSupervisor {
 	private containerManager!: ContainerManager;
@@ -41,11 +43,14 @@ export default class DeviceSupervisor {
 	private cloudJobsAdapter?: CloudJobsAdapter;
 	private sensorPublish?: SensorPublishFeature;
 	private shadowFeature?: ShadowFeature;
+	private sensorConfigHandler?: SensorConfigHandler;
+	private twinStateManager?: TwinStateManager;
 	
 	private readonly ENABLE_JOB_ENGINE = process.env.ENABLE_JOB_ENGINE === 'true';
 	private readonly ENABLE_CLOUD_JOBS = process.env.ENABLE_CLOUD_JOBS === 'true';
 	private readonly ENABLE_SENSOR_PUBLISH = process.env.ENABLE_SENSOR_PUBLISH === 'true';
 	private readonly ENABLE_SHADOW = process.env.ENABLE_SHADOW === 'true';
+	private readonly ENABLE_DIGITAL_TWIN = process.env.ENABLE_DIGITAL_TWIN !== 'false'; // Default: enabled
 	private readonly DEVICE_API_PORT = parseInt(process.env.DEVICE_API_PORT || '48484', 10);
 	private readonly RECONCILIATION_INTERVAL = parseInt(
 		process.env.RECONCILIATION_INTERVAL_MS || '30000',
@@ -91,7 +96,13 @@ export default class DeviceSupervisor {
 			// 11. Initialize Shadow Feature (if enabled)
 			await this.initializeShadowFeature();
 
-			// 12. Start auto-reconciliation
+			// 12. Initialize Sensor Config Handler (if both Shadow and Sensor Publish enabled)
+			await this.initializeSensorConfigHandler();
+
+			// 13. Initialize Digital Twin State Manager (if Shadow enabled)
+			await this.initializeDigitalTwin();
+
+			// 14. Start auto-reconciliation
 			this.startAutoReconciliation();
 
 			console.log('='.repeat(80));
@@ -667,6 +678,144 @@ export default class DeviceSupervisor {
 		}
 	}
 
+	private async initializeSensorConfigHandler(): Promise<void> {
+		// Only initialize if both Shadow and Sensor Publish are enabled
+		if (!this.shadowFeature || !this.sensorPublish) {
+			if (this.ENABLE_SHADOW && this.ENABLE_SENSOR_PUBLISH) {
+				console.log('⏭️  Sensor Config Handler disabled (requires both Shadow and Sensor Publish features)');
+			}
+			return;
+		}
+
+		console.log('🔧 Initializing Sensor Config Handler...');
+
+		try {
+			// Create simple logger
+			const configLogger = {
+				info: (message: string) => console.log(`[SensorConfig] ${message}`),
+				warn: (message: string) => console.warn(`[SensorConfig] ${message}`),
+				error: (message: string, error?: any) => console.error(`[SensorConfig] ${message}`, error || ''),
+				debug: (message: string, ...args: any[]) => {
+					if (process.env.SENSOR_CONFIG_DEBUG === 'true') {
+						console.log(`[SensorConfig][DEBUG] ${message}`, ...args);
+					}
+				}
+			};
+
+			// Create sensor config handler
+			this.sensorConfigHandler = new SensorConfigHandler(
+				this.shadowFeature,
+				this.sensorPublish,
+				configLogger
+			);
+
+			// Start listening for delta events
+			this.sensorConfigHandler.start();
+
+			// Report initial sensor state to shadow
+			try {
+				const sensors = this.sensorPublish.getSensors();
+				const initialState = {
+					sensors: sensors.reduce((acc, sensor) => {
+						acc[sensor.name] = {
+							enabled: sensor.enabled,
+							addr: sensor.addr,
+							publishInterval: sensor.publishInterval
+						};
+						return acc;
+					}, {} as Record<string, any>),
+					metrics: {
+						totalSensors: sensors.length,
+						enabledSensors: sensors.filter(s => s.enabled).length,
+						mqttConnected: this.sensorPublish.isMqttConnected()
+					}
+				};
+
+				await this.shadowFeature.updateShadow(initialState, true);
+				configLogger.info(`Reported initial state for ${sensors.length} sensor(s) to shadow`);
+			} catch (error) {
+				configLogger.error('Failed to report initial sensor state to shadow', error);
+				// Don't fail initialization if this fails
+			}
+
+			console.log('✅ Sensor Config Handler initialized');
+			console.log('   Remote sensor configuration: Enabled');
+			console.log('   Shadow name: ' + process.env.SHADOW_NAME || 'device-config');
+		} catch (error) {
+			console.error('❌ Failed to initialize Sensor Config Handler:', error);
+			console.log('   Continuing without remote sensor configuration');
+			this.sensorConfigHandler = undefined;
+		}
+	}
+
+	private async initializeDigitalTwin(): Promise<void> {
+		if (!this.ENABLE_DIGITAL_TWIN) {
+			console.log('⚠️  Digital Twin disabled (set ENABLE_DIGITAL_TWIN=true to enable)');
+			return;
+		}
+
+		if (!this.ENABLE_SHADOW) {
+			console.log('⚠️  Digital Twin requires Shadow Feature to be enabled');
+			return;
+		}
+
+		if (!this.shadowFeature) {
+			console.log('⚠️  Shadow Feature not available, cannot initialize Digital Twin');
+			return;
+		}
+
+		console.log('🤖 Initializing Digital Twin State Manager...');
+
+		try {
+			// Get configuration from environment
+			const updateInterval = parseInt(process.env.TWIN_UPDATE_INTERVAL || '60000', 10);
+			const enableReadings = process.env.TWIN_ENABLE_READINGS !== 'false';
+			const enableHealth = process.env.TWIN_ENABLE_HEALTH !== 'false';
+			const enableSystem = process.env.TWIN_ENABLE_SYSTEM !== 'false';
+			const enableConnectivity = process.env.TWIN_ENABLE_CONNECTIVITY !== 'false';
+
+			// Create twin state manager
+			this.twinStateManager = new TwinStateManager(
+				this.shadowFeature,
+				this.deviceManager,
+				{
+					updateInterval,
+					enableReadings,
+					enableHealth,
+					enableSystem,
+					enableConnectivity,
+				}
+			);
+
+			// Set references to other features
+			if (this.sensorPublish) {
+				this.twinStateManager.setSensorPublish(this.sensorPublish);
+			}
+
+			// Find MQTT backend if available
+			const mqttBackend = this.logBackends.find(b => b.constructor.name === 'MqttLogBackend');
+			if (mqttBackend) {
+				this.twinStateManager.setMqttBackend(mqttBackend);
+			}
+
+			// Start periodic updates
+			this.twinStateManager.start();
+
+			console.log('✅ Digital Twin State Manager initialized');
+			console.log(`   Update interval: ${updateInterval}ms (${updateInterval / 1000}s)`);
+			console.log(`   Features: ${[
+				enableReadings && 'readings',
+				enableHealth && 'health',
+				enableSystem && 'system',
+				enableConnectivity && 'connectivity'
+			].filter(Boolean).join(', ')}`);
+		} catch (error) {
+			console.error('❌ Failed to initialize Digital Twin:', error);
+			console.log('   Continuing without Digital Twin state updates');
+			this.twinStateManager = undefined;
+		}
+	}
+
 	private startAutoReconciliation(): void {
 		this.containerManager.startAutoReconciliation(this.RECONCILIATION_INTERVAL);
 		console.log(`✅ Auto-reconciliation started (${this.RECONCILIATION_INTERVAL}ms)`);
@@ -676,6 +825,12 @@ export default class DeviceSupervisor {
 		console.log('🛑 Stopping Device Supervisor...');
 
 		try {
+			// Stop Digital Twin State Manager
+			if (this.twinStateManager) {
+				this.twinStateManager.stop();
+				console.log('✅ Digital Twin State Manager stopped');
+			}
+
 			// Stop Shadow Feature
 			if (this.shadowFeature) {
 				await this.shadowFeature.stop();

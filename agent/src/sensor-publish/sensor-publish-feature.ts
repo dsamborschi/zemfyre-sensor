@@ -162,6 +162,103 @@ export class SensorPublishFeature extends EventEmitter {
   }
 
   /**
+   * Get all sensors with their configuration
+   */
+  public getSensors(): Array<{ name: string; enabled: boolean; addr: string; publishInterval: number }> {
+    return this.config.sensors.map((sensorConfig, index) => {
+      const sensor = this.sensors[index];
+      return {
+        name: sensorConfig.name || `sensor-${index + 1}`,
+        enabled: sensorConfig.enabled !== false,
+        addr: sensorConfig.addr,
+        publishInterval: sensorConfig.publishInterval || 30000
+      };
+    });
+  }
+
+  /**
+   * Enable a sensor by name
+   */
+  public async enableSensor(sensorName: string): Promise<void> {
+    const index = this.config.sensors.findIndex(s => s.name === sensorName);
+    if (index < 0) {
+      throw new Error(`Sensor not found: ${sensorName}`);
+    }
+
+    const sensorConfig = this.config.sensors[index];
+    const sensor = this.sensors[index];
+
+    if (sensorConfig.enabled === false) {
+      sensorConfig.enabled = true;
+      
+      if (sensor && this.started) {
+        await sensor.start();
+      }
+      
+      this.logger.info(`${SensorPublishFeature.TAG}: Sensor '${sensorName}' enabled`);
+      this.emit('sensor-enabled', sensorName);
+    }
+  }
+
+  /**
+   * Disable a sensor by name
+   */
+  public async disableSensor(sensorName: string): Promise<void> {
+    const index = this.config.sensors.findIndex(s => s.name === sensorName);
+    if (index < 0) {
+      throw new Error(`Sensor not found: ${sensorName}`);
+    }
+
+    const sensorConfig = this.config.sensors[index];
+    const sensor = this.sensors[index];
+
+    if (sensorConfig.enabled !== false) {
+      sensorConfig.enabled = false;
+      
+      if (sensor && this.started) {
+        await sensor.stop();
+      }
+      
+      this.logger.info(`${SensorPublishFeature.TAG}: Sensor '${sensorName}' disabled`);
+      this.emit('sensor-disabled', sensorName);
+    }
+  }
+
+  /**
+   * Update publish interval for a sensor
+   */
+  public async updateInterval(sensorName: string, intervalMs: number): Promise<void> {
+    const index = this.config.sensors.findIndex(s => s.name === sensorName);
+    if (index < 0) {
+      throw new Error(`Sensor not found: ${sensorName}`);
+    }
+
+    const sensorConfig = this.config.sensors[index];
+    const sensor = this.sensors[index];
+
+    if (intervalMs < 1000) {
+      throw new Error(`Invalid interval for ${sensorName}: minimum 1000ms`);
+    }
+
+    sensorConfig.publishInterval = intervalMs;
+    
+    // Update the sensor's interval if it's running
+    if (sensor && this.started && sensorConfig.enabled !== false) {
+      sensor.updateInterval(intervalMs);
+    }
+    
+    this.logger.info(`${SensorPublishFeature.TAG}: Updated interval for '${sensorName}': ${intervalMs}ms`);
+    this.emit('sensor-interval-updated', sensorName, intervalMs);
+  }
+
+  /**
+   * Check if MQTT is connected
+   */
+  public isMqttConnected(): boolean {
+    return this.mqttConnection.isConnected();
+  }
+
+  /**
    * Validate configuration
    */
   private validateConfig(): void {

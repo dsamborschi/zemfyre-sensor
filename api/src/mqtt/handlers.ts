@@ -60,6 +60,19 @@ export async function handleShadowUpdate(update: ShadowUpdate): Promise<void> {
         ]
       );
 
+      // Store in shadow history for time-series analysis (Phase 4)
+      await query(
+        `INSERT INTO device_shadow_history (device_uuid, shadow_name, reported_state, version, timestamp)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [
+          update.deviceUuid,
+          'device-state',
+          JSON.stringify(update.reported),
+          update.version,
+          update.timestamp
+        ]
+      );
+
       console.log(`✅ Updated shadow reported state: ${update.deviceUuid}`);
     }
 

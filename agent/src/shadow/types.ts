@@ -118,7 +118,8 @@ export interface Logger {
 
 /**
  * Shadow Topics - IoT Device Shadow MQTT topics
- * Uses the same convention as sensor-publish: $iot/device/{uuid}/...
+ * Uses standard MQTT format (no leading $): iot/device/{uuid}/...
+ * Note: Topics starting with $ are reserved for broker system topics
  */
 export class ShadowTopics {
   private readonly deviceUuid: string;
@@ -131,7 +132,7 @@ export class ShadowTopics {
 
   // Update topics
   public get update(): string {
-    return `$iot/device/${this.deviceUuid}/shadow/name/${this.shadowName}/update`;
+    return `iot/device/${this.deviceUuid}/shadow/name/${this.shadowName}/update`;
   }
 
   public get updateAccepted(): string {
@@ -152,7 +153,7 @@ export class ShadowTopics {
 
   // Get topics
   public get get(): string {
-    return `$iot/device/${this.deviceUuid}/shadow/name/${this.shadowName}/get`;
+    return `iot/device/${this.deviceUuid}/shadow/name/${this.shadowName}/get`;
   }
 
   public get getAccepted(): string {
@@ -165,7 +166,7 @@ export class ShadowTopics {
 
   // Delete topics
   public get delete(): string {
-    return `$iot/device/${this.deviceUuid}/shadow/name/${this.shadowName}/delete`;
+    return `iot/device/${this.deviceUuid}/shadow/name/${this.shadowName}/delete`;
   }
 
   public get deleteAccepted(): string {

@@ -438,6 +438,10 @@ export class ShadowFeature extends EventEmitter {
   private async publishUpdateRequest(request: ShadowUpdateRequest): Promise<void> {
     const payload = JSON.stringify(request);
     
+    console.log(`📤 Publishing shadow update to: ${this.shadowTopics.update}`);
+    console.log(`   Payload size: ${payload.length} bytes`);
+    console.log(`   Token: ${request.clientToken}`);
+    
     this.logger.debug(
       `${ShadowFeature.TAG}: Publishing shadow update (token: ${request.clientToken})`
     );

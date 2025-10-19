@@ -1,0 +1,1150 @@
+{
+  "daily_messages": [
+    {
+      "date": "2025-08-12",
+      "count": 29
+    },
+    {
+      "date": "2025-08-13",
+      "count": 5
+    }
+  ],
+  "hourly": [
+    {
+      "timestamp": "2025-08-18 23:01",
+      "bytes_received": 6.13,
+      "bytes_sent": 1293.06
+    },
+    {
+      "timestamp": "2025-08-18 23:04",
+      "bytes_received": 6.16,
+      "bytes_sent": 1298.11
+    },
+    {
+      "timestamp": "2025-08-18 23:07",
+      "bytes_received": 6.1,
+      "bytes_sent": 1301.27
+    },
+    {
+      "timestamp": "2025-08-18 23:10",
+      "bytes_received": 6.05,
+      "bytes_sent": 1303.82
+    },
+    {
+      "timestamp": "2025-08-18 23:13",
+      "bytes_received": 6.07,
+      "bytes_sent": 1305.86
+    },
+    {
+      "timestamp": "2025-08-18 23:17",
+      "bytes_received": 5.98,
+      "bytes_sent": 1308.05
+    },
+    {
+      "timestamp": "2025-08-18 23:20",
+      "bytes_received": 6.07,
+      "bytes_sent": 1309.46
+    },
+    {
+      "timestamp": "2025-08-18 23:23",
+      "bytes_received": 6.03,
+      "bytes_sent": 1310.49
+    },
+    {
+      "timestamp": "2025-08-18 23:26",
+      "bytes_received": 5.99,
+      "bytes_sent": 1311.32
+    },
+    {
+      "timestamp": "2025-08-18 23:30",
+      "bytes_received": 6.05,
+      "bytes_sent": 1312.3
+    },
+    {
+      "timestamp": "2025-08-18 23:33",
+      "bytes_received": 6.02,
+      "bytes_sent": 1312.8
+    },
+    {
+      "timestamp": "2025-08-18 23:36",
+      "bytes_received": 5.91,
+      "bytes_sent": 1313.15
+    },
+    {
+      "timestamp": "2025-08-18 23:40",
+      "bytes_received": 5.98,
+      "bytes_sent": 1313.67
+    },
+    {
+      "timestamp": "2025-08-18 23:43",
+      "bytes_received": 5.95,
+      "bytes_sent": 1313.9
+    },
+    {
+      "timestamp": "2025-08-18 23:46",
+      "bytes_received": 5.92,
+      "bytes_sent": 1314.09
+    },
+    {
+      "timestamp": "2025-08-18 23:50",
+      "bytes_received": 5.99,
+      "bytes_sent": 1314.38
+    },
+    {
+      "timestamp": "2025-08-18 23:53",
+      "bytes_received": 5.96,
+      "bytes_sent": 1314.49
+    },
+    {
+      "timestamp": "2025-08-18 23:56",
+      "bytes_received": 5.93,
+      "bytes_sent": 1314.56
+    },
+    {
+      "timestamp": "2025-08-19 00:00",
+      "bytes_received": 6.01,
+      "bytes_sent": 1314.75
+    },
+    {
+      "timestamp": "2025-08-19 00:03",
+      "bytes_received": 5.98,
+      "bytes_sent": 1314.79
+    },
+    {
+      "timestamp": "2025-08-19 00:06",
+      "bytes_received": 5.88,
+      "bytes_sent": 1314.74
+    },
+    {
+      "timestamp": "2025-08-19 00:10",
+      "bytes_received": 6.03,
+      "bytes_sent": 1314.94
+    },
+    {
+      "timestamp": "2025-08-19 00:13",
+      "bytes_received": 5.93,
+      "bytes_sent": 1314.88
+    },
+    {
+      "timestamp": "2025-08-19 00:16",
+      "bytes_received": 5.9,
+      "bytes_sent": 1314.88
+    },
+    {
+      "timestamp": "2025-08-19 00:20",
+      "bytes_received": 5.97,
+      "bytes_sent": 1314.98
+    },
+    {
+      "timestamp": "2025-08-19 00:23",
+      "bytes_received": 5.95,
+      "bytes_sent": 1314.97
+    },
+    {
+      "timestamp": "2025-08-19 00:26",
+      "bytes_received": 5.92,
+      "bytes_sent": 1314.95
+    },
+    {
+      "timestamp": "2025-08-19 00:30",
+      "bytes_received": 5.99,
+      "bytes_sent": 1315.04
+    },
+    {
+      "timestamp": "2025-08-19 00:33",
+      "bytes_received": 5.97,
+      "bytes_sent": 1315.02
+    },
+    {
+      "timestamp": "2025-08-19 00:36",
+      "bytes_received": 5.94,
+      "bytes_sent": 1315
+    },
+    {
+      "timestamp": "2025-08-19 00:40",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.08
+    },
+    {
+      "timestamp": "2025-08-19 00:43",
+      "bytes_received": 5.91,
+      "bytes_sent": 1314.99
+    },
+    {
+      "timestamp": "2025-08-19 00:46",
+      "bytes_received": 5.89,
+      "bytes_sent": 1314.96
+    },
+    {
+      "timestamp": "2025-08-19 00:50",
+      "bytes_received": 5.96,
+      "bytes_sent": 1315.04
+    },
+    {
+      "timestamp": "2025-08-19 00:53",
+      "bytes_received": 5.93,
+      "bytes_sent": 1315.02
+    },
+    {
+      "timestamp": "2025-08-19 00:56",
+      "bytes_received": 5.91,
+      "bytes_sent": 1314.99
+    },
+    {
+      "timestamp": "2025-08-19 01:00",
+      "bytes_received": 5.98,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 01:03",
+      "bytes_received": 5.95,
+      "bytes_sent": 1315.04
+    },
+    {
+      "timestamp": "2025-08-19 01:06",
+      "bytes_received": 5.93,
+      "bytes_sent": 1315.02
+    },
+    {
+      "timestamp": "2025-08-19 01:10",
+      "bytes_received": 6,
+      "bytes_sent": 1315.09
+    },
+    {
+      "timestamp": "2025-08-19 01:13",
+      "bytes_received": 5.97,
+      "bytes_sent": 1315.06
+    },
+    {
+      "timestamp": "2025-08-19 01:16",
+      "bytes_received": 5.95,
+      "bytes_sent": 1315.03
+    },
+    {
+      "timestamp": "2025-08-19 01:20",
+      "bytes_received": 6.02,
+      "bytes_sent": 1315.11
+    },
+    {
+      "timestamp": "2025-08-19 01:23",
+      "bytes_received": 5.99,
+      "bytes_sent": 1315.08
+    },
+    {
+      "timestamp": "2025-08-19 01:26",
+      "bytes_received": 5.96,
+      "bytes_sent": 1315.05
+    },
+    {
+      "timestamp": "2025-08-19 01:30",
+      "bytes_received": 5.9,
+      "bytes_sent": 1314.99
+    },
+    {
+      "timestamp": "2025-08-19 01:33",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 01:36",
+      "bytes_received": 5.98,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 01:39",
+      "bytes_received": 5.95,
+      "bytes_sent": 1315.04
+    },
+    {
+      "timestamp": "2025-08-19 01:43",
+      "bytes_received": 6.02,
+      "bytes_sent": 1315.11
+    },
+    {
+      "timestamp": "2025-08-19 01:46",
+      "bytes_received": 5.99,
+      "bytes_sent": 1315.08
+    },
+    {
+      "timestamp": "2025-08-19 01:49",
+      "bytes_received": 5.96,
+      "bytes_sent": 1315.05
+    },
+    {
+      "timestamp": "2025-08-19 01:53",
+      "bytes_received": 5.9,
+      "bytes_sent": 1314.99
+    },
+    {
+      "timestamp": "2025-08-19 01:56",
+      "bytes_received": 6,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 01:59",
+      "bytes_received": 5.97,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 02:02",
+      "bytes_received": 5.94,
+      "bytes_sent": 1315.04
+    },
+    {
+      "timestamp": "2025-08-19 02:06",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 02:09",
+      "bytes_received": 5.98,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 02:12",
+      "bytes_received": 5.95,
+      "bytes_sent": 1315.04
+    },
+    {
+      "timestamp": "2025-08-19 02:15",
+      "bytes_received": 5.92,
+      "bytes_sent": 1315.02
+    },
+    {
+      "timestamp": "2025-08-19 02:19",
+      "bytes_received": 5.99,
+      "bytes_sent": 1315.08
+    },
+    {
+      "timestamp": "2025-08-19 02:22",
+      "bytes_received": 5.96,
+      "bytes_sent": 1315.05
+    },
+    {
+      "timestamp": "2025-08-19 02:25",
+      "bytes_received": 5.93,
+      "bytes_sent": 1315.02
+    },
+    {
+      "timestamp": "2025-08-19 02:28",
+      "bytes_received": 5.98,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 02:32",
+      "bytes_received": 6.04,
+      "bytes_sent": 1315.14
+    },
+    {
+      "timestamp": "2025-08-19 02:35",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 02:38",
+      "bytes_received": 5.98,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 02:41",
+      "bytes_received": 5.95,
+      "bytes_sent": 1315.04
+    },
+    {
+      "timestamp": "2025-08-19 02:45",
+      "bytes_received": 6.02,
+      "bytes_sent": 1315.11
+    },
+    {
+      "timestamp": "2025-08-19 02:48",
+      "bytes_received": 5.99,
+      "bytes_sent": 1315.08
+    },
+    {
+      "timestamp": "2025-08-19 02:51",
+      "bytes_received": 5.95,
+      "bytes_sent": 1315.04
+    },
+    {
+      "timestamp": "2025-08-19 02:54",
+      "bytes_received": 5.92,
+      "bytes_sent": 1315.01
+    },
+    {
+      "timestamp": "2025-08-19 02:57",
+      "bytes_received": 5.96,
+      "bytes_sent": 1315.05
+    },
+    {
+      "timestamp": "2025-08-19 03:01",
+      "bytes_received": 6.03,
+      "bytes_sent": 1315.12
+    },
+    {
+      "timestamp": "2025-08-19 03:04",
+      "bytes_received": 6,
+      "bytes_sent": 1315.09
+    },
+    {
+      "timestamp": "2025-08-19 03:07",
+      "bytes_received": 5.96,
+      "bytes_sent": 1315.06
+    },
+    {
+      "timestamp": "2025-08-19 03:10",
+      "bytes_received": 5.93,
+      "bytes_sent": 1315.02
+    },
+    {
+      "timestamp": "2025-08-19 03:14",
+      "bytes_received": 5.94,
+      "bytes_sent": 1315.03
+    },
+    {
+      "timestamp": "2025-08-19 03:17",
+      "bytes_received": 6.04,
+      "bytes_sent": 1315.13
+    },
+    {
+      "timestamp": "2025-08-19 03:20",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 03:23",
+      "bytes_received": 5.97,
+      "bytes_sent": 1315.06
+    },
+    {
+      "timestamp": "2025-08-19 03:26",
+      "bytes_received": 5.94,
+      "bytes_sent": 1315.03
+    },
+    {
+      "timestamp": "2025-08-19 03:30",
+      "bytes_received": 5.94,
+      "bytes_sent": 1315.03
+    },
+    {
+      "timestamp": "2025-08-19 03:33",
+      "bytes_received": 6.04,
+      "bytes_sent": 1315.13
+    },
+    {
+      "timestamp": "2025-08-19 03:36",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 03:39",
+      "bytes_received": 5.97,
+      "bytes_sent": 1315.06
+    },
+    {
+      "timestamp": "2025-08-19 03:42",
+      "bytes_received": 5.94,
+      "bytes_sent": 1315.03
+    },
+    {
+      "timestamp": "2025-08-19 03:46",
+      "bytes_received": 5.94,
+      "bytes_sent": 1315.04
+    },
+    {
+      "timestamp": "2025-08-19 03:50",
+      "bytes_received": 5.94,
+      "bytes_sent": 1315.03
+    },
+    {
+      "timestamp": "2025-08-19 03:54",
+      "bytes_received": 5.94,
+      "bytes_sent": 1315.03
+    },
+    {
+      "timestamp": "2025-08-19 03:58",
+      "bytes_received": 6.07,
+      "bytes_sent": 1315.16
+    },
+    {
+      "timestamp": "2025-08-19 04:02",
+      "bytes_received": 6.07,
+      "bytes_sent": 1315.16
+    },
+    {
+      "timestamp": "2025-08-19 04:05",
+      "bytes_received": 5.97,
+      "bytes_sent": 1315.06
+    },
+    {
+      "timestamp": "2025-08-19 04:09",
+      "bytes_received": 6.09,
+      "bytes_sent": 1315.18
+    },
+    {
+      "timestamp": "2025-08-19 04:12",
+      "bytes_received": 6.05,
+      "bytes_sent": 1315.14
+    },
+    {
+      "timestamp": "2025-08-19 04:16",
+      "bytes_received": 6.04,
+      "bytes_sent": 1315.13
+    },
+    {
+      "timestamp": "2025-08-19 04:19",
+      "bytes_received": 6.07,
+      "bytes_sent": 1315.17
+    },
+    {
+      "timestamp": "2025-08-19 04:22",
+      "bytes_received": 6.03,
+      "bytes_sent": 1315.12
+    },
+    {
+      "timestamp": "2025-08-19 04:25",
+      "bytes_received": 6.06,
+      "bytes_sent": 1315.15
+    },
+    {
+      "timestamp": "2025-08-19 10:58",
+      "bytes_received": 6.11,
+      "bytes_sent": 1278.6
+    },
+    {
+      "timestamp": "2025-08-19 11:01",
+      "bytes_received": 6.05,
+      "bytes_sent": 1286.12
+    },
+    {
+      "timestamp": "2025-08-19 11:04",
+      "bytes_received": 6,
+      "bytes_sent": 1291.51
+    },
+    {
+      "timestamp": "2025-08-19 11:08",
+      "bytes_received": 5.98,
+      "bytes_sent": 1297.49
+    },
+    {
+      "timestamp": "2025-08-19 11:11",
+      "bytes_received": 5.87,
+      "bytes_sent": 1300.85
+    },
+    {
+      "timestamp": "2025-08-19 11:15",
+      "bytes_received": 5.94,
+      "bytes_sent": 1304.38
+    },
+    {
+      "timestamp": "2025-08-19 11:19",
+      "bytes_received": 5.88,
+      "bytes_sent": 1306.93
+    },
+    {
+      "timestamp": "2025-08-19 11:23",
+      "bytes_received": 5.89,
+      "bytes_sent": 1308.83
+    },
+    {
+      "timestamp": "2025-08-19 11:27",
+      "bytes_received": 5.89,
+      "bytes_sent": 1310.28
+    },
+    {
+      "timestamp": "2025-08-19 11:30",
+      "bytes_received": 5.93,
+      "bytes_sent": 1311.16
+    },
+    {
+      "timestamp": "2025-08-19 11:33",
+      "bytes_received": 6.02,
+      "bytes_sent": 1311.98
+    },
+    {
+      "timestamp": "2025-08-19 11:36",
+      "bytes_received": 5.92,
+      "bytes_sent": 1312.43
+    },
+    {
+      "timestamp": "2025-08-19 11:40",
+      "bytes_received": 5.92,
+      "bytes_sent": 1313.04
+    },
+    {
+      "timestamp": "2025-08-19 11:43",
+      "bytes_received": 5.95,
+      "bytes_sent": 1313.42
+    },
+    {
+      "timestamp": "2025-08-19 11:47",
+      "bytes_received": 5.94,
+      "bytes_sent": 1313.79
+    },
+    {
+      "timestamp": "2025-08-19 11:51",
+      "bytes_received": 5.93,
+      "bytes_sent": 1314.07
+    },
+    {
+      "timestamp": "2025-08-19 11:54",
+      "bytes_received": 5.96,
+      "bytes_sent": 1314.27
+    },
+    {
+      "timestamp": "2025-08-19 11:58",
+      "bytes_received": 5.94,
+      "bytes_sent": 1314.44
+    },
+    {
+      "timestamp": "2025-08-19 12:02",
+      "bytes_received": 5.93,
+      "bytes_sent": 1314.57
+    },
+    {
+      "timestamp": "2025-08-19 12:05",
+      "bytes_received": 5.96,
+      "bytes_sent": 1314.68
+    },
+    {
+      "timestamp": "2025-08-19 12:09",
+      "bytes_received": 5.95,
+      "bytes_sent": 1314.75
+    },
+    {
+      "timestamp": "2025-08-19 12:13",
+      "bytes_received": 5.94,
+      "bytes_sent": 1314.81
+    },
+    {
+      "timestamp": "2025-08-19 12:16",
+      "bytes_received": 5.96,
+      "bytes_sent": 1314.87
+    },
+    {
+      "timestamp": "2025-08-19 12:20",
+      "bytes_received": 5.95,
+      "bytes_sent": 1314.9
+    },
+    {
+      "timestamp": "2025-08-19 12:23",
+      "bytes_received": 5.98,
+      "bytes_sent": 1314.96
+    },
+    {
+      "timestamp": "2025-08-19 12:26",
+      "bytes_received": 6.06,
+      "bytes_sent": 1315.06
+    },
+    {
+      "timestamp": "2025-08-19 12:30",
+      "bytes_received": 5.99,
+      "bytes_sent": 1315.01
+    },
+    {
+      "timestamp": "2025-08-19 12:33",
+      "bytes_received": 5.94,
+      "bytes_sent": 1314.98
+    },
+    {
+      "timestamp": "2025-08-19 12:36",
+      "bytes_received": 5.97,
+      "bytes_sent": 1315.01
+    },
+    {
+      "timestamp": "2025-08-19 12:40",
+      "bytes_received": 5.96,
+      "bytes_sent": 1315.01
+    },
+    {
+      "timestamp": "2025-08-19 12:44",
+      "bytes_received": 5.94,
+      "bytes_sent": 1315.01
+    },
+    {
+      "timestamp": "2025-08-19 12:48",
+      "bytes_received": 6,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 12:52",
+      "bytes_received": 5.99,
+      "bytes_sent": 1315.06
+    },
+    {
+      "timestamp": "2025-08-19 12:55",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.09
+    },
+    {
+      "timestamp": "2025-08-19 12:59",
+      "bytes_received": 6,
+      "bytes_sent": 1315.08
+    },
+    {
+      "timestamp": "2025-08-19 13:03",
+      "bytes_received": 5.99,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 13:07",
+      "bytes_received": 5.97,
+      "bytes_sent": 1315.06
+    },
+    {
+      "timestamp": "2025-08-19 13:10",
+      "bytes_received": 6,
+      "bytes_sent": 1315.09
+    },
+    {
+      "timestamp": "2025-08-19 13:13",
+      "bytes_received": 6.02,
+      "bytes_sent": 1315.11
+    },
+    {
+      "timestamp": "2025-08-19 13:17",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 13:21",
+      "bytes_received": 6,
+      "bytes_sent": 1315.09
+    },
+    {
+      "timestamp": "2025-08-19 13:24",
+      "bytes_received": 6.02,
+      "bytes_sent": 1315.11
+    },
+    {
+      "timestamp": "2025-08-19 13:28",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 13:31",
+      "bytes_received": 6.03,
+      "bytes_sent": 1315.12
+    },
+    {
+      "timestamp": "2025-08-19 13:35",
+      "bytes_received": 6.02,
+      "bytes_sent": 1315.11
+    },
+    {
+      "timestamp": "2025-08-19 13:38",
+      "bytes_received": 6.04,
+      "bytes_sent": 1315.13
+    },
+    {
+      "timestamp": "2025-08-19 13:42",
+      "bytes_received": 6.03,
+      "bytes_sent": 1315.12
+    },
+    {
+      "timestamp": "2025-08-19 13:45",
+      "bytes_received": 5.98,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 13:48",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 13:51",
+      "bytes_received": 6.03,
+      "bytes_sent": 1315.12
+    },
+    {
+      "timestamp": "2025-08-19 13:54",
+      "bytes_received": 5.93,
+      "bytes_sent": 1315.02
+    },
+    {
+      "timestamp": "2025-08-19 13:57",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 14:00",
+      "bytes_received": 6.04,
+      "bytes_sent": 1315.13
+    },
+    {
+      "timestamp": "2025-08-19 14:04",
+      "bytes_received": 6.02,
+      "bytes_sent": 1315.11
+    },
+    {
+      "timestamp": "2025-08-19 14:08",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 14:12",
+      "bytes_received": 5.93,
+      "bytes_sent": 1315.02
+    },
+    {
+      "timestamp": "2025-08-19 14:15",
+      "bytes_received": 6.02,
+      "bytes_sent": 1315.11
+    },
+    {
+      "timestamp": "2025-08-19 14:18",
+      "bytes_received": 6.04,
+      "bytes_sent": 1315.13
+    },
+    {
+      "timestamp": "2025-08-19 14:21",
+      "bytes_received": 5.93,
+      "bytes_sent": 1315.02
+    },
+    {
+      "timestamp": "2025-08-19 14:24",
+      "bytes_received": 5.96,
+      "bytes_sent": 1315.05
+    },
+    {
+      "timestamp": "2025-08-19 14:28",
+      "bytes_received": 5.94,
+      "bytes_sent": 1315.03
+    },
+    {
+      "timestamp": "2025-08-19 14:32",
+      "bytes_received": 5.93,
+      "bytes_sent": 1315.02
+    },
+    {
+      "timestamp": "2025-08-19 14:36",
+      "bytes_received": 5.91,
+      "bytes_sent": 1315
+    },
+    {
+      "timestamp": "2025-08-19 14:40",
+      "bytes_received": 5.97,
+      "bytes_sent": 1315.06
+    },
+    {
+      "timestamp": "2025-08-19 14:44",
+      "bytes_received": 5.96,
+      "bytes_sent": 1315.05
+    },
+    {
+      "timestamp": "2025-08-19 14:48",
+      "bytes_received": 5.94,
+      "bytes_sent": 1315.03
+    },
+    {
+      "timestamp": "2025-08-19 14:52",
+      "bytes_received": 5.93,
+      "bytes_sent": 1315.02
+    },
+    {
+      "timestamp": "2025-08-19 14:55",
+      "bytes_received": 5.95,
+      "bytes_sent": 1315.04
+    },
+    {
+      "timestamp": "2025-08-19 14:59",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 15:02",
+      "bytes_received": 6.03,
+      "bytes_sent": 1315.12
+    },
+    {
+      "timestamp": "2025-08-19 15:05",
+      "bytes_received": 6.05,
+      "bytes_sent": 1315.14
+    },
+    {
+      "timestamp": "2025-08-19 15:08",
+      "bytes_received": 6.07,
+      "bytes_sent": 1315.16
+    },
+    {
+      "timestamp": "2025-08-19 15:11",
+      "bytes_received": 6.1,
+      "bytes_sent": 1315.19
+    },
+    {
+      "timestamp": "2025-08-19 15:14",
+      "bytes_received": 6.12,
+      "bytes_sent": 1315.21
+    },
+    {
+      "timestamp": "2025-08-19 15:17",
+      "bytes_received": 6,
+      "bytes_sent": 1315.09
+    },
+    {
+      "timestamp": "2025-08-19 15:21",
+      "bytes_received": 5.98,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 15:24",
+      "bytes_received": 6,
+      "bytes_sent": 1315.09
+    },
+    {
+      "timestamp": "2025-08-19 15:27",
+      "bytes_received": 6.02,
+      "bytes_sent": 1315.11
+    },
+    {
+      "timestamp": "2025-08-19 15:30",
+      "bytes_received": 5.98,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 15:33",
+      "bytes_received": 5.99,
+      "bytes_sent": 1315.09
+    },
+    {
+      "timestamp": "2025-08-19 15:36",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 15:39",
+      "bytes_received": 6.03,
+      "bytes_sent": 1315.12
+    },
+    {
+      "timestamp": "2025-08-19 15:43",
+      "bytes_received": 6,
+      "bytes_sent": 1315.09
+    },
+    {
+      "timestamp": "2025-08-19 15:46",
+      "bytes_received": 6.09,
+      "bytes_sent": 1315.18
+    },
+    {
+      "timestamp": "2025-08-19 15:49",
+      "bytes_received": 6.11,
+      "bytes_sent": 1315.2
+    },
+    {
+      "timestamp": "2025-08-19 15:52",
+      "bytes_received": 6.13,
+      "bytes_sent": 1315.22
+    },
+    {
+      "timestamp": "2025-08-19 15:55",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 15:59",
+      "bytes_received": 6.06,
+      "bytes_sent": 1315.15
+    },
+    {
+      "timestamp": "2025-08-19 16:02",
+      "bytes_received": 6.07,
+      "bytes_sent": 1315.16
+    },
+    {
+      "timestamp": "2025-08-19 16:05",
+      "bytes_received": 6.09,
+      "bytes_sent": 1315.18
+    },
+    {
+      "timestamp": "2025-08-19 16:08",
+      "bytes_received": 5.97,
+      "bytes_sent": 1315.06
+    },
+    {
+      "timestamp": "2025-08-19 16:11",
+      "bytes_received": 5.99,
+      "bytes_sent": 1315.08
+    },
+    {
+      "timestamp": "2025-08-19 16:14",
+      "bytes_received": 6,
+      "bytes_sent": 1315.09
+    },
+    {
+      "timestamp": "2025-08-19 16:18",
+      "bytes_received": 6.05,
+      "bytes_sent": 1315.14
+    },
+    {
+      "timestamp": "2025-08-19 16:21",
+      "bytes_received": 6.06,
+      "bytes_sent": 1315.15
+    },
+    {
+      "timestamp": "2025-08-19 16:24",
+      "bytes_received": 6.08,
+      "bytes_sent": 1315.17
+    },
+    {
+      "timestamp": "2025-08-19 16:27",
+      "bytes_received": 6.09,
+      "bytes_sent": 1315.18
+    },
+    {
+      "timestamp": "2025-08-19 16:30",
+      "bytes_received": 6.05,
+      "bytes_sent": 1315.14
+    },
+    {
+      "timestamp": "2025-08-19 16:34",
+      "bytes_received": 6.02,
+      "bytes_sent": 1315.11
+    },
+    {
+      "timestamp": "2025-08-19 16:37",
+      "bytes_received": 6.11,
+      "bytes_sent": 1315.2
+    },
+    {
+      "timestamp": "2025-08-19 16:40",
+      "bytes_received": 5.99,
+      "bytes_sent": 1315.08
+    },
+    {
+      "timestamp": "2025-08-19 16:43",
+      "bytes_received": 6,
+      "bytes_sent": 1315.09
+    },
+    {
+      "timestamp": "2025-08-19 16:46",
+      "bytes_received": 6.02,
+      "bytes_sent": 1315.11
+    },
+    {
+      "timestamp": "2025-08-19 16:50",
+      "bytes_received": 6.06,
+      "bytes_sent": 1315.15
+    },
+    {
+      "timestamp": "2025-08-19 16:53",
+      "bytes_received": 6.07,
+      "bytes_sent": 1315.16
+    },
+    {
+      "timestamp": "2025-08-19 16:56",
+      "bytes_received": 6.08,
+      "bytes_sent": 1315.18
+    },
+    {
+      "timestamp": "2025-08-19 16:59",
+      "bytes_received": 6.04,
+      "bytes_sent": 1315.13
+    },
+    {
+      "timestamp": "2025-08-19 17:03",
+      "bytes_received": 6.08,
+      "bytes_sent": 1315.17
+    },
+    {
+      "timestamp": "2025-08-19 17:06",
+      "bytes_received": 6.1,
+      "bytes_sent": 1315.19
+    },
+    {
+      "timestamp": "2025-08-19 17:09",
+      "bytes_received": 5.98,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 17:12",
+      "bytes_received": 5.99,
+      "bytes_sent": 1315.08
+    },
+    {
+      "timestamp": "2025-08-19 17:16",
+      "bytes_received": 6.03,
+      "bytes_sent": 1315.12
+    },
+    {
+      "timestamp": "2025-08-19 17:19",
+      "bytes_received": 6.04,
+      "bytes_sent": 1315.13
+    },
+    {
+      "timestamp": "2025-08-19 17:22",
+      "bytes_received": 6.13,
+      "bytes_sent": 1315.22
+    },
+    {
+      "timestamp": "2025-08-19 17:25",
+      "bytes_received": 6.14,
+      "bytes_sent": 1315.23
+    },
+    {
+      "timestamp": "2025-08-19 17:28",
+      "bytes_received": 6.16,
+      "bytes_sent": 1315.25
+    },
+    {
+      "timestamp": "2025-08-19 17:32",
+      "bytes_received": 6.06,
+      "bytes_sent": 1315.16
+    },
+    {
+      "timestamp": "2025-08-19 17:36",
+      "bytes_received": 6.1,
+      "bytes_sent": 1315.2
+    },
+    {
+      "timestamp": "2025-08-19 17:39",
+      "bytes_received": 5.98,
+      "bytes_sent": 1315.07
+    },
+    {
+      "timestamp": "2025-08-19 17:43",
+      "bytes_received": 6.02,
+      "bytes_sent": 1315.11
+    },
+    {
+      "timestamp": "2025-08-19 17:46",
+      "bytes_received": 6.11,
+      "bytes_sent": 1315.2
+    },
+    {
+      "timestamp": "2025-08-19 17:49",
+      "bytes_received": 6.12,
+      "bytes_sent": 1315.21
+    },
+    {
+      "timestamp": "2025-08-19 17:52",
+      "bytes_received": 6.13,
+      "bytes_sent": 1315.22
+    },
+    {
+      "timestamp": "2025-08-19 17:56",
+      "bytes_received": 6.04,
+      "bytes_sent": 1315.13
+    },
+    {
+      "timestamp": "2025-08-19 17:59",
+      "bytes_received": 6.12,
+      "bytes_sent": 1315.21
+    },
+    {
+      "timestamp": "2025-08-19 18:02",
+      "bytes_received": 6,
+      "bytes_sent": 1315.09
+    },
+    {
+      "timestamp": "2025-08-19 18:05",
+      "bytes_received": 6.01,
+      "bytes_sent": 1315.1
+    },
+    {
+      "timestamp": "2025-08-19 18:09",
+      "bytes_received": 6.05,
+      "bytes_sent": 1315.14
+    }
+  ],
+  "daily": []
+}
