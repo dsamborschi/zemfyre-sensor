@@ -171,6 +171,10 @@ router.get('/topic-tree', (req: Request, res: Response) => {
 /**
  * GET /api/v1/mqtt-monitor/topics
  * Get flattened list of topics with message counts and schemas
+ * 
+ * Query parameters:
+ * - timeWindow: Filter topics by time window (1h, 6h, 24h, 7d, 30d, all)
+ * - minutes: Alternative time filter in minutes (e.g., 60 for last hour)
  */
 router.get('/topics', (req: Request, res: Response) => {
   try {
@@ -181,12 +185,50 @@ router.get('/topics', (req: Request, res: Response) => {
       });
     }
 
-    const topics = monitor.getFlattenedTopics();
+    // Parse time window parameters
+    const timeWindow = req.query.timeWindow as string;
+    const minutesParam = req.query.minutes as string;
+    
+    let filterTimestamp: number | null = null;
+    
+    if (timeWindow) {
+      const now = Date.now();
+      switch (timeWindow) {
+        case '1h':
+          filterTimestamp = now - (60 * 60 * 1000);
+          break;
+        case '6h':
+          filterTimestamp = now - (6 * 60 * 60 * 1000);
+          break;
+        case '24h':
+          filterTimestamp = now - (24 * 60 * 60 * 1000);
+          break;
+        case '7d':
+          filterTimestamp = now - (7 * 24 * 60 * 60 * 1000);
+          break;
+        case '30d':
+          filterTimestamp = now - (30 * 24 * 60 * 60 * 1000);
+          break;
+        case 'all':
+        default:
+          filterTimestamp = null;
+          break;
+      }
+    } else if (minutesParam) {
+      const minutes = parseInt(minutesParam, 10);
+      if (!isNaN(minutes) && minutes > 0) {
+        filterTimestamp = Date.now() - (minutes * 60 * 1000);
+      }
+    }
+
+    const topics = monitor.getFlattenedTopics(filterTimestamp);
     
     res.json({
       success: true,
       count: topics.length,
-      data: topics
+      data: topics,
+      timeWindow: timeWindow || (minutesParam ? `${minutesParam}m` : 'all'),
+      filteredFrom: filterTimestamp ? new Date(filterTimestamp).toISOString() : null
     });
   } catch (error: any) {
     res.status(500).json({ 

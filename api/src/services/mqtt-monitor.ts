@@ -690,8 +690,9 @@ export class MQTTMonitorService extends EventEmitter {
 
   /**
    * Get flattened topic list with schemas (for API consumption)
+   * @param filterTimestamp - Optional timestamp to filter topics (only include topics with lastModified >= filterTimestamp)
    */
-  getFlattenedTopics(): Array<{
+  getFlattenedTopics(filterTimestamp?: number | null): Array<{
     topic: string;
     messageCount: number;
     lastMessage?: string;
@@ -709,13 +710,20 @@ export class MQTTMonitorService extends EventEmitter {
         const fullPath = parentPath ? `${parentPath}/${key}` : key;
 
         if (child._message !== undefined) {
+          const lastModified = child._lastModified || child._created;
+          
+          // Apply time filter if specified
+          if (filterTimestamp && lastModified && lastModified < filterTimestamp) {
+            return; // Skip this topic - it's older than the filter
+          }
+          
           // This is a leaf node with a message
           const topicData: any = {
             topic: fullPath,
             messageCount: child._messagesCounter,
             sessionCount: child._sessionCounter || 0,
             lastMessage: child._message,
-            lastModified: child._lastModified || child._created
+            lastModified: lastModified
           };
 
           if (child._messageType) {

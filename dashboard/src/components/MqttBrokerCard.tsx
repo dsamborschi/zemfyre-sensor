@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { ChevronRight, ChevronDown, Activity, Circle } from "lucide-react";
+import { ChevronRight, ChevronDown, Activity, Circle, Copy, Check } from "lucide-react";
 import { cn } from "./ui/utils";
 
 interface MqttTopic {
@@ -17,12 +17,14 @@ interface TopicNodeProps {
   level?: number;
   onTopicSelect?: (topic: string, message: string) => void;
   fullPath?: string;
+  selectedTopic?: string;
 }
 
-const TopicNode = ({ topic, level = 0, onTopicSelect, fullPath = '' }: TopicNodeProps) => {
+const TopicNode = ({ topic, level = 0, onTopicSelect, fullPath = '', selectedTopic }: TopicNodeProps) => {
   const [isExpanded, setIsExpanded] = useState(true);
   const hasChildren = topic.children && topic.children.length > 0;
   const currentPath = fullPath ? `${fullPath}/${topic.name}` : topic.name;
+  const isSelected = currentPath === selectedTopic;
 
   // Reset expansion state when topic name changes (e.g., device UUID changes)
   useEffect(() => {
@@ -30,10 +32,8 @@ const TopicNode = ({ topic, level = 0, onTopicSelect, fullPath = '' }: TopicNode
   }, [topic.name, level]);
 
   const handleClick = () => {
-    if (hasChildren) {
-      setIsExpanded(!isExpanded);
-    } else if (onTopicSelect && topic.lastMessage) {
-      // Leaf node - select it to show JSON
+    // Only select topic, don't toggle expansion
+    if (onTopicSelect && topic.lastMessage) {
       onTopicSelect(currentPath, topic.lastMessage);
     }
   };
@@ -42,8 +42,9 @@ const TopicNode = ({ topic, level = 0, onTopicSelect, fullPath = '' }: TopicNode
     <div>
       <div
         className={cn(
-          "flex items-center gap-2 py-2 px-2 hover:bg-gray-50 rounded cursor-pointer group",
-          !hasChildren && "hover:bg-blue-50" // Highlight leaf nodes on hover
+          "flex items-center gap-2 py-2 px-2 rounded cursor-pointer group",
+          isSelected ? "bg-blue-100 hover:bg-blue-100" : "hover:bg-gray-50",
+          !hasChildren && !isSelected && "hover:bg-blue-50" // Highlight leaf nodes on hover
         )}
         style={{ marginLeft: `${level * 24}px` }}
         onClick={handleClick}
@@ -61,8 +62,9 @@ const TopicNode = ({ topic, level = 0, onTopicSelect, fullPath = '' }: TopicNode
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className={cn(
-              "font-mono text-sm truncate",
-              hasChildren ? "text-gray-900 font-medium" : "text-gray-700"
+              "font-mono text-sm truncate text-gray-700",
+              hasChildren && "text-gray-900 font-medium",
+              isSelected && "font-semibold text-gray-900"
             )}>
               {topic.name}
             </span>
@@ -72,11 +74,6 @@ const TopicNode = ({ topic, level = 0, onTopicSelect, fullPath = '' }: TopicNode
               </Badge>
             )}
           </div>
-          {topic.lastMessage && !hasChildren && (
-            <div className="text-xs text-gray-500 font-mono truncate mt-1">
-              {topic.lastMessage}
-            </div>
-          )}
         </div>
       </div>
 
@@ -89,6 +86,7 @@ const TopicNode = ({ topic, level = 0, onTopicSelect, fullPath = '' }: TopicNode
               level={level + 1}
               onTopicSelect={onTopicSelect}
               fullPath={currentPath}
+              selectedTopic={selectedTopic}
             />
           ))}
         </div>
@@ -114,11 +112,12 @@ const buildTopicTree = (flatTopics: any[]): MqttTopic[] => {
         current[part] = {
           name: part,
           messageCount: 0,
+          lastMessage: undefined,
           children: {},
         };
       }
 
-      // If this is the last part, set the message details
+      // If this is the last part, set the message details for this exact topic
       if (index === parts.length - 1) {
         current[part].messageCount = messageCount;
         current[part].lastMessage = lastMessage;
@@ -137,7 +136,7 @@ const buildTopicTree = (flatTopics: any[]): MqttTopic[] => {
 
       return {
         name: node.name,
-        messageCount: node.messageCount,
+        messageCount: node.messageCount || 0,
         lastMessage: node.lastMessage,
         children,
       };
@@ -153,66 +152,59 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
   const [loading, setLoading] = useState(true);
   const [totalMessages, setTotalMessages] = useState(0);
   const [activeTopics, setActiveTopics] = useState(0);
-  const [timeWindow, setTimeWindow] = useState(15); // 15 minutes by default
   const [selectedTopic, setSelectedTopic] = useState<string>('');
   const [selectedMessage, setSelectedMessage] = useState<string>('');
+  const [copied, setCopied] = useState(false);
+  const [timeWindow, setTimeWindow] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Fetch topics from API
   useEffect(() => {
     const fetchTopics = async () => {
       try {
-        console.log(`[MqttBrokerCard] Fetching topics with time window: ${timeWindow} minutes`);
+        console.log(`[MqttBrokerCard] Fetching topics for device: ${deviceId}, timeWindow: ${timeWindow}`);
         
-        // Fetch both recent activity AND actual topics for last message
-        const [recentResponse, topicsResponse] = await Promise.all([
-          fetch(`http://localhost:4002/api/v1/mqtt-monitor/recent-activity?window=${timeWindow}`),
-          fetch('http://localhost:4002/api/v1/mqtt-monitor/topics')
-        ]);
+        // Fetch topics with time window filter
+        const url = timeWindow === 'all' 
+          ? 'http://localhost:4002/api/v1/mqtt-monitor/topics'
+          : `http://localhost:4002/api/v1/mqtt-monitor/topics?timeWindow=${timeWindow}`;
+        const topicsResponse = await fetch(url);
         
-        if (recentResponse.ok && topicsResponse.ok) {
-          const recentData = await recentResponse.json();
+        if (topicsResponse.ok) {
           const topicsData = await topicsResponse.json();
           
-          if (recentData.success && recentData.data && topicsData.success && topicsData.data) {
-            // Filter topics for the selected device
-            const deviceRecentTopics = recentData.data.filter((t: any) => 
+          if (topicsData.success) {
+            console.log('[MqttBrokerCard] All topics:', topicsData);
+            
+            // Filter topics for the selected device only
+            // Only include topics that contain the specific deviceId
+            const deviceTopics = topicsData.data.filter((t: any) => 
               t.topic.includes(deviceId)
             );
 
-            // Create a map of topics with their last message
-            const topicLastMessageMap = new Map(
-              topicsData.data
-                .filter((t: any) => t.topic.includes(deviceId))
-                .map((t: any) => [t.topic, t.lastMessage])
-            );
+            console.log(`[MqttBrokerCard] Found ${deviceTopics.length} topics for device ${deviceId}`);
 
-            console.log(`[MqttBrokerCard] Found ${deviceRecentTopics.length} active topics in last ${timeWindow} minutes`);
+            // Use the data directly from the API (messageCount is already there)
+            const topicsForTree = deviceTopics.map((t: any) => ({
+              topic: t.topic,
+              messageCount: t.messageCount || 0,
+              lastMessage: t.lastMessage
+            }));
 
-            // Convert recent activity to format expected by buildTopicTree
-            // Combine recent message count with actual last message
-            const topicsForTree = deviceRecentTopics.map((t: any) => {
-              const lastMsg = topicLastMessageMap.get(t.topic);
-              // Truncate long JSON messages, show rate for summary
-              const displayMessage = lastMsg && typeof lastMsg === 'string'
-                ? (lastMsg.length > 100 ? lastMsg.substring(0, 97) + '...' : lastMsg)
-                : `Rate: ${t.messageRate.toFixed(1)}/min`;
-              
-              return {
-                topic: t.topic,
-                messageCount: t.messageCount,
-                lastMessage: displayMessage
-              };
-            });
+            console.log('[MqttBrokerCard] Topics for tree:', topicsForTree);
+            console.log('[MqttBrokerCard] Topic paths:', topicsForTree.map((t: any) => t.topic));
 
             // Build hierarchical tree
             const tree = buildTopicTree(topicsForTree);
+            console.log('[MqttBrokerCard] Built tree:', JSON.stringify(tree, null, 2));
             setTopics(tree);
             setIsConnected(true);
             
-            // Calculate stats - sum of recent message counts
-            const total = deviceRecentTopics.reduce((sum: number, t: any) => sum + (t.messageCount || 0), 0);
+            // Calculate stats from all topics
+            const total = deviceTopics.reduce((sum: number, t: any) => sum + (t.messageCount || 0), 0);
+            const active = deviceTopics.filter((t: any) => (t.messageCount || 0) > 0).length;
             setTotalMessages(total);
-            setActiveTopics(deviceRecentTopics.length);
+            setActiveTopics(active);
           }
         }
       } catch (error) {
@@ -243,11 +235,82 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
     setSelectedMessage(message);
   };
 
+  // Copy topic to clipboard
+  const handleCopyTopic = async () => {
+    try {
+      await navigator.clipboard.writeText(selectedTopic);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // Reset after 2 seconds
+    } catch (err) {
+      console.error('Failed to copy topic:', err);
+    }
+  };
+
+  // Clear selected topic when device changes or topics become empty
+  useEffect(() => {
+    if (topics.length === 0) {
+      setSelectedTopic('');
+      setSelectedMessage('');
+    }
+  }, [topics, deviceId]);
+
+  // Filter topics based on search query
+  const filterTopics = (topics: MqttTopic[], query: string): MqttTopic[] => {
+    if (!query.trim()) return topics;
+    
+    const lowerQuery = query.toLowerCase();
+    
+    return topics.filter(topic => {
+      // Check if current topic name matches
+      const nameMatches = topic.name.toLowerCase().includes(lowerQuery);
+      
+      // Check if any children match (recursively)
+      const hasMatchingChildren = topic.children && topic.children.length > 0 
+        ? filterTopics(topic.children, query).length > 0
+        : false;
+      
+      // Include topic if it matches or has matching children
+      if (nameMatches || hasMatchingChildren) {
+        // If topic has children, filter them too
+        if (topic.children && topic.children.length > 0) {
+          return {
+            ...topic,
+            children: filterTopics(topic.children, query)
+          };
+        }
+        return true;
+      }
+      
+      return false;
+    }).map(topic => {
+      // Apply filter to children
+      if (topic.children && topic.children.length > 0) {
+        return {
+          ...topic,
+          children: filterTopics(topic.children, query)
+        };
+      }
+      return topic;
+    });
+  };
+
+  const filteredTopics = useMemo(() => {
+    return filterTopics(topics, searchQuery);
+  }, [topics, searchQuery]);
+
   // Try to parse and format JSON
   const formatJsonMessage = (message: string) => {
     try {
       const parsed = JSON.parse(message);
-      return JSON.stringify(parsed, null, 2);
+      const formatted = JSON.stringify(parsed, null, 2);
+      
+      // Add syntax highlighting
+      return formatted
+        .replace(/(".*?"):/g, '<span class="text-blue-600 font-medium">$1</span>:')  // Keys
+        .replace(/: (".*?")/g, ': <span class="text-green-600">$1</span>')  // String values
+        .replace(/: (true|false)/g, ': <span class="text-purple-600 font-semibold">$1</span>')  // Booleans
+        .replace(/: (null)/g, ': <span class="text-gray-500 italic">$1</span>')  // Null
+        .replace(/: (-?\d+\.?\d*)/g, ': <span class="text-orange-600">$1</span>');  // Numbers
     } catch (e) {
       return message; // Return as-is if not valid JSON
     }
@@ -257,7 +320,7 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
     <Card className="p-4 md:p-6">
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg text-gray-900 font-medium mb-1">MQTT Topics</h3>
+          <h3 className="text-lg text-gray-900 font-medium mb-1">MQTT Explorer</h3>
           <div className="flex items-center gap-2">
             <Activity className={cn(
               "w-4 h-4",
@@ -276,21 +339,8 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
         <p className="text-gray-600">Topic hierarchy and message counts</p>
       </div>
 
-      {/* Stats with Time Window Selector */}
+      {/* Stats */}
       <div className="mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <p className="text-xs text-gray-500"></p>
-          <select 
-            value={timeWindow}
-            onChange={(e) => setTimeWindow(parseInt(e.target.value))}
-            className="text-xs px-2 py-1 border border-gray-300 rounded-md bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="5">Last 5 min</option>
-            <option value="15">Last 15 min</option>
-            <option value="30">Last 30 min</option>
-            <option value="60">Last hour</option>
-          </select>
-        </div>
         <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-lg">
           <div>
             <p className="text-xs text-gray-500 mb-1">Messages</p>
@@ -307,49 +357,129 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
         </div>
       </div>
 
-      {/* Topic Tree and JSON Viewer - Split View */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {/* Time Window Selector */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Time Window
+        </label>
+        <select
+          value={timeWindow}
+          onChange={(e) => setTimeWindow(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
+        >
+          <option value="all">All Time</option>
+          <option value="1h">Last Hour</option>
+          <option value="6h">Last 6 Hours</option>
+          <option value="24h">Last 24 Hours</option>
+          <option value="7d">Last 7 Days</option>
+          <option value="30d">Last 30 Days</option>
+        </select>
+      </div>
+
+      {/* Search Filter */}
+      <div className="mb-4">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          Search Topics
+        </label>
+        <div className="relative">
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Filter by topic name..."
+            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 placeholder-gray-400"
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery('')}
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+              title="Clear search"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
+        </div>
+        {searchQuery && (
+          <p className="mt-1 text-xs text-gray-500">
+            Filtering topics containing: "{searchQuery}"
+          </p>
+        )}
+      </div>
+
+      {/* Topic Tree and JSON Viewer - Conditional Split View */}
+      <div className={cn(
+        "grid grid-cols-1 gap-4",
+        selectedTopic && "md:grid-cols-2" // Only show 2-column layout when topic is selected
+      )}>
         {/* Topic Tree */}
-        <div className="border border-gray-200 rounded-lg p-2 max-h-[500px] overflow-y-auto">
+        <div className="border border-gray-200 rounded-lg p-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
           {loading ? (
             <div className="text-center py-8 text-gray-500">Loading topics...</div>
-          ) : topics.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No topics found for this device</div>
+          ) : filteredTopics.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">
+              {searchQuery ? `No topics matching "${searchQuery}"` : 'No topics found for this device'}
+            </div>
           ) : (
-            topics.map((topic, index) => (
+            filteredTopics.map((topic, index) => (
               <TopicNode 
                 key={`${topic.name}-${index}`} 
                 topic={topic} 
                 onTopicSelect={handleTopicSelect}
+                selectedTopic={selectedTopic}
               />
             ))
           )}
         </div>
 
-        {/* JSON Message Viewer */}
-        <div className="border border-gray-200 rounded-lg p-3 max-h-[500px] overflow-y-auto bg-gray-50">
-          {selectedTopic ? (
+        {/* JSON Message Viewer - Only render when a leaf topic is selected */}
+        {selectedTopic && (
+          <div className="border border-gray-200 rounded-lg p-3 max-h-[500px] overflow-y-auto bg-gray-50">
             <div>
               <div className="mb-2 pb-2 border-b border-gray-300">
-                <p className="text-xs font-semibold text-gray-700 mb-1">Topic:</p>
+                <div className="flex items-start justify-between gap-2 mb-1">
+                  <p className="text-xs font-semibold text-gray-700">Topic:</p>
+                  <button
+                    onClick={handleCopyTopic}
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
+                    title={copied ? "Copied!" : "Copy topic"}
+                  >
+                    {copied ? (
+                      <>
+                        <Check className="w-3 h-3 text-green-600" />
+                        <span className="text-green-600">Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3 h-3" />
+                        <span>Copy</span>
+                      </>
+                    )}
+                  </button>
+                </div>
                 <p className="text-xs font-mono text-gray-900 break-all">{selectedTopic}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-gray-700 mb-2">Message:</p>
-                <pre className="text-xs font-mono text-gray-800 whitespace-pre-wrap break-words bg-white p-3 rounded border border-gray-200 overflow-x-auto">
-                  {formatJsonMessage(selectedMessage)}
-                </pre>
+                <p className="text-xs font-semibold text-gray-700 mb-2">Last Message:</p>
+                <pre 
+                  className="text-xs font-mono text-gray-800 whitespace-pre-wrap break-words bg-white p-3 rounded border border-gray-200 overflow-x-auto"
+                  dangerouslySetInnerHTML={{ __html: formatJsonMessage(selectedMessage) }}
+                />
               </div>
             </div>
-          ) : (
-            <div className="flex items-center justify-center h-full text-center text-gray-400">
-              <div>
-                <Circle className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Select a topic to view its message</p>
-              </div>
-            </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
     </Card>
   );
