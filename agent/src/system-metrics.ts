@@ -24,7 +24,7 @@ export interface ProcessInfo {
 	name: string;
 	cpu: number;
 	mem: number;
-	command: string;
+	command?: string; // Optional - excluded to reduce data size
 }
 
 export interface NetworkInterfaceInfo {
@@ -315,7 +315,14 @@ export async function isUndervolted(): Promise<boolean> {
  */
 export async function getTopProcesses(): Promise<ProcessInfo[]> {
 	try {
-		// Try to get all processes including system processes
+		// On Windows, we need to call processes() twice with a delay to get accurate CPU readings
+		// First call initializes the measurement
+		await systeminformation.processes();
+		
+		// Wait 1 second for CPU measurement to stabilize (Windows requirement)
+		await new Promise(resolve => setTimeout(resolve, 1000));
+		
+		// Second call gets the actual CPU usage
 		const processes = await systeminformation.processes();
 		
 		// If systeminformation returns empty, try fallback method
@@ -347,10 +354,10 @@ export async function getTopProcesses(): Promise<ProcessInfo[]> {
 			name: proc.name,
 			cpu: Math.round(proc.cpu * 10) / 10, // Round to 1 decimal
 			mem: Math.round(proc.mem * 10) / 10, // Round to 1 decimal
-			command: proc.command || proc.name,
 		}));
 		
 		console.log(`[Metrics] Top processes: ${formattedProcs.length} collected`);
+		console.log(`[Metrics] Sample process data - ${formattedProcs[0]?.name}: CPU=${formattedProcs[0]?.cpu}%, MEM=${formattedProcs[0]?.mem}%`);
 		return formattedProcs;
 	} catch (error) {
 		console.error('[Metrics] Failed to get top processes:', error);

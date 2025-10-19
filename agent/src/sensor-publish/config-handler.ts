@@ -1,6 +1,19 @@
-import { Logger } from '../logging/types';
 import { ShadowFeature } from '../shadow';
 import { SensorPublishFeature } from './sensor-publish-feature';
+
+// Simple logger interface
+interface SimpleLogger {
+  info(message: string, ...args: any[]): void;
+  debug(message: string, ...args: any[]): void;
+  error(message: string, ...args: any[]): void;
+}
+
+// Default console logger
+const consoleLogger: SimpleLogger = {
+  info: (message: string, ...args: any[]) => console.log(message, ...args),
+  debug: (message: string, ...args: any[]) => console.log(message, ...args),
+  error: (message: string, ...args: any[]) => console.error(message, ...args),
+};
 
 export interface SensorConfig {
   enabled: boolean;
@@ -23,10 +36,11 @@ export interface SensorConfigUpdate {
 export class SensorConfigHandler {
   private static readonly TAG = 'SensorConfigHandler';
   
+  private logger: SimpleLogger = consoleLogger;
+
   constructor(
     private shadowFeature: ShadowFeature,
-    private sensorPublishFeature: SensorPublishFeature,
-    private logger: Logger
+    private sensorPublishFeature: SensorPublishFeature
   ) {}
   
   /**

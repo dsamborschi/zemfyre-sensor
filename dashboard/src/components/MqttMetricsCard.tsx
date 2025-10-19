@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/card";
 import { Activity } from "lucide-react";
-import { useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   AreaChart,
   Area,
@@ -14,69 +14,130 @@ import {
   ResponsiveContainer,
 } from "recharts";
 
+interface BrokerStats {
+  connectedClients: number;
+  disconnectedClients: number;
+  totalClients: number;
+  subscriptions: number;
+  retainedMessages: number;
+  messagesSent: number;
+  messagesReceived: number;
+  messagesPublished: number;
+  messagesDropped: number;
+  bytesSent: number;
+  bytesReceived: number;
+  messageRatePublished: number;
+  messageRateReceived: number;
+  throughputInbound: number;
+  throughputOutbound: number;
+}
+
 interface MqttMetricsCardProps {
   deviceId: string;
 }
 
-const randomInRange = (min: number, max: number) => 
-  Math.floor(Math.random() * (max - min + 1)) + min;
-
-const generateMockMetrics = (deviceId: string) => {
-  // Generate time-series data for MQTT metrics
-  const now = new Date();
-  const messageRateHistory = [];
-  const throughputHistory = [];
-  const connectionHistory = [];
-
-  for (let i = 29; i >= 0; i--) {
-    const time = new Date(now.getTime() - i * 2000);
-    const timeStr = time.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    
-    // Message rate data (messages per second)
-    messageRateHistory.push({
-      time: timeStr,
-      published: randomInRange(50, 200),
-      received: randomInRange(40, 180),
-    });
-
-    // Throughput data (KB/s)
-    throughputHistory.push({
-      time: timeStr,
-      inbound: randomInRange(10, 80),
-      outbound: randomInRange(15, 90),
-    });
-
-    // Connection count
-    connectionHistory.push({
-      time: timeStr,
-      clients: randomInRange(5, 20),
-      subscriptions: randomInRange(15, 60),
-    });
-  }
-
-  return {
-    messageRateHistory,
-    throughputHistory,
-    connectionHistory,
-  };
-};
-
 export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
-  const metrics = useMemo(() => generateMockMetrics(deviceId), [deviceId]);
+  const [brokerStats, setBrokerStats] = useState<BrokerStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [messageRateHistory, setMessageRateHistory] = useState<Array<{time: string; published: number; received: number}>>([]);
+  const [throughputHistory, setThroughputHistory] = useState<Array<{time: string; inbound: number; outbound: number}>>([]);
+  const [connectionHistory, setConnectionHistory] = useState<Array<{time: string; clients: number; subscriptions: number}>>([]);
 
-  // Calculate current stats (last value from each series)
+  // Fetch broker stats from API
+  useEffect(() => {
+    const fetchBrokerStats = async () => {
+      try {
+        const response = await fetch('http://localhost:4002/api/v1/mqtt-monitor/stats');
+        if (response.ok) {
+          const data = await response.json();
+          if (data.stats) {
+            // Map the API response to our BrokerStats interface
+            const mappedStats: BrokerStats = {
+              connectedClients: parseInt(data.stats.broker?.clients?.connected || '0'),
+              disconnectedClients: parseInt(data.stats.broker?.clients?.disconnected || '0'),
+              totalClients: parseInt(data.stats.broker?.clients?.total || '0'),
+              subscriptions: parseInt(data.stats.broker?.subscriptions?.count || '0'),
+              retainedMessages: parseInt(data.stats.broker?.['retained messages']?.count || '0'),
+              messagesSent: parseInt(data.stats.broker?.messages?.sent || '0'),
+              messagesReceived: parseInt(data.stats.broker?.messages?.received || '0'),
+              messagesPublished: parseInt(data.stats.broker?.publish?.messages?.sent || '0'),
+              messagesDropped: parseInt(data.stats.broker?.publish?.messages?.dropped || '0'),
+              bytesSent: parseInt(data.stats.broker?.bytes?.sent || '0'),
+              bytesReceived: parseInt(data.stats.broker?.bytes?.received || '0'),
+              messageRatePublished: parseFloat(data.stats.broker?.load?.publish?.sent?.['1min'] || '0'),
+              messageRateReceived: parseFloat(data.stats.broker?.load?.publish?.received?.['1min'] || '0'),
+              throughputInbound: parseFloat(data.stats.broker?.load?.bytes?.received?.['1min'] || '0'),
+              throughputOutbound: parseFloat(data.stats.broker?.load?.bytes?.sent?.['1min'] || '0'),
+            };
+            
+            setBrokerStats(mappedStats);
+            
+            // Update history with new data point
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+            
+            setMessageRateHistory(prev => {
+              const newEntry = {
+                time: timeStr,
+                published: Math.round(mappedStats.messageRatePublished),
+                received: Math.round(mappedStats.messageRateReceived),
+              };
+              const updated = [...prev, newEntry];
+              return updated.slice(-30); // Keep last 30 data points
+            });
+            
+            setThroughputHistory(prev => {
+              const newEntry = {
+                time: timeStr,
+                inbound: Math.round(mappedStats.throughputInbound / 1024), // Convert to KB/s
+                outbound: Math.round(mappedStats.throughputOutbound / 1024),
+              };
+              const updated = [...prev, newEntry];
+              return updated.slice(-30);
+            });
+            
+            setConnectionHistory(prev => {
+              const newEntry = {
+                time: timeStr,
+                clients: mappedStats.connectedClients,
+                subscriptions: mappedStats.subscriptions,
+              };
+              const updated = [...prev, newEntry];
+              return updated.slice(-30);
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch broker stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBrokerStats();
+    const interval = setInterval(fetchBrokerStats, 5000); // Refresh every 5 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Calculate current stats
   const currentStats = useMemo(() => {
-    const lastMessageRate = metrics.messageRateHistory[metrics.messageRateHistory.length - 1];
-    const lastThroughput = metrics.throughputHistory[metrics.throughputHistory.length - 1];
-    const lastConnection = metrics.connectionHistory[metrics.connectionHistory.length - 1];
+    if (!brokerStats) {
+      return {
+        messagesPerSec: 0,
+        throughputKBps: 0,
+        activeClients: 0,
+        activeSubscriptions: 0,
+      };
+    }
 
     return {
-      messagesPerSec: lastMessageRate.published + lastMessageRate.received,
-      throughputKBps: lastThroughput.inbound + lastThroughput.outbound,
-      activeClients: lastConnection.clients,
-      activeSubscriptions: lastConnection.subscriptions,
+      messagesPerSec: Math.round((brokerStats.messageRatePublished || 0) + (brokerStats.messageRateReceived || 0)),
+      throughputKBps: Math.round(((brokerStats.throughputInbound || 0) + (brokerStats.throughputOutbound || 0)) / 1024),
+      activeClients: brokerStats.connectedClients || 0,
+      activeSubscriptions: brokerStats.subscriptions || 0,
     };
-  }, [metrics]);
+  }, [brokerStats]);
 
   return (
     <Card className="p-4 md:p-6">
@@ -117,7 +178,7 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
             <p className="text-gray-600 text-xs">Published and received messages per second</p>
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <AreaChart data={metrics.messageRateHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+            <AreaChart data={messageRateHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
               <defs>
                 <linearGradient id="colorPublished" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
@@ -167,7 +228,7 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
             <p className="text-gray-600 text-xs">Inbound and outbound data transfer (KB/s)</p>
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={metrics.throughputHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+            <LineChart data={throughputHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="time" 
@@ -203,7 +264,7 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
             <p className="text-gray-600 text-xs">Connected clients and active subscriptions</p>
           </div>
           <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={metrics.connectionHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+            <LineChart data={connectionHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
               <XAxis 
                 dataKey="time" 

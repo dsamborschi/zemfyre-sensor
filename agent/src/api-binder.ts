@@ -34,6 +34,13 @@ interface DeviceStateReport {
 		os_version?: string;
 		supervisor_version?: string;
 		uptime?: number;
+		top_processes?: Array<{
+			pid: number;
+			name: string;
+			cpu: number;
+			mem: number;
+			command?: string;
+		}>;
 	};
 }
 
@@ -352,6 +359,7 @@ export class ApiBinder extends EventEmitter {
 				stateReport[deviceInfo.uuid].storage_total = metrics.storage_total ?? undefined;
 				stateReport[deviceInfo.uuid].temperature = metrics.cpu_temp ?? undefined;
 				stateReport[deviceInfo.uuid].uptime = metrics.uptime;
+				stateReport[deviceInfo.uuid].top_processes = metrics.top_processes ?? [];
 				
 				// Get IP address from network interfaces
 				const primaryInterface = metrics.network_interfaces.find(i => i.default);

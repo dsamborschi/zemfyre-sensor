@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Cpu, HardDrive, MemoryStick, Activity, Wifi, Thermometer, Zap, Clock, Package } from "lucide-react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -186,13 +186,39 @@ export function SystemMetrics({
     { label: "MAC Address", value: "00:1B:44:11:3A:B7" },
   ];
 
-  const processes = [
-    { name: "node", cpu: 18.5, memory: 12.3, pid: 1234 },
-    { name: "postgres", cpu: 12.2, memory: 8.7, pid: 5678 },
-    { name: "nginx", cpu: 8.1, memory: 5.2, pid: 9012 },
-    { name: "docker", cpu: 6.5, memory: 15.6, pid: 3456 },
-    { name: "systemd", cpu: 4.2, memory: 3.1, pid: 1 },
-  ];
+  // Fetch process data from API
+  const [processes, setProcesses] = useState<Array<{
+    pid: number;
+    name: string;
+    cpu: number;
+    mem: number;
+    command?: string;
+  }>>([]);
+  const [processesLoading, setProcessesLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProcesses = async () => {
+      if (!device.deviceUuid) return;
+      
+      try {
+        const response = await fetch(`http://localhost:4002/api/v1/devices/${device.deviceUuid}/processes`);
+        const data = await response.json();
+        
+        if (data.top_processes && Array.isArray(data.top_processes)) {
+          setProcesses(data.top_processes);
+        }
+      } catch (error) {
+        console.error('Failed to fetch processes:', error);
+      } finally {
+        setProcessesLoading(false);
+      }
+    };
+
+    fetchProcesses();
+    const interval = setInterval(fetchProcesses, 5000); // Refresh every 5 seconds
+
+    return () => clearInterval(interval);
+  }, [device.deviceUuid]);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -526,7 +552,7 @@ export function SystemMetrics({
 
         {/* Analytics Card */}
         <div id="analytics-section">
-          <AnalyticsCard deviceName={device.name} processes={processes} />
+          <AnalyticsCard deviceName={device.name} deviceId={device.deviceUuid} processes={processes} />
         </div>
 
         {/* Top Processes */}
@@ -535,39 +561,47 @@ export function SystemMetrics({
             <h3 className="text-lg text-gray-900 font-medium mb-1">Top Processes</h3>
             <p className="text-sm text-gray-600">Most resource-intensive processes</p>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-3 px-0 text-sm font-medium text-gray-600">Process</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 hidden sm:table-cell">PID</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">CPU %</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 hidden md:table-cell">Memory %</th>
-                  <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 hidden lg:table-cell">CPU Usage</th>
-                </tr>
-              </thead>
-              <tbody>
-                {processes.map((process, index) => (
-                  <tr key={index} className="border-b border-gray-100 last:border-0">
-                    <td className="py-3 px-0 text-gray-900">{process.name}</td>
-                    <td className="py-3 px-4 text-gray-600 hidden sm:table-cell">{process.pid}</td>
-                    <td className="py-3 px-4 text-gray-900">{process.cpu}%</td>
-                    <td className="py-3 px-4 text-gray-900 hidden md:table-cell">{process.memory}%</td>
-                    <td className="py-3 px-4 hidden lg:table-cell">
-                      <div className="flex items-center gap-2">
-                        <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[120px]">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full transition-all"
-                            style={{ width: `${process.cpu * 5}%` }}
-                          />
-                        </div>
-                      </div>
-                    </td>
+          {processesLoading ? (
+            <div className="text-center py-8 text-gray-500">Loading processes...</div>
+          ) : processes.length === 0 ? (
+            <div className="text-center py-8 text-gray-500">No process data available</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-0 text-sm font-medium text-gray-600">Process</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 hidden sm:table-cell">PID</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">CPU %</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 hidden md:table-cell">Memory %</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 hidden lg:table-cell">CPU Usage</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                </thead>
+                <tbody>
+                  {processes.map((process, index) => (
+                    <tr key={index} className="border-b border-gray-100 last:border-0">
+                      <td className="py-3 px-0 text-gray-900 truncate max-w-[150px]">
+                        {process.name}
+                      </td>
+                      <td className="py-3 px-4 text-gray-600 hidden sm:table-cell">{process.pid}</td>
+                      <td className="py-3 px-4 text-gray-900">{process.cpu.toFixed(1)}%</td>
+                      <td className="py-3 px-4 text-gray-900 hidden md:table-cell">{process.mem.toFixed(1)}%</td>
+                      <td className="py-3 px-4 hidden lg:table-cell">
+                        <div className="flex items-center gap-2">
+                          <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[120px]">
+                            <div
+                              className="bg-blue-600 h-2 rounded-full transition-all"
+                              style={{ width: `${Math.min(process.cpu * 5, 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Card>
       </div>
     </div>

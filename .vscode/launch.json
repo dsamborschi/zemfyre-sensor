@@ -60,6 +60,8 @@
             "DB_POOL_SIZE":"20",
             "FORCE_COLOR":"1",
             "MQTT_BROKER_URL":"mqtt://localhost:5883",
+            "MQTT_PERSIST_TO_DB":"true",
+            "MQTT_DB_SYNC_INTERVAL": "10000"
       }
     }
   ]

@@ -705,8 +705,7 @@ export default class DeviceSupervisor {
 			// Create sensor config handler
 			this.sensorConfigHandler = new SensorConfigHandler(
 				this.shadowFeature,
-				this.sensorPublish,
-				configLogger
+				this.sensorPublish
 			);
 
 			// Start listening for delta events

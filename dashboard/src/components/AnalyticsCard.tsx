@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card } from "./ui/card";
 import {
   Select,
@@ -30,6 +30,7 @@ interface Process {
 
 interface AnalyticsCardProps {
   deviceName?: string;
+  deviceId?: string;
   processes?: Process[];
 }
 
@@ -81,9 +82,11 @@ const timePeriodOptions = [
 // Colors for different processes
 const processColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
 
-export function AnalyticsCard({ deviceName = "Device 1", processes = [] }: AnalyticsCardProps) {
+export function AnalyticsCard({ deviceName = "Device 1", deviceId, processes = [] }: AnalyticsCardProps) {
   const [selectedMetric, setSelectedMetric] = useState<MetricType>("cpu");
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("24h");
+  const [historicalData, setHistoricalData] = useState<any[]>([]);
+  const [useRealData, setUseRealData] = useState(false);
 
   // Use default processes if none provided
   const defaultProcesses = [
@@ -95,7 +98,64 @@ export function AnalyticsCard({ deviceName = "Device 1", processes = [] }: Analy
   ];
 
   const activeProcesses = processes.length > 0 ? processes : defaultProcesses;
-  const chartData = generateProcessData(timePeriod, activeProcesses, selectedMetric);
+
+  // Fetch historical process data from API
+  useEffect(() => {
+    if (!deviceId) {
+      setUseRealData(false);
+      return;
+    }
+
+    const fetchHistoricalData = async () => {
+      try {
+        const hoursMap = { "30min": 1, "6h": 6, "12h": 12, "24h": 24 };
+        const hours = hoursMap[timePeriod];
+        
+        const response = await fetch(
+          `http://localhost:4002/api/v1/devices/${deviceId}/processes/history?hours=${hours}&limit=50`
+        );
+        const data = await response.json();
+        
+        if (data.history && data.history.length > 0) {
+          // Process historical data into chart format
+          const processed = data.history.reverse().map((entry: any) => {
+            const time = new Date(entry.recorded_at).toLocaleTimeString('en-US', {
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false
+            });
+            
+            const dataPoint: any = { time };
+            
+            // Add data for each process
+            entry.top_processes.forEach((proc: any) => {
+              dataPoint[proc.name] = selectedMetric === 'cpu' ? proc.cpu : proc.mem;
+            });
+            
+            return dataPoint;
+          });
+          
+          setHistoricalData(processed);
+          setUseRealData(true);
+        } else {
+          setUseRealData(false);
+        }
+      } catch (error) {
+        console.error('Failed to fetch historical process data:', error);
+        setUseRealData(false);
+      }
+    };
+
+    fetchHistoricalData();
+    const interval = setInterval(fetchHistoricalData, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [deviceId, timePeriod, selectedMetric]);
+
+  // Fallback to simulated data if no real data available
+  const chartData = useRealData && historicalData.length > 0 
+    ? historicalData 
+    : generateProcessData(timePeriod, activeProcesses, selectedMetric);
 
   const getMetricUnit = () => {
     switch (selectedMetric) {

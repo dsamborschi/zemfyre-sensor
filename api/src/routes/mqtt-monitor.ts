@@ -1,0 +1,635 @@
+/**
+ * MQTT Monitoring Dashboard API Routes
+ * Provides topic tree, metrics, and real-time broker statistics
+ */
+
+import { Router, Request, Response } from 'express';
+import { MQTTMonitorService } from '../services/mqtt-monitor';
+import { MQTTDatabaseService } from '../services/mqtt-database.service';
+import poolWrapper from '../db/connection';
+
+const router = Router();
+
+// Singleton monitor instance
+let monitor: MQTTMonitorService | null = null;
+let mqttDbService: MQTTDatabaseService | null = null;
+
+/**
+ * Initialize the MQTT monitor
+ */
+function initializeMonitor(): MQTTMonitorService {
+  if (!monitor) {
+    const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
+    const username = process.env.MQTT_USERNAME;
+    const password = process.env.MQTT_PASSWORD;
+    const persistToDatabase = process.env.MQTT_PERSIST_TO_DB === 'true';
+
+    // Initialize database service if persistence is enabled
+    if (persistToDatabase) {
+      mqttDbService = new MQTTDatabaseService(poolWrapper.pool);
+      console.log('[MQTT Monitor API] Database persistence enabled');
+    }
+
+    monitor = new MQTTMonitorService({
+      brokerUrl,
+      username,
+      password,
+      topicTreeEnabled: true,
+      metricsEnabled: true,
+      schemaGenerationEnabled: true,
+      persistToDatabase,
+      dbSyncInterval: parseInt(process.env.MQTT_DB_SYNC_INTERVAL || '30000')
+    }, mqttDbService);
+
+    // Log events
+    monitor.on('connected', () => {
+      console.log('[MQTT Monitor API] Monitor connected to broker');
+    });
+
+    monitor.on('error', (error) => {
+      console.error('[MQTT Monitor API] Monitor error:', error);
+    });
+
+    monitor.on('metrics-updated', (metrics) => {
+      console.log(`[MQTT Monitor API] Metrics updated: ${metrics.clients} clients, ${metrics.messageRate.current.published} msg/s`);
+    });
+
+    // Auto-start
+    monitor.start().catch(err => {
+      console.error('[MQTT Monitor API] Failed to start monitor:', err);
+    });
+  }
+
+  return monitor;
+}
+
+/**
+ * GET /api/v1/mqtt-monitor/status
+ * Get monitor connection status
+ */
+router.get('/status', (req: Request, res: Response) => {
+  try {
+    if (!monitor) {
+      return res.json({
+        success: true,
+        data: {
+          connected: false,
+          message: 'Monitor not initialized'
+        }
+      });
+    }
+
+    const status = monitor.getStatus();
+    res.json({
+      success: true,
+      data: status
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * POST /api/v1/mqtt-monitor/start
+ * Start the MQTT monitor
+ */
+router.post('/start', async (req: Request, res: Response) => {
+  try {
+    const monitorInstance = initializeMonitor();
+    await monitorInstance.start();
+    
+    res.json({
+      success: true,
+      message: 'MQTT monitor started'
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * POST /api/v1/mqtt-monitor/stop
+ * Stop the MQTT monitor
+ */
+router.post('/stop', async (req: Request, res: Response) => {
+  try {
+    if (!monitor) {
+      return res.status(400).json({
+        success: false,
+        error: 'Monitor not running'
+      });
+    }
+
+    await monitor.stop();
+    monitor = null;
+
+    res.json({
+      success: true,
+      message: 'MQTT monitor stopped'
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/v1/mqtt-monitor/topic-tree
+ * Get complete hierarchical topic tree
+ */
+router.get('/topic-tree', (req: Request, res: Response) => {
+  try {
+    if (!monitor) {
+      return res.status(400).json({
+        success: false,
+        error: 'Monitor not running'
+      });
+    }
+
+    const topicTree = monitor.getTopicTree();
+    
+    res.json({
+      success: true,
+      data: topicTree
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/v1/mqtt-monitor/topics
+ * Get flattened list of topics with message counts and schemas
+ */
+router.get('/topics', (req: Request, res: Response) => {
+  try {
+    if (!monitor) {
+      return res.status(400).json({
+        success: false,
+        error: 'Monitor not running'
+      });
+    }
+
+    const topics = monitor.getFlattenedTopics();
+    
+    res.json({
+      success: true,
+      count: topics.length,
+      data: topics
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/v1/mqtt-monitor/topics/:topic/schema
+ * Get schema for a specific topic
+ */
+router.get('/topics/:topic(*)/schema', (req: Request, res: Response) => {
+  try {
+    if (!monitor) {
+      return res.status(400).json({
+        success: false,
+        error: 'Monitor not running'
+      });
+    }
+
+    const topic = req.params.topic;
+    const schemaData = monitor.getTopicSchema(topic);
+
+    if (!schemaData) {
+      return res.status(404).json({
+        success: false,
+        error: 'Topic not found or no schema available'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: {
+        topic,
+        ...schemaData
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/v1/mqtt-monitor/metrics
+ * Get real-time broker metrics (message rates, throughput, clients)
+ */
+router.get('/metrics', (req: Request, res: Response) => {
+  try {
+    if (!monitor) {
+      return res.status(400).json({
+        success: false,
+        error: 'Monitor not running'
+      });
+    }
+
+    const metrics = monitor.getMetrics();
+    
+    res.json({
+      success: true,
+      data: {
+        messageRate: metrics.messageRate,
+        throughput: metrics.throughput,
+        clients: metrics.clients,
+        subscriptions: metrics.subscriptions,
+        retainedMessages: metrics.retainedMessages,
+        totalMessages: {
+          sent: metrics.totalMessagesSent,
+          received: metrics.totalMessagesReceived
+        },
+        timestamp: metrics.timestamp
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/v1/mqtt-monitor/system-stats
+ * Get raw $SYS topic statistics
+ */
+router.get('/system-stats', (req: Request, res: Response) => {
+  try {
+    if (!monitor) {
+      return res.status(400).json({
+        success: false,
+        error: 'Monitor not running'
+      });
+    }
+
+    const systemStats = monitor.getSystemStats();
+    
+    res.json({
+      success: true,
+      data: systemStats
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/v1/mqtt-monitor/stats
+ * Get comprehensive statistics (combines metrics + system stats)
+ * Provides compatibility with legacy mqtt-schema stats endpoint
+ */
+router.get('/stats', (req: Request, res: Response) => {
+  try {
+    if (!monitor) {
+      return res.status(400).json({
+        success: false,
+        error: 'Monitor not running'
+      });
+    }
+
+    const status = monitor.getStatus();
+    const metrics = monitor.getMetrics();
+    const systemStats = monitor.getSystemStats();
+    const topics = monitor.getFlattenedTopics();
+    
+    // Calculate schema statistics
+    const topicsWithSchemas = topics.filter(t => t.schema).length;
+    const messageTypeBreakdown = topics.reduce((acc, t) => {
+      if (t.messageType) {
+        acc[t.messageType] = (acc[t.messageType] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+    
+    res.json({
+      success: true,
+      stats: {
+        // Connection stats
+        connected: status.connected,
+        topicCount: status.topicCount,
+        messageCount: status.messageCount,
+        
+        // Schema stats
+        schemas: {
+          total: topicsWithSchemas,
+          byType: messageTypeBreakdown
+        },
+        
+        // Message rates
+        messageRate: {
+          published: metrics.messageRate.current.published,
+          received: metrics.messageRate.current.received
+        },
+        
+        // Throughput
+        throughput: {
+          inbound: metrics.throughput.current.inbound,
+          outbound: metrics.throughput.current.outbound
+        },
+        
+        // Client info
+        clients: metrics.clients,
+        subscriptions: metrics.subscriptions,
+        retainedMessages: metrics.retainedMessages,
+        
+        // Totals
+        totalMessagesSent: metrics.totalMessagesSent,
+        totalMessagesReceived: metrics.totalMessagesReceived,
+        
+        // Broker info (if available)
+        broker: systemStats.$SYS?.broker || null
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/v1/mqtt-monitor/dashboard
+ * Get all dashboard data in one call (topic tree + metrics + schemas)
+ */
+router.get('/dashboard', (req: Request, res: Response) => {
+  try {
+    if (!monitor) {
+      return res.status(400).json({
+        success: false,
+        error: 'Monitor not running'
+      });
+    }
+
+    const status = monitor.getStatus();
+    const topicTree = monitor.getTopicTree();
+    const topics = monitor.getFlattenedTopics();
+    const metrics = monitor.getMetrics();
+    
+    // Count topics with schemas
+    const topicsWithSchemas = topics.filter(t => t.schema).length;
+    
+    res.json({
+      success: true,
+      data: {
+        status,
+        topicTree,
+        topics: {
+          count: topics.length,
+          withSchemas: topicsWithSchemas,
+          list: topics.slice(0, 100) // Limit to first 100 for performance
+        },
+        metrics: {
+          messageRate: metrics.messageRate,
+          throughput: metrics.throughput,
+          clients: metrics.clients,
+          subscriptions: metrics.subscriptions,
+          retainedMessages: metrics.retainedMessages,
+          totalMessages: {
+            sent: metrics.totalMessagesSent,
+            received: metrics.totalMessagesReceived
+          }
+        },
+        timestamp: Date.now()
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * POST /api/v1/mqtt-monitor/sync
+ * Manually trigger database sync
+ */
+router.post('/sync', async (req: Request, res: Response) => {
+  try {
+    if (!monitor) {
+      return res.status(400).json({
+        success: false,
+        error: 'Monitor not running'
+      });
+    }
+
+    await (monitor as any).flushToDatabase();
+    
+    res.json({
+      success: true,
+      message: 'Data synced to database'
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/v1/mqtt-monitor/database/topics
+ * Get topics from database (persisted data)
+ */
+router.get('/database/topics', async (req: Request, res: Response) => {
+  try {
+    if (!mqttDbService) {
+      return res.status(400).json({
+        success: false,
+        error: 'Database persistence not enabled'
+      });
+    }
+
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 100;
+    const messageType = req.query.messageType as string;
+    const hasSchema = req.query.hasSchema ? req.query.hasSchema === 'true' : undefined;
+
+    const topics = await mqttDbService.getTopics({
+      limit,
+      messageType,
+      hasSchema
+    });
+
+    res.json({
+      success: true,
+      count: topics.length,
+      data: topics
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/v1/mqtt-monitor/database/stats/summary
+ * Get statistics summary from database
+ */
+router.get('/database/stats/summary', async (req: Request, res: Response) => {
+  try {
+    if (!mqttDbService) {
+      return res.status(400).json({
+        success: false,
+        error: 'Database persistence not enabled'
+      });
+    }
+
+    const summary = await mqttDbService.getStatsSummary();
+
+    res.json({
+      success: true,
+      data: summary
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/v1/mqtt-monitor/database/schema-history/:topic
+ * Get schema evolution history for a topic
+ */
+router.get('/database/schema-history/:topic(*)', async (req: Request, res: Response) => {
+  try {
+    if (!mqttDbService) {
+      return res.status(400).json({
+        success: false,
+        error: 'Database persistence not enabled'
+      });
+    }
+
+    const topic = req.params.topic;
+    const history = await mqttDbService.getSchemaHistory(topic);
+
+    res.json({
+      success: true,
+      topic,
+      count: history.length,
+      data: history
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/v1/mqtt-monitor/recent-activity
+ * Get recent message counts for all topics (time-windowed)
+ * Query params:
+ *   - window: Time window in minutes (default: 15, options: 5, 15, 30, 60)
+ */
+router.get('/recent-activity', async (req: Request, res: Response) => {
+  try {
+    if (!mqttDbService) {
+      return res.status(400).json({
+        success: false,
+        error: 'Database persistence not enabled'
+      });
+    }
+
+    const windowMinutes = req.query.window ? parseInt(req.query.window as string) : 15;
+    
+    // Validate window parameter
+    if (![5, 15, 30, 60].includes(windowMinutes)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid window parameter. Must be one of: 5, 15, 30, 60'
+      });
+    }
+
+    const recentActivity = await mqttDbService.getRecentMessageCounts(windowMinutes);
+
+    res.json({
+      success: true,
+      windowMinutes,
+      count: recentActivity.length,
+      data: recentActivity
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+/**
+ * GET /api/v1/mqtt-monitor/topics/:topic/recent-activity
+ * Get recent activity for a specific topic with data points
+ * Query params:
+ *   - window: Time window in minutes (default: 15)
+ */
+router.get('/topics/:topic(*)/recent-activity', async (req: Request, res: Response) => {
+  try {
+    if (!mqttDbService) {
+      return res.status(400).json({
+        success: false,
+        error: 'Database persistence not enabled'
+      });
+    }
+
+    const topic = req.params.topic;
+    const windowMinutes = req.query.window ? parseInt(req.query.window as string) : 15;
+
+    const activity = await mqttDbService.getTopicRecentActivity(topic, windowMinutes);
+
+    if (!activity) {
+      return res.status(404).json({
+        success: false,
+        error: 'No recent activity found for this topic'
+      });
+    }
+
+    res.json({
+      success: true,
+      data: activity
+    });
+  } catch (error: any) {
+    res.status(500).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+});
+
+// Initialize monitor on module load if auto-start is enabled
+if (process.env.MQTT_MONITOR_AUTO_START !== 'false') {
+  initializeMonitor();
+}
+
+export default router;

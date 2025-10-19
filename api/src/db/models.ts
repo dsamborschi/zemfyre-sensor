@@ -28,6 +28,7 @@ export interface Device {
   storage_total?: number;
   cpu_usage?: number;
   cpu_temp?: number;
+  top_processes?: any; // JSONB - stored as any since it's flexible
   // Security fields
   device_api_key_hash?: string;
   fleet_id?: string;
@@ -64,6 +65,13 @@ export interface DeviceMetrics {
   memory_total?: number;
   storage_usage?: number;
   storage_total?: number;
+  top_processes?: Array<{
+    pid: number;
+    name: string;
+    cpu: number;
+    mem: number;
+    command?: string; // Optional
+  }>;
   recorded_at: Date;
 }
 
@@ -341,8 +349,8 @@ export class DeviceMetricsModel {
     await query(
       `INSERT INTO device_metrics (
         device_uuid, cpu_usage, cpu_temp, memory_usage, memory_total,
-        storage_usage, storage_total, recorded_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, CURRENT_TIMESTAMP)`,
+        storage_usage, storage_total, top_processes, recorded_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)`,
       [
         deviceUuid,
         metrics.cpu_usage,
@@ -351,6 +359,7 @@ export class DeviceMetricsModel {
         metrics.memory_total,
         metrics.storage_usage,
         metrics.storage_total,
+        metrics.top_processes ? JSON.stringify(metrics.top_processes) : null,
       ]
     );
 

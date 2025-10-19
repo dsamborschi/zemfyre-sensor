@@ -16,7 +16,7 @@ import { Header } from "./components/Header";
 const mockDevices: Device[] = [
   {
     id: "1",
-    deviceUuid: "a3f8c9d2-4e1b-4a9f-b7d3-c2e8f5a1b6d4",
+    deviceUuid: "46b68204-9806-43c5-8d19-18b1f53e3b8a",
     name: "Assembly Line Gateway",
     type: "gateway",
     status: "online",

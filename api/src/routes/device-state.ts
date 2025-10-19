@@ -20,6 +20,7 @@
  */
 
 import express from 'express';
+import { query } from '../db/connection';
 import {
   DeviceModel,
   DeviceTargetStateModel,
@@ -239,7 +240,16 @@ router.patch('/device/state', deviceAuthFromBody, async (req, res) => {
           memory_total: deviceState.memory_total,
           storage_usage: deviceState.storage_usage,
           storage_total: deviceState.storage_total,
+          top_processes: deviceState.top_processes,
         });
+        
+        // Also update the latest snapshot in devices table
+        if (deviceState.top_processes) {
+          await query(
+            `UPDATE devices SET top_processes = $1 WHERE uuid = $2`,
+            [JSON.stringify(deviceState.top_processes), uuid]
+          );
+        }
       }
     }
 
@@ -523,6 +533,82 @@ router.get('/devices/:uuid/metrics', deviceAuth,async (req, res) => {
     console.error('Error getting metrics:', error);
     res.status(500).json({
       error: 'Failed to get metrics',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Get current top processes for device
+ * GET /api/v1/devices/:uuid/processes
+ */
+router.get('/devices/:uuid/processes', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+
+    // Get device to check if it exists and get latest processes
+    const device = await DeviceModel.getByUuid(uuid);
+    if (!device) {
+      return res.status(404).json({
+        error: 'Device not found',
+        message: `Device ${uuid} not found`
+      });
+    }
+
+    res.json({
+      device_uuid: uuid,
+      top_processes: device.top_processes || [],
+      is_online: device.is_online,
+      last_updated: device.modified_at,
+    });
+  } catch (error: any) {
+    console.error('Error getting top processes:', error);
+    res.status(500).json({
+      error: 'Failed to get top processes',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Get historical process metrics for device
+ * GET /api/v1/devices/:uuid/processes/history
+ */
+router.get('/devices/:uuid/processes/history', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const limit = parseInt(req.query.limit as string) || 50;
+    const hours = parseInt(req.query.hours as string) || 24;
+
+    // Query metrics with process data
+    const result = await query(
+      `SELECT top_processes, recorded_at 
+       FROM device_metrics 
+       WHERE device_uuid = $1 
+         AND top_processes IS NOT NULL
+         AND recorded_at >= NOW() - INTERVAL '${hours} hours'
+       ORDER BY recorded_at DESC 
+       LIMIT $2`,
+      [uuid, limit]
+    );
+
+    // Parse JSONB data
+    const history = result.rows.map(row => ({
+      top_processes: typeof row.top_processes === 'string' 
+        ? JSON.parse(row.top_processes) 
+        : row.top_processes,
+      recorded_at: row.recorded_at,
+    }));
+
+    res.json({
+      device_uuid: uuid,
+      count: history.length,
+      history,
+    });
+  } catch (error: any) {
+    console.error('Error getting process history:', error);
+    res.status(500).json({
+      error: 'Failed to get process history',
       message: error.message
     });
   }
