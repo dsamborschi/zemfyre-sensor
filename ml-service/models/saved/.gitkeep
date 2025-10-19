@@ -1,0 +1,2 @@
+# This directory stores trained ML models
+# Models are persisted here and mounted as a Docker volume
