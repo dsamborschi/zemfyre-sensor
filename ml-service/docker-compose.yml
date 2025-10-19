@@ -11,7 +11,7 @@ services:
       - "${ML_SERVICE_PORT:-5000}:5000"
     environment:
       # Database Configuration (connect to existing PostgreSQL)
-      - DB_HOST=${DB_HOST:-localhost}
+      - DB_HOST=${DB_HOST:-postgres}
       - DB_PORT=${DB_PORT:-5432}
       - DB_NAME=${DB_NAME:-iotistic}
       - DB_USER=${DB_USER:-postgres}
@@ -51,7 +51,7 @@ services:
       # - /app/__pycache__
     
     networks:
-      - ml-network
+      - zemfyre-net
     
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
@@ -80,8 +80,6 @@ volumes:
     #   device: ./models/saved
 
 networks:
-  ml-network:
-    driver: bridge
-    # Optional: Connect to external network (e.g., main application network)
-    # external: true
-    # name: zemfyre-net
+  zemfyre-net:
+    external: true
+    name: zemfyre-net

@@ -56,13 +56,14 @@ class DataFetcher:
         field_parts = field.split('.')
         jsonb_path = '{' + ','.join(field_parts) + '}'
         
-        query = """
+        # Build query with proper interval formatting
+        query = f"""
             SELECT 
                 timestamp,
                 (reported_state #>> %s)::float as value
             FROM device_shadow_history
             WHERE device_uuid = %s
-                AND timestamp >= NOW() - INTERVAL '%s hours'
+                AND timestamp >= NOW() - INTERVAL '{hours} hours'
                 AND reported_state #>> %s IS NOT NULL
             ORDER BY timestamp ASC
         """
@@ -70,7 +71,7 @@ class DataFetcher:
         df = pd.read_sql_query(
             query,
             self.connection,
-            params=(jsonb_path, device_uuid, str(hours), jsonb_path)
+            params=(jsonb_path, device_uuid, jsonb_path)
         )
         
         print(f"📊 Fetched {len(df)} data points for {field}")
@@ -89,41 +90,44 @@ class DataFetcher:
         if not self.connection:
             raise RuntimeError("Not connected to database. Call connect() first.")
         
-        query = """
+        # Build query with proper interval formatting
+        # Note: Field names match actual data structure (memoryUsage, diskUsage)
+        query = f"""
             SELECT 
                 timestamp,
-                (reported_state#>>'{system,cpuUsage}')::float as cpu_usage,
-                (reported_state#>>'{system,memoryUsed}')::float as memory_used,
-                (reported_state#>>'{system,memoryTotal}')::float as memory_total,
-                (reported_state#>>'{system,diskUsed}')::float as disk_used,
-                (reported_state#>>'{system,diskTotal}')::float as disk_total,
-                (reported_state#>>'{system,uptime}')::float as uptime,
-                COALESCE((reported_state#>>'{network,bytesReceived}')::float, 0) as bytes_received,
-                COALESCE((reported_state#>>'{network,bytesSent}')::float, 0) as bytes_sent
+                (reported_state#>>'{{system,cpuUsage}}')::float as cpu_usage,
+                (reported_state#>>'{{system,memoryUsage}}')::float as memory_used,
+                (reported_state#>>'{{system,memoryTotal}}')::float as memory_total,
+                (reported_state#>>'{{system,diskUsage}}')::float as disk_used,
+                (reported_state#>>'{{system,diskTotal}}')::float as disk_total,
+                (reported_state#>>'{{health,uptime}}')::float as uptime,
+                (reported_state#>>'{{system,temperature}}')::float as temperature
             FROM device_shadow_history
             WHERE device_uuid = %s
-                AND timestamp >= NOW() - INTERVAL '%s hours'
+                AND timestamp >= NOW() - INTERVAL '{hours} hours'
+                AND reported_state ? 'system'
             ORDER BY timestamp ASC
         """
         
         df = pd.read_sql_query(
             query,
             self.connection,
-            params=(device_uuid, str(hours))
+            params=(device_uuid,)
         )
         
         # Calculate derived features
         if 'memory_used' in df.columns and 'memory_total' in df.columns:
             df['memory_usage_percent'] = (df['memory_used'] / df['memory_total']) * 100
+        else:
+            df['memory_usage_percent'] = 0
         
         if 'disk_used' in df.columns and 'disk_total' in df.columns:
             df['disk_usage_percent'] = (df['disk_used'] / df['disk_total']) * 100
+        else:
+            df['disk_usage_percent'] = 0
         
-        if 'bytes_received' in df.columns and 'bytes_sent' in df.columns:
-            df['network_total'] = df['bytes_received'] + df['bytes_sent']
-        
-        # Drop rows with NaN in critical columns
-        df = df.dropna(subset=['cpu_usage', 'memory_usage_percent', 'disk_usage_percent'])
+        # Drop rows with NaN in critical columns (only check columns that should have values)
+        df = df.dropna(subset=['cpu_usage'])
         
         print(f"📊 Fetched {len(df)} multi-metric data points")
         return df

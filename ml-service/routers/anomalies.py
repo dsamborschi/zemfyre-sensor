@@ -61,15 +61,16 @@ async def train_anomaly_detector(
                 detail=f"Not enough data. Need 100+ samples, got {len(df)}"
             )
         
-        # Define features for anomaly detection
-        features = ['cpu_usage', 'memory_usage_percent', 'disk_usage_percent', 'network_total']
+        # Define features for anomaly detection (use only available features)
+        all_possible_features = ['cpu_usage', 'memory_usage_percent', 'disk_usage_percent', 'uptime', 'temperature']
         
-        # Verify features exist
-        missing_features = [f for f in features if f not in df.columns]
-        if missing_features:
+        # Use only features that exist in the data
+        features = [f for f in all_possible_features if f in df.columns and df[f].notna().sum() > 0]
+        
+        if len(features) < 2:
             raise HTTPException(
                 status_code=400,
-                detail=f"Missing features in data: {missing_features}"
+                detail=f"Not enough features available. Need at least 2, got {len(features)}: {features}"
             )
         
         # Train model
