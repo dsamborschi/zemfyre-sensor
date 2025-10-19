@@ -49,11 +49,17 @@ const image_registry_1 = __importDefault(require("./routes/image-registry"));
 const device_jobs_1 = __importDefault(require("./routes/device-jobs"));
 const scheduled_jobs_1 = __importDefault(require("./routes/scheduled-jobs"));
 const rotation_1 = __importDefault(require("./routes/rotation"));
+const digital_twin_1 = __importDefault(require("./routes/digital-twin"));
+const mqtt_schema_1 = __importDefault(require("./routes/mqtt-schema"));
+const entities_1 = require("./routes/entities");
+const relationships_1 = require("./routes/relationships");
+const graph_1 = require("./routes/graph");
 const rollout_monitor_1 = require("./jobs/rollout-monitor");
 const job_scheduler_1 = require("./services/job-scheduler");
 const connection_1 = __importDefault(require("./db/connection"));
 const mqtt_1 = require("./mqtt");
 const rotation_scheduler_1 = require("./services/rotation-scheduler");
+const shadow_retention_1 = require("./services/shadow-retention");
 const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE = `/api/${API_VERSION}`;
 const app = (0, express_1.default)();
@@ -92,6 +98,11 @@ app.use(API_BASE, image_registry_1.default);
 app.use(API_BASE, device_jobs_1.default);
 app.use(API_BASE, scheduled_jobs_1.default);
 app.use(API_BASE, rotation_1.default);
+app.use(API_BASE, digital_twin_1.default);
+app.use(`${API_BASE}/mqtt-schema`, mqtt_schema_1.default);
+app.use(`${API_BASE}/entities`, (0, entities_1.createEntitiesRouter)(connection_1.default.pool));
+app.use(`${API_BASE}/relationships`, (0, relationships_1.createRelationshipsRouter)(connection_1.default.pool));
+app.use(`${API_BASE}/graph`, (0, graph_1.createGraphRouter)(connection_1.default.pool));
 app.use((req, res) => {
     res.status(404).json({
         error: 'Not found',
@@ -165,6 +176,13 @@ async function startServer() {
     catch (error) {
         console.error('⚠️  Failed to start rotation schedulers:', error);
     }
+    try {
+        (0, shadow_retention_1.startRetentionScheduler)();
+        console.log('✅ Shadow history retention scheduler started');
+    }
+    catch (error) {
+        console.error('⚠️  Failed to start retention scheduler:', error);
+    }
     const server = app.listen(PORT, () => {
         console.log('='.repeat(80));
         console.log('☁️  Iotistic Unified API Server');
@@ -181,6 +199,11 @@ async function startServer() {
         }
         try {
             (0, rotation_scheduler_1.shutdownSchedulers)();
+        }
+        catch (error) {
+        }
+        try {
+            (0, shadow_retention_1.stopRetentionScheduler)();
         }
         catch (error) {
         }
@@ -215,6 +238,11 @@ async function startServer() {
         }
         try {
             (0, rotation_scheduler_1.shutdownSchedulers)();
+        }
+        catch (error) {
+        }
+        try {
+            (0, shadow_retention_1.stopRetentionScheduler)();
         }
         catch (error) {
         }
