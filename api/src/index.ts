@@ -19,6 +19,11 @@ import scheduledJobsRoutes from './routes/scheduled-jobs';
 import rotationRoutes from './routes/rotation';
 import digitalTwinRoutes from './routes/digital-twin';
 
+// Import entity/graph routes
+import { createEntitiesRouter } from './routes/entities';
+import { createRelationshipsRouter } from './routes/relationships';
+import { createGraphRouter } from './routes/graph';
+
 // Import jobs
 import { getRolloutMonitor } from './jobs/rollout-monitor';
 import { jobScheduler } from './services/job-scheduler';
@@ -80,6 +85,11 @@ app.use(API_BASE, deviceJobsRoutes);
 app.use(API_BASE, scheduledJobsRoutes);
 app.use(API_BASE, rotationRoutes);
 app.use(API_BASE, digitalTwinRoutes);
+
+// Mount entity/graph routes
+app.use(`${API_BASE}/entities`, createEntitiesRouter(poolWrapper.pool));
+app.use(`${API_BASE}/relationships`, createRelationshipsRouter(poolWrapper.pool));
+app.use(`${API_BASE}/graph`, createGraphRouter(poolWrapper.pool));
 
 // 404 handler
 app.use((req, res) => {

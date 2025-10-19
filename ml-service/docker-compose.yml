@@ -1,0 +1,87 @@
+version: '3.8'
+
+services:
+  ml-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ml-service
+    restart: unless-stopped
+    ports:
+      - "${ML_SERVICE_PORT:-5000}:5000"
+    environment:
+      # Database Configuration (connect to existing PostgreSQL)
+      - DB_HOST=${DB_HOST:-localhost}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_NAME=${DB_NAME:-iotistic}
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-postgres}
+      
+      # ML Service Configuration
+      - ML_SERVICE_PORT=5000
+      - ML_SERVICE_HOST=0.0.0.0
+      
+      # Model Storage
+      - MODEL_DIR=/app/models/saved
+      
+      # Training Configuration
+      - MIN_TRAINING_SAMPLES=${MIN_TRAINING_SAMPLES:-100}
+      - RETRAIN_INTERVAL_HOURS=${RETRAIN_INTERVAL_HOURS:-24}
+      
+      # Isolation Forest (Anomaly Detection)
+      - ISOLATION_FOREST_CONTAMINATION=${ISOLATION_FOREST_CONTAMINATION:-0.01}
+      - ISOLATION_FOREST_N_ESTIMATORS=${ISOLATION_FOREST_N_ESTIMATORS:-100}
+      
+      # LSTM (Time-Series Forecasting)
+      - LSTM_SEQUENCE_LENGTH=${LSTM_SEQUENCE_LENGTH:-50}
+      - LSTM_FORECAST_HORIZON=${LSTM_FORECAST_HORIZON:-12}
+      - LSTM_EPOCHS=${LSTM_EPOCHS:-50}
+      - LSTM_BATCH_SIZE=${LSTM_BATCH_SIZE:-32}
+      
+      # CORS
+      - CORS_ORIGINS=["*"]
+    
+    volumes:
+      # Persist trained models
+      - ml-models:/app/models/saved
+      
+      # Optional: Mount code for development (uncomment for live reload)
+      # - ./:/app
+      # - /app/venv
+      # - /app/__pycache__
+    
+    networks:
+      - ml-network
+    
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Optional: Resource limits
+    # deploy:
+    #   resources:
+    #     limits:
+    #       cpus: '2.0'
+    #       memory: 4G
+    #     reservations:
+    #       cpus: '1.0'
+    #       memory: 2G
+
+volumes:
+  ml-models:
+    driver: local
+    # Optional: Use named volume with custom mount point
+    # driver_opts:
+    #   type: none
+    #   o: bind
+    #   device: ./models/saved
+
+networks:
+  ml-network:
+    driver: bridge
+    # Optional: Connect to external network (e.g., main application network)
+    # external: true
+    # name: zemfyre-net

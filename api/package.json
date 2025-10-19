@@ -44,6 +44,7 @@
     "@types/node-cron": "^3.0.11",
     "@types/node-fetch": "^2.6.9",
     "@types/pg": "^8.10.9",
+    "knex": "^3.1.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.3.3"
   },
