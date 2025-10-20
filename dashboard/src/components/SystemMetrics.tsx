@@ -28,7 +28,9 @@ import { ApplicationsCard, Application } from "./ApplicationsCard";
 import { NetworkingCard, NetworkInterface } from "./NetworkingCard";
 import { AnalyticsCard } from "./AnalyticsCard";
 import { MqttBrokerCard } from "./MqttBrokerCard";
+import { TimelineCard } from "./TimelineCard";
 import { MqttMetricsCard } from "./MqttMetricsCard";
+import { DeviceTimelineCard } from "./DeviceTimelineCard";
 
 interface SystemMetricsProps {
   device: Device;
@@ -43,6 +45,108 @@ interface SystemMetricsProps {
   onToggleServiceStatus?: (appId: string, serviceId: number, action: "start" | "stop") => void;
   networkInterfaces?: NetworkInterface[];
 }
+
+const deviceTimelineEvents = [
+  {
+    id: "1114",
+    event_id: "e31876b4-dbf8-4845-a0ab-4f2768617b30",
+    type: "device.provisioned",
+    category: "device",
+    title: "Device Provisioned",
+    description: "Event occurred",
+    data: {
+      fleet_id: "default-fleet",
+      ip_address: "::1",
+      os_version: "Microsoft Windows 10 Pro 10.0.19045",
+      device_name: "device-46b68204",
+      device_type: "standalone",
+      mac_address: "2c:f0:5d:a1:eb:85",
+      provisioned_at: "2025-10-18T17:29:31.351Z",
+      supervisor_version: "1.0.0"
+    },
+    metadata: {
+      endpoint: "/device/register",
+      user_agent: "node",
+      provisioning_key_id: "f382cb59-945d-4e5e-b46f-bd198009e8ed"
+    }
+  },
+  {
+    id: "1115",
+    event_id: "f95842dd-7f0f-420f-9661-0c44568eeed2",
+    type: "device.offline",
+    category: "device",
+    title: "Device Offline",
+    description: "Device disconnected",
+    data: {
+      reason: "No heartbeat received - exceeded threshold",
+      last_seen: "2025-10-18T22:00:58.190Z",
+      detected_at: "2025-10-18T18:06:26.830Z",
+      device_name: "device-46b68204",
+      offline_threshold_minutes: 5
+    },
+    metadata: {
+      detection_method: "heartbeat_monitor",
+      check_interval_ms: 60000
+    }
+  },
+  {
+    id: "1116",
+    event_id: "05761775-4503-4e80-aa1c-daf5862bd6e6",
+    type: "device.online",
+    category: "device",
+    title: "Device Online",
+    description: "Device connected",
+    data: {
+      reason: "Device resumed communication",
+      device_name: "device-46b68204",
+      came_online_at: "2025-10-18T18:40:04.589Z",
+      was_offline_at: "2025-10-18T22:36:18.852Z",
+      offline_duration_minutes: -237
+    },
+    metadata: {
+      last_seen: "2025-10-18T22:00:58.190Z",
+      detection_method: "heartbeat_received"
+    }
+  },
+  {
+    id: "1117",
+    event_id: "0e944f51-347a-40c1-8f88-43223e38ed86",
+    type: "device.offline",
+    category: "device",
+    title: "Device Offline",
+    description: "Device disconnected",
+    data: {
+      reason: "No heartbeat received - exceeded threshold",
+      last_seen: "2025-10-18T23:31:27.175Z",
+      detected_at: "2025-10-18T19:36:50.287Z",
+      device_name: "device-46b68204",
+      offline_threshold_minutes: 5
+    },
+    metadata: {
+      detection_method: "heartbeat_monitor",
+      check_interval_ms: 60000
+    }
+  },
+  {
+    id: "1118",
+    event_id: "2b57c4d8-bc12-424c-a556-3b28baba30c9",
+    type: "device.online",
+    category: "device",
+    title: "Device Online",
+    description: "Device connected",
+    data: {
+      reason: "Device resumed communication",
+      device_name: "device-46b68204",
+      came_online_at: "2025-10-18T19:37:00.371Z",
+      was_offline_at: "2025-10-18T23:36:50.173Z",
+      offline_duration_minutes: -240
+    },
+    metadata: {
+      last_seen: "2025-10-18T23:31:27.175Z",
+      detection_method: "heartbeat_received"
+    }
+  }
+];
 
 const cpuData = [
   { time: "00:00", value: 45 },
@@ -272,6 +376,14 @@ export function SystemMetrics({
                 className="text-xs"
               >
                 MQTT
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => scrollToSection('events-section')}
+                className="text-xs"
+              >
+                Events
               </Button>
               <Button
                 variant="ghost"
@@ -548,6 +660,11 @@ export function SystemMetrics({
 
           {/* MQTT Metrics */}
           <MqttMetricsCard deviceId={device.deviceUuid} />
+
+          {/* Event Timeline */}
+
+           
+         
         </div>
 
         {/* Analytics Card */}
@@ -603,6 +720,13 @@ export function SystemMetrics({
             </div>
           )}
         </Card>
+
+          <TimelineCard
+              deviceId={device.deviceUuid}
+              limit={5}
+              autoRefresh={true}
+              refreshInterval={30000}
+            />
       </div>
     </div>
   );

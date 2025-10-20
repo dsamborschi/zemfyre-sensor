@@ -357,24 +357,6 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
         </div>
       </div>
 
-      {/* Time Window Selector */}
-      <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          Time Window
-        </label>
-        <select
-          value={timeWindow}
-          onChange={(e) => setTimeWindow(e.target.value)}
-          className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900"
-        >
-          <option value="all">All Time</option>
-          <option value="1h">Last Hour</option>
-          <option value="6h">Last 6 Hours</option>
-          <option value="24h">Last 24 Hours</option>
-          <option value="7d">Last 7 Days</option>
-          <option value="30d">Last 30 Days</option>
-        </select>
-      </div>
 
       {/* Search Filter */}
       <div className="mb-4">

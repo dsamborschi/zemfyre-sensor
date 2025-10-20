@@ -803,14 +803,14 @@ export default function App() {
   }, [selectedDeviceId, devices]);
 
   // Show login page if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <>
-        <LoginPage onLogin={handleLogin} />
-        <Toaster />
-      </>
-    );
-  }
+  // if (!isAuthenticated) {
+  //   return (
+  //     <>
+  //       <LoginPage onLogin={handleLogin} />
+  //       <Toaster />
+  //     </>
+  //   );
+  // }
 
   return (
 

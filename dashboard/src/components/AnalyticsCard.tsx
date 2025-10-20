@@ -68,7 +68,7 @@ const metricOptions = [
   { value: "ram", label: "RAM Usage" },
   { value: "cpu", label: "CPU Usage" },
   { value: "storage", label: "Storage" },
-  { value: "temperature", label: "Temperature" },
+
   { value: "network", label: "Network" },
 ];
 
