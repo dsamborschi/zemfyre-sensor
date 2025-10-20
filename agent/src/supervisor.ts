@@ -887,6 +887,12 @@ export default class DeviceSupervisor {
 				console.log('✅ Sensor Publish stopped');
 			}
 
+			// Stop Sensor Config Handler
+			if (this.sensorConfigHandler) {
+				// No explicit stop method, just clear reference
+				console.log('✅ Sensor Config Handler cleanup');
+			}
+
 			// Stop Job Engine
 			if (this.jobEngine) {
 				// Clean up any scheduled or running jobs
@@ -911,6 +917,28 @@ export default class DeviceSupervisor {
 				console.log('✅ API Binder stopped');
 			}
 
+			// Stop log backends (flush buffers, clear timers)
+			console.log('🔄 Stopping log backends...');
+			for (const backend of this.logBackends) {
+				try {
+					if ('disconnect' in backend && typeof backend.disconnect === 'function') {
+						await backend.disconnect();
+					} else if ('stop' in backend && typeof backend.stop === 'function') {
+						await (backend as any).stop();
+					}
+				} catch (error) {
+					console.warn(`⚠️  Error stopping log backend: ${error}`);
+				}
+			}
+			console.log('✅ Log backends stopped');
+
+			// Stop MQTT Manager (shared singleton - do this after all MQTT-dependent features)
+			const mqttManager = MqttManager.getInstance();
+			if (mqttManager.isConnected()) {
+				await mqttManager.disconnect();
+				console.log('✅ MQTT Manager disconnected');
+			}
+
 			// Stop device API
 			if (this.deviceAPI) {
 				await this.deviceAPI.stop();
@@ -919,8 +947,8 @@ export default class DeviceSupervisor {
 
 			// Stop container manager
 			if (this.containerManager) {
-				// Container manager doesn't have a stop method yet
-				console.log('✅ Container manager cleanup');
+				this.containerManager.stopAutoReconciliation();
+				console.log('✅ Container manager stopped');
 			}
 
 			console.log('✅ Device Supervisor stopped');
