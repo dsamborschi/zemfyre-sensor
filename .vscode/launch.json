@@ -23,8 +23,9 @@
         "LOG_COMPRESSION": "true",
         "ENABLE_SENSOR_PUBLISH": "false",  
         "ENABLE_JOB_ENGINE": "true",
+        "MQTT_BROKER": "mqtt://localhost:5883",
         "ENABLE_SHADOW": "true",
-        "PROVISIONING_API_KEY": "b6b9e878f7db3e6ab5204454906dc5e45d297b9d1d8c70851a1317a363d3918a",
+        "PROVISIONING_API_KEY": "e4d08589f91c56b9f1872c8ea5cef082d4b8ae197f2456056f8d234e60efd71a",
         "SENSOR_PUBLISH_CONFIG": "{\"sensors\":[{\"name\":\"sensor1\",\"enabled\":true,\"addr\":\"../sensor-simulator/sockets/sensor1.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000},{\"name\":\"sensor2\",\"enabled\":true,\"addr\":\"../sensor-simulator/sockets/sensor2.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000},{\"name\":\"sensor3\",\"enabled\":true,\"addr\":\"../sensor-simulator/sockets/sensor3.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000}]}",
         "ENABLE_CLOUD_JOBS": "true",
         "ENABLE_DIGITAL_TWIN": "true",
@@ -59,11 +60,8 @@
             "DB_POOL_SIZE":"20",
             "FORCE_COLOR":"1",
             "MQTT_BROKER_URL":"mqtt://localhost:5883",
-            "MQTT_USERNAME":"admin",
-            "MQTT_PASSWORD":"iotistic1234!",
             "MQTT_PERSIST_TO_DB":"true",
-            "MQTT_DB_SYNC_INTERVAL": "10000",
-            "IMAGE_MONITOR_ENABLED":"false"
+            "MQTT_DB_SYNC_INTERVAL": "10000"
       }
     }
   ]

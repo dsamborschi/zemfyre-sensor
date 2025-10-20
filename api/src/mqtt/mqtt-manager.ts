@@ -107,6 +107,7 @@ export class MqttManager extends EventEmitter {
    */
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
+      console.log('📡 Connecting to MQTT broker:', this.config.brokerUrl);
 
       const options: mqtt.IClientOptions = {
         clientId: this.config.clientId,
@@ -120,8 +121,9 @@ export class MqttManager extends EventEmitter {
       this.client = mqtt.connect(this.config.brokerUrl, options);
 
       this.client.on('connect', () => {
-  
-        console.log('✅ Connected to MQTT broker, 📋 Client ID:', this.config.clientId);
+        console.log('✅ Connected to MQTT broker');
+        console.log('📋 Client ID:', this.config.clientId);
+        console.log('🔧 QoS:', this.config.qos);
         this.reconnecting = false;
         this.resubscribe();
         resolve();
@@ -206,11 +208,12 @@ export class MqttManager extends EventEmitter {
       }
     });
 
+    console.log(`📡 Subscribing to ${topicPatterns.length} topic patterns...`);
     
     // Use Promise.all to track all subscriptions
     const subscriptionPromises = topicPatterns.map(pattern => {
       return new Promise<void>((resolve, reject) => {
-    
+        console.log('🔍 Attempting to subscribe to:', pattern);
         this.client!.subscribe(pattern, { qos: this.config.qos }, (err) => {
           if (err) {
             console.error(`❌ Failed to subscribe to ${pattern}:`, err);

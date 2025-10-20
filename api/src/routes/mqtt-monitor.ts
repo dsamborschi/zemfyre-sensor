@@ -50,6 +50,9 @@ function initializeMonitor(): MQTTMonitorService {
       console.error('[MQTT Monitor API] Monitor error:', error);
     });
 
+    monitor.on('metrics-updated', (metrics) => {
+      console.log(`[MQTT Monitor API] Metrics updated: ${metrics.clients} clients, ${metrics.messageRate.current.published} msg/s`);
+    });
 
     // Auto-start
     monitor.start().catch(err => {

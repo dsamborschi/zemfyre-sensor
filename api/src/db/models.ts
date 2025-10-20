@@ -34,7 +34,6 @@ export interface Device {
   fleet_id?: string;
   provisioned_at?: Date;
   provisioned_by_key_id?: string;
-  mqtt_username?: string; // <-- Added for MQTT integration
   created_at: Date;
   modified_at: Date;
 }

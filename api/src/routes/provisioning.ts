@@ -14,10 +14,10 @@
 
 import express from 'express';
 import bcrypt from 'bcrypt';
-import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
-import { DeviceModel } from '../db/models';
-import { query } from '../db/connection';
+import {
+  DeviceModel,
+} from '../db/models';
 import {
   validateProvisioningKey,
   incrementProvisioningKeyUsage,
@@ -377,36 +377,10 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
 
     console.log(`✅ Device metadata stored: ${deviceName} (${deviceType}) - State: registered, Status: online`);
 
-
-    // 1. Generate MQTT username (device UUID) and random password
-    const mqttUsername = uuid;
-    const mqttPassword = crypto.randomBytes(16).toString('base64');
-    const mqttPasswordHash = await bcrypt.hash(mqttPassword, 10);
-
-    // 2. Insert into mqtt_users (if not exists)
-    const mqttUserResult = await query(
-      `INSERT INTO mqtt_users (username, password_hash, is_superuser, is_active)
-       VALUES ($1, $2, false, true)
-       ON CONFLICT (username) DO NOTHING
-       RETURNING id, username`,
-      [mqttUsername, mqttPasswordHash]
-    );
-
-    // 3. Insert default ACLs (allow publish/subscribe to sensor topics)
-    await query(
-      `INSERT INTO mqtt_acls (username, topic, access, priority)
-       VALUES ($1, $2, 3, 0)
-       ON CONFLICT DO NOTHING`,
-      [mqttUsername, `iot/device/${uuid}/#`]
-    );
-
-    // 4. Update device record with mqtt_username
-    await DeviceModel.update(uuid, { mqtt_username: mqttUsername });
-
-    // 5. Increment provisioning key usage counter
+    // Increment provisioning key usage counter
     await incrementProvisioningKeyUsage(provisioningKeyRecord.id);
 
-    // 6. Event sourcing: device provisioned
+    // 🎉 EVENT SOURCING: Publish device provisioned event
     await eventPublisher.publish(
       'device.provisioned',
       'device',
@@ -430,7 +404,7 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
       }
     );
 
-    // 7. Log successful provisioning
+    // Log successful provisioning
     await logAuditEvent({
       eventType: AuditEventType.DEVICE_REGISTERED,
       deviceUuid: uuid,
@@ -441,14 +415,12 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
         deviceId: device.id,
         deviceName,
         deviceType,
-        fleetId: provisioningKeyRecord.fleet_id,
-        mqttUsername
+        fleetId: provisioningKeyRecord.fleet_id
       }
     });
 
     await logProvisioningAttempt(ipAddress!, uuid, provisioningKeyRecord.id, true, undefined, userAgent);
 
-    // 8. Return device info + MQTT credentials
     const response = {
       id: device.id,
       uuid: device.uuid,
@@ -457,15 +429,6 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
       applicationId: applicationId,
       fleetId: provisioningKeyRecord.fleet_id,
       createdAt: device.created_at.toISOString(),
-      mqtt: {
-        username: mqttUsername,
-        password: mqttPassword,
-        broker: process.env.MQTT_BROKER_URL || 'mqtt://mosquitto:1883',
-        topics: {
-          publish: [`iot/device/${uuid}/#`],
-          subscribe: [`iot/device/${uuid}/#`]
-        }
-      }
     };
 
     console.log('✅ Device registered successfully:', response.id);

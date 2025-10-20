@@ -1,10 +1,6 @@
-// COPY THIS FILE TO: src/logging/mqtt-backend.ts
-//
-// This is the working MQTT backend implementation
-// The file creation tool has encoding issues, so copy this manually
+// Refactored MQTT Log Backend - uses centralized MqttManager
 
-import mqtt from 'mqtt';
-import type { MqttClient } from 'mqtt';
+import { MqttManager } from '../mqtt/mqtt-manager';
 import type { LogBackend, LogMessage, LogFilter } from './types';
 
 export interface MqttLogBackendOptions {
@@ -20,15 +16,14 @@ export interface MqttLogBackendOptions {
 }
 
 export class MqttLogBackend implements LogBackend {
-	private client: MqttClient | null;
+	private mqttManager: MqttManager;
 	private options: Required<MqttLogBackendOptions>;
-	private connected: boolean;
 	private batch: LogMessage[];
 	private batchTimer: NodeJS.Timeout | null;
+	private connectionPromise: Promise<void> | null = null;
 
 	constructor(options: MqttLogBackendOptions) {
-		this.client = null;
-		this.connected = false;
+		this.mqttManager = MqttManager.getInstance();
 		this.batch = [];
 		this.batchTimer = null;
 		
@@ -43,60 +38,33 @@ export class MqttLogBackend implements LogBackend {
 			maxBatchSize: options.maxBatchSize || 50,
 			debug: options.debug || false,
 		};
+
+		// Enable debug in MqttManager if requested
+		if (this.options.debug) {
+			this.mqttManager.setDebug(true);
+		}
 	}
 
 	public async connect(): Promise<void> {
-		return new Promise((resolve, reject) => {
-			// Add connection timeout (10 seconds)
-			const connectionTimeout = setTimeout(() => {
-				if (!this.connected && this.client) {
-					this.debugLog('Connection timeout - MQTT broker not responding');
-					this.client.end(true); // Force close
-					reject(new Error(`MQTT connection timeout after 10s: ${this.options.brokerUrl}`));
-				}
-			}, 10000);
+		if (this.connectionPromise) {
+			return this.connectionPromise;
+		}
 
-			try {
-				this.client = mqtt.connect(this.options.brokerUrl, {
-					...this.options.clientOptions,
-					reconnectPeriod: 5000,
-					connectTimeout: 10000, // 10 second timeout
-				});
-
-				this.client.on('connect', () => {
-					clearTimeout(connectionTimeout);
-					this.connected = true;
-					this.debugLog('Connected to MQTT broker');
-					resolve();
-				});
-
-				this.client.on('error', (error: Error) => {
-					this.debugLog('MQTT error: ' + error.message);
-					if (!this.connected) {
-						clearTimeout(connectionTimeout);
-						reject(error);
-					}
-				});
-
-				this.client.on('reconnect', () => {
-					this.debugLog('Reconnecting to MQTT broker');
-				});
-
-				this.client.on('offline', () => {
-					this.connected = false;
-					this.debugLog('MQTT client offline');
-				});
-
-				this.client.on('close', () => {
-					clearTimeout(connectionTimeout);
-					this.connected = false;
-					this.debugLog('MQTT connection closed');
-				});
-			} catch (error) {
-				clearTimeout(connectionTimeout);
-				reject(error);
-			}
+		this.connectionPromise = this.mqttManager.connect(this.options.brokerUrl, {
+			...this.options.clientOptions,
+			reconnectPeriod: 5000,
+			connectTimeout: 10000,
 		});
+
+		try {
+			await this.connectionPromise;
+			this.debugLog('Connected to MQTT broker (using centralized manager)');
+		} catch (error) {
+			this.connectionPromise = null;
+			throw error;
+		}
+
+		return this.connectionPromise;
 	}
 
 	public async disconnect(): Promise<void> {
@@ -109,20 +77,13 @@ export class MqttLogBackend implements LogBackend {
 			this.batchTimer = null;
 		}
 
-		return new Promise((resolve) => {
-			if (this.client) {
-				this.client.end(false, {}, () => {
-					this.debugLog('Disconnected from MQTT broker');
-					resolve();
-				});
-			} else {
-				resolve();
-			}
-		});
+		// Note: We don't disconnect the shared manager here
+		// It may be used by other features
+		this.debugLog('MqttLogBackend disconnected (shared manager still active)');
 	}
 
 	public async log(message: LogMessage): Promise<void> {
-		if (!this.client || !this.connected) {
+		if (!this.mqttManager.isConnected()) {
 			this.debugLog('MQTT not connected, dropping log');
 			return;
 		}
@@ -164,23 +125,9 @@ export class MqttLogBackend implements LogBackend {
 		const topic = this.buildTopic(message);
 		const payload = JSON.stringify(message);
 
-		return new Promise((resolve, reject) => {
-			this.client!.publish(
-				topic,
-				payload,
-				{
-					qos: this.options.qos,
-					retain: this.options.retain,
-				},
-				(error?: Error) => {
-					if (error) {
-						this.debugLog('Failed to publish log: ' + error.message);
-						reject(error);
-					} else {
-						resolve();
-					}
-				},
-			);
+		await this.mqttManager.publish(topic, payload, {
+			qos: this.options.qos,
+			retain: this.options.retain,
 		});
 	}
 
@@ -208,23 +155,9 @@ export class MqttLogBackend implements LogBackend {
 			});
 			const batchTopic = topic + '/batch';
 
-			await new Promise<void>((resolve, reject) => {
-				this.client!.publish(
-					batchTopic,
-					payload,
-					{
-						qos: this.options.qos,
-						retain: false,
-					},
-					(error?: Error) => {
-						if (error) {
-							this.debugLog('Failed to publish batch: ' + error.message);
-							reject(error);
-						} else {
-							resolve();
-						}
-					},
-				);
+			await this.mqttManager.publish(batchTopic, payload, {
+				qos: this.options.qos,
+				retain: false,
 			});
 		}
 	}
@@ -255,95 +188,23 @@ export class MqttLogBackend implements LogBackend {
 	}
 
 	public isConnected(): boolean {
-		return this.connected;
+		return this.mqttManager.isConnected();
 	}
 
-	// Additional methods for direct MQTT operations (used by Shadow feature)
+	// Additional methods for direct MQTT operations (if needed)
 	public async publish(topic: string, payload: string | Buffer, qos?: 0 | 1 | 2): Promise<void> {
-		if (!this.client || !this.connected) {
-			throw new Error('MQTT client not connected');
-		}
-
-		// Debug: Log what we're publishing
-		console.log(`📡 MQTT Publish: ${topic}`);
-		console.log(`   QoS: ${qos !== undefined ? qos : this.options.qos}`);
-		console.log(`   Payload size: ${Buffer.byteLength(payload)} bytes`);
-
-		return new Promise((resolve, reject) => {
-			this.client!.publish(
-				topic,
-				payload,
-				{ qos: qos !== undefined ? qos : this.options.qos },
-				(error?: Error) => {
-					if (error) {
-						console.error(`❌ MQTT Publish failed for ${topic}:`, error);
-						reject(error);
-					} else {
-						console.log(`✅ MQTT Publish success: ${topic}`);
-						resolve();
-					}
-				}
-			);
+		await this.mqttManager.publish(topic, payload, {
+			qos: qos !== undefined ? qos : this.options.qos
 		});
 	}
 
 	public async subscribe(topic: string, qos?: 0 | 1 | 2, handler?: (topic: string, payload: Buffer) => void): Promise<void> {
-		if (!this.client || !this.connected) {
-			throw new Error('MQTT client not connected');
-		}
-
-		return new Promise((resolve, reject) => {
-			this.client!.subscribe(topic, { qos: qos !== undefined ? qos : this.options.qos }, (error) => {
-				if (error) {
-					reject(error);
-				} else {
-					if (handler) {
-						// Set up message handler for this topic
-						this.client!.on('message', (receivedTopic, payload) => {
-							if (this.topicMatches(receivedTopic, topic)) {
-								handler(receivedTopic, payload);
-							}
-						});
-					}
-					resolve();
-				}
-			});
-		});
+		await this.mqttManager.subscribe(topic, {
+			qos: qos !== undefined ? qos : this.options.qos
+		}, handler);
 	}
 
 	public async unsubscribe(topic: string): Promise<void> {
-		if (!this.client || !this.connected) {
-			throw new Error('MQTT client not connected');
-		}
-
-		return new Promise((resolve, reject) => {
-			this.client!.unsubscribe(topic, (error) => {
-				if (error) {
-					reject(error);
-				} else {
-					resolve();
-				}
-			});
-		});
-	}
-
-	// Helper to match MQTT topics with wildcards
-	private topicMatches(actualTopic: string, filterTopic: string): boolean {
-		const actualParts = actualTopic.split('/');
-		const filterParts = filterTopic.split('/');
-
-		for (let i = 0; i < filterParts.length; i++) {
-			if (filterParts[i] === '#') {
-				return true; // Multi-level wildcard matches everything after
-			}
-			if (filterParts[i] === '+') {
-				continue; // Single-level wildcard matches any single level
-			}
-			if (actualParts[i] !== filterParts[i]) {
-				return false;
-			}
-		}
-
-		return actualParts.length === filterParts.length;
+		await this.mqttManager.unsubscribe(topic);
 	}
 }

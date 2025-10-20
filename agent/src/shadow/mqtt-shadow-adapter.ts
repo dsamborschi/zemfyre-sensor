@@ -1,39 +1,28 @@
 /**
  * MQTT Connection Adapter for Shadow Feature
  * 
- * This adapter wraps your existing Mosquitto MQTT client to match
- * the MqttConnection interface expected by ShadowFeature.
+ * Refactored to use the centralized MqttManager singleton.
+ * This eliminates duplicate MQTT connections across the application.
  */
 
-import mqtt from 'mqtt';
+import { MqttManager } from '../mqtt/mqtt-manager';
 import { MqttConnection } from './types';
 
 export class MqttShadowAdapter implements MqttConnection {
-  private client: mqtt.MqttClient;
-  private messageHandlers: Map<string, (topic: string, payload: Buffer) => void> = new Map();
+  private mqttManager: MqttManager;
 
-  constructor(brokerUrl: string, options?: mqtt.IClientOptions) {
-    this.client = mqtt.connect(brokerUrl, {
+  constructor(brokerUrl: string, options?: any) {
+    this.mqttManager = MqttManager.getInstance();
+    
+    // Connect to MQTT broker (idempotent)
+    this.mqttManager.connect(brokerUrl, {
       ...options,
       clean: true,
       reconnectPeriod: 5000,
-    });
-
-    this.client.on('connect', () => {
-      console.log('✅ MQTT connected for Shadow feature');
-    });
-
-    this.client.on('error', (error) => {
-      console.error('❌ MQTT error:', error);
-    });
-
-    this.client.on('message', (topic, payload) => {
-      // Route messages to registered handlers
-      for (const [subscribedTopic, handler] of this.messageHandlers.entries()) {
-        if (this.topicMatches(subscribedTopic, topic)) {
-          handler(topic, payload);
-        }
-      }
+    }).then(() => {
+      console.log('✅ MQTT connected for Shadow feature (using centralized manager)');
+    }).catch((error) => {
+      console.error('❌ MQTT connection error:', error);
     });
   }
 
@@ -41,15 +30,7 @@ export class MqttShadowAdapter implements MqttConnection {
    * Publish message to MQTT topic
    */
   async publish(topic: string, payload: string | Buffer, qos: 0 | 1 | 2 = 1): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.client.publish(topic, payload, { qos }, (error) => {
-        if (error) {
-          reject(error);
-        } else {
-          resolve();
-        }
-      });
-    });
+    await this.mqttManager.publish(topic, payload, { qos });
   }
 
   /**
@@ -60,66 +41,29 @@ export class MqttShadowAdapter implements MqttConnection {
     qos: 0 | 1 | 2 = 1,
     handler?: (topic: string, payload: Buffer) => void
   ): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.client.subscribe(topic, { qos }, (error) => {
-        if (error) {
-          reject(error);
-        } else {
-          if (handler) {
-            this.messageHandlers.set(topic, handler);
-          }
-          resolve();
-        }
-      });
-    });
+    await this.mqttManager.subscribe(topic, { qos }, handler);
   }
 
   /**
    * Unsubscribe from MQTT topic
    */
   async unsubscribe(topic: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.client.unsubscribe(topic, (error) => {
-        if (error) {
-          reject(error);
-        } else {
-          this.messageHandlers.delete(topic);
-          resolve();
-        }
-      });
-    });
+    await this.mqttManager.unsubscribe(topic);
   }
 
   /**
    * Check if MQTT client is connected
    */
   isConnected(): boolean {
-    return this.client.connected;
+    return this.mqttManager.isConnected();
   }
 
   /**
-   * Close MQTT connection
+   * Close MQTT connection (Note: This will disconnect the shared manager)
    */
   async close(): Promise<void> {
-    return new Promise((resolve) => {
-      this.client.end(false, {}, () => {
-        resolve();
-      });
-    });
-  }
-
-  /**
-   * Check if topic matches subscription pattern
-   * Supports wildcards: + (single level) and # (multi level)
-   */
-  private topicMatches(pattern: string, topic: string): boolean {
-    // Convert MQTT wildcard pattern to regex
-    const regexPattern = pattern
-      .replace(/\+/g, '[^/]+')  // + matches single level
-      .replace(/#/g, '.*');      // # matches everything
-    
-    const regex = new RegExp(`^${regexPattern}$`);
-    return regex.test(topic);
+    console.warn('⚠️  Closing shared MQTT connection - this affects all features');
+    await this.mqttManager.disconnect();
   }
 }
 

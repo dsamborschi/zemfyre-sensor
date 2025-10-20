@@ -25,9 +25,6 @@ export interface DeviceInfo {
 	macAddress?: string;
 	osVersion?: string;
 	supervisorVersion?: string;
-	mqttUsername?: string;
-	mqttPassword?: string;
-	mqttBrokerUrl?: string;
 }
 
 export interface ProvisioningConfig {
@@ -66,15 +63,6 @@ export interface ProvisionResponse {
 	deviceName: string;
 	deviceType: string;
 	applicationId?: number;
-	  mqtt: {
-        username: string,
-        password: string,
-        broker: string,
-        topics: {
-          publish: string,
-          subscribe: string
-        }
-      }
 	createdAt: string;
 }
 

@@ -51,27 +51,11 @@ docker run -d \
 
 ## Environment Variables
 
-### Core Configuration
-
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `PORT` | `3002` | Server port |
 | `GRAFANA_URL` | `http://grafana:3000` | Grafana server URL |
 | `GRAFANA_API_TOKEN` | - | Grafana API token (required for Grafana endpoints) |
-
-### Image Monitor Configuration
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `IMAGE_MONITOR_ENABLED` | `true` | Enable/disable Docker Hub image monitoring |
-| `IMAGE_MONITOR_INTERVAL_MINUTES` | `60` | Check interval for new image tags (in minutes) |
-
-### Trivy Security Scanner
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `TRIVY_ENABLED` | `true` | Enable/disable Trivy vulnerability scanning |
-| `TRIVY_AUTO_REJECT_CRITICAL` | `false` | Auto-reject images with critical vulnerabilities |
 
 ## API Endpoints
 

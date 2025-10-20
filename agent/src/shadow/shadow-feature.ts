@@ -44,6 +44,7 @@ export class ShadowFeature extends EventEmitter {
   private shadowTopics: ShadowTopics;
   private started = false;
   private fileWatcher?: FSWatcher;
+  private publishIntervalId?: NodeJS.Timeout;  // Track periodic publish interval
   private stats: ShadowStats;
   private subscriptionPromises: Map<string, Promise<void>> = new Map();
 
@@ -118,6 +119,13 @@ export class ShadowFeature extends EventEmitter {
     this.logger.info(`${ShadowFeature.TAG}: Stopping Shadow feature`);
     
     try {
+      // Stop periodic publish interval
+      if (this.publishIntervalId) {
+        clearInterval(this.publishIntervalId);
+        this.publishIntervalId = undefined;
+        this.logger.info(`${ShadowFeature.TAG}: Stopped periodic publish interval`);
+      }
+
       // Stop file watcher
       if (this.fileWatcher) {
         this.fileWatcher.close();
@@ -526,9 +534,12 @@ export class ShadowFeature extends EventEmitter {
       `${ShadowFeature.TAG}: Starting periodic shadow publish (interval: ${this.config.publishInterval}ms)`
     );
 
-    const intervalId = setInterval(async () => {
+    this.publishIntervalId = setInterval(async () => {
       if (!this.started) {
-        clearInterval(intervalId);
+        if (this.publishIntervalId) {
+          clearInterval(this.publishIntervalId);
+          this.publishIntervalId = undefined;
+        }
         return;
       }
 

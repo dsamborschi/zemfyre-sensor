@@ -19,7 +19,6 @@ import type {
 	KeyExchangeRequest,
 	KeyExchangeResponse 
 } from './types';
-import mqtt from 'mqtt';
 
 // Dynamic import for uuid (ESM module)
 let uuidv4: () => string;
@@ -104,9 +103,6 @@ export class DeviceManager {
 				macAddress: rows[0].macAddress,
 				osVersion: rows[0].osVersion,
 				supervisorVersion: rows[0].supervisorVersion,
-				mqttUsername: rows[0].mqttUsername,
-				mqttPassword: rows[0].mqttPassword,
-				mqttBrokerUrl: rows[0].mqttBrokerUrl,
 			};
 		}
 	}
@@ -136,9 +132,6 @@ export class DeviceManager {
 			macAddress: this.deviceInfo.macAddress || null,
 			osVersion: this.deviceInfo.osVersion || null,
 			supervisorVersion: this.deviceInfo.supervisorVersion || null,
-			mqttUsername: this.deviceInfo.mqttUsername || null,
-			mqttPassword: this.deviceInfo.mqttPassword || null,
-			mqttBrokerUrl: this.deviceInfo.mqttBrokerUrl || null,
 			updatedAt: new Date().toISOString(),
 		};
 
@@ -230,9 +223,6 @@ export class DeviceManager {
 
 			// Save server-assigned device ID
 			this.deviceInfo.deviceId = response.id.toString();
-			this.deviceInfo.mqttUsername = response.mqtt.username;
-			this.deviceInfo.mqttPassword = response.mqtt.password;
-			this.deviceInfo.mqttBrokerUrl = response.mqtt.broker;
 
 			// Phase 2: Exchange keys - verify device can authenticate with deviceApiKey
 			console.log('🔐 Phase 2: Exchanging keys...');
@@ -258,8 +248,6 @@ export class DeviceManager {
 				deviceId: this.deviceInfo.deviceId,
 				deviceName: this.deviceInfo.deviceName,
 				applicationId: this.deviceInfo.applicationId,
-				mqttUsername: this.deviceInfo.mqttUsername,
-				mqttBrokerUrl: this.deviceInfo.mqttBrokerUrl,
 			});
 
 			return this.getDeviceInfo();
@@ -308,7 +296,6 @@ export class DeviceManager {
 
 			const result = await response.json() as ProvisionResponse;
 			console.log('✅ Device registered with ID:', result.id);
-			console.log('✅ Device registered with mqtt user name:', result.mqtt.username);
 
 			return result;
 		} catch (error: any) {

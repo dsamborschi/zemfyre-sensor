@@ -28,7 +28,9 @@ import { CloudJobsAdapter } from './jobs/cloud-jobs-adapter';
 import { SensorPublishFeature } from './sensor-publish';
 import { SensorConfigHandler } from './sensor-publish/config-handler';
 import { ShadowFeature, ShadowConfig } from './shadow';
+import { MqttShadowAdapter } from './shadow/mqtt-shadow-adapter';
 import { TwinStateManager } from './digital-twin/twin-state-manager';
+import { MqttManager } from './mqtt/mqtt-manager';
 
 export default class DeviceSupervisor {
 	private containerManager!: ContainerManager;
@@ -69,40 +71,43 @@ export default class DeviceSupervisor {
 			// 2. Initialize device provisioning
 			await this.initializeDeviceManager();
 
-			// 3. Initialize logging
+			// 3. Initialize MQTT Manager (before any features that use MQTT)
+			await this.initializeMqttManager();
+
+			// 4. Initialize logging
 			await this.initializeLogging();
 
-			// 4. Initialize container manager
+			// 5. Initialize container manager
 			await this.initializeContainerManager();
 
-			// 5. Initialize device API
+			// 6. Initialize device API
 			await this.initializeDeviceAPI();
 
-			// 6. Initialize API Binder (if cloud endpoint configured)
+			// 7. Initialize API Binder (if cloud endpoint configured)
 			await this.initializeApiBinder();
 
-			// 7. Initialize SSH Reverse Tunnel (if remote access enabled)
+			// 8. Initialize SSH Reverse Tunnel (if remote access enabled)
 			await this.initializeRemoteAccess();
 
-			// 8. Initialize Job Engine (if enabled)
+			// 9. Initialize Job Engine (if enabled)
 			await this.initializeJobEngine();
 
-			// 9. Initialize Cloud Jobs Adapter (if enabled)
+			// 10. Initialize Cloud Jobs Adapter (if enabled)
 			await this.initializeCloudJobsAdapter();
 
-			// 10. Initialize Sensor Publish Feature (if enabled)
+			// 11. Initialize Sensor Publish Feature (if enabled)
 			await this.initializeSensorPublish();
 
-			// 11. Initialize Shadow Feature (if enabled)
+			// 12. Initialize Shadow Feature (if enabled)
 			await this.initializeShadowFeature();
 
-			// 12. Initialize Sensor Config Handler (if both Shadow and Sensor Publish enabled)
+			// 13. Initialize Sensor Config Handler (if both Shadow and Sensor Publish enabled)
 			await this.initializeSensorConfigHandler();
 
-			// 13. Initialize Digital Twin State Manager (if Shadow enabled)
+			// 14. Initialize Digital Twin State Manager (if Shadow enabled)
 			await this.initializeDigitalTwin();
 
-			// 14. Start auto-reconciliation
+			// 15. Start auto-reconciliation
 			this.startAutoReconciliation();
 
 			console.log('='.repeat(80));
@@ -169,13 +174,56 @@ export default class DeviceSupervisor {
 		console.log(`✅ Device manager initialized`);
 		console.log(`   UUID: ${deviceInfo.uuid}`);
 		console.log(`   Name: ${deviceInfo.deviceName || 'Not set'}`);
-		console.log(`   MQTT Name: ${deviceInfo.mqttUsername || 'Not set'}`);
-		console.log(`   MQTT Broker: ${deviceInfo.mqttBrokerUrl || 'Not set'}`);
 		console.log(`   Provisioned: ${deviceInfo.provisioned ? 'Yes' : 'No'}`);
 		if (deviceInfo.deviceApiKey) {
 			console.log(`   Device API Key: ${deviceInfo.deviceApiKey.substring(0, 16)}...`);
 		}
-	}	private async initializeLogging(): Promise<void> {
+	}
+
+	/**
+	 * Initialize centralized MQTT Manager
+	 * 
+	 * This must be called BEFORE any features that use MQTT (logging, shadow, jobs).
+	 * The MqttManager provides a single shared connection for all MQTT operations.
+	 */
+	private async initializeMqttManager(): Promise<void> {
+		if (!process.env.MQTT_BROKER) {
+			console.log('⏭️  MQTT disabled (set MQTT_BROKER to enable)');
+			return;
+		}
+
+		console.log('🔌 Initializing MQTT Manager...');
+		
+		try {
+			const deviceInfo = this.deviceManager.getDeviceInfo();
+			const mqttManager = MqttManager.getInstance();
+			
+			// Connect to MQTT broker
+			await mqttManager.connect(process.env.MQTT_BROKER, {
+				clientId: `device_${deviceInfo.uuid}`,
+				clean: true,
+				reconnectPeriod: 5000,
+				username: process.env.MQTT_USERNAME,
+				password: process.env.MQTT_PASSWORD,
+			});
+			
+			// Enable debug mode if requested
+			if (process.env.MQTT_DEBUG === 'true') {
+				mqttManager.setDebug(true);
+				console.log('   Debug mode: enabled');
+			}
+			
+			console.log(`✅ MQTT Manager connected: ${process.env.MQTT_BROKER}`);
+			console.log(`   Client ID: device_${deviceInfo.uuid}`);
+			console.log(`   All features will share this connection`);
+		} catch (error) {
+			console.error('❌ Failed to initialize MQTT Manager:', error);
+			console.warn('   MQTT features will be unavailable');
+			// Don't throw - allow supervisor to continue without MQTT
+		}
+	}
+
+	private async initializeLogging(): Promise<void> {
 		console.log('📝 Initializing logging...');
 
 		// Local backend (always enabled)
@@ -213,16 +261,16 @@ export default class DeviceSupervisor {
 			console.log('⚠️  Cloud logging disabled (set ENABLE_CLOUD_LOGGING=true to enable)');
 		}
 
-		// MQTT backend
-		try {
-				// Get device UUID for client ID
-				const deviceInfo = this.deviceManager.getDeviceInfo();
+		// MQTT backend (optional)
+		if (process.env.MQTT_BROKER) {
+			try {
+				// Note: MqttLogBackend uses centralized MqttManager
+				// Connection is already established in initializeMqttManager()
 				const mqttBackend = new MqttLogBackend({
-					brokerUrl: deviceInfo.mqttBrokerUrl || 'mqtt://localhost:1883',
+					brokerUrl: process.env.MQTT_BROKER,
 					clientOptions: {
-						clientId: `device_${deviceInfo.uuid}`,
-						username: deviceInfo.mqttUsername, 
-                        password: deviceInfo.mqttPassword,
+						// clientId is already set in initializeMqttManager() as device_${uuid}
+						// No need to pass it again - these options are ignored
 					},
 					baseTopic: process.env.MQTT_TOPIC || 'device/logs',
 					qos: (process.env.MQTT_QOS ? parseInt(process.env.MQTT_QOS) : 1) as 0 | 1 | 2,
@@ -233,12 +281,13 @@ export default class DeviceSupervisor {
 				});
 				await mqttBackend.connect();
 				this.logBackends.push(mqttBackend);
+				const deviceInfo = this.deviceManager.getDeviceInfo();
 				console.log(`✅ MQTT log backend connected: ${process.env.MQTT_BROKER} (client: device_${deviceInfo.uuid})`);
 			} catch (error) {
 				console.error('⚠️  Failed to connect to MQTT broker:', error);
 				console.log('   Continuing without cloud logging');
 			}
-		
+		}
 
 		// Log summary
 		console.log(`✅ Logging initialized with ${this.logBackends.length} backend(s)`);
@@ -582,36 +631,29 @@ export default class DeviceSupervisor {
 					: undefined,
 			};
 
-			// Create MQTT connection wrapper (reusing the same pattern as SensorPublish)
-			const mqttConnection = {
-				publish: async (topic: string, payload: string | Buffer, qos?: 0 | 1 | 2) => {
-					// If MQTT backend is available, use it
-					const mqttBackend = this.logBackends.find(b => b.constructor.name === 'MqttLogBackend') as any;
-					if (mqttBackend && mqttBackend.publish) {
-						await mqttBackend.publish(topic, payload.toString(), qos);
-					} else {
-						console.warn('⚠️  MQTT backend not available, shadow updates not published');
+			// Create MQTT adapter using centralized MqttManager
+			// Note: MqttShadowAdapter reuses the existing MQTT connection established in initializeMqttManager()
+			// The clientId, username, and password were already set there, so we don't need to pass them again
+			let mqttConnection;
+			if (process.env.MQTT_BROKER) {
+				mqttConnection = new MqttShadowAdapter(
+					process.env.MQTT_BROKER,
+					{
+						// Options are ignored since MqttManager is already connected
+						// If this was called before initializeMqttManager(), these would be used
 					}
-				},
-				subscribe: async (topic: string, qos?: 0 | 1 | 2, handler?: (topic: string, payload: Buffer) => void) => {
-					const mqttBackend = this.logBackends.find(b => b.constructor.name === 'MqttLogBackend') as any;
-					if (mqttBackend && mqttBackend.subscribe) {
-						await mqttBackend.subscribe(topic, qos, handler);
-					} else {
-						console.warn('⚠️  MQTT backend not available, cannot subscribe to shadow topics');
-					}
-				},
-				unsubscribe: async (topic: string) => {
-					const mqttBackend = this.logBackends.find(b => b.constructor.name === 'MqttLogBackend') as any;
-					if (mqttBackend && mqttBackend.unsubscribe) {
-						await mqttBackend.unsubscribe(topic);
-					}
-				},
-				isConnected: () => {
-					const mqttBackend = this.logBackends.find(b => b.constructor.name === 'MqttLogBackend') as any;
-					return mqttBackend ? mqttBackend.isConnected() : false;
-				}
-			};
+				);
+				console.log('   Using centralized MQTT Manager for shadow operations');
+			} else {
+				console.warn('⚠️  MQTT_BROKER not set, shadow feature will not publish updates');
+				// Create a no-op connection
+				mqttConnection = {
+					publish: async () => {},
+					subscribe: async () => {},
+					unsubscribe: async () => {},
+					isConnected: () => false,
+				};
+			}
 
 			// Create simple logger
 			const shadowLogger = {
@@ -845,6 +887,12 @@ export default class DeviceSupervisor {
 				console.log('✅ Sensor Publish stopped');
 			}
 
+			// Stop Sensor Config Handler
+			if (this.sensorConfigHandler) {
+				// No explicit stop method, just clear reference
+				console.log('✅ Sensor Config Handler cleanup');
+			}
+
 			// Stop Job Engine
 			if (this.jobEngine) {
 				// Clean up any scheduled or running jobs
@@ -869,6 +917,28 @@ export default class DeviceSupervisor {
 				console.log('✅ API Binder stopped');
 			}
 
+			// Stop log backends (flush buffers, clear timers)
+			console.log('🔄 Stopping log backends...');
+			for (const backend of this.logBackends) {
+				try {
+					if ('disconnect' in backend && typeof backend.disconnect === 'function') {
+						await backend.disconnect();
+					} else if ('stop' in backend && typeof backend.stop === 'function') {
+						await (backend as any).stop();
+					}
+				} catch (error) {
+					console.warn(`⚠️  Error stopping log backend: ${error}`);
+				}
+			}
+			console.log('✅ Log backends stopped');
+
+			// Stop MQTT Manager (shared singleton - do this after all MQTT-dependent features)
+			const mqttManager = MqttManager.getInstance();
+			if (mqttManager.isConnected()) {
+				await mqttManager.disconnect();
+				console.log('✅ MQTT Manager disconnected');
+			}
+
 			// Stop device API
 			if (this.deviceAPI) {
 				await this.deviceAPI.stop();
@@ -877,8 +947,8 @@ export default class DeviceSupervisor {
 
 			// Stop container manager
 			if (this.containerManager) {
-				// Container manager doesn't have a stop method yet
-				console.log('✅ Container manager cleanup');
+				this.containerManager.stopAutoReconciliation();
+				console.log('✅ Container manager stopped');
 			}
 
 			console.log('✅ Device Supervisor stopped');
