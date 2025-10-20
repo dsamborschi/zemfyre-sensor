@@ -91,7 +91,6 @@ export async function testConnection(): Promise<boolean> {
  * @deprecated Use runMigrations() from migrations.ts instead
  */
 export async function initializeSchema(): Promise<void> {
-  console.warn('⚠️  initializeSchema() is deprecated, using migration system instead');
   
   // Import and run migrations
   const { runMigrations } = await import('./migrations');

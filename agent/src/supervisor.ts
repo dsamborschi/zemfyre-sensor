@@ -169,6 +169,8 @@ export default class DeviceSupervisor {
 		console.log(`✅ Device manager initialized`);
 		console.log(`   UUID: ${deviceInfo.uuid}`);
 		console.log(`   Name: ${deviceInfo.deviceName || 'Not set'}`);
+		console.log(`   MQTT Name: ${deviceInfo.mqttUsername || 'Not set'}`);
+		console.log(`   MQTT Broker: ${deviceInfo.mqttBrokerUrl || 'Not set'}`);
 		console.log(`   Provisioned: ${deviceInfo.provisioned ? 'Yes' : 'No'}`);
 		if (deviceInfo.deviceApiKey) {
 			console.log(`   Device API Key: ${deviceInfo.deviceApiKey.substring(0, 16)}...`);
@@ -211,15 +213,16 @@ export default class DeviceSupervisor {
 			console.log('⚠️  Cloud logging disabled (set ENABLE_CLOUD_LOGGING=true to enable)');
 		}
 
-		// MQTT backend (optional)
-		if (process.env.MQTT_BROKER) {
-			try {
+		// MQTT backend
+		try {
 				// Get device UUID for client ID
 				const deviceInfo = this.deviceManager.getDeviceInfo();
 				const mqttBackend = new MqttLogBackend({
-					brokerUrl: process.env.MQTT_BROKER,
+					brokerUrl: deviceInfo.mqttBrokerUrl || 'mqtt://localhost:1883',
 					clientOptions: {
 						clientId: `device_${deviceInfo.uuid}`,
+						username: deviceInfo.mqttUsername, 
+                        password: deviceInfo.mqttPassword,
 					},
 					baseTopic: process.env.MQTT_TOPIC || 'device/logs',
 					qos: (process.env.MQTT_QOS ? parseInt(process.env.MQTT_QOS) : 1) as 0 | 1 | 2,
@@ -235,7 +238,7 @@ export default class DeviceSupervisor {
 				console.error('⚠️  Failed to connect to MQTT broker:', error);
 				console.log('   Continuing without cloud logging');
 			}
-		}
+		
 
 		// Log summary
 		console.log(`✅ Logging initialized with ${this.logBackends.length} backend(s)`);

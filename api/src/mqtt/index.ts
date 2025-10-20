@@ -27,7 +27,6 @@ export async function initializeMqtt(): Promise<MqttManager | null> {
   }
 
   try {
-    console.log('🔌 Initializing MQTT service...');
 
     mqttManager = new MqttManager({
       brokerUrl: mqttBrokerUrl,
@@ -88,7 +87,6 @@ export async function initializeMqtt(): Promise<MqttManager | null> {
     const subscribeToAll = process.env.MQTT_SUBSCRIBE_ALL !== 'false';
     
     if (subscribeToAll) {
-      console.log('📡 Subscribing to all device topics...');
       mqttManager.subscribeToAll([
         'sensor',
         'shadow-reported',
@@ -101,7 +99,6 @@ export async function initializeMqtt(): Promise<MqttManager | null> {
       console.log('⚠️  MQTT subscription disabled. Set MQTT_SUBSCRIBE_ALL=true to enable.');
     }
 
-    console.log('✅ MQTT service initialized');
     return mqttManager;
 
   } catch (error) {

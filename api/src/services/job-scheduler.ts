@@ -48,7 +48,6 @@ class JobSchedulerService {
     try {
       // Load all active scheduled jobs from database
       await this.loadScheduledJobs();
-      console.log('[JobScheduler] ✅ Job scheduler started successfully');
     } catch (error) {
       console.error('[JobScheduler] ❌ Failed to start:', error);
       throw error;

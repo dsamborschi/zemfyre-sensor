@@ -41,15 +41,22 @@ export class ImageMonitorService {
   private isRunning = false;
   private intervalId: NodeJS.Timeout | null = null;
   private checkIntervalMs: number;
+  private enabled: boolean;
 
-  constructor(checkIntervalMinutes: number = 60) {
+  constructor(checkIntervalMinutes: number = 60, enabled: boolean = true) {
     this.checkIntervalMs = checkIntervalMinutes * 60 * 1000;
+    this.enabled = enabled;
   }
 
   /**
    * Start the monitoring service
    */
   start(): void {
+    if (!this.enabled) {
+      console.log('[ImageMonitor] Service is disabled via IMAGE_MONITOR_ENABLED env var');
+      return;
+    }
+
     if (this.isRunning) {
       console.log('[ImageMonitor] Already running');
       return;
@@ -275,6 +282,7 @@ export class ImageMonitorService {
    */
   getStatus() {
     return {
+      enabled: this.enabled,
       running: this.isRunning,
       checkIntervalMinutes: this.checkIntervalMs / 60000,
       nextCheckIn: this.intervalId ? this.checkIntervalMs : null
@@ -283,6 +291,9 @@ export class ImageMonitorService {
 }
 
 // Singleton instance
-// Can be configured via IMAGE_MONITOR_INTERVAL_MINUTES env var (default: 60)
+// Configuration via environment variables:
+// - IMAGE_MONITOR_ENABLED: Enable/disable the service (default: true)
+// - IMAGE_MONITOR_INTERVAL_MINUTES: Check interval in minutes (default: 60)
 const checkIntervalMinutes = parseInt(process.env.IMAGE_MONITOR_INTERVAL_MINUTES || '60', 10);
-export const imageMonitor = new ImageMonitorService(checkIntervalMinutes);
+const enabled = process.env.IMAGE_MONITOR_ENABLED !== 'false'; // Enabled by default
+export const imageMonitor = new ImageMonitorService(checkIntervalMinutes, enabled);

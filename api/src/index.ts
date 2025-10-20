@@ -20,6 +20,8 @@ import rotationRoutes from './routes/rotation';
 import digitalTwinRoutes from './routes/digital-twin';
 import mqttMonitorRoutes from './routes/mqtt-monitor';
 import eventsRoutes from './routes/events';
+import authRoutes from './routes/auth';
+import mqttRoutes from './routes/mqtt-management';
 
 // Import entity/graph routes
 import { createEntitiesRouter } from './routes/entities';
@@ -90,10 +92,15 @@ app.use(API_BASE, digitalTwinRoutes);
 app.use(`${API_BASE}/mqtt-monitor`, mqttMonitorRoutes);
 app.use(API_BASE, eventsRoutes);
 
+
 // Mount entity/graph routes
 app.use(`${API_BASE}/entities`, createEntitiesRouter(poolWrapper.pool));
 app.use(`${API_BASE}/relationships`, createRelationshipsRouter(poolWrapper.pool));
 app.use(`${API_BASE}/graph`, createGraphRouter(poolWrapper.pool));
+
+//Auth routes
+app.use('/api/v1/auth', authRoutes);
+app.use('/api/v1/mqtt', mqttRoutes);
 
 // 404 handler
 app.use((req, res) => {
@@ -115,7 +122,6 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 
 // Start server
 async function startServer() {
-  console.log('🚀 Initializing Iotistic Unified API...\n');
 
   // Initialize PostgreSQL database
   try {
@@ -155,13 +161,17 @@ async function startServer() {
   }
 
   // Start image monitor for Docker Hub polling
-  try {
-    const { imageMonitor } = await import('./services/image-monitor');
-    imageMonitor.start();
-    console.log('✅ Image Monitor started');
-  } catch (error) {
-    console.error('⚠️  Failed to start image monitor:', error);
-    // Don't exit - this is not critical for API operation
+  if (process.env.IMAGE_MONITOR_ENABLED !== 'false') {
+    try {
+      const { imageMonitor } = await import('./services/image-monitor');
+      imageMonitor.start();
+      console.log('✅ Image Monitor started');
+    } catch (error) {
+      console.error('⚠️  Failed to start image monitor:', error);
+      // Don't exit - this is not critical for API operation
+    }
+  } else {
+    console.log('⏭️  Image Monitor disabled via IMAGE_MONITOR_ENABLED env var');
   }
 
   // Start job scheduler for scheduled/recurring jobs

@@ -51,6 +51,9 @@ const scheduled_jobs_1 = __importDefault(require("./routes/scheduled-jobs"));
 const rotation_1 = __importDefault(require("./routes/rotation"));
 const digital_twin_1 = __importDefault(require("./routes/digital-twin"));
 const mqtt_monitor_1 = __importDefault(require("./routes/mqtt-monitor"));
+const events_1 = __importDefault(require("./routes/events"));
+const auth_1 = __importDefault(require("./routes/auth"));
+const mqtt_management_1 = __importDefault(require("./routes/mqtt-management"));
 const entities_1 = require("./routes/entities");
 const relationships_1 = require("./routes/relationships");
 const graph_1 = require("./routes/graph");
@@ -100,9 +103,12 @@ app.use(API_BASE, scheduled_jobs_1.default);
 app.use(API_BASE, rotation_1.default);
 app.use(API_BASE, digital_twin_1.default);
 app.use(`${API_BASE}/mqtt-monitor`, mqtt_monitor_1.default);
+app.use(API_BASE, events_1.default);
 app.use(`${API_BASE}/entities`, (0, entities_1.createEntitiesRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/relationships`, (0, relationships_1.createRelationshipsRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/graph`, (0, graph_1.createGraphRouter)(connection_1.default.pool));
+app.use('/api/v1/auth', auth_1.default);
+app.use('/api/v1/mqtt', mqtt_management_1.default);
 app.use((req, res) => {
     res.status(404).json({
         error: 'Not found',
@@ -118,7 +124,6 @@ app.use((err, req, res, next) => {
     });
 });
 async function startServer() {
-    console.log('🚀 Initializing Iotistic Unified API...\n');
     try {
         const db = await Promise.resolve().then(() => __importStar(require('./db/connection')));
         const connected = await db.testConnection();
@@ -148,13 +153,18 @@ async function startServer() {
     catch (error) {
         console.error('⚠️  Failed to start rollout monitor:', error);
     }
-    try {
-        const { imageMonitor } = await Promise.resolve().then(() => __importStar(require('./services/image-monitor')));
-        imageMonitor.start();
-        console.log('✅ Image Monitor started');
+    if (process.env.IMAGE_MONITOR_ENABLED !== 'false') {
+        try {
+            const { imageMonitor } = await Promise.resolve().then(() => __importStar(require('./services/image-monitor')));
+            imageMonitor.start();
+            console.log('✅ Image Monitor started');
+        }
+        catch (error) {
+            console.error('⚠️  Failed to start image monitor:', error);
+        }
     }
-    catch (error) {
-        console.error('⚠️  Failed to start image monitor:', error);
+    else {
+        console.log('⏭️  Image Monitor disabled via IMAGE_MONITOR_ENABLED env var');
     }
     try {
         await job_scheduler_1.jobScheduler.start();

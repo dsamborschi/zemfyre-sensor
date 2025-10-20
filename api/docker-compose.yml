@@ -41,48 +41,48 @@ services:
         networks:
            - zemfyre-net
 
-    api:
-        build:
-            context: .
-            dockerfile: Dockerfile
-        container_name: iotistic-api
-        restart: always
-        tty: true
-        stdin_open: true
-        logging:
-            driver: "json-file"
-            options:
-                max-size: "10m"
-                max-file: "3"
-        environment:
-            - PORT=3002
-            - NODE_ENV=development
-            - DB_HOST=postgres
-            - DB_PORT=5432
-            - DB_NAME=iotistic
-            - DB_USER=postgres
-            - DB_PASSWORD=${DB_PASSWORD:-postgres}
-            - DB_POOL_SIZE=20
-            - GRAFANA_API_TOKEN=${GRAFANA_API_TOKEN}
-            - DISPLAY=${DISPLAY}
-            - DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}
-            - FORCE_COLOR=1
-            - DEBUG=*
-        ports:
-            - "${API_PORT_EXT:-4002}:3002"
-        depends_on:
-            postgres:
-                condition: service_healthy
-        networks:
-           - zemfyre-net
+    # api:
+    #     build:
+    #         context: .
+    #         dockerfile: Dockerfile
+    #     container_name: iotistic-api
+    #     restart: always
+    #     tty: true
+    #     stdin_open: true
+    #     logging:
+    #         driver: "json-file"
+    #         options:
+    #             max-size: "10m"
+    #             max-file: "3"
+    #     environment:
+    #         - PORT=3002
+    #         - NODE_ENV=development
+    #         - DB_HOST=postgres
+    #         - DB_PORT=5432
+    #         - DB_NAME=iotistic
+    #         - DB_USER=postgres
+    #         - DB_PASSWORD=${DB_PASSWORD:-postgres}
+    #         - DB_POOL_SIZE=20
+    #         - GRAFANA_API_TOKEN=${GRAFANA_API_TOKEN}
+    #         - DISPLAY=${DISPLAY}
+    #         - DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}
+    #         - FORCE_COLOR=1
+    #         - DEBUG=*
+    #     ports:
+    #         - "${API_PORT_EXT:-4002}:3002"
+    #     depends_on:
+    #         postgres:
+    #             condition: service_healthy
+    #     networks:
+    #        - zemfyre-net
     mosquitto:
-        image: eclipse-mosquitto
+        image: iegomez/mosquitto-go-auth
         restart: always
         ports:
           - "${MOSQUITTO_PORT_EXT:-5883}:1883"
           - "${MOSQUITTO_WS_PORT_EXT:-59002}:9001"
         volumes:
-          - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+          - ./mosquitto.conf:/etc/mosquitto/mosquitto.conf
         networks:
            - zemfyre-net
 
