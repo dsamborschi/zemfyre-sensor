@@ -99,6 +99,9 @@ export class DeviceManager {
 				apiEndpoint: rows[0].apiEndpoint,
 				registeredAt: rows[0].registeredAt,
 				provisioned: rows[0].provisioned === 1,
+				mqttUsername: rows[0].mqttUsername,
+				mqttPassword: rows[0].mqttPassword,
+				mqttBrokerUrl: rows[0].mqttBrokerUrl,
 				applicationId: rows[0].applicationId,
 				macAddress: rows[0].macAddress,
 				osVersion: rows[0].osVersion,
@@ -128,6 +131,9 @@ export class DeviceManager {
 			apiEndpoint: this.deviceInfo.apiEndpoint || null,
 			registeredAt: this.deviceInfo.registeredAt || null,
 			provisioned: this.deviceInfo.provisioned ? 1 : 0,
+			mqttUsername: this.deviceInfo.mqttUsername || null,
+			mqttPassword: this.deviceInfo.mqttPassword || null,
+			mqttBrokerUrl: this.deviceInfo.mqttBrokerUrl || null,
 			applicationId: this.deviceInfo.applicationId || null,
 			macAddress: this.deviceInfo.macAddress || null,
 			osVersion: this.deviceInfo.osVersion || null,
@@ -296,6 +302,20 @@ export class DeviceManager {
 
 			const result = await response.json() as ProvisionResponse;
 			console.log('✅ Device registered with ID:', result.id);
+			
+			// Save MQTT credentials if provided by the API
+			if (result.mqttUsername) {
+				this.deviceInfo!.mqttUsername = result.mqttUsername;
+				console.log('   MQTT Username:', result.mqttUsername);
+			}
+			if (result.mqttPassword) {
+				this.deviceInfo!.mqttPassword = result.mqttPassword;
+				console.log('   MQTT Password: [REDACTED]');
+			}
+			if (result.mqttBrokerUrl) {
+				this.deviceInfo!.mqttBrokerUrl = result.mqttBrokerUrl;
+				console.log('   MQTT Broker:', result.mqttBrokerUrl);
+			}
 
 			return result;
 		} catch (error: any) {

@@ -20,6 +20,11 @@ export interface DeviceInfo {
 	registeredAt?: number;
 	provisioned: boolean;
 	
+	// MQTT credentials (provided by cloud API during provisioning)
+	mqttUsername?: string;
+	mqttPassword?: string;
+	mqttBrokerUrl?: string;
+	
 	// Additional metadata
 	applicationId?: number;
 	macAddress?: string;
@@ -64,6 +69,10 @@ export interface ProvisionResponse {
 	deviceType: string;
 	applicationId?: number;
 	createdAt: string;
+	// MQTT credentials returned from cloud API
+	mqttUsername?: string;
+	mqttPassword?: string;
+	mqttBrokerUrl?: string;
 }
 
 export interface KeyExchangeRequest {

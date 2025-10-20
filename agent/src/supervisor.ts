@@ -185,26 +185,36 @@ export default class DeviceSupervisor {
 	 * 
 	 * This must be called BEFORE any features that use MQTT (logging, shadow, jobs).
 	 * The MqttManager provides a single shared connection for all MQTT operations.
+	 * 
+	 * Uses MQTT credentials from device provisioning (mqttBrokerUrl, mqttUsername, mqttPassword).
+	 * Falls back to environment variables (MQTT_BROKER, MQTT_USERNAME, MQTT_PASSWORD) if not provisioned.
 	 */
 	private async initializeMqttManager(): Promise<void> {
-		if (!process.env.MQTT_BROKER) {
-			console.log('⏭️  MQTT disabled (set MQTT_BROKER to enable)');
-			return;
-		}
-
 		console.log('🔌 Initializing MQTT Manager...');
 		
 		try {
 			const deviceInfo = this.deviceManager.getDeviceInfo();
+			
+			// Use MQTT credentials from provisioning if available, otherwise fall back to env vars
+			const mqttBrokerUrl = deviceInfo.mqttBrokerUrl || process.env.MQTT_BROKER;
+			const mqttUsername = deviceInfo.mqttUsername || process.env.MQTT_USERNAME;
+			const mqttPassword = deviceInfo.mqttPassword || process.env.MQTT_PASSWORD;
+			
+			if (!mqttBrokerUrl) {
+				console.log('⏭️  MQTT disabled - no broker URL provided');
+				console.log('   Provision device or set MQTT_BROKER env var to enable');
+				return;
+			}
+			
 			const mqttManager = MqttManager.getInstance();
 			
-			// Connect to MQTT broker
-			await mqttManager.connect(process.env.MQTT_BROKER, {
+			// Connect to MQTT broker with provisioned credentials
+			await mqttManager.connect(mqttBrokerUrl, {
 				clientId: `device_${deviceInfo.uuid}`,
 				clean: true,
 				reconnectPeriod: 5000,
-				username: process.env.MQTT_USERNAME,
-				password: process.env.MQTT_PASSWORD,
+				username: mqttUsername,
+				password: mqttPassword,
 			});
 			
 			// Enable debug mode if requested
@@ -213,8 +223,10 @@ export default class DeviceSupervisor {
 				console.log('   Debug mode: enabled');
 			}
 			
-			console.log(`✅ MQTT Manager connected: ${process.env.MQTT_BROKER}`);
+			console.log(`✅ MQTT Manager connected: ${mqttBrokerUrl}`);
 			console.log(`   Client ID: device_${deviceInfo.uuid}`);
+			console.log(`   Username: ${mqttUsername || '(none)'}`);
+			console.log(`   Credentials: ${deviceInfo.mqttUsername ? 'From provisioning' : 'From environment'}`);
 			console.log(`   All features will share this connection`);
 		} catch (error) {
 			console.error('❌ Failed to initialize MQTT Manager:', error);

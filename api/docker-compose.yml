@@ -1,0 +1,105 @@
+# Docker Compose configuration for Cloud API and PostgreSQL backend
+# 
+# Usage:
+#   docker-compose -f docker-compose.cloud.yml up -d
+#
+# This stack provides:
+#   - PostgreSQL 16 database for persistent device state storage
+#   - Zemfyre API server with Balena-style endpoints
+#
+# Environment variables (configure in .env):
+#   - DB_PASSWORD=<password>    # PostgreSQL password
+#   - DB_PORT_EXT=5432          # External PostgreSQL port
+#   - API_PORT_EXT=3002         # External API port
+#   - GRAFANA_API_TOKEN=<token> # For Grafana integration
+
+services:
+    postgres:
+        image: postgres:16-alpine
+        container_name: iotistic-postgres
+        restart: unless-stopped
+        environment:
+            - POSTGRES_DB=iotistic
+            - POSTGRES_USER=postgres
+            - POSTGRES_PASSWORD=postgres
+        ports:
+            - "5432:5432"
+        volumes:
+            - zemfyre-pg-data:/var/lib/postgresql/data
+            - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+            - ./database/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
+            - ./database/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+        command: >
+            postgres
+            -c config_file=/etc/postgresql/postgresql.conf
+            -c hba_file=/etc/postgresql/pg_hba.conf
+        healthcheck:
+            test: ["CMD-SHELL", "pg_isready -U postgres"]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+        networks:
+           - zemfyre-net
+
+    # api:
+    #     build:
+    #         context: .
+    #         dockerfile: Dockerfile
+    #     container_name: iotistic-api
+    #     restart: always
+    #     tty: true
+    #     stdin_open: true
+    #     logging:
+    #         driver: "json-file"
+    #         options:
+    #             max-size: "10m"
+    #             max-file: "3"
+    #     environment:
+    #         - PORT=3002
+    #         - NODE_ENV=development
+    #         - DB_HOST=postgres
+    #         - DB_PORT=5432
+    #         - DB_NAME=iotistic
+    #         - DB_USER=postgres
+    #         - DB_PASSWORD=${DB_PASSWORD:-postgres}
+    #         - DB_POOL_SIZE=20
+    #         - GRAFANA_API_TOKEN=${GRAFANA_API_TOKEN}
+    #         - DISPLAY=${DISPLAY}
+    #         - DBUS_SESSION_BUS_ADDRESS=${DBUS_SESSION_BUS_ADDRESS}
+    #         - FORCE_COLOR=1
+    #         - DEBUG=*
+    #     ports:
+    #         - "${API_PORT_EXT:-4002}:3002"
+    #     depends_on:
+    #         postgres:
+    #             condition: service_healthy
+    #     networks:
+    #        - zemfyre-net
+    mosquitto:
+        image: iegomez/mosquitto-go-auth
+        restart: always
+        environment:
+            - DB_HOST=postgres
+            - DB_PORT=5432
+            - DB_NAME=iotistic
+            - DB_USER=postgres
+            - DB_PASSWORD=${DB_PASSWORD:-postgres}
+        ports:
+          - "${MOSQUITTO_PORT_EXT:-5883}:1883"
+          - "${MOSQUITTO_WS_PORT_EXT:-59002}:9001"
+        volumes:
+          - ./mosquitto.conf:/etc/mosquitto/mosquitto.conf
+        depends_on:
+            postgres:
+                condition: service_healthy
+        networks:
+           - zemfyre-net
+
+volumes:
+  zemfyre-pg-data:
+    driver: local
+ 
+networks:
+  zemfyre-net:
+    driver: bridge
+    external: true  # Use existing network from main docker-compose
