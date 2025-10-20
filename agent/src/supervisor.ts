@@ -264,12 +264,13 @@ export default class DeviceSupervisor {
 		// MQTT backend (optional)
 		if (process.env.MQTT_BROKER) {
 			try {
-				// Get device UUID for client ID
-				const deviceInfo = this.deviceManager.getDeviceInfo();
+				// Note: MqttLogBackend uses centralized MqttManager
+				// Connection is already established in initializeMqttManager()
 				const mqttBackend = new MqttLogBackend({
 					brokerUrl: process.env.MQTT_BROKER,
 					clientOptions: {
-						clientId: `device_${deviceInfo.uuid}`,
+						// clientId is already set in initializeMqttManager() as device_${uuid}
+						// No need to pass it again - these options are ignored
 					},
 					baseTopic: process.env.MQTT_TOPIC || 'device/logs',
 					qos: (process.env.MQTT_QOS ? parseInt(process.env.MQTT_QOS) : 1) as 0 | 1 | 2,
@@ -280,6 +281,7 @@ export default class DeviceSupervisor {
 				});
 				await mqttBackend.connect();
 				this.logBackends.push(mqttBackend);
+				const deviceInfo = this.deviceManager.getDeviceInfo();
 				console.log(`✅ MQTT log backend connected: ${process.env.MQTT_BROKER} (client: device_${deviceInfo.uuid})`);
 			} catch (error) {
 				console.error('⚠️  Failed to connect to MQTT broker:', error);
@@ -630,14 +632,15 @@ export default class DeviceSupervisor {
 			};
 
 			// Create MQTT adapter using centralized MqttManager
+			// Note: MqttShadowAdapter reuses the existing MQTT connection established in initializeMqttManager()
+			// The clientId, username, and password were already set there, so we don't need to pass them again
 			let mqttConnection;
 			if (process.env.MQTT_BROKER) {
 				mqttConnection = new MqttShadowAdapter(
 					process.env.MQTT_BROKER,
 					{
-						clientId: `shadow-${deviceInfo.uuid}`,
-						username: process.env.MQTT_USERNAME,
-						password: process.env.MQTT_PASSWORD,
+						// Options are ignored since MqttManager is already connected
+						// If this was called before initializeMqttManager(), these would be used
 					}
 				);
 				console.log('   Using centralized MQTT Manager for shadow operations');
