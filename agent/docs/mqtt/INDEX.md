@@ -29,10 +29,22 @@ All documentation for the MQTT centralization refactor is organized here.
 4. **[INTEGRATION-CHECKLIST.md](./INTEGRATION-CHECKLIST.md)** (11.5 KB)  
    Comprehensive checklist for integration, testing, and deployment.
 
-5. **[REFACTOR-SUMMARY.md](./REFACTOR-SUMMARY.md)** (8.1 KB)  
+5. **[CURRENT-STATE.md](./CURRENT-STATE.md)** (6.4 KB)  
+   Explains where MQTT was initialized and the implementation plan.
+
+6. **[INTEGRATION-COMPLETE.md](./INTEGRATION-COMPLETE.md)** (8.7 KB)  
+   ✅ **Integration status report** - All changes made and testing instructions.
+
+7. **[TESTING.md](./TESTING.md)** (5.8 KB)  
+   🧪 **Step-by-step testing guide** - How to verify the integration works.
+
+8. **[QUICK-REFERENCE.md](./QUICK-REFERENCE.md)** (3.2 KB)  
+   📋 **Quick reference card** - Key info at a glance.
+
+9. **[REFACTOR-SUMMARY.md](./REFACTOR-SUMMARY.md)** (8.1 KB)  
    Executive summary of what was done and the benefits achieved.
 
-6. **[COMPLETE.md](./COMPLETE.md)** (10.2 KB)  
+10. **[COMPLETE.md](./COMPLETE.md)** (10.2 KB)  
    Final status report with all deliverables and next steps.
 
 ---
@@ -69,7 +81,10 @@ agent/src/mqtt/
 ### For Implementation
 1. [README.md](./README.md) - Complete guide
 2. [MIGRATION.md](./MIGRATION.md) - Migration steps
-3. [INTEGRATION-CHECKLIST.md](./INTEGRATION-CHECKLIST.md) - Testing checklist
+3. [CURRENT-STATE.md](./CURRENT-STATE.md) - Where MQTT was initialized
+4. [INTEGRATION-COMPLETE.md](./INTEGRATION-COMPLETE.md) - ✅ Integration done!
+5. [TESTING.md](./TESTING.md) - 🧪 Step-by-step testing
+6. [INTEGRATION-CHECKLIST.md](./INTEGRATION-CHECKLIST.md) - Testing checklist
 
 ### For Understanding Design
 1. [ARCHITECTURE-DIAGRAMS.md](./ARCHITECTURE-DIAGRAMS.md) - Visual guide
@@ -89,14 +104,19 @@ agent/src/mqtt/
 
 | File | Size | Purpose |
 |------|------|---------|
+| INDEX.md | 3.2 KB | This index |
+| QUICK-REFERENCE.md | 3.2 KB | Quick reference card |
 | QUICK-START.md | 3.5 KB | Quick overview |
+| TESTING.md | 5.8 KB | 🧪 Testing guide |
+| CURRENT-STATE.md | 6.4 KB | Before integration analysis |
 | REFACTOR-SUMMARY.md | 8.1 KB | Executive summary |
+| INTEGRATION-COMPLETE.md | 8.7 KB | ✅ Integration report |
 | MIGRATION.md | 9.5 KB | Migration steps |
 | COMPLETE.md | 10.2 KB | Final status |
 | README.md | 11.4 KB | Complete guide |
 | INTEGRATION-CHECKLIST.md | 11.5 KB | Testing checklist |
 | ARCHITECTURE-DIAGRAMS.md | 19.8 KB | Visual diagrams |
-| **Total** | **73.9 KB** | Full documentation |
+| **Total** | **101.3 KB** | Full documentation |
 
 ---
 
