@@ -78,13 +78,12 @@ npm install
 ### 2. Generate RSA Keys
 
 ```bash
-# Create keys directory
+# Automated script
+npm run generate-keys
+
+# OR manually:
 mkdir keys
-
-# Generate private key
 openssl genrsa -out keys/private-key.pem 2048
-
-# Generate public key
 openssl rsa -in keys/private-key.pem -pubout -out keys/public-key.pem
 
 # IMPORTANT: Copy public key to customer instances
@@ -115,6 +114,187 @@ npm run dev
 ```
 
 Server runs on `http://localhost:3100`
+
+---
+
+## Management Scripts
+
+### Customer Management (`customer-manager.ts`)
+
+**Add New Customer:**
+```bash
+npm run customer -- add \
+  --email customer@example.com \
+  --name "Customer Name" \
+  --company "Company Inc"
+
+# Output:
+# ✅ Customer created successfully!
+# Customer Details:
+# ─────────────────────────────────────────
+# ID:               cust_abc123xyz
+# Email:            customer@example.com
+# Name:             Customer Name
+# Company:          Company Inc
+# Created:          10/21/2025, 10:30:00 AM
+# ─────────────────────────────────────────
+# 
+# 📜 Initial License JWT (Trial):
+# eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+# 
+# 💡 Add this to customer instance .env file:
+# LICENSE_JWT=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+# CUSTOMER_ID=cust_abc123xyz
+```
+
+**Upgrade Customer:**
+```bash
+npm run customer -- upgrade \
+  --id cust_abc123xyz \
+  --plan professional
+
+# Output:
+# ✅ Checkout session created!
+# Checkout Details:
+# ─────────────────────────────────────────
+# Session ID:       cs_test_123xyz
+# Plan:             professional
+# ─────────────────────────────────────────
+# 
+# 🔗 Checkout URL:
+# https://checkout.stripe.com/c/pay/cs_test_123xyz...
+# 
+# 💡 Send this URL to the customer to complete payment.
+#    After payment, webhook will auto-provision subscription.
+```
+
+**Deactivate Customer:**
+```bash
+npm run customer -- deactivate --id cust_abc123xyz
+
+# Output:
+# ✅ Customer deactivated successfully!
+# Deactivation Details:
+# ─────────────────────────────────────────
+# Customer ID:      cust_abc123xyz
+# Subscription ID:  sub_123xyz
+# Previous Plan:    professional
+# Cancelled At:     10/21/2025, 2:45:00 PM
+# ─────────────────────────────────────────
+# 
+# 💡 Customer will revert to trial mode.
+#    They can reactivate by subscribing again.
+```
+
+**List All Customers:**
+```bash
+npm run customer -- list
+
+# Output:
+# Found 3 customer(s):
+# 
+# ─────────────────────────────────────────────────────────────────────────────
+# ID                    | Email                        | Name                  | Company
+# ─────────────────────────────────────────────────────────────────────────────
+# cust_abc123xyz        | customer@example.com         | Customer Name         | Company Inc
+# cust_def456uvw        | another@example.com          | Another Customer      | Acme Corp
+# cust_ghi789rst        | test@test.com                | Test Customer         | -
+# ─────────────────────────────────────────────────────────────────────────────
+```
+
+---
+
+### Usage Report Viewer (`usage-viewer.ts`)
+
+**View Customer Usage:**
+```bash
+npm run usage -- --customer cust_abc123xyz
+
+# View last 30 days
+npm run usage -- --customer cust_abc123xyz --days 30
+
+# Output:
+# Customer Information:
+# ═════════════════════════════════════════════════════════════════════════════
+# ID:               cust_abc123xyz
+# Email:            customer@example.com
+# Name:             Customer Name
+# Company:          Company Inc
+# ═════════════════════════════════════════════════════════════════════════════
+# 
+# Subscription Information:
+# ─────────────────────────────────────────────────────────────────────────────
+# Plan:             PROFESSIONAL
+# Status:           ACTIVE
+# Device Limit:     50
+# Renewal Date:     11/21/2025, 12:00:00 AM
+# ─────────────────────────────────────────────────────────────────────────────
+# 
+# Usage Reports (Last 7 Days):
+# ─────────────────────────────────────────────────────────────────────────────
+# Date                 | Instance ID    | Active | Total | Utilization
+# ─────────────────────────────────────────────────────────────────────────────
+# 10/21/2025, 10:00 AM | production-1   |     42 |    45 |       84.0%
+# 10/20/2025, 10:00 AM | production-1   |     40 |    45 |       80.0%
+# 10/19/2025, 10:00 AM | production-1   |     38 |    45 |       76.0%
+# ─────────────────────────────────────────────────────────────────────────────
+# 
+# Summary Statistics:
+# ─────────────────────────────────────────────────────────────────────────────
+# Total Reports:    7
+# Avg Active:       39.4 devices
+# Peak Active:      42 devices
+# Current Active:   42 devices
+# Current Total:    45 devices
+# Limit:            50 devices
+# Remaining:        8 devices
+# 
+# ⚠️  WARNING: 84.0% of device limit used!
+#     Consider upgrading to a higher plan.
+# ─────────────────────────────────────────────────────────────────────────────
+```
+
+**View All Customer Usage:**
+```bash
+npm run usage -- --all
+
+# View all customers for last 30 days
+npm run usage -- --all --days 30
+
+# Output:
+# Found 3 customer(s)
+# ═════════════════════════════════════════════════════════════════════════════
+# 
+# Customer Name (customer@example.com)
+#   Customer ID:  cust_abc123xyz
+#   Plan:         PROFESSIONAL
+#   Device Limit: 50
+#   Active:       42 devices
+#   Total:        45 devices
+#   Utilization:  84.0%
+#   Reports:      7 in last 7 days
+#   ⚠️  WARNING: 84.0% of limit used!
+# 
+# Another Customer (another@example.com)
+#   Customer ID:  cust_def456uvw
+#   Plan:         STARTER
+#   Device Limit: 10
+#   Active:       8 devices
+#   Total:        10 devices
+#   Utilization:  80.0%
+#   Reports:      7 in last 7 days
+#   ⚠️  WARNING: 80.0% of limit used!
+# 
+# Test Customer (test@test.com)
+#   Customer ID:  cust_ghi789rst
+#   Plan:         TRIAL
+#   Device Limit: 5
+#   Active:       2 devices
+#   Total:        3 devices
+#   Utilization:  40.0%
+#   Reports:      5 in last 7 days
+# ═════════════════════════════════════════════════════════════════════════════
+```
 
 ---
 
@@ -406,49 +586,69 @@ Customer instances authenticate with their license JWT when reporting usage.
 
 ## Testing
 
-### Create Test Customer
+### Quick Test Workflow
 
+```bash
+# 1. Add test customer
+npm run customer -- add \
+  --email test@example.com \
+  --name "Test Customer" \
+  --company "Test Corp"
+
+# Save the CUSTOMER_ID from output
+
+# 2. View customer usage (will be empty initially)
+npm run usage -- --customer <CUSTOMER_ID>
+
+# 3. Simulate usage report (from customer instance)
+curl -X POST http://localhost:3100/api/usage/report \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": "<CUSTOMER_ID>",
+    "instance_id": "dev-1",
+    "active_devices": 5,
+    "total_devices": 10
+  }'
+
+# 4. View usage again
+npm run usage -- --customer <CUSTOMER_ID>
+
+# 5. Upgrade to paid plan
+npm run customer -- upgrade \
+  --id <CUSTOMER_ID> \
+  --plan professional
+
+# 6. Deactivate when done testing
+npm run customer -- deactivate --id <CUSTOMER_ID>
+```
+
+### Manual API Testing
+
+**Create Customer:**
 ```bash
 curl -X POST http://localhost:3100/api/customers \
   -H "Content-Type: application/json" \
   -d '{
     "email": "test@example.com",
-    "companyName": "Test Corp",
-    "plan": "professional"
+    "name": "Test Corp",
+    "company": "Test Corp"
   }'
 ```
 
-### Start Trial
-
+**Generate License:**
 ```bash
-curl -X POST http://localhost:3100/api/subscriptions/create-trial \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customerId": "cust_test123",
-    "plan": "professional"
-  }'
+curl http://localhost:3100/api/licenses/<CUSTOMER_ID>
 ```
 
-### Generate License
-
-```bash
-curl http://localhost:3100/api/licenses/cust_test123
-```
-
-### Report Usage
-
+**Report Usage:**
 ```bash
 curl -X POST http://localhost:3100/api/usage/report \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer eyJhbGc..." \
   -d '{
-    "customerId": "cust_test123",
-    "instanceId": "dev-1",
-    "timestamp": "2025-10-21T10:00:00Z",
-    "metrics": {
-      "activeDevices": 5,
-      "totalDevices": 10
-    }
+    "customer_id": "cust_test123",
+    "instance_id": "dev-1",
+    "active_devices": 5,
+    "total_devices": 10
   }'
 ```
 
