@@ -16,25 +16,25 @@ const task: HousekeeperTask = {
     console.log('🧹 Cleaning up expired tokens...');
 
     try {
-      // Access Token model
-      const AccessToken = app.models?.AccessToken || require('../../models/token');
-      
+      const db = app.db || app.pg;
+      if (!db) {
+        console.warn('Database connection not available, skipping cleanup');
+        return;
+      }
+
       // Remove expired access tokens
-      const tokenResult = await AccessToken.deleteMany({
-        expiresAt: { $lt: new Date() }
-      });
+      const tokenResult = await db.query(
+        'DELETE FROM access_tokens WHERE expires_at < NOW()'
+      );
+      const tokensDeleted = tokenResult.rowCount || 0;
+      console.log(`✅ Deleted ${tokensDeleted} expired access tokens`);
 
-      console.log(`✅ Deleted ${tokenResult.deletedCount || 0} expired access tokens`);
-
-      // OAuth Session model
-      const OAuthSession = app.models?.OAuthSession || require('../../models/oauth');
-      
       // Remove OAuth sessions older than 5 minutes (abandoned auth flows)
-      const sessionResult = await OAuthSession.deleteMany({
-        createdAt: { $lt: new Date(Date.now() - 5 * 60 * 1000) }
-      });
-
-      console.log(`✅ Deleted ${sessionResult.deletedCount || 0} abandoned OAuth sessions`);
+      const sessionResult = await db.query(
+        "DELETE FROM oauth_sessions WHERE created_at < NOW() - INTERVAL '5 minutes'"
+      );
+      const sessionsDeleted = sessionResult.rowCount || 0;
+      console.log(`✅ Deleted ${sessionsDeleted} abandoned OAuth sessions`);
 
     } catch (error: any) {
       console.error('❌ Failed to cleanup expired tokens:', error.message);

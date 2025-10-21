@@ -1,7 +1,7 @@
 /**
  * Database Vacuum Task
  * 
- * Runs database maintenance operations (PostgreSQL VACUUM, MongoDB compact, etc.)
+ * Runs PostgreSQL VACUUM ANALYZE maintenance operation
  */
 
 import { HousekeeperTask } from '../index';
@@ -14,41 +14,16 @@ const task: HousekeeperTask = {
   run: async (app) => {
     console.log('🧹 Running database maintenance...');
 
-    const dbType = app.config?.database?.type || 'postgres';
-
     try {
-      if (dbType === 'postgres') {
-        // PostgreSQL VACUUM ANALYZE
-        const db = app.db || app.pg;
-        if (!db) {
-          console.warn('Database connection not available, skipping vacuum');
-          return;
-        }
-
-        await db.query('VACUUM ANALYZE');
-        console.log('✅ PostgreSQL VACUUM ANALYZE completed');
-
-      } else if (dbType === 'mongodb') {
-        // MongoDB compact collections
-        const mongoose = app.mongoose || require('mongoose');
-        const collections = await mongoose.connection.db.listCollections().toArray();
-
-        for (const collection of collections) {
-          try {
-            await mongoose.connection.db.command({
-              compact: collection.name
-            });
-            console.log(`  Compacted: ${collection.name}`);
-          } catch (error: any) {
-            console.warn(`  Failed to compact ${collection.name}:`, error.message);
-          }
-        }
-
-        console.log(`✅ MongoDB compact completed for ${collections.length} collections`);
-
-      } else {
-        console.log(`Unsupported database type: ${dbType}, skipping vacuum`);
+      const db = app.db || app.pg;
+      if (!db) {
+        console.warn('Database connection not available, skipping vacuum');
+        return;
       }
+
+      // PostgreSQL VACUUM ANALYZE
+      await db.query('VACUUM ANALYZE');
+      console.log('✅ PostgreSQL VACUUM ANALYZE completed');
 
     } catch (error: any) {
       console.error('❌ Failed to run database maintenance:', error.message);
