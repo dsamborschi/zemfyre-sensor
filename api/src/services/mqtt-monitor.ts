@@ -337,7 +337,7 @@ export class MQTTMonitorService extends EventEmitter {
    */
   private async connect(): Promise<void> {
     const mqttOptions: mqtt.IClientOptions = {
-      clientId: this.options.clientId || `mqtt-monitor-${Date.now()}`,
+      //clientId: this.options.clientId || `mqtt-monitor-${Date.now()}`,
       username: this.options.username,
       password: this.options.password,
       reconnectPeriod: 5000

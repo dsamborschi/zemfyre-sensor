@@ -133,9 +133,29 @@ export class MqttManager {
     }
 
     return new Promise((resolve, reject) => {
-      this.client!.subscribe(topic, options || {}, (error) => {
+      this.client!.subscribe(topic, options || {}, (error, granted) => {
         if (error) {
-          reject(error);
+          const errorMsg = `Subscribe error: ${error.message || 'Unspecified error'}`;
+          this.debugLog(`❌ ${errorMsg} for topic: ${topic}`);
+          console.error(`[MqttManager] Subscribe failed:`, {
+            topic,
+            error: error.message,
+            errorCode: (error as any).code,
+            errorName: error.name,
+            granted
+          });
+          reject(new Error(errorMsg));
+        } else if (!granted || granted.length === 0) {
+          const errorMsg = `Subscribe failed: No subscription granted for topic: ${topic}`;
+          this.debugLog(`❌ ${errorMsg}`);
+          console.error(`[MqttManager] No subscription granted:`, { topic, granted });
+          reject(new Error(errorMsg));
+        } else if (granted[0].qos === 128) {
+          // QoS 128 means subscription failed (rejected by broker)
+          const errorMsg = `Subscribe rejected by broker (QoS=128) for topic: ${topic}`;
+          this.debugLog(`❌ ${errorMsg}`);
+          console.error(`[MqttManager] Subscription rejected:`, { topic, granted });
+          reject(new Error(errorMsg));
         } else {
           // Register handler for message routing
           if (handler) {
@@ -144,7 +164,7 @@ export class MqttManager {
             }
             this.messageHandlers.get(topic)!.add(handler);
           }
-          this.debugLog(`📥 Subscribed to topic: ${topic}`);
+          this.debugLog(`📥 Subscribed to topic: ${topic} (QoS=${granted[0].qos})`);
           resolve();
         }
       });

@@ -11,6 +11,7 @@
 
 import ContainerManager from './compose/container-manager';
 import { DeviceManager } from './provisioning';
+import type { DeviceInfo } from './provisioning/types';
 import { DeviceAPI } from './device-api';
 import { router as v1Router } from './device-api/v1';
 import { router as v2Router } from './device-api/v2';
@@ -29,12 +30,13 @@ import { SensorPublishFeature } from './sensor-publish';
 import { SensorConfigHandler } from './sensor-publish/config-handler';
 import { ShadowFeature, ShadowConfig } from './shadow';
 import { MqttShadowAdapter } from './shadow/mqtt-shadow-adapter';
-import { TwinStateManager } from './digital-twin/twin-state-manager';
 import { MqttManager } from './mqtt/mqtt-manager';
+import { TwinStateManager } from './digital-twin/twin-state-manager';
 
 export default class DeviceSupervisor {
 	private containerManager!: ContainerManager;
 	private deviceManager!: DeviceManager;
+	private deviceInfo!: DeviceInfo;  // Cache device info after initialization
 	private deviceAPI!: DeviceAPI;
 	private apiBinder?: ApiBinder;
 	private logBackend!: LocalLogBackend;
@@ -124,13 +126,11 @@ export default class DeviceSupervisor {
 	}
 
 	private async initializeDatabase(): Promise<void> {
-		console.log('📦 Initializing database...');
 		await db.initialized();
 		console.log('✅ Database initialized');
 	}
 
 	private async initializeDeviceManager(): Promise<void> {
-		console.log('🔐 Initializing device manager...');
 		this.deviceManager = new DeviceManager();
 		await this.deviceManager.initialize();
 
@@ -171,12 +171,15 @@ export default class DeviceSupervisor {
 			console.warn('⚠️  Device not provisioned. Set PROVISIONING_API_KEY environment variable to enable auto-provisioning.');
 		}
 		
+		// Cache device info for reuse across all methods
+		this.deviceInfo = deviceInfo;
+		
 		console.log(`✅ Device manager initialized`);
-		console.log(`   UUID: ${deviceInfo.uuid}`);
-		console.log(`   Name: ${deviceInfo.deviceName || 'Not set'}`);
-		console.log(`   Provisioned: ${deviceInfo.provisioned ? 'Yes' : 'No'}`);
-		if (deviceInfo.deviceApiKey) {
-			console.log(`   Device API Key: ${deviceInfo.deviceApiKey.substring(0, 16)}...`);
+		console.log(`   UUID: ${this.deviceInfo.uuid}`);
+		console.log(`   Name: ${this.deviceInfo.deviceName || 'Not set'}`);
+		console.log(`   Provisioned: ${this.deviceInfo.provisioned ? 'Yes' : 'No'}`);
+		if (this.deviceInfo.deviceApiKey) {
+			console.log(`   Device API Key: ${this.deviceInfo.deviceApiKey.substring(0, 16)}...`);
 		}
 	}
 
@@ -193,12 +196,10 @@ export default class DeviceSupervisor {
 		console.log('🔌 Initializing MQTT Manager...');
 		
 		try {
-			const deviceInfo = this.deviceManager.getDeviceInfo();
-			
 			// Use MQTT credentials from provisioning if available, otherwise fall back to env vars
-			const mqttBrokerUrl = deviceInfo.mqttBrokerUrl || process.env.MQTT_BROKER;
-			const mqttUsername = deviceInfo.mqttUsername || process.env.MQTT_USERNAME;
-			const mqttPassword = deviceInfo.mqttPassword || process.env.MQTT_PASSWORD;
+			const mqttBrokerUrl = this.deviceInfo.mqttBrokerUrl || process.env.MQTT_BROKER;
+			const mqttUsername = this.deviceInfo.mqttUsername || process.env.MQTT_USERNAME;
+			const mqttPassword = this.deviceInfo.mqttPassword || process.env.MQTT_PASSWORD;
 			
 			if (!mqttBrokerUrl) {
 				console.log('⏭️  MQTT disabled - no broker URL provided');
@@ -210,7 +211,7 @@ export default class DeviceSupervisor {
 			
 			// Connect to MQTT broker with provisioned credentials
 			await mqttManager.connect(mqttBrokerUrl, {
-				clientId: `device_${deviceInfo.uuid}`,
+				clientId: `device_${this.deviceInfo.uuid}`,
 				clean: true,
 				reconnectPeriod: 5000,
 				username: mqttUsername,
@@ -224,9 +225,9 @@ export default class DeviceSupervisor {
 			}
 			
 			console.log(`✅ MQTT Manager connected: ${mqttBrokerUrl}`);
-			console.log(`   Client ID: device_${deviceInfo.uuid}`);
+			console.log(`   Client ID: device_${this.deviceInfo.uuid}`);
 			console.log(`   Username: ${mqttUsername || '(none)'}`);
-			console.log(`   Credentials: ${deviceInfo.mqttUsername ? 'From provisioning' : 'From environment'}`);
+			console.log(`   Credentials: ${this.deviceInfo.mqttUsername ? 'From provisioning' : 'From environment'}`);
 			console.log(`   All features will share this connection`);
 		} catch (error) {
 			console.error('❌ Failed to initialize MQTT Manager:', error);
@@ -255,11 +256,10 @@ export default class DeviceSupervisor {
 		const enableCloudLogging = process.env.ENABLE_CLOUD_LOGGING !== 'false';
 		if (this.CLOUD_API_ENDPOINT && enableCloudLogging) {
 			try {
-				const deviceInfo = this.deviceManager.getDeviceInfo();
 				const cloudLogBackend = new CloudLogBackend({
 					cloudEndpoint: this.CLOUD_API_ENDPOINT,
-					deviceUuid: deviceInfo.uuid,
-					deviceApiKey: deviceInfo.apiKey,
+					deviceUuid: this.deviceInfo.uuid,
+					deviceApiKey: this.deviceInfo.apiKey,
 					compression: process.env.LOG_COMPRESSION !== 'false', // Default: true
 				});
 				await cloudLogBackend.initialize();
@@ -274,35 +274,35 @@ export default class DeviceSupervisor {
 		}
 
 		// MQTT backend (optional)
-		if (process.env.MQTT_BROKER) {
-			try {
-				// Note: MqttLogBackend uses centralized MqttManager
-				// Connection is already established in initializeMqttManager()
-				const mqttBackend = new MqttLogBackend({
-					brokerUrl: process.env.MQTT_BROKER,
-					clientOptions: {
-						// clientId is already set in initializeMqttManager() as device_${uuid}
-						// No need to pass it again - these options are ignored
-					},
-					baseTopic: process.env.MQTT_TOPIC || 'device/logs',
-					qos: (process.env.MQTT_QOS ? parseInt(process.env.MQTT_QOS) : 1) as 0 | 1 | 2,
-					enableBatching: process.env.MQTT_BATCH !== 'false',
-					batchInterval: parseInt(process.env.MQTT_BATCH_INTERVAL || '1000'),
-					maxBatchSize: parseInt(process.env.MQTT_BATCH_SIZE || '50'),
-					debug: process.env.MQTT_DEBUG === 'true',
-				});
-				await mqttBackend.connect();
-				this.logBackends.push(mqttBackend);
-				const deviceInfo = this.deviceManager.getDeviceInfo();
-				console.log(`✅ MQTT log backend connected: ${process.env.MQTT_BROKER} (client: device_${deviceInfo.uuid})`);
-			} catch (error) {
-				console.error('⚠️  Failed to connect to MQTT broker:', error);
-				console.log('   Continuing without cloud logging');
-			}
-		}
+
+		// try {
+		// 	// Note: MqttLogBackend uses centralized MqttManager
+		// 	// Connection is already established in initializeMqttManager()
+		// 	const mqttBackend = new MqttLogBackend({
+		// 			brokerUrl: process.env.MQTT_BROKER,
+		// 			clientOptions: {
+		// 				// clientId is already set in initializeMqttManager() as device_${uuid}
+		// 				// No need to pass it again - these options are ignored
+		// 			},
+		// 			baseTopic: process.env.MQTT_TOPIC || 'device/logs',
+		// 			qos: (process.env.MQTT_QOS ? parseInt(process.env.MQTT_QOS) : 1) as 0 | 1 | 2,
+		// 			enableBatching: process.env.MQTT_BATCH !== 'false',
+		// 			batchInterval: parseInt(process.env.MQTT_BATCH_INTERVAL || '1000'),
+		// 			maxBatchSize: parseInt(process.env.MQTT_BATCH_SIZE || '50'),
+		// 			debug: process.env.MQTT_DEBUG === 'true',
+		// 		});
+		// 		await mqttBackend.connect();
+		// 		this.logBackends.push(mqttBackend);
+		// 		const deviceInfo = this.deviceManager.getDeviceInfo();
+		// 		console.log(`✅ MQTT log backend connected: ${process.env.MQTT_BROKER} (client: device_${deviceInfo.uuid})`);
+		// } catch (error) {
+		// 	console.error('⚠️  Failed to connect to MQTT broker:', error);
+		// 	console.log('   Continuing without cloud logging');
+		// }
+		
 
 		// Log summary
-		console.log(`✅ Logging initialized with ${this.logBackends.length} backend(s)`);
+		//console.log(`✅ Logging initialized with ${this.logBackends.length} backend(s)`);
 	}
 
 	private async initializeContainerManager(): Promise<void> {
@@ -475,13 +475,6 @@ export default class DeviceSupervisor {
 		console.log('☁️  Initializing Cloud Jobs Adapter...');
 
 		try {
-			// Get device UUID
-			const deviceInfo = await this.deviceManager.getDeviceInfo();
-			if (!deviceInfo || !deviceInfo.uuid) {
-				console.error('❌ Device UUID not available, cannot initialize Cloud Jobs');
-				return;
-			}
-
 			// Get cloud API URL from environment
 			const cloudApiUrl = process.env.CLOUD_API_URL || this.CLOUD_API_ENDPOINT;
 			if (!cloudApiUrl) {
@@ -498,18 +491,18 @@ export default class DeviceSupervisor {
 
 			// Debug: Check device info
 			console.log('🔍 Device Info for Cloud Jobs:', {
-				uuid: deviceInfo.uuid,
-				hasApiKey: !!deviceInfo.apiKey,
-				apiKeyLength: deviceInfo.apiKey?.length || 0,
-				apiKeyPreview: deviceInfo.apiKey ? `${deviceInfo.apiKey.substring(0, 8)}...` : 'MISSING'
+				uuid: this.deviceInfo.uuid,
+				hasApiKey: !!this.deviceInfo.apiKey,
+				apiKeyLength: this.deviceInfo.apiKey?.length || 0,
+				apiKeyPreview: this.deviceInfo.apiKey ? `${this.deviceInfo.apiKey.substring(0, 8)}...` : 'MISSING'
 			});
 
 			// Create CloudJobsAdapter
 			this.cloudJobsAdapter = new CloudJobsAdapter(
 				{
 					cloudApiUrl,
-					deviceUuid: deviceInfo.uuid,
-					deviceApiKey: deviceInfo.apiKey,
+					deviceUuid: this.deviceInfo.uuid,
+					deviceApiKey: this.deviceInfo.apiKey,
 					pollingIntervalMs,
 					maxRetries: 3,
 					enableLogging: true
@@ -522,7 +515,7 @@ export default class DeviceSupervisor {
 
 			console.log('✅ Cloud Jobs Adapter initialized');
 			console.log(`   Cloud API: ${cloudApiUrl}`);
-			console.log(`   Device UUID: ${deviceInfo.uuid}`);
+			console.log(`   Device UUID: ${this.deviceInfo.uuid}`);
 			console.log(`   Polling interval: ${pollingIntervalMs}ms (${pollingIntervalMs / 1000}s)`);
 			console.log('   Status: Polling for jobs...');
 		} catch (error) {
@@ -541,13 +534,6 @@ export default class DeviceSupervisor {
 		console.log('📡 Initializing Sensor Publish Feature...');
 
 		try {
-			// Get device UUID
-			const deviceInfo = await this.deviceManager.getDeviceInfo();
-			if (!deviceInfo || !deviceInfo.uuid) {
-				console.error('❌ Device UUID not available, cannot initialize Sensor Publish');
-				return;
-			}
-
 			// Parse sensor configuration from environment
 			const sensorConfigStr = process.env.SENSOR_PUBLISH_CONFIG;
 			if (!sensorConfigStr) {
@@ -599,7 +585,7 @@ export default class DeviceSupervisor {
 				sensorConfig,
 				mqttConnection,
 				sensorLogger,
-				deviceInfo.uuid
+				this.deviceInfo.uuid
 			);
 
 			await this.sensorPublish.start();
@@ -623,13 +609,6 @@ export default class DeviceSupervisor {
 		console.log('🔮 Initializing Shadow Feature...');
 
 		try {
-			// Get device UUID (thing name)
-			const deviceInfo = await this.deviceManager.getDeviceInfo();
-			if (!deviceInfo || !deviceInfo.uuid) {
-				console.error('❌ Device UUID not available, cannot initialize Shadow Feature');
-				return;
-			}
-
 			// Parse shadow configuration from environment
 			const shadowConfig: ShadowConfig = {
 				enabled: true,
@@ -647,17 +626,40 @@ export default class DeviceSupervisor {
 			// Note: MqttShadowAdapter reuses the existing MQTT connection established in initializeMqttManager()
 			// The clientId, username, and password were already set there, so we don't need to pass them again
 			let mqttConnection;
-			if (process.env.MQTT_BROKER) {
+			
+			// Get MQTT broker URL from provisioned device info (or fallback to env var)
+			const mqttBrokerUrl = this.deviceInfo.mqttBrokerUrl || process.env.MQTT_BROKER;
+			
+			if (mqttBrokerUrl) {
+				// Check if MqttManager is connected before creating adapter
+				const mqttManager = MqttManager.getInstance();
+				if (!mqttManager.isConnected()) {
+					console.warn('⚠️  MQTT Manager not connected yet, waiting...');
+					// Wait up to 5 seconds for connection
+					const maxWait = 5000;
+					const checkInterval = 100;
+					let waited = 0;
+					while (!mqttManager.isConnected() && waited < maxWait) {
+						await new Promise(resolve => setTimeout(resolve, checkInterval));
+						waited += checkInterval;
+					}
+					if (!mqttManager.isConnected()) {
+						throw new Error('MQTT Manager connection timeout - Shadow feature requires MQTT');
+					}
+					console.log('✅ MQTT Manager connected after waiting');
+				}
+				
 				mqttConnection = new MqttShadowAdapter(
-					process.env.MQTT_BROKER,
+					mqttBrokerUrl,
 					{
 						// Options are ignored since MqttManager is already connected
 						// If this was called before initializeMqttManager(), these would be used
 					}
 				);
-				console.log('   Using centralized MQTT Manager for shadow operations');
+				console.log(`   Using centralized MQTT Manager for shadow operations (${mqttBrokerUrl})`);
 			} else {
-				console.warn('⚠️  MQTT_BROKER not set, shadow feature will not publish updates');
+				console.warn('⚠️  MQTT broker URL not available (device not provisioned and MQTT_BROKER not set)');
+				console.log('   Shadow feature will not publish updates');
 				// Create a no-op connection
 				mqttConnection = {
 					publish: async () => {},
@@ -683,7 +685,7 @@ export default class DeviceSupervisor {
 				shadowConfig,
 				mqttConnection,
 				shadowLogger,
-				deviceInfo.uuid
+				this.deviceInfo.uuid
 			);
 
 			// Set up event handlers
@@ -716,7 +718,7 @@ export default class DeviceSupervisor {
 
 			console.log('✅ Shadow Feature initialized');
 			console.log(`   Shadow name: ${shadowConfig.shadowName}`);
-			console.log(`   Device id: ${deviceInfo.uuid}`);
+			console.log(`   Device id: ${this.deviceInfo.uuid}`);
 			console.log(`   Auto-sync on delta: ${shadowConfig.syncOnDelta}`);
 			console.log(`   File monitor: ${shadowConfig.enableFileMonitor ? 'Enabled' : 'Disabled'}`);
 			if (shadowConfig.inputFile) {

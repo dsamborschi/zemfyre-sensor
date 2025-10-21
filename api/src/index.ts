@@ -6,6 +6,7 @@ import express from 'express';
 import cors from 'cors';
 
 // Import route modules
+import authRoutes from './routes/auth';
 import deviceStateRoutes from './routes/device-state';
 import provisioningRoutes from './routes/provisioning';
 import devicesRoutes from './routes/devices';
@@ -75,6 +76,7 @@ app.get('/', (req, res) => {
 
 
 // Mount route modules - All routes now use centralized versioning via API_BASE
+app.use(`${API_BASE}/auth`, authRoutes);
 app.use(API_BASE, provisioningRoutes);
 app.use(API_BASE, devicesRoutes);
 app.use(API_BASE, adminRoutes);
