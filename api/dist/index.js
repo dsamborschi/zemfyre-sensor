@@ -38,6 +38,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const auth_1 = __importDefault(require("./routes/auth"));
 const device_state_1 = __importDefault(require("./routes/device-state"));
 const provisioning_1 = __importDefault(require("./routes/provisioning"));
 const devices_1 = __importDefault(require("./routes/devices"));
@@ -51,6 +52,8 @@ const scheduled_jobs_1 = __importDefault(require("./routes/scheduled-jobs"));
 const rotation_1 = __importDefault(require("./routes/rotation"));
 const digital_twin_1 = __importDefault(require("./routes/digital-twin"));
 const mqtt_monitor_1 = __importDefault(require("./routes/mqtt-monitor"));
+const events_1 = __importDefault(require("./routes/events"));
+const mqtt_broker_1 = __importDefault(require("./routes/mqtt-broker"));
 const entities_1 = require("./routes/entities");
 const relationships_1 = require("./routes/relationships");
 const graph_1 = require("./routes/graph");
@@ -60,6 +63,12 @@ const connection_1 = __importDefault(require("./db/connection"));
 const mqtt_1 = require("./mqtt");
 const rotation_scheduler_1 = require("./services/rotation-scheduler");
 const shadow_retention_1 = require("./services/shadow-retention");
+const mqtt_monitor_2 = require("./routes/mqtt-monitor");
+const mqtt_monitor_3 = require("./services/mqtt-monitor");
+const mqtt_database_service_1 = require("./services/mqtt-database.service");
+const license_validator_1 = require("./services/license-validator");
+const license_1 = __importDefault(require("./routes/license"));
+const billing_1 = __importDefault(require("./routes/billing"));
 const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE = `/api/${API_VERSION}`;
 const app = (0, express_1.default)();
@@ -84,9 +93,15 @@ app.get('/', (req, res) => {
         service: 'Iotistic Unified API',
         version: '2.0.0',
         apiVersion: API_VERSION,
-        apiBase: API_BASE
+        apiBase: API_BASE,
+        documentation: '/api/docs'
     });
 });
+const docs_1 = require("./docs");
+(0, docs_1.setupApiDocs)(app, API_BASE);
+app.use(`${API_BASE}/auth`, auth_1.default);
+app.use(API_BASE, license_1.default);
+app.use(`${API_BASE}/billing`, billing_1.default);
 app.use(API_BASE, provisioning_1.default);
 app.use(API_BASE, devices_1.default);
 app.use(API_BASE, admin_1.default);
@@ -100,6 +115,8 @@ app.use(API_BASE, scheduled_jobs_1.default);
 app.use(API_BASE, rotation_1.default);
 app.use(API_BASE, digital_twin_1.default);
 app.use(`${API_BASE}/mqtt-monitor`, mqtt_monitor_1.default);
+app.use(API_BASE, events_1.default);
+app.use(`${API_BASE}/mqtt`, mqtt_broker_1.default);
 app.use(`${API_BASE}/entities`, (0, entities_1.createEntitiesRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/relationships`, (0, relationships_1.createRelationshipsRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/graph`, (0, graph_1.createGraphRouter)(connection_1.default.pool));
@@ -119,6 +136,7 @@ app.use((err, req, res, next) => {
 });
 async function startServer() {
     console.log('🚀 Initializing Iotistic Unified API...\n');
+    let mqttMonitor = null;
     try {
         const db = await Promise.resolve().then(() => __importStar(require('./db/connection')));
         const connected = await db.testConnection();
@@ -132,6 +150,14 @@ async function startServer() {
     catch (error) {
         console.error('❌ Database initialization error:', error);
         process.exit(1);
+    }
+    try {
+        console.log('🔐 Initializing license validator...');
+        const licenseValidator = license_validator_1.LicenseValidator.getInstance();
+        await licenseValidator.init();
+    }
+    catch (error) {
+        console.error('⚠️  License validator initialization failed:', error);
     }
     try {
         const heartbeatMonitor = await Promise.resolve().then(() => __importStar(require('./services/heartbeat-monitor')));
@@ -183,6 +209,44 @@ async function startServer() {
     catch (error) {
         console.error('⚠️  Failed to start retention scheduler:', error);
     }
+    let mqttDbService = null;
+    if (process.env.MQTT_MONITOR_ENABLED !== 'false') {
+        try {
+            const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
+            const username = process.env.MQTT_USERNAME;
+            const password = process.env.MQTT_PASSWORD;
+            const persistToDatabase = process.env.MQTT_PERSIST_TO_DB === 'true';
+            if (persistToDatabase) {
+                mqttDbService = new mqtt_database_service_1.MQTTDatabaseService(connection_1.default.pool);
+                console.log('✅ MQTT Monitor database persistence enabled');
+            }
+            mqttMonitor = new mqtt_monitor_3.MQTTMonitorService({
+                brokerUrl,
+                username,
+                password,
+                topicTreeEnabled: true,
+                metricsEnabled: true,
+                schemaGenerationEnabled: true,
+                persistToDatabase,
+                dbSyncInterval: parseInt(process.env.MQTT_DB_SYNC_INTERVAL || '30000')
+            }, mqttDbService);
+            mqttMonitor.on('connected', () => {
+                console.log('✅ MQTT Monitor connected to broker at', brokerUrl);
+            });
+            mqttMonitor.on('error', (error) => {
+                console.error('⚠️  MQTT Monitor error:', error);
+            });
+            await mqttMonitor.start();
+            (0, mqtt_monitor_2.setMonitorInstance)(mqttMonitor, mqttDbService);
+            console.log('✅ MQTT Monitor Service started');
+        }
+        catch (error) {
+            console.error('⚠️  Failed to start MQTT Monitor:', error);
+        }
+    }
+    else {
+        console.log('ℹ️  MQTT Monitor disabled via MQTT_MONITOR_ENABLED=false');
+    }
     const server = app.listen(PORT, () => {
         console.log('='.repeat(80));
         console.log('☁️  Iotistic Unified API Server');
@@ -192,6 +256,14 @@ async function startServer() {
     });
     process.on('SIGTERM', async () => {
         console.log('\nSIGTERM received, shutting down gracefully...');
+        try {
+            if (mqttMonitor) {
+                await mqttMonitor.stop();
+                console.log('✅ MQTT Monitor stopped');
+            }
+        }
+        catch (error) {
+        }
         try {
             await (0, mqtt_1.shutdownMqtt)();
         }
@@ -231,6 +303,14 @@ async function startServer() {
     });
     process.on('SIGINT', async () => {
         console.log('\nSIGINT received, shutting down gracefully...');
+        try {
+            if (mqttMonitor) {
+                await mqttMonitor.stop();
+                console.log('✅ MQTT Monitor stopped');
+            }
+        }
+        catch (error) {
+        }
         try {
             await (0, mqtt_1.shutdownMqtt)();
         }
