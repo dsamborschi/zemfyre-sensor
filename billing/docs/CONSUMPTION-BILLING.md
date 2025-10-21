@@ -15,7 +15,6 @@ This document outlines how to implement **consumption-based billing** for Zemfyr
 │  │  Traffic Monitor                                           │ │
 │  │  - MQTT messages (count, bytes)                            │ │
 │  │  - HTTP API calls (count, bytes)                           │ │
-│  │  - InfluxDB writes (count, bytes)                          │ │
 │  │  - External API calls (count, bytes)                       │ │
 │  └────────────────────────────────────────────────────────────┘ │
 │                           ↓                                      │
@@ -75,10 +74,6 @@ This document outlines how to implement **consumption-based billing** for Zemfyr
   - Data transferred (bytes)
 
 ### 3. **Data Storage** (NEW)
-- **InfluxDB Writes**
-  - Data points written
-  - Storage used (MB)
-  - Query count and complexity
 - **PostgreSQL Storage**
   - Database size (MB)
   - Row count
@@ -255,21 +250,11 @@ import axios from 'axios';
 interface StorageMetrics {
   postgres_size_mb: number;
   postgres_row_count: number;
-  influxdb_size_mb: number;
-  influxdb_points: number;
 }
 
 export class StorageMonitor {
   async getMetrics(): Promise<StorageMetrics> {
-    const [postgresMetrics, influxMetrics] = await Promise.all([
-      this.getPostgresMetrics(),
-      this.getInfluxDBMetrics()
-    ]);
-
-    return {
-      ...postgresMetrics,
-      ...influxMetrics
-    };
+    return await this.getPostgresMetrics();
   }
 
   private async getPostgresMetrics() {
@@ -298,30 +283,6 @@ export class StorageMonitor {
       };
     } finally {
       await pool.end();
-    }
-  }
-
-  private async getInfluxDBMetrics() {
-    try {
-      // Query InfluxDB for database size and cardinality
-      const response = await axios.get(
-        'http://influxdb:8086/debug/vars'
-      );
-
-      const data = response.data;
-      const sizeMB = (data.memstats?.HeapAlloc || 0) / (1024 * 1024);
-      const points = data.database?.numSeries || 0;
-
-      return {
-        influxdb_size_mb: Math.round(sizeMB * 100) / 100,
-        influxdb_points: points
-      };
-    } catch (error) {
-      console.error('Failed to get InfluxDB metrics:', error);
-      return {
-        influxdb_size_mb: 0,
-        influxdb_points: 0
-      };
     }
   }
 }
@@ -392,8 +353,7 @@ export async function usageReporterJob() {
           
           // Storage
           postgres_size_mb: storageMetrics.postgres_size_mb,
-          influxdb_size_mb: storageMetrics.influxdb_size_mb,
-          influxdb_points: storageMetrics.influxdb_points
+          postgres_row_count: storageMetrics.postgres_row_count
         });
         
         // Reset metrics after successful report
@@ -434,8 +394,7 @@ ALTER TABLE usage_reports ADD COLUMN IF NOT EXISTS http_bytes_sent BIGINT DEFAUL
 ALTER TABLE usage_reports ADD COLUMN IF NOT EXISTS http_bytes_received BIGINT DEFAULT 0;
 
 ALTER TABLE usage_reports ADD COLUMN IF NOT EXISTS postgres_size_mb DECIMAL(10, 2) DEFAULT 0;
-ALTER TABLE usage_reports ADD COLUMN IF NOT EXISTS influxdb_size_mb DECIMAL(10, 2) DEFAULT 0;
-ALTER TABLE usage_reports ADD COLUMN IF NOT EXISTS influxdb_points BIGINT DEFAULT 0;
+ALTER TABLE usage_reports ADD COLUMN IF NOT EXISTS postgres_row_count BIGINT DEFAULT 0;
 
 -- Add indexes for common queries
 CREATE INDEX IF NOT EXISTS idx_usage_reports_customer_date ON usage_reports(customer_id, reported_at DESC);
@@ -515,7 +474,7 @@ export class MeteredBillingService {
   private calculateBillableMetrics(usage: any): UsageMetrics {
     const mqttBytesTotal = (usage.mqtt_bytes_sent || 0) + (usage.mqtt_bytes_received || 0);
     const httpBytesTotal = (usage.http_bytes_sent || 0) + (usage.http_bytes_received || 0);
-    const storageMB = (usage.postgres_size_mb || 0) + (usage.influxdb_size_mb || 0);
+    const storageMB = usage.postgres_size_mb || 0;
 
     return {
       devices: usage.active_devices || 0,
@@ -540,7 +499,7 @@ export class MeteredBillingService {
     const totals = usage.reduce((acc, record) => {
       acc.mqtt_bytes += (record.mqtt_bytes_sent || 0) + (record.mqtt_bytes_received || 0);
       acc.http_bytes += (record.http_bytes_sent || 0) + (record.http_bytes_received || 0);
-      acc.storage_mb = Math.max(acc.storage_mb, (record.postgres_size_mb || 0) + (record.influxdb_size_mb || 0));
+      acc.storage_mb = Math.max(acc.storage_mb, record.postgres_size_mb || 0);
       acc.api_calls += record.http_requests || 0;
       return acc;
     }, {
