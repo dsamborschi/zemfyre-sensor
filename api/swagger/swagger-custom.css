@@ -1,0 +1,9 @@
+/* Change the background color of the top bar */
+.swagger-ui .topbar {
+    display:none;
+  }
+  
+  /* Customize the font size of the API title */
+  .swagger-ui .info h1 {
+    font-size: 24px;
+  }
