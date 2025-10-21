@@ -56,6 +56,10 @@ docker run -d \
 | `PORT` | `3002` | Server port |
 | `GRAFANA_URL` | `http://grafana:3000` | Grafana server URL |
 | `GRAFANA_API_TOKEN` | - | Grafana API token (required for Grafana endpoints) |
+| `ZEMFYRE_LICENSE_KEY` | - | License JWT for feature control (optional, runs in unlicensed mode if not set) |
+| `LICENSE_PUBLIC_KEY` | - | RSA public key for license validation |
+| `BILLING_API_URL` | - | Global billing API URL (for usage reporting) |
+| `BILLING_UPGRADE_URL` | `https://zemfyre.com/upgrade` | Upgrade page URL (shown in feature-blocked errors) |
 
 ## API Endpoints
 
@@ -137,6 +141,27 @@ docker run -d \
   ```
 - `GET /api/v1/devices/:uuid/current-state` - Get device current state
 - `DELETE /api/v1/devices/:uuid/target-state` - Clear device target state (stop all apps)
+
+#### License & Billing
+
+- `GET /api/v1/license` - Get license information, feature flags, and usage limits
+  ```json
+  {
+    "plan": "professional",
+    "features": {
+      "maxDevices": 50,
+      "canExportData": true,
+      "hasAdvancedAlerts": true
+    },
+    "usage": {
+      "devices": {
+        "current": 23,
+        "max": 50,
+        "percentUsed": 46
+      }
+    }
+  }
+  ```
 
 ## Examples
 
@@ -243,6 +268,19 @@ For cloud multi-device management in production:
 5. Set up log persistence (currently logs are transient)
 6. Consider using Redis for ETag caching
 7. Add WebSocket support for real-time device updates
+8. **Configure license key** for feature control and device limits
+
+## License-Based Feature Control
+
+This API includes license-based feature control for per-customer deployments:
+
+- **License Validation**: JWT-based license keys validated with RSA public key
+- **Feature Flags**: Control access to export, advanced alerts, custom branding, etc.
+- **Device Limits**: Enforce max devices per plan (starter: 10, professional: 50, enterprise: unlimited)
+- **Usage Tracking**: Report device count to global billing API (when enabled)
+- **Unlicensed Mode**: Falls back to limited trial mode (3 devices, 7 days retention) if no license
+
+**See**: `docs/LICENSE-FEATURE-CONTROL.md` for implementation details and `docs/BILLING-ARCHITECTURE-DECISION.md` for architecture rationale.
 
 ## License
 

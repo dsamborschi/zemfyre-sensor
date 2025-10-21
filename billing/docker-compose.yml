@@ -1,0 +1,58 @@
+# Billing - Docker Compose for Local Development
+
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: billing
+      POSTGRES_PASSWORD: billing123
+      POSTGRES_DB: billing
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Auto-run migrations
+      - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U billing"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  billing:
+    build: .
+    ports:
+      - "3100:3100"
+    environment:
+      NODE_ENV: development
+      PORT: 3100
+      DATABASE_URL: postgres://billing:billing123@postgres:5432/billing
+      
+      # Stripe (use your test keys)
+      STRIPE_SECRET_KEY: sk_test_...
+      STRIPE_PUBLISHABLE_KEY: pk_test_...
+      STRIPE_WEBHOOK_SECRET: whsec_...
+      
+      # Stripe Price IDs (create these in Stripe dashboard)
+      STRIPE_PRICE_STARTER: price_starter
+      STRIPE_PRICE_PROFESSIONAL: price_professional
+      STRIPE_PRICE_ENTERPRISE: price_enterprise
+      
+      # License keys
+      LICENSE_PRIVATE_KEY_PATH: /app/keys/private-key.pem
+      LICENSE_PUBLIC_KEY_PATH: /app/keys/public-key.pem
+      
+      # Trial configuration
+      DEFAULT_TRIAL_DAYS: 14
+    volumes:
+      - ./keys:/app/keys
+      - ./dist:/app/dist
+    depends_on:
+      postgres:
+        condition: service_healthy
+    command: npm run dev
+
+volumes:
+  postgres_data:

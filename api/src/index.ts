@@ -38,6 +38,8 @@ import { startRetentionScheduler, stopRetentionScheduler } from './services/shad
 import { setMonitorInstance } from './routes/mqtt-monitor';
 import { MQTTMonitorService } from './services/mqtt-monitor';
 import { MQTTDatabaseService } from './services/mqtt-database.service';
+import { LicenseValidator } from './services/license-validator';
+import licenseRoutes from './routes/license';
 
 // API Version Configuration - Change here to update all routes
 const API_VERSION = process.env.API_VERSION || 'v1';
@@ -81,6 +83,7 @@ app.get('/', (req, res) => {
 
 // Mount route modules - All routes now use centralized versioning via API_BASE
 app.use(`${API_BASE}/auth`, authRoutes);
+app.use(API_BASE, licenseRoutes);
 app.use(API_BASE, provisioningRoutes);
 app.use(API_BASE, devicesRoutes);
 app.use(API_BASE, adminRoutes);
@@ -143,6 +146,16 @@ async function startServer() {
   } catch (error) {
     console.error('❌ Database initialization error:', error);
     process.exit(1);
+  }
+
+  // Initialize license validator
+  try {
+    console.log('🔐 Initializing license validator...');
+    const licenseValidator = LicenseValidator.getInstance();
+    await licenseValidator.init();
+  } catch (error) {
+    console.error('⚠️  License validator initialization failed:', error);
+    // Don't exit - will run in unlicensed mode with limited features
   }
 
   // Start heartbeat monitor for device connectivity

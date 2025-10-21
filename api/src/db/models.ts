@@ -508,3 +508,6 @@ export default {
   DeviceMetricsModel,
   DeviceLogsModel,
 };
+
+// Also export SystemConfigModel
+export { SystemConfigModel } from './system-config-model';
