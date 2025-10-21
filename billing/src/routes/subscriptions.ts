@@ -67,7 +67,7 @@ router.post('/trial', async (req, res) => {
       return res.status(409).json({ error: 'Subscription already exists' });
     }
 
-    const subscription = await SubscriptionModel.createTrial(customer_id, { plan: 'starter' });
+    const subscription = await SubscriptionModel.createTrial(customer_id, 'starter', 14);
     const license = await LicenseGenerator.generateLicense(customer, subscription);
 
     res.status(201).json({

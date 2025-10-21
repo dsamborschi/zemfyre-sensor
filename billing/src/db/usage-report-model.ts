@@ -11,7 +11,6 @@ export interface UsageReport {
   active_devices: number;
   total_devices: number;
   reported_at: Date;
-  created_at: Date;
 }
 
 export class UsageReportModel {
@@ -19,23 +18,21 @@ export class UsageReportModel {
    * Create usage report
    */
   static async create(data: {
-    customerId: string;
-    instanceId: string;
-    activeDevices: number;
-    totalDevices: number;
-    reportedAt: Date;
+    customer_id: string;
+    instance_id: string;
+    active_devices: number;
+    total_devices: number;
   }): Promise<UsageReport> {
     const result = await query<UsageReport>(
       `INSERT INTO usage_reports (
-        customer_id, instance_id, active_devices, total_devices, reported_at, created_at
-      ) VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
+        customer_id, instance_id, active_devices, total_devices, reported_at
+      ) VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
       RETURNING *`,
       [
-        data.customerId,
-        data.instanceId,
-        data.activeDevices,
-        data.totalDevices,
-        data.reportedAt,
+        data.customer_id,
+        data.instance_id,
+        data.active_devices,
+        data.total_devices,
       ]
     );
 

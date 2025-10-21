@@ -29,10 +29,17 @@ router.post('/', async (req, res) => {
     }
 
     // Create customer
-    const customer = await CustomerModel.create({ email, company_name });
+    const customer = await CustomerModel.create({ 
+      email, 
+      companyName: company_name 
+    });
 
     // Create trial subscription
-    const subscription = await SubscriptionModel.createTrial(customer.customer_id, { plan: 'starter' });
+    const subscription = await SubscriptionModel.createTrial(
+      customer.customer_id,
+      'starter',
+      14
+    );
 
     // Generate license
     const license = await LicenseGenerator.generateLicense(customer, subscription);
@@ -97,10 +104,9 @@ router.get('/', async (req, res) => {
 router.patch('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { email, company_name } = req.body;
+    const { company_name } = req.body;
 
     const customer = await CustomerModel.update(id, {
-      email,
       company_name,
     });
 
