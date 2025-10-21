@@ -31,13 +31,7 @@ npm install @sentry/node
 ```typescript
 import { createHousekeeper } from './housekeeper';
 
-const app = {
-  config: { /* your config */ },
-  db: { /* database connection */ },
-  models: { /* models */ }
-};
-
-const housekeeper = createHousekeeper(app, {
+const housekeeper = createHousekeeper({
   enabled: true,
   sentryEnabled: false,
   timezone: 'America/New_York'
@@ -48,18 +42,26 @@ await housekeeper.initialize();
 
 ### Create a Task
 
+Tasks import dependencies directly (no `app` parameter needed):
+
 ```typescript
 // housekeeper/tasks/my-task.ts
 import { HousekeeperTask } from '../index';
+import { query } from '../../src/db/connection';
 
 const task: HousekeeperTask = {
   name: 'my-task',
   schedule: '0 2 * * *', // 2am daily
   startup: false, // Don't run on startup
   
-  run: async (app) => {
+  run: async () => {
     console.log('Running my task...');
-    // Do work here
+    
+    // Access database directly
+    const result = await query('SELECT * FROM my_table');
+    
+    // Use environment variables for config
+    const myConfig = process.env.MY_CONFIG || 'default';
   }
 };
 
@@ -120,18 +122,21 @@ console.log(tasks);
 - **Schedule**: Random time between 2-3am daily
 - **Startup**: Runs on startup
 - **Purpose**: Remove expired access tokens and abandoned OAuth sessions
+- **Database**: Deletes from `access_tokens` and `oauth_sessions` tables
 
 ### cleanup-old-logs
 
 - **Schedule**: 3am daily
-- **Purpose**: Delete log files older than retention period (default: 30 days)
-- **Config**: `logDirectory`, `logRetentionDays`
+- **Purpose**: Delete log files older than retention period
+- **Environment Variables**:
+  - `LOG_DIRECTORY` - Log directory path (default: `./logs`)
+  - `LOG_RETENTION_DAYS` - Days to keep logs (default: `30`)
 
 ### database-vacuum
 
 - **Schedule**: 4am every Sunday
-- **Purpose**: Run database maintenance (PostgreSQL VACUUM, MongoDB compact)
-- **Supports**: PostgreSQL, MongoDB
+- **Purpose**: Run PostgreSQL VACUUM ANALYZE for database maintenance
+- **Database**: PostgreSQL only
 
 ## Cron Syntax
 

@@ -13,11 +13,11 @@ const task: HousekeeperTask = {
   // Run daily at 3am
   schedule: '0 3 * * *',
   
-  run: async (app) => {
+  run: async () => {
     console.log('🧹 Cleaning up old logs...');
 
-    const logDir = app.config?.logDirectory || path.join(process.cwd(), 'logs');
-    const retentionDays = app.config?.logRetentionDays || 30;
+    const logDir = process.env.LOG_DIRECTORY || path.join(process.cwd(), 'logs');
+    const retentionDays = parseInt(process.env.LOG_RETENTION_DAYS || '30', 10);
     const cutoffDate = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000);
 
     try {
@@ -41,11 +41,11 @@ const task: HousekeeperTask = {
         }
       }
 
-      console.log(`✅ Deleted ${deletedCount} old log files`);
+      console.log(`✅ Deleted ${deletedCount} old log files (retention: ${retentionDays} days)`);
 
     } catch (error: any) {
       if (error.code === 'ENOENT') {
-        console.log('Log directory does not exist, skipping cleanup');
+        console.log(`Log directory '${logDir}' does not exist, skipping cleanup`);
       } else {
         console.error('❌ Failed to cleanup old logs:', error.message);
         throw error;

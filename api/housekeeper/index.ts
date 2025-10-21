@@ -14,7 +14,7 @@ export interface HousekeeperTask {
   name: string;
   schedule?: string; // Cron expression (e.g., "0 2 * * *" = 2am daily)
   startup?: boolean | number; // true = run on startup, number = delay in ms
-  run: (app: any) => Promise<void>;
+  run: () => Promise<void>;
 }
 
 interface RegisteredTask extends HousekeeperTask {
@@ -30,7 +30,7 @@ export interface HousekeeperConfig {
 /**
  * Create housekeeper instance
  */
-export function createHousekeeper(app: any, config: HousekeeperConfig = {}) {
+export function createHousekeeper(config: HousekeeperConfig = {}) {
   const tasks = new Map<string, RegisteredTask>();
   const delayedStartupTasks: NodeJS.Timeout[] = [];
   const runningTasks = new Set<string>();
@@ -131,7 +131,7 @@ export function createHousekeeper(app: any, config: HousekeeperConfig = {}) {
     const checkInId = reportTaskStart(task.name, task.schedule);
 
     try {
-      await task.run(app);
+      await task.run();
       
       const duration = Date.now() - startTime;
       console.log(`✅ Completed task '${task.name}' in ${duration}ms`);

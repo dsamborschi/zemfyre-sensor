@@ -11,29 +11,13 @@ import { createHousekeeper, Housekeeper } from './housekeeper';
 const app = express();
 let housekeeper: Housekeeper;
 
-// Application context for tasks
-const appContext = {
-  config: {
-    logDirectory: './logs',
-    logRetentionDays: 30,
-    database: {
-      type: 'postgres' // or 'mongodb'
-    }
-  },
-  db: null, // Your database connection
-  models: {
-    AccessToken: null, // Your models
-    OAuthSession: null
-  }
-};
-
 /**
  * Initialize housekeeper on application startup
  */
 async function startHousekeeper() {
   console.log('Starting housekeeper...');
 
-  housekeeper = createHousekeeper(appContext, {
+  housekeeper = createHousekeeper({
     enabled: process.env.NODE_ENV === 'production' || process.env.ENABLE_HOUSEKEEPER === 'true',
     sentryEnabled: process.env.SENTRY_DSN !== undefined,
     timezone: process.env.TZ || 'America/New_York'
@@ -167,9 +151,10 @@ async function registerCustomTask() {
     name: 'send-daily-report',
     schedule: '0 9 * * *', // 9am daily
     startup: false,
-    run: async (app) => {
+    run: async () => {
       console.log('Sending daily report...');
       // Send email, generate report, etc.
+      // Access database via import: import { query } from '../src/db/connection';
     }
   });
 }
