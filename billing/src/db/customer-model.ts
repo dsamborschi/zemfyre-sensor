@@ -4,6 +4,7 @@
 
 import { query } from './connection';
 import { v4 as uuidv4 } from 'uuid';
+import bcrypt from 'bcrypt';
 
 export interface Customer {
   id: number;
@@ -11,6 +12,9 @@ export interface Customer {
   email: string;
   company_name?: string;
   stripe_customer_id?: string;
+  api_key_hash?: string;
+  api_key_created_at?: Date;
+  api_key_last_used?: Date;
   created_at: Date;
   updated_at: Date;
 }
@@ -96,5 +100,63 @@ export class CustomerModel {
       [limit, offset]
     );
     return result.rows;
+  }
+
+  /**
+   * Store API key (hashed) for customer
+   */
+  static async setApiKey(customerId: string, apiKey: string): Promise<void> {
+    const hash = await bcrypt.hash(apiKey, 10);
+    
+    await query(
+      `UPDATE customers 
+       SET api_key_hash = $1, api_key_created_at = CURRENT_TIMESTAMP, updated_at = CURRENT_TIMESTAMP
+       WHERE customer_id = $2`,
+      [hash, customerId]
+    );
+  }
+
+  /**
+   * Verify API key for customer
+   */
+  static async verifyApiKey(apiKey: string): Promise<Customer | null> {
+    // Extract customer ID from API key (format: cust_<id>_<secret>)
+    const parts = apiKey.split('_');
+    if (parts.length < 3 || parts[0] !== 'cust') {
+      return null;
+    }
+    
+    const customerId = `${parts[0]}_${parts[1]}`;
+    const customer = await this.getById(customerId);
+    
+    if (!customer || !customer.api_key_hash) {
+      return null;
+    }
+
+    // Verify hash
+    const isValid = await bcrypt.compare(apiKey, customer.api_key_hash);
+    if (!isValid) {
+      return null;
+    }
+
+    // Update last used timestamp
+    await query(
+      'UPDATE customers SET api_key_last_used = CURRENT_TIMESTAMP WHERE customer_id = $1',
+      [customerId]
+    );
+
+    return customer;
+  }
+
+  /**
+   * Revoke API key (delete hash)
+   */
+  static async revokeApiKey(customerId: string): Promise<void> {
+    await query(
+      `UPDATE customers 
+       SET api_key_hash = NULL, updated_at = CURRENT_TIMESTAMP
+       WHERE customer_id = $1`,
+      [customerId]
+    );
   }
 }
