@@ -547,4 +547,197 @@ router.delete('/devices/:uuid/apps/:appId', async (req, res) => {
   }
 });
 
+// ============================================================================
+// Device Broker Management
+// ============================================================================
+
+/**
+ * Assign device to a new MQTT broker
+ * PUT /api/v1/devices/:uuid/broker
+ * 
+ * Notifies device via shadow delta to reconnect to new broker
+ */
+router.put('/devices/:uuid/broker', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const { brokerId } = req.body;
+
+    if (!brokerId || typeof brokerId !== 'number') {
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'brokerId is required and must be a number'
+      });
+    }
+
+    console.log(`🔄 Assigning device ${uuid.substring(0, 8)}... to broker ${brokerId}`);
+
+    // 1. Verify device exists
+    const device = await DeviceModel.getByUuid(uuid);
+    if (!device) {
+      return res.status(404).json({
+        error: 'Device not found',
+        message: `Device ${uuid} not found`
+      });
+    }
+
+    // 2. Verify broker exists
+    const brokerResult = await query(
+      `SELECT 
+        id, name, description, protocol, host, port, username,
+        use_tls, ca_cert, client_cert, verify_certificate,
+        client_id_prefix, keep_alive, clean_session,
+        reconnect_period, connect_timeout
+      FROM mqtt_broker_config 
+      WHERE id = $1 AND is_active = true`,
+      [brokerId]
+    );
+
+    if (brokerResult.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Broker not found',
+        message: `Broker ${brokerId} not found or inactive`
+      });
+    }
+
+    const broker = brokerResult.rows[0];
+    const brokerUrl = `${broker.protocol}://${broker.host}:${broker.port}`;
+
+    // 3. Update device broker assignment in database
+    await query(
+      `UPDATE devices 
+       SET mqtt_broker_id = $1, updated_at = CURRENT_TIMESTAMP 
+       WHERE uuid = $2`,
+      [brokerId, uuid]
+    );
+
+    console.log(`✅ Device broker updated in database`);
+
+    // 4. Prepare broker configuration for device
+    const brokerConfig = {
+      brokerId: broker.id,
+      brokerName: broker.name,
+      broker: brokerUrl,
+      protocol: broker.protocol,
+      host: broker.host,
+      port: broker.port,
+      useTls: broker.use_tls,
+      verifyCertificate: broker.verify_certificate,
+      clientIdPrefix: broker.client_id_prefix || 'zemfyre',
+      keepAlive: broker.keep_alive || 60,
+      cleanSession: broker.clean_session !== false,
+      reconnectPeriod: broker.reconnect_period || 1000,
+      connectTimeout: broker.connect_timeout || 30000,
+      ...(broker.ca_cert && { caCert: broker.ca_cert }),
+      ...(broker.client_cert && { clientCert: broker.client_cert })
+    };
+
+    // 5. Update device shadow with new broker configuration
+    const shadowResult = await query(
+      `INSERT INTO device_shadows (device_uuid, desired, version)
+       VALUES ($1, jsonb_build_object('mqtt', $2::jsonb), 1)
+       ON CONFLICT (device_uuid) 
+       DO UPDATE SET 
+         desired = jsonb_set(
+           COALESCE(device_shadows.desired, '{}'::jsonb),
+           '{mqtt}',
+           $2::jsonb
+         ),
+         version = device_shadows.version + 1,
+         updated_at = CURRENT_TIMESTAMP
+       RETURNING version`,
+      [uuid, JSON.stringify(brokerConfig)]
+    );
+
+    const version = shadowResult.rows[0].version;
+    console.log(`📋 Shadow updated (version ${version})`);
+
+    // 6. Try to publish MQTT delta message (if MQTT manager available)
+    let mqttPublished = false;
+    try {
+      const { getMqttManager } = require('../mqtt');
+      const mqttManager = getMqttManager();
+      
+      if (mqttManager && mqttManager.isConnected()) {
+        await mqttManager.publish(
+          `iot/device/${uuid}/shadow/name/device-state/update/delta`,
+          JSON.stringify({
+            state: {
+              mqtt: brokerConfig
+            },
+            metadata: {
+              mqtt: {
+                timestamp: Date.now()
+              }
+            },
+            version: version,
+            timestamp: Math.floor(Date.now() / 1000)
+          }),
+          { qos: 1 }
+        );
+        mqttPublished = true;
+        console.log(`📡 Published shadow delta via MQTT`);
+      } else {
+        console.log(`⚠️  MQTT manager not available, device will get update on next shadow sync`);
+      }
+    } catch (error) {
+      console.warn('⚠️  Could not publish shadow delta via MQTT:', error);
+      // Non-fatal - device will get update via shadow sync
+    }
+
+    // 7. Log audit event
+    await logAuditEvent({
+      eventType: 'device.config.updated' as any,  // Custom event type
+      deviceUuid: uuid,
+      severity: AuditSeverity.INFO,
+      details: {
+        change: 'broker_assignment',
+        newBrokerId: brokerId,
+        brokerName: broker.name,
+        brokerUrl: brokerUrl,
+        shadowVersion: version,
+        mqttNotified: mqttPublished
+      }
+    });
+
+    res.json({
+      success: true,
+      message: `Device assigned to broker: ${broker.name}`,
+      device: {
+        uuid: device.uuid,
+        name: device.device_name
+      },
+      broker: {
+        id: broker.id,
+        name: broker.name,
+        url: brokerUrl
+      },
+      shadow: {
+        version: version,
+        mqttNotified: mqttPublished,
+        message: mqttPublished 
+          ? 'Device will be notified immediately via MQTT'
+          : 'Device will receive update on next shadow sync'
+      }
+    });
+
+  } catch (error: any) {
+    console.error('❌ Error assigning device to broker:', error);
+    
+    await logAuditEvent({
+      eventType: 'device.config.update.failed' as any,  // Custom event type
+      deviceUuid: req.params.uuid,
+      severity: AuditSeverity.ERROR,
+      details: {
+        error: error.message,
+        brokerId: req.body.brokerId
+      }
+    });
+
+    res.status(500).json({
+      error: 'Failed to assign device to broker',
+      message: error.message
+    });
+  }
+});
+
 export default router;

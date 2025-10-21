@@ -50,7 +50,21 @@ const eventPublisher = new EventPublisher();
 // Rate Limiting Middleware
 // ============================================================================
 
-// Rate limit for provisioning endpoint - 5 attempts per 15 minutes per IP
+/**
+ * Dual Rate Limiting Strategy for Provisioning:
+ * 
+ * 1. provisioningLimiter (middleware): Limits ALL provisioning attempts
+ *    - 5 attempts per 15 minutes per IP
+ *    - In-memory tracking (fast, but resets on restart)
+ *    - Prevents endpoint spamming
+ * 
+ * 2. checkProvisioningRateLimit (database): Limits FAILED attempts only
+ *    - 10 failed attempts per hour per IP
+ *    - Database-backed (persistent across restarts)
+ *    - Prevents brute force attacks on provisioning keys
+ * 
+ * Both work together: middleware catches spam, database check catches attacks
+ */
 const provisioningLimiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 5,
@@ -63,7 +77,7 @@ const provisioningLimiter = rateLimit({
       ipAddress: req.ip,
       userAgent: req.headers['user-agent'],
       severity: AuditSeverity.WARNING,
-      details: { endpoint: '/device/register' }
+      details: { endpoint: '/device/register', type: 'middleware' }
     });
     res.status(429).json({
       error: 'Too many requests',
@@ -248,6 +262,209 @@ router.delete('/provisioning-keys/:keyId', async (req, res) => {
 // Provisioning & Authentication Endpoints (Two-Phase)
 // ============================================================================
 
+// Helper functions for device registration
+
+interface RegistrationRequest {
+  uuid: string;
+  deviceName: string;
+  deviceType: string;
+  deviceApiKey: string;
+  applicationId?: string;
+  macAddress?: string;
+  osVersion?: string;
+  supervisorVersion?: string;
+}
+
+/**
+ * Validate registration request fields
+ */
+async function validateRegistrationRequest(
+  req: any,
+  ipAddress: string | undefined,
+  userAgent: string | undefined
+): Promise<{ valid: boolean; data?: RegistrationRequest; provisioningApiKey?: string }> {
+  const { uuid, deviceName, deviceType, deviceApiKey, applicationId, macAddress, osVersion, supervisorVersion } = req.body;
+  const provisioningApiKey = req.headers.authorization?.replace('Bearer ', '');
+
+  // Check required fields
+  if (!uuid || !deviceName || !deviceType || !deviceApiKey) {
+    await logAuditEvent({
+      eventType: AuditEventType.PROVISIONING_FAILED,
+      ipAddress,
+      userAgent,
+      severity: AuditSeverity.WARNING,
+      details: { reason: 'Missing required fields', uuid: uuid?.substring(0, 8) }
+    });
+    return { valid: false };
+  }
+
+  if (!provisioningApiKey) {
+    await logAuditEvent({
+      eventType: AuditEventType.PROVISIONING_FAILED,
+      deviceUuid: uuid,
+      ipAddress,
+      userAgent,
+      severity: AuditSeverity.WARNING,
+      details: { reason: 'Missing provisioning API key' }
+    });
+    return { valid: false };
+  }
+
+  return {
+    valid: true,
+    data: { uuid, deviceName, deviceType, deviceApiKey, applicationId, macAddress, osVersion, supervisorVersion },
+    provisioningApiKey
+  };
+}
+
+/**
+ * Create device record in database
+ */
+async function createDeviceRecord(
+  data: RegistrationRequest,
+  provisioningKeyRecord: any
+): Promise<any> {
+  const { uuid, deviceName, deviceType, deviceApiKey, macAddress, osVersion, supervisorVersion } = data;
+
+  // Hash device API key
+  const deviceApiKeyHash = await bcrypt.hash(deviceApiKey, 10);
+  console.log('🔒 Device API key hashed for secure storage');
+
+  // Create device
+  let device = await DeviceModel.getOrCreate(uuid);
+  console.log('✅ New device created');
+
+  // Update device metadata
+  device = await DeviceModel.update(uuid, {
+    device_name: deviceName,
+    device_type: deviceType,
+    provisioning_state: 'registered',
+    status: 'online',
+    mac_address: macAddress,
+    os_version: osVersion,
+    supervisor_version: supervisorVersion,
+    device_api_key_hash: deviceApiKeyHash,
+    fleet_id: provisioningKeyRecord.fleet_id,
+    provisioned_by_key_id: provisioningKeyRecord.id,
+    provisioned_at: new Date(),
+    is_online: true,
+    is_active: true
+  });
+
+  console.log(`✅ Device metadata stored: ${deviceName} (${deviceType})`);
+  return device;
+}
+
+/**
+ * Create MQTT credentials for device
+ */
+async function createMqttCredentials(uuid: string): Promise<{ username: string; password: string }> {
+  const mqttUsername = `device_${uuid}`;
+  const mqttPassword = crypto.randomBytes(16).toString('base64');
+  const mqttPasswordHash = await bcrypt.hash(mqttPassword, 10);
+
+  // Create MQTT user
+  await query(
+    `INSERT INTO mqtt_users (username, password_hash, is_superuser, is_active)
+     VALUES ($1, $2, false, true)
+     ON CONFLICT (username) DO NOTHING`,
+    [mqttUsername, mqttPasswordHash]
+  );
+
+  // Create MQTT ACLs (access 7 = READ + WRITE + SUBSCRIBE)
+  await query(
+    `INSERT INTO mqtt_acls (username, topic, access, priority)
+     VALUES ($1, $2, 7, 0)
+     ON CONFLICT DO NOTHING`,
+    [mqttUsername, `iot/device/${uuid}/#`]
+  );
+
+  console.log(`🔐 MQTT credentials created for: ${mqttUsername}`);
+  return { username: mqttUsername, password: mqttPassword };
+}
+
+/**
+ * Publish device provisioned event
+ */
+async function publishProvisioningEvent(
+  data: RegistrationRequest,
+  provisioningKeyRecord: any,
+  mqttUsername: string,
+  ipAddress: string | undefined,
+  userAgent: string | undefined
+): Promise<void> {
+  await eventPublisher.publish(
+    'device.provisioned',
+    'device',
+    data.uuid,
+    {
+      device_name: data.deviceName,
+      device_type: data.deviceType,
+      fleet_id: provisioningKeyRecord.fleet_id,
+      provisioned_at: new Date().toISOString(),
+      ip_address: ipAddress,
+      mac_address: data.macAddress,
+      os_version: data.osVersion,
+      supervisor_version: data.supervisorVersion,
+      mqttUsername
+    },
+    {
+      metadata: {
+        user_agent: userAgent,
+        provisioning_key_id: provisioningKeyRecord.id,
+        endpoint: '/device/register'
+      }
+    }
+  );
+}
+
+/**
+ * Build provisioning response with MQTT config
+ */
+async function buildProvisioningResponse(
+  device: any,
+  data: RegistrationRequest,
+  provisioningKeyRecord: any,
+  mqttCredentials: { username: string; password: string }
+): Promise<any> {
+  const { uuid, deviceName, deviceType, applicationId } = data;
+
+  // Fetch broker configuration
+  const brokerConfig = await getBrokerConfigForDevice(uuid);
+  
+  if (brokerConfig) {
+    console.log(`📡 Using MQTT broker: ${brokerConfig.name} (${buildBrokerUrl(brokerConfig)})`);
+  } else {
+    console.log('⚠️  No broker config in database, using environment fallback');
+  }
+
+  const brokerUrl = brokerConfig 
+    ? buildBrokerUrl(brokerConfig)
+    : (process.env.MQTT_BROKER_URL || 'mqtt://mosquitto:1883');
+
+  return {
+    id: device.id,
+    uuid: device.uuid,
+    deviceName,
+    deviceType,
+    applicationId,
+    fleetId: provisioningKeyRecord.fleet_id,
+    createdAt: device.created_at.toISOString(),
+    mqtt: {
+      username: mqttCredentials.username,
+      password: mqttCredentials.password,
+      broker: brokerUrl,
+      ...(brokerConfig && {
+        brokerConfig: formatBrokerConfigForClient(brokerConfig)
+      }),
+      topics: {
+        publish: [`iot/device/${uuid}/#`],
+        subscribe: [`iot/device/${uuid}/#`]
+      }
+    }
+  };
+}
+
 /**
  * Register new device with provisioning API key
  * POST /api/v1/device/register
@@ -271,45 +488,34 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
   let provisioningKeyRecord: any = null;
 
   try {
-    const { uuid, deviceName, deviceType, deviceApiKey, applicationId, macAddress, osVersion, supervisorVersion } = req.body;
-    const provisioningApiKey = req.headers.authorization?.replace('Bearer ', '');
-
-    // Validate required fields
-    if (!uuid || !deviceName || !deviceType || !deviceApiKey) {
-      await logAuditEvent({
-        eventType: AuditEventType.PROVISIONING_FAILED,
-        ipAddress,
-        userAgent,
-        severity: AuditSeverity.WARNING,
-        details: { reason: 'Missing required fields', uuid: uuid?.substring(0, 8) }
-      });
+    // Step 1: Validate request
+    const validation = await validateRegistrationRequest(req, ipAddress, userAgent);
+    
+    if (!validation.valid) {
       return res.status(400).json({
         error: 'Missing required fields',
         message: 'uuid, deviceName, deviceType, and deviceApiKey are required'
       });
     }
 
-    if (!provisioningApiKey) {
-      await logAuditEvent({
-        eventType: AuditEventType.PROVISIONING_FAILED,
-        deviceUuid: uuid,
-        ipAddress,
-        userAgent,
-        severity: AuditSeverity.WARNING,
-        details: { reason: 'Missing provisioning API key' }
-      });
+    if (!validation.provisioningApiKey) {
       return res.status(401).json({
         error: 'Unauthorized',
         message: 'Provisioning API key required in Authorization header'
       });
     }
 
-    // SECURITY: Check provisioning rate limit for this IP
+    const data = validation.data!;
+    const { uuid } = data;
+
+    // Step 2: Check failed provisioning attempts (prevents brute force attacks)
+    // Note: provisioningLimiter middleware already limits all attempts (5 per 15 min)
+    // This additional check specifically blocks IPs with too many FAILED attempts (10 per hour)
     await checkProvisioningRateLimit(ipAddress!);
 
-    // SECURITY: Validate provisioning key against database
+    // Step 3: Validate provisioning key
     console.log('🔐 Validating provisioning key...');
-    const keyValidation = await validateProvisioningKey(provisioningApiKey, ipAddress);
+    const keyValidation = await validateProvisioningKey(validation.provisioningApiKey, ipAddress);
     
     if (!keyValidation.valid) {
       await logProvisioningAttempt(ipAddress!, uuid, null, false, keyValidation.error, userAgent);
@@ -322,6 +528,7 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
     provisioningKeyRecord = keyValidation.keyRecord!;
     console.log('✅ Provisioning key validated for fleet:', provisioningKeyRecord.fleet_id);
 
+    // Step 4: Log provisioning start
     await logAuditEvent({
       eventType: AuditEventType.PROVISIONING_STARTED,
       deviceUuid: uuid,
@@ -329,26 +536,25 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
       userAgent,
       severity: AuditSeverity.INFO,
       details: {
-        deviceName,
-        deviceType,
+        deviceName: data.deviceName,
+        deviceType: data.deviceType,
         fleetId: provisioningKeyRecord.fleet_id
       }
     });
 
-    // Check if device already exists
-    let device = await DeviceModel.getByUuid(uuid);
+    // Step 5: Check for duplicate registration
+    const existingDevice = await DeviceModel.getByUuid(uuid);
     
-    if (device) {
-      console.log('⚠️  Device already registered, preventing duplicate registration');
+    if (existingDevice) {
+      console.log('⚠️  Device already registered');
       await logAuditEvent({
         eventType: AuditEventType.PROVISIONING_FAILED,
         deviceUuid: uuid,
         ipAddress,
         severity: AuditSeverity.WARNING,
-        details: { reason: 'Device already registered', existingDeviceId: device.id }
+        details: { reason: 'Device already registered', existingDeviceId: existingDevice.id }
       });
       
-      // Log failed attempt but don't reveal device exists (security)
       await logProvisioningAttempt(ipAddress!, uuid, provisioningKeyRecord.id, false, 'Device already registered', userAgent);
       
       return res.status(409).json({
@@ -357,85 +563,19 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
       });
     }
 
-    // Create new device
-    device = await DeviceModel.getOrCreate(uuid);
-    console.log('✅ New device created');
+    // Step 6: Create device record
+    const device = await createDeviceRecord(data, provisioningKeyRecord);
 
-    // SECURITY: Hash device API key before storage (NEVER store plain text!)
-    const deviceApiKeyHash = await bcrypt.hash(deviceApiKey, 10);
-    console.log('🔒 Device API key hashed for secure storage');
+    // Step 7: Create MQTT credentials
+    const mqttCredentials = await createMqttCredentials(uuid);
 
-    // Store device metadata in the database
-    device = await DeviceModel.update(uuid, {
-      device_name: deviceName,
-      device_type: deviceType,
-      provisioning_state: 'registered',
-      status: 'online',
-      mac_address: macAddress,
-      os_version: osVersion,
-      supervisor_version: supervisorVersion,
-      device_api_key_hash: deviceApiKeyHash,
-      fleet_id: provisioningKeyRecord.fleet_id,
-      provisioned_by_key_id: provisioningKeyRecord.id,
-      provisioned_at: new Date(),
-      is_online: true,
-      is_active: true
-    });
-
-    console.log(`✅ Device metadata stored: ${deviceName} (${deviceType}) - State: registered, Status: online`);
-
-    // 1. Generate MQTT username (device UUID) and random password
-    const mqttUsername = "device_" + uuid;
-    const mqttPassword = crypto.randomBytes(16).toString('base64');
-    const mqttPasswordHash = await bcrypt.hash(mqttPassword, 10);
-
-    // 2. Insert into mqtt_users (if not exists)
-    await query(
-      `INSERT INTO mqtt_users (username, password_hash, is_superuser, is_active)
-       VALUES ($1, $2, false, true)
-       ON CONFLICT (username) DO NOTHING
-       RETURNING id, username`,
-      [mqttUsername, mqttPasswordHash]
-    );
-
-    // 3. Insert default ACLs (allow publish/subscribe to sensor topics)
-    // Access 7 = READ (1) + WRITE (2) + SUBSCRIBE (4)
-    await query(
-      `INSERT INTO mqtt_acls (username, topic, access, priority)
-       VALUES ($1, $2, 7, 0)
-       ON CONFLICT DO NOTHING`,
-      [mqttUsername, `iot/device/${uuid}/#`]
-    );
-
-    // Increment provisioning key usage counter
+    // Step 8: Increment provisioning key usage
     await incrementProvisioningKeyUsage(provisioningKeyRecord.id);
 
-    // 🎉 EVENT SOURCING: Publish device provisioned event
-    await eventPublisher.publish(
-      'device.provisioned',
-      'device',
-      uuid,
-      {
-        device_name: deviceName,
-        device_type: deviceType,
-        fleet_id: provisioningKeyRecord.fleet_id,
-        provisioned_at: new Date().toISOString(),
-        ip_address: ipAddress,
-        mac_address: macAddress,
-        os_version: osVersion,
-        supervisor_version: supervisorVersion,
-        mqttUsername
-      },
-      {
-        metadata: {
-          user_agent: userAgent,
-          provisioning_key_id: provisioningKeyRecord.id,
-          endpoint: '/device/register'
-        }
-      }
-    );
+    // Step 9: Publish event
+    await publishProvisioningEvent(data, provisioningKeyRecord, mqttCredentials.username, ipAddress, userAgent);
 
-    // Log successful provisioning
+    // Step 10: Log success
     await logAuditEvent({
       eventType: AuditEventType.DEVICE_REGISTERED,
       deviceUuid: uuid,
@@ -444,53 +584,17 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
       severity: AuditSeverity.INFO,
       details: {
         deviceId: device.id,
-        deviceName,
-        deviceType,
+        deviceName: data.deviceName,
+        deviceType: data.deviceType,
         fleetId: provisioningKeyRecord.fleet_id,
-        mqttUsername
+        mqttUsername: mqttCredentials.username
       }
     });
 
     await logProvisioningAttempt(ipAddress!, uuid, provisioningKeyRecord.id, true, undefined, userAgent);
 
-    // Fetch MQTT broker configuration from database
-    // Use default broker if no specific broker is assigned to this device
-    const brokerConfig = await getBrokerConfigForDevice(uuid);
-    
-    if (brokerConfig) {
-      console.log(`📡 Using MQTT broker: ${brokerConfig.name} (${buildBrokerUrl(brokerConfig)})`);
-    } else {
-      console.log('⚠️  No broker configuration found in database, using environment variable fallback');
-    }
-
-    // Build broker URL (fallback to env var if no database config)
-    const brokerUrl = brokerConfig 
-      ? buildBrokerUrl(brokerConfig)
-      : (process.env.MQTT_BROKER_URL || 'mqtt://mosquitto:1883');
-
-    // Return device info + MQTT credentials + broker configuration
-    const response = {
-      id: device.id,
-      uuid: device.uuid,
-      deviceName: deviceName,
-      deviceType: deviceType,
-      applicationId: applicationId,
-      fleetId: provisioningKeyRecord.fleet_id,
-      createdAt: device.created_at.toISOString(),
-      mqtt: {
-        username: mqttUsername,
-        password: mqttPassword,
-        broker: brokerUrl,
-        // Include detailed broker configuration if available
-        ...(brokerConfig && {
-          brokerConfig: formatBrokerConfigForClient(brokerConfig)
-        }),
-        topics: {
-          publish: [`iot/device/${uuid}/#`],
-          subscribe: [`iot/device/${uuid}/#`]
-        }
-      }
-    };
+    // Step 11: Build response
+    const response = await buildProvisioningResponse(device, data, provisioningKeyRecord, mqttCredentials);
 
     console.log('✅ Device registered successfully:', response.id);
     res.status(200).json(response);

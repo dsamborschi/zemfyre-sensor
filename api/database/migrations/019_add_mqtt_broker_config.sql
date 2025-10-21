@@ -53,10 +53,10 @@ CREATE TABLE IF NOT EXISTS mqtt_broker_config (
 );
 
 -- Indexes
-CREATE INDEX idx_mqtt_broker_config_name ON mqtt_broker_config(name);
-CREATE INDEX idx_mqtt_broker_config_is_active ON mqtt_broker_config(is_active);
-CREATE INDEX idx_mqtt_broker_config_is_default ON mqtt_broker_config(is_default);
-CREATE INDEX idx_mqtt_broker_config_broker_type ON mqtt_broker_config(broker_type);
+CREATE INDEX IF NOT EXISTS idx_mqtt_broker_config_name ON mqtt_broker_config(name);
+CREATE INDEX IF NOT EXISTS idx_mqtt_broker_config_is_active ON mqtt_broker_config(is_active);
+CREATE INDEX IF NOT EXISTS idx_mqtt_broker_config_is_default ON mqtt_broker_config(is_default);
+CREATE INDEX IF NOT EXISTS idx_mqtt_broker_config_broker_type ON mqtt_broker_config(broker_type);
 
 -- Trigger: Auto-update updated_at timestamp
 DROP TRIGGER IF EXISTS trigger_mqtt_broker_config_updated_at ON mqtt_broker_config;

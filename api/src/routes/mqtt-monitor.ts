@@ -6,61 +6,19 @@
 import { Router, Request, Response } from 'express';
 import { MQTTMonitorService } from '../services/mqtt-monitor';
 import { MQTTDatabaseService } from '../services/mqtt-database.service';
-import poolWrapper from '../db/connection';
 
 const router = Router();
 
-// Singleton monitor instance
+// Monitor instance will be injected from index.ts
 let monitor: MQTTMonitorService | null = null;
 let mqttDbService: MQTTDatabaseService | null = null;
 
 /**
- * Initialize the MQTT monitor
+ * Set the monitor instance (called from index.ts during initialization)
  */
-function initializeMonitor(): MQTTMonitorService {
-  if (!monitor) {
-    const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
-    const username = process.env.MQTT_USERNAME;
-    const password = process.env.MQTT_PASSWORD;
-    const persistToDatabase = process.env.MQTT_PERSIST_TO_DB === 'true';
-
-    // Initialize database service if persistence is enabled
-    if (persistToDatabase) {
-      mqttDbService = new MQTTDatabaseService(poolWrapper.pool);
-      console.log('[MQTT Monitor API] Database persistence enabled');
-    }
-
-    monitor = new MQTTMonitorService({
-      brokerUrl,
-      username,
-      password,
-      topicTreeEnabled: true,
-      metricsEnabled: true,
-      schemaGenerationEnabled: true,
-      persistToDatabase,
-      dbSyncInterval: parseInt(process.env.MQTT_DB_SYNC_INTERVAL || '30000')
-    }, mqttDbService);
-
-    // Log events
-    monitor.on('connected', () => {
-      console.log('[MQTT Monitor API] Monitor connected to broker');
-    });
-
-    monitor.on('error', (error) => {
-      console.error('[MQTT Monitor API] Monitor error:', error);
-    });
-
-    monitor.on('metrics-updated', (metrics) => {
-      console.log(`[MQTT Monitor API] Metrics updated: ${metrics.clients} clients, ${metrics.messageRate.current.published} msg/s`);
-    });
-
-    // Auto-start
-    monitor.start().catch(err => {
-      console.error('[MQTT Monitor API] Failed to start monitor:', err);
-    });
-  }
-
-  return monitor;
+export function setMonitorInstance(monitorInstance: MQTTMonitorService | null, dbService: MQTTDatabaseService | null = null) {
+  monitor = monitorInstance;
+  mqttDbService = dbService;
 }
 
 /**
@@ -98,8 +56,14 @@ router.get('/status', (req: Request, res: Response) => {
  */
 router.post('/start', async (req: Request, res: Response) => {
   try {
-    const monitorInstance = initializeMonitor();
-    await monitorInstance.start();
+    if (!monitor) {
+      return res.status(400).json({
+        success: false,
+        error: 'Monitor not initialized. Service should be started via index.ts'
+      });
+    }
+    
+    await monitor.start();
     
     res.json({
       success: true,
@@ -668,10 +632,5 @@ router.get('/topics/:topic(*)/recent-activity', async (req: Request, res: Respon
     });
   }
 });
-
-// Initialize monitor on module load if auto-start is enabled
-if (process.env.MQTT_MONITOR_AUTO_START !== 'false') {
-  initializeMonitor();
-}
 
 export default router;

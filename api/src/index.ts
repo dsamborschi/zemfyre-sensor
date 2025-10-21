@@ -35,6 +35,9 @@ import poolWrapper from './db/connection';
 import { initializeMqtt, shutdownMqtt } from './mqtt';
 import { initializeSchedulers, shutdownSchedulers } from './services/rotation-scheduler';
 import { startRetentionScheduler, stopRetentionScheduler } from './services/shadow-retention';
+import { setMonitorInstance } from './routes/mqtt-monitor';
+import { MQTTMonitorService } from './services/mqtt-monitor';
+import { MQTTDatabaseService } from './services/mqtt-database.service';
 
 // API Version Configuration - Change here to update all routes
 const API_VERSION = process.env.API_VERSION || 'v1';
@@ -121,6 +124,9 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 async function startServer() {
   console.log('🚀 Initializing Iotistic Unified API...\n');
 
+  // MQTT Monitor instance (needs to be accessible in shutdown handlers)
+  let mqttMonitor: MQTTMonitorService | null = null;
+
   // Initialize PostgreSQL database
   try {
     const db = await import('./db/connection');
@@ -204,6 +210,57 @@ async function startServer() {
     // Don't exit - this is not critical for API operation
   }
 
+  // Initialize MQTT Monitor Service
+  let mqttDbService: MQTTDatabaseService | null = null;
+  
+  if (process.env.MQTT_MONITOR_ENABLED !== 'false') {
+    try {
+      const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
+      const username = process.env.MQTT_USERNAME;
+      const password = process.env.MQTT_PASSWORD;
+      const persistToDatabase = process.env.MQTT_PERSIST_TO_DB === 'true';
+
+      // Initialize database service if persistence is enabled
+      if (persistToDatabase) {
+        mqttDbService = new MQTTDatabaseService(poolWrapper.pool);
+        console.log('✅ MQTT Monitor database persistence enabled');
+      }
+
+      mqttMonitor = new MQTTMonitorService({
+        brokerUrl,
+        username,
+        password,
+        topicTreeEnabled: true,
+        metricsEnabled: true,
+        schemaGenerationEnabled: true,
+        persistToDatabase,
+        dbSyncInterval: parseInt(process.env.MQTT_DB_SYNC_INTERVAL || '30000')
+      }, mqttDbService);
+
+      // Log events
+      mqttMonitor.on('connected', () => {
+        console.log('✅ MQTT Monitor connected to broker at', brokerUrl);
+      });
+
+      mqttMonitor.on('error', (error) => {
+        console.error('⚠️  MQTT Monitor error:', error);
+      });
+
+      // Start the monitor
+      await mqttMonitor.start();
+      
+      // Set monitor instance for routes
+      setMonitorInstance(mqttMonitor, mqttDbService);
+      
+      console.log('✅ MQTT Monitor Service started');
+    } catch (error) {
+      console.error('⚠️  Failed to start MQTT Monitor:', error);
+      // Don't exit - this is not critical for API operation
+    }
+  } else {
+    console.log('ℹ️  MQTT Monitor disabled via MQTT_MONITOR_ENABLED=false');
+  }
+
   const server = app.listen(PORT, () => {
     console.log('='.repeat(80));
     console.log('☁️  Iotistic Unified API Server');
@@ -215,6 +272,16 @@ async function startServer() {
   // Graceful shutdown
   process.on('SIGTERM', async () => {
     console.log('\nSIGTERM received, shutting down gracefully...');
+    
+    // Shutdown MQTT Monitor
+    try {
+      if (mqttMonitor) {
+        await mqttMonitor.stop();
+        console.log('✅ MQTT Monitor stopped');
+      }
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
     
     // Shutdown MQTT
     try {
@@ -268,6 +335,16 @@ async function startServer() {
 
   process.on('SIGINT', async () => {
     console.log('\nSIGINT received, shutting down gracefully...');
+    
+    // Shutdown MQTT Monitor
+    try {
+      if (mqttMonitor) {
+        await mqttMonitor.stop();
+        console.log('✅ MQTT Monitor stopped');
+      }
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
     
     // Shutdown MQTT
     try {
