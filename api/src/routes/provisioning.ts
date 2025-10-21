@@ -35,6 +35,11 @@ import {
   AuditSeverity
 } from '../utils/audit-logger';
 import { EventPublisher } from '../services/event-sourcing';
+import {
+  getBrokerConfigForDevice,
+  buildBrokerUrl,
+  formatBrokerConfigForClient
+} from '../utils/mqtt-broker-config';
 
 export const router = express.Router();
 
@@ -385,7 +390,7 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
     const mqttPasswordHash = await bcrypt.hash(mqttPassword, 10);
 
     // 2. Insert into mqtt_users (if not exists)
-    const mqttUserResult = await query(
+    await query(
       `INSERT INTO mqtt_users (username, password_hash, is_superuser, is_active)
        VALUES ($1, $2, false, true)
        ON CONFLICT (username) DO NOTHING
@@ -448,7 +453,22 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
 
     await logProvisioningAttempt(ipAddress!, uuid, provisioningKeyRecord.id, true, undefined, userAgent);
 
-    // Return device info + MQTT credentials
+    // Fetch MQTT broker configuration from database
+    // Use default broker if no specific broker is assigned to this device
+    const brokerConfig = await getBrokerConfigForDevice(uuid);
+    
+    if (brokerConfig) {
+      console.log(`📡 Using MQTT broker: ${brokerConfig.name} (${buildBrokerUrl(brokerConfig)})`);
+    } else {
+      console.log('⚠️  No broker configuration found in database, using environment variable fallback');
+    }
+
+    // Build broker URL (fallback to env var if no database config)
+    const brokerUrl = brokerConfig 
+      ? buildBrokerUrl(brokerConfig)
+      : (process.env.MQTT_BROKER_URL || 'mqtt://mosquitto:1883');
+
+    // Return device info + MQTT credentials + broker configuration
     const response = {
       id: device.id,
       uuid: device.uuid,
@@ -460,7 +480,11 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
       mqtt: {
         username: mqttUsername,
         password: mqttPassword,
-        broker: process.env.MQTT_BROKER_URL || 'mqtt://mosquitto:1883',
+        broker: brokerUrl,
+        // Include detailed broker configuration if available
+        ...(brokerConfig && {
+          brokerConfig: formatBrokerConfigForClient(brokerConfig)
+        }),
         topics: {
           publish: [`iot/device/${uuid}/#`],
           subscribe: [`iot/device/${uuid}/#`]
