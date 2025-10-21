@@ -62,40 +62,93 @@ LOG_LEVEL=info                      # Log level (default: info)
 ### Install Dependencies
 
 ```bash
+cd billing-exporter
 npm install
 ```
 
-### Run Locally
+### Local Development
 
 ```bash
 # Copy environment template
 cp .env.example .env
 
 # Edit .env with your configuration
+# Update: CUSTOMER_ID, PROMETHEUS_URL, BILLING_API_URL
 nano .env
 
 # Start in development mode
 npm run dev
 ```
 
-### Build
+### Build TypeScript
 
 ```bash
+# Compile TypeScript to JavaScript
 npm run build
+
+# Watch mode (auto-recompile on changes)
+npm run watch
+
+# Start compiled version
+npm start
 ```
 
 ### Docker Build
 
 ```bash
+# Build Docker image
 npm run docker:build
+
+# Or manually
+docker build -t iotistic/billing-exporter:latest .
+
+# Push to Docker registry
 npm run docker:push
+
+# Or manually
+docker push iotistic/billing-exporter:latest
+
+# Test locally with Docker
+docker run --rm \
+  -e CUSTOMER_ID=cust_test123 \
+  -e PROMETHEUS_URL=http://prometheus:9090 \
+  -e BILLING_API_URL=https://billing.zemfyre.com \
+  -e NAMESPACE=test \
+  iotistic/billing-exporter:latest
 ```
 
 ## Kubernetes Deployment
 
-### 1. Create ConfigMap
+### 1. Build and Push Docker Image
 
-```yaml
+```bash
+cd billing-exporter
+
+# Build image
+npm run docker:build
+
+# Or manually
+docker build -t iotistic/billing-exporter:latest .
+
+# Push to registry
+npm run docker:push
+
+# Or manually
+docker push iotistic/billing-exporter:latest
+```
+
+### 2. Create Customer Namespace
+
+```bash
+# Create namespace for customer
+kubectl create namespace customer-abc
+```
+
+### 3. Create ConfigMap
+
+```bash
+# Apply ConfigMap with customer configuration
+kubectl apply -f - <<EOF
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -109,28 +162,58 @@ data:
   NAMESPACE: "customer-abc"
   COLLECTION_INTERVAL: "3600000"
   LOG_LEVEL: "info"
+EOF
 ```
 
-### 2. Deploy Exporter
+### 4. Deploy Exporter
 
 ```bash
+# Deploy billing exporter to customer namespace
 kubectl apply -f k8s/deployment.yaml -n customer-abc
 ```
 
-### 3. Verify Deployment
+### 5. Verify Deployment
 
 ```bash
 # Check pod status
 kubectl get pods -n customer-abc -l app=billing-exporter
 
-# View logs
+# Expected output:
+# NAME                                READY   STATUS    RESTARTS   AGE
+# billing-exporter-xxxxxxxxxx-xxxxx   1/1     Running   0          30s
+
+# View logs (live)
 kubectl logs -f deployment/billing-exporter -n customer-abc
 
-# Check health
+# Expected output:
+# 🚀 Starting Billing Exporter...
+# 🔍 Verifying connectivity...
+# ✅ Prometheus is reachable
+# ✅ Billing API is reachable
+# 📊 Collecting metrics from Kubernetes...
+# ✅ Metrics collected successfully
+# 📤 Reporting usage to billing API...
+# ✅ Usage reported successfully
+# ✅ Billing Exporter started - collecting every 60 minutes
+
+# Check health endpoints
 kubectl port-forward -n customer-abc deployment/billing-exporter 8080:8080
+
+# In another terminal:
 curl http://localhost:8080/health
 curl http://localhost:8080/ready
 curl http://localhost:8080/metrics
+```
+
+### 6. Verify Metrics Collection
+
+```bash
+# Check if metrics are being reported to billing API
+# (Assuming you have the billing management scripts)
+cd ../billing
+npm run usage -- --customer cust_abc123xyz
+
+# Should show usage data from the exporter
 ```
 
 ## Health Checks
@@ -188,27 +271,45 @@ The exporter sends usage reports to `POST /api/usage/report`:
 ### Exporter Not Collecting Metrics
 
 ```bash
-# Check Prometheus connectivity
-kubectl exec -it deployment/billing-exporter -n customer-abc -- wget -O- http://prometheus:9090/-/healthy
+# Check pod status
+kubectl get pods -n customer-abc -l app=billing-exporter
 
-# Check logs
+# Check logs for errors
 kubectl logs -f deployment/billing-exporter -n customer-abc
+
+# Common errors:
+# - "Prometheus query failed" → Check Prometheus connectivity
+# - "Failed to report usage" → Check Billing API connectivity
+# - "CUSTOMER_ID environment variable is required" → Check ConfigMap
 
 # Verify namespace configuration
 kubectl get configmap billing-exporter-config -n customer-abc -o yaml
+
+# Test Prometheus connectivity from pod
+kubectl exec -it deployment/billing-exporter -n customer-abc -- wget -O- http://prometheus-kube-prometheus-prometheus.monitoring:9090/-/healthy
+
+# Check if pod can reach Prometheus
+kubectl exec -it deployment/billing-exporter -n customer-abc -- nc -zv prometheus-kube-prometheus-prometheus.monitoring 9090
 ```
 
 ### Prometheus Queries Failing
 
 ```bash
-# Port-forward Prometheus
+# Port-forward Prometheus to test queries locally
 kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
 
-# Test query manually
+# Test basic query
 curl "http://localhost:9090/api/v1/query?query=up"
 
-# Check if cAdvisor metrics available
+# Check if cAdvisor metrics are available
 curl "http://localhost:9090/api/v1/query?query=container_network_transmit_bytes_total"
+
+# Test specific namespace query
+curl "http://localhost:9090/api/v1/query?query=container_network_transmit_bytes_total{namespace=\"customer-abc\"}"
+
+# If no results, Prometheus may not be scraping cAdvisor
+# Verify Prometheus scrape configs:
+kubectl get prometheus -n monitoring -o yaml | grep -A 20 scrape_configs
 ```
 
 ### Billing API Unreachable
@@ -217,11 +318,77 @@ curl "http://localhost:9090/api/v1/query?query=container_network_transmit_bytes_
 # Check network connectivity from pod
 kubectl exec -it deployment/billing-exporter -n customer-abc -- wget -O- https://billing.zemfyre.com/health
 
-# Verify BILLING_API_URL
+# Verify BILLING_API_URL in config
 kubectl get configmap billing-exporter-config -n customer-abc -o jsonpath='{.data.BILLING_API_URL}'
 
-# Check API logs for errors
+# Check if DNS resolution works
+kubectl exec -it deployment/billing-exporter -n customer-abc -- nslookup billing.zemfyre.com
+
+# Check exporter logs for API errors
 kubectl logs -f deployment/billing-exporter -n customer-abc | grep "billing API"
+
+# Verify customer ID is correct
+kubectl get configmap billing-exporter-config -n customer-abc -o jsonpath='{.data.CUSTOMER_ID}'
+
+# Test API endpoint from billing service
+cd ../billing
+npm run customer -- list
+# Verify customer exists
+```
+
+### Pod Crashes or Restarts
+
+```bash
+# Check pod events
+kubectl describe pod -n customer-abc -l app=billing-exporter
+
+# Check resource limits
+kubectl get pod -n customer-abc -l app=billing-exporter -o jsonpath='{.spec.containers[0].resources}'
+
+# Increase resources if needed (edit deployment)
+kubectl edit deployment billing-exporter -n customer-abc
+
+# View previous pod logs if crashed
+kubectl logs -n customer-abc -l app=billing-exporter --previous
+```
+
+### Health Checks Failing
+
+```bash
+# Test liveness probe
+kubectl exec -it deployment/billing-exporter -n customer-abc -- wget -O- http://localhost:8080/health
+
+# Test readiness probe
+kubectl exec -it deployment/billing-exporter -n customer-abc -- wget -O- http://localhost:8080/ready
+
+# Check pod events for probe failures
+kubectl describe pod -n customer-abc -l app=billing-exporter | grep -A 10 Events
+
+# If readiness fails:
+# - Check if Prometheus is reachable
+# - Check if first metrics collection succeeded
+# - View logs for collection errors
+```
+
+### Missing Metrics or Zero Values
+
+```bash
+# Verify Prometheus has data for the namespace
+kubectl port-forward -n monitoring svc/prometheus-kube-prometheus-prometheus 9090:9090
+
+# Check network metrics
+curl "http://localhost:9090/api/v1/query?query=sum(rate(container_network_transmit_bytes_total{namespace=\"customer-abc\"}[1h]))"
+
+# Check storage metrics
+curl "http://localhost:9090/api/v1/query?query=sum(kubelet_volume_stats_used_bytes{namespace=\"customer-abc\"})"
+
+# Check CPU metrics
+curl "http://localhost:9090/api/v1/query?query=sum(rate(container_cpu_usage_seconds_total{namespace=\"customer-abc\"}[1h]))"
+
+# If queries return no data:
+# 1. Wait a few minutes for metrics to be collected
+# 2. Verify pods are running in the namespace
+# 3. Check Prometheus scrape targets: http://localhost:9090/targets
 ```
 
 ## Resource Requirements
