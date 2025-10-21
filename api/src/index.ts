@@ -77,10 +77,14 @@ app.get('/', (req, res) => {
     service: 'Iotistic Unified API',
     version: '2.0.0',
     apiVersion: API_VERSION,
-    apiBase: API_BASE
+    apiBase: API_BASE,
+    documentation: '/api/docs'
   });
 });
 
+// Setup API documentation
+import { setupApiDocs } from './docs';
+setupApiDocs(app, API_BASE);
 
 // Mount route modules - All routes now use centralized versioning via API_BASE
 app.use(`${API_BASE}/auth`, authRoutes);
