@@ -43,33 +43,26 @@ spec:
           echo "🔐 Generating MQTT password hash..."
           MQTT_PASSWORD_HASH=$(python3 -c "import bcrypt; print(bcrypt.hashpw(b'${MQTT_PASSWORD}', bcrypt.gensalt(10)).decode('utf-8'))")
           
-          echo "🗄️ Creating MQTT database schema..."
+          echo "🗄️ Initializing database..."
           psql "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@{{ include "customer-instance.fullname" . }}-postgres:5432/${POSTGRES_DB}" <<EOF
-          -- Enable UUID extension (required for migrations)
+          -- Enable UUID extension (required for API migrations)
           CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+          EOF
           
-          -- Create mqtt_users table
-          CREATE TABLE IF NOT EXISTS mqtt_users (
-            id SERIAL PRIMARY KEY,
-            username VARCHAR(255) UNIQUE NOT NULL,
-            password_hash VARCHAR(255) NOT NULL,
-            is_superuser BOOLEAN DEFAULT FALSE,
-            is_active BOOLEAN DEFAULT TRUE,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-          );
+          echo "⏳ Waiting for API to run migrations..."
+          # Wait up to 3 minutes for mqtt_users table to be created by API migrations
+          for i in {1..36}; do
+            if psql "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@{{ include "customer-instance.fullname" . }}-postgres:5432/${POSTGRES_DB}" -c "\dt mqtt_users" 2>/dev/null | grep -q mqtt_users; then
+              echo "✅ Migrations complete, mqtt_users table exists!"
+              break
+            fi
+            echo "Waiting for migrations... (\$i/36)"
+            sleep 5
+          done
           
-          -- Create mqtt_acls table
-          CREATE TABLE IF NOT EXISTS mqtt_acls (
-            id SERIAL PRIMARY KEY,
-            username VARCHAR(255) NOT NULL,
-            topic VARCHAR(255) NOT NULL,
-            access INTEGER NOT NULL,
-            priority INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            UNIQUE(username, topic)
-          );
-          
-          -- Insert or update API admin user
+          echo "🔐 Creating MQTT admin user..."
+          psql "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@{{ include "customer-instance.fullname" . }}-postgres:5432/${POSTGRES_DB}" <<EOF
+          -- Insert or update API admin user (tables created by migration 017)
           INSERT INTO mqtt_users (username, password_hash, is_superuser, is_active)
           VALUES ('${MQTT_USERNAME}', '${MQTT_PASSWORD_HASH}', TRUE, TRUE)
           ON CONFLICT (username) 
