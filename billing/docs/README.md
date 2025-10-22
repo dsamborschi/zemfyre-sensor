@@ -1,7 +1,7 @@
 # Iotistic Billing System - Complete Guide
 
 > **All-in-one documentation for the Iotistic Global Billing API**  
-> Last Updated: October 22, 2025
+> Last Updated: January 2025
 
 ---
 
@@ -14,12 +14,13 @@
 5. [License System](#license-system)
 6. [Plan Configuration](#plan-configuration)
 7. [Stripe Integration](#stripe-integration)
-8. [Security](#security)
-9. [Kubernetes Deployment](#kubernetes-deployment)
-10. [Testing](#testing)
-11. [Consumption Billing](#consumption-billing)
-12. [Management](#management)
-13. [Troubleshooting](#troubleshooting)
+8. [Customer Cancellation & Deactivation](#customer-cancellation--deactivation)
+9. [Security](#security)
+10. [Kubernetes Deployment](#kubernetes-deployment)
+11. [Testing](#testing)
+12. [Consumption Billing](#consumption-billing)
+13. [Management](#management)
+14. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -181,7 +182,7 @@ LICENSE_PUBLIC_KEY_PATH=./keys/public-key.pem
 DEFAULT_TRIAL_DAYS=14
 
 # Kubernetes deployment
-BASE_DOMAIN=iotistic.cloud
+BASE_DOMAIN=iotistic.ca
 HELM_CHART_PATH=/app/charts/customer-instance
 SIMULATE_K8S_DEPLOYMENT=true  # For local testing
 ```
@@ -381,7 +382,10 @@ Content-Type: application/json
 }
 ```
 
-#### Cancel Subscription
+#### Cancel Subscription (Immediate)
+
+> **Legacy endpoint** - Cancels subscription immediately without refund  
+> For production use, prefer `/cancel-at-period-end` or `/cancel-immediate` with refund options
 
 ```http
 POST /api/subscriptions/cancel
@@ -389,6 +393,225 @@ Content-Type: application/json
 
 {
   "customer_id": "cust_abc123"
+}
+```
+
+#### Cancel Subscription at Period End (Graceful)
+
+> **Recommended** - Allows customer to continue using service until current billing period ends
+
+```http
+POST /api/subscriptions/cancel-at-period-end
+Content-Type: application/json
+
+{
+  "customer_id": "cust_abc123"
+}
+```
+
+**Response:**
+```json
+{
+  "message": "Subscription will cancel at period end",
+  "subscription": {
+    "plan": "professional",
+    "status": "active",
+    "cancel_at_period_end": true,
+    "current_period_end": "2025-11-22T00:00:00Z"
+  }
+}
+```
+
+#### Keep Subscription (Undo Cancel at Period End)
+
+> Restores subscription that was set to cancel at period end
+
+```http
+POST /api/subscriptions/keep
+Content-Type: application/json
+
+{
+  "customer_id": "cust_abc123"
+}
+```
+
+#### Cancel Subscription Immediately with Refund
+
+> Cancels subscription immediately with optional pro-rated or full refund
+
+```http
+POST /api/subscriptions/cancel-immediate
+Content-Type: application/json
+
+{
+  "customer_id": "cust_abc123",
+  "issue_refund": true,
+  "refund_reason": "requested_by_customer",
+  "refund_amount": 2500  // Optional: cents, omit for full refund
+}
+```
+
+**Refund Reasons:**
+- `requested_by_customer` - Customer initiated cancellation
+- `duplicate` - Duplicate payment
+- `fraudulent` - Fraudulent transaction
+
+**Response:**
+```json
+{
+  "message": "Subscription canceled immediately",
+  "refund": {
+    "refundId": "re_xxx",
+    "amount": 2500,
+    "status": "succeeded",
+    "created": "2025-10-22T10:00:00Z"
+  }
+}
+```
+
+#### Issue Refund (Without Canceling)
+
+> Issues refund for subscription without canceling it
+
+```http
+POST /api/subscriptions/refund
+Content-Type: application/json
+
+{
+  "customer_id": "cust_abc123",
+  "reason": "requested_by_customer",
+  "amount": 5000,  // Optional: cents, omit for full refund
+  "use_prorated": true,  // Calculate pro-rated refund based on time remaining
+  "description": "Customer requested partial refund"
+}
+```
+
+**Pro-Rated Refund Calculation:**
+```
+Pro-rated Amount = (Total Amount × Days Remaining) / Total Days in Period
+```
+
+**Response:**
+```json
+{
+  "message": "Refund issued successfully",
+  "refund": {
+    "refundId": "re_xxx",
+    "amount": 2500,
+    "status": "succeeded",
+    "created": "2025-10-22T10:00:00Z"
+  }
+}
+```
+
+#### Get Refund History
+
+> Retrieves all refunds for a customer
+
+```http
+GET /api/subscriptions/:customerId/refunds
+```
+
+**Response:**
+```json
+{
+  "refunds": [
+    {
+      "id": 42,
+      "customer_id": "cust_abc123",
+      "stripe_refund_id": "re_xxx",
+      "amount": 2500,
+      "reason": "requested_by_customer",
+      "description": "Pro-rated refund for early cancellation",
+      "status": "succeeded",
+      "created_at": "2025-10-22T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### Complete Customer Deactivation
+
+> **Complete workflow** - Cancels subscription, issues refund, revokes license, and schedules data deletion
+
+```http
+POST /api/subscriptions/deactivate
+Content-Type: application/json
+
+{
+  "customer_id": "cust_abc123",
+  "cancel_subscription": true,
+  "issue_refund": true,
+  "refund_reason": "requested_by_customer",
+  "refund_amount": null,  // Null = pro-rated refund
+  "delete_data": true,
+  "retention_days": 30,  // Days before permanent deletion
+  "cancel_at_period_end": false  // True = graceful cancellation
+}
+```
+
+**What This Does:**
+1. ✅ Cancels Stripe subscription (immediate or at period end)
+2. ✅ Issues pro-rated or full refund (if requested)
+3. ✅ Soft-deletes customer record (`is_active = false`)
+4. ✅ Revokes JWT license
+5. ✅ Schedules Kubernetes namespace deletion (after retention period)
+6. ✅ Creates audit log entry
+
+**Response:**
+```json
+{
+  "message": "Customer deactivated successfully",
+  "result": {
+    "customerId": "cust_abc123",
+    "subscriptionCanceled": true,
+    "refundIssued": true,
+    "refundAmount": 2500,
+    "dataScheduledForDeletion": true,
+    "scheduledDeletionDate": "2025-11-21T10:00:00Z",
+    "licenseRevoked": true
+  }
+}
+```
+
+#### Reactivate Customer
+
+> Restores deactivated customer within retention period
+
+```http
+POST /api/subscriptions/reactivate
+Content-Type: application/json
+
+{
+  "customer_id": "cust_abc123"
+}
+```
+
+**Requirements:**
+- Must be within retention period (default: 30 days)
+- Customer data not yet permanently deleted
+- Cancels scheduled deletion job
+
+#### Get Scheduled Deletions
+
+> Lists all customers scheduled for permanent deletion
+
+```http
+GET /api/subscriptions/scheduled-deletions
+```
+
+**Response:**
+```json
+{
+  "deletions": [
+    {
+      "customer_id": "cust_abc123",
+      "email": "customer@example.com",
+      "company_name": "Acme Corp",
+      "deleted_at": "2025-10-22T10:00:00Z",
+      "scheduled_deletion": "2025-11-21T10:00:00Z"
+    }
+  ]
 }
 ```
 
@@ -1203,7 +1426,7 @@ redis:
 
 ---
 
-## Kubernetes Deployment
+fee## Kubernetes Deployment
 
 ### Architecture
 
@@ -1473,6 +1696,537 @@ npm run usage -- --all
 
 ---
 
+## Customer Cancellation & Deactivation
+
+### Overview
+
+The billing system provides enterprise-grade customer offboarding with multiple cancellation options, refund handling, data retention policies, and resource cleanup.
+
+### Cancellation Options
+
+#### 1. Graceful Cancellation (Cancel at Period End)
+
+**When to use:** Customer wants to cancel but continue using service until end of billing period
+
+**Benefits:**
+- ✅ Best customer experience
+- ✅ Customer keeps access until paid period expires
+- ✅ No immediate refund needed
+- ✅ Can be undone before period ends
+
+**API Call:**
+```bash
+curl -X POST http://localhost:3000/api/subscriptions/cancel-at-period-end \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": "cust_abc123"}'
+```
+
+**PowerShell:**
+```powershell
+.\test-cancellation-flow.ps1 -CustomerId "cust_abc123" -Scenario graceful
+```
+
+**What Happens:**
+1. Stripe subscription updated with `cancel_at_period_end = true`
+2. Database subscription record updated
+3. Customer continues using service
+4. At period end, subscription automatically cancels
+5. License becomes invalid
+
+**Undo Cancellation:**
+```bash
+curl -X POST http://localhost:3000/api/subscriptions/keep \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": "cust_abc123"}'
+```
+
+---
+
+#### 2. Immediate Cancellation (No Refund)
+
+**When to use:** Customer wants to stop immediately, no refund policy
+
+**API Call:**
+```bash
+curl -X POST http://localhost:3000/api/subscriptions/cancel-immediate \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": "cust_abc123", "issue_refund": false}'
+```
+
+**PowerShell:**
+```powershell
+.\test-cancellation-flow.ps1 -CustomerId "cust_abc123" -Scenario immediate
+```
+
+**What Happens:**
+1. Stripe subscription canceled immediately
+2. License revoked
+3. Access terminated
+4. No refund issued
+
+---
+
+#### 3. Immediate Cancellation with Pro-Rated Refund
+
+**When to use:** Customer cancels mid-cycle, refund unused portion
+
+**Pro-Rated Calculation:**
+```
+Refund Amount = (Total Amount × Days Remaining) / Total Days in Period
+
+Example:
+- Monthly subscription: $100
+- Days in period: 30
+- Days used: 10
+- Days remaining: 20
+- Refund: ($100 × 20) / 30 = $66.67
+```
+
+**API Call:**
+```bash
+curl -X POST http://localhost:3000/api/subscriptions/cancel-immediate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": "cust_abc123",
+    "issue_refund": true,
+    "refund_reason": "requested_by_customer"
+  }'
+```
+
+**PowerShell:**
+```powershell
+.\test-cancellation-flow.ps1 -CustomerId "cust_abc123" -Scenario immediate-refund
+```
+
+**What Happens:**
+1. System calculates pro-rated refund
+2. Stripe subscription canceled
+3. Refund issued to customer's payment method
+4. Refund logged to database
+5. License revoked
+6. Access terminated
+
+---
+
+#### 4. Complete Customer Deactivation
+
+**When to use:** Complete customer offboarding with data cleanup
+
+**Features:**
+- ✅ Cancel subscription (immediate or graceful)
+- ✅ Issue refund (full, partial, or pro-rated)
+- ✅ Soft-delete customer record
+- ✅ Revoke license
+- ✅ Schedule Kubernetes namespace deletion
+- ✅ 30-day reactivation window (configurable)
+- ✅ Audit logging
+
+**API Call:**
+```bash
+curl -X POST http://localhost:3000/api/subscriptions/deactivate \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": "cust_abc123",
+    "cancel_subscription": true,
+    "issue_refund": true,
+    "refund_reason": "requested_by_customer",
+    "delete_data": true,
+    "retention_days": 30,
+    "cancel_at_period_end": false
+  }'
+```
+
+**PowerShell:**
+```powershell
+.\test-cancellation-flow.ps1 -CustomerId "cust_abc123" -Scenario deactivate
+```
+
+**What Happens:**
+1. **Subscription:** Canceled (immediate or at period end)
+2. **Refund:** Issued if requested (pro-rated by default)
+3. **Customer Record:** Soft-deleted (`is_active = false`, `deleted_at = NOW()`)
+4. **License:** Revoked and logged
+5. **Data Retention:** Scheduled deletion date set (NOW() + retention_days)
+6. **Kubernetes:** Cleanup job scheduled for namespace deletion
+7. **Audit Log:** Complete deactivation record created
+
+**Scheduled Deletion Timeline:**
+```
+Day 0:  Customer deactivated
+        - Subscription canceled
+        - Refund issued
+        - Access revoked
+        - Data marked for deletion
+        
+Day 1-29: Retention period
+          - Customer can be reactivated
+          - Data remains accessible
+          - Can restore subscription
+          
+Day 30: Permanent deletion
+        - Kubernetes namespace deleted
+        - Customer data purged
+        - Cannot be recovered
+```
+
+---
+
+### Refund Management
+
+#### Refund Reasons
+
+```typescript
+type RefundReason = 
+  | 'requested_by_customer'  // Customer requested cancellation
+  | 'duplicate'              // Duplicate payment
+  | 'fraudulent';            // Fraudulent transaction
+```
+
+#### Issue Standalone Refund
+
+**When to use:** Issue refund without canceling subscription (e.g., billing error, goodwill refund)
+
+```bash
+curl -X POST http://localhost:3000/api/subscriptions/refund \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_id": "cust_abc123",
+    "reason": "requested_by_customer",
+    "amount": 5000,
+    "description": "Billing error - goodwill refund"
+  }'
+```
+
+#### View Refund History
+
+```bash
+curl http://localhost:3000/api/subscriptions/cust_abc123/refunds
+```
+
+**Response:**
+```json
+{
+  "refunds": [
+    {
+      "id": 42,
+      "stripe_refund_id": "re_xxx",
+      "amount": 2500,
+      "reason": "requested_by_customer",
+      "status": "succeeded",
+      "created_at": "2025-10-22T10:00:00Z"
+    }
+  ]
+}
+```
+
+---
+
+### Data Retention & Reactivation
+
+#### Retention Period
+
+**Default:** 30 days  
+**Configurable:** Set via `retention_days` parameter
+
+**During Retention Period:**
+- ✅ Customer data remains in database (soft-deleted)
+- ✅ Kubernetes namespace still exists
+- ✅ Can be reactivated
+- ✅ No charges applied
+
+#### Reactivate Customer
+
+**Within retention period only:**
+
+```bash
+curl -X POST http://localhost:3000/api/subscriptions/reactivate \
+  -H "Content-Type: application/json" \
+  -d '{"customer_id": "cust_abc123"}'
+```
+
+**PowerShell:**
+```powershell
+.\test-cancellation-flow.ps1 -CustomerId "cust_abc123" -Scenario reactivate
+```
+
+**What Happens:**
+1. Customer record reactivated (`is_active = true`)
+2. Scheduled deletion canceled
+3. Cleanup job removed from queue
+4. Customer can create new subscription
+
+**Requirements:**
+- ✅ Must be within retention period
+- ✅ Data not yet permanently deleted
+- ❌ Subscription not automatically restored (customer must subscribe again)
+
+---
+
+### Scheduled Deletions
+
+#### View Scheduled Deletions
+
+```bash
+curl http://localhost:3000/api/subscriptions/scheduled-deletions
+```
+
+**Response:**
+```json
+{
+  "deletions": [
+    {
+      "customer_id": "cust_abc123",
+      "email": "customer@example.com",
+      "company_name": "Acme Corp",
+      "deleted_at": "2025-10-22T10:00:00Z",
+      "scheduled_deletion": "2025-11-21T10:00:00Z"
+    }
+  ]
+}
+```
+
+#### Execute Scheduled Deletions (Cron Job)
+
+**Setup Daily Cron:**
+```bash
+# Add to crontab
+0 2 * * * /usr/bin/node /app/dist/scripts/execute-deletions.js
+```
+
+**Script:**
+```typescript
+// scripts/execute-deletions.ts
+import { CustomerDeactivationService } from '../services/customer-deactivation';
+
+async function main() {
+  const deleted = await CustomerDeactivationService.executeScheduledDeletions();
+  console.log(`Deleted ${deleted} customers`);
+}
+
+main();
+```
+
+**What Happens:**
+1. Queries customers with `scheduled_deletion <= NOW()`
+2. For each customer:
+   - Delete from all tables (respecting foreign keys)
+   - Delete Kubernetes namespace
+   - Remove from cleanup queue
+   - Log permanent deletion
+
+---
+
+### Database Schema
+
+#### New Tables
+
+**refunds:**
+```sql
+CREATE TABLE refunds (
+  id SERIAL PRIMARY KEY,
+  customer_id VARCHAR(255) REFERENCES customers(customer_id),
+  stripe_refund_id VARCHAR(255) UNIQUE NOT NULL,
+  amount INTEGER NOT NULL,
+  reason VARCHAR(50) NOT NULL,
+  description TEXT,
+  status VARCHAR(50) DEFAULT 'succeeded',
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+**cleanup_queue:**
+```sql
+CREATE TABLE cleanup_queue (
+  id SERIAL PRIMARY KEY,
+  customer_id VARCHAR(255) REFERENCES customers(customer_id),
+  namespace VARCHAR(255) NOT NULL,
+  scheduled_for TIMESTAMP NOT NULL,
+  status VARCHAR(50) DEFAULT 'scheduled',
+  executed_at TIMESTAMP,
+  canceled_at TIMESTAMP
+);
+```
+
+**audit_log:**
+```sql
+CREATE TABLE audit_log (
+  id SERIAL PRIMARY KEY,
+  action VARCHAR(100) NOT NULL,
+  customer_id VARCHAR(255) REFERENCES customers(customer_id),
+  metadata JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+#### Updated Tables
+
+**subscriptions:**
+```sql
+ALTER TABLE subscriptions 
+ADD COLUMN cancel_at_period_end BOOLEAN DEFAULT false;
+```
+
+**customers:**
+```sql
+ALTER TABLE customers
+ADD COLUMN deleted_at TIMESTAMP,
+ADD COLUMN scheduled_deletion TIMESTAMP;
+```
+
+---
+
+### Best Practices
+
+#### When to Use Each Cancellation Type
+
+| Scenario | Recommended Approach |
+|----------|---------------------|
+| Customer wants to cancel but finish billing period | `cancel-at-period-end` |
+| Customer demands immediate cancellation | `cancel-immediate` (no refund) |
+| Customer cancels mid-cycle (fair to refund) | `cancel-immediate` (with pro-rated refund) |
+| Complete offboarding with data cleanup | `deactivate` |
+| Billing error or goodwill gesture | `refund` (standalone, no cancel) |
+
+#### Refund Guidelines
+
+**When to issue refunds:**
+- ✅ Customer cancels within first 7 days
+- ✅ Service outage or SLA breach
+- ✅ Billing error
+- ✅ Duplicate charge
+- ✅ Goodwill gesture
+
+**When NOT to refund:**
+- ❌ Customer violated ToS
+- ❌ Beyond refund policy period
+- ❌ Service fully delivered
+- ❌ Customer already consumed resources
+
+#### Data Retention Recommendations
+
+| Customer Type | Retention Period |
+|--------------|------------------|
+| Trial users | 7 days |
+| Paid customers (< 6 months) | 30 days |
+| Paid customers (> 6 months) | 90 days |
+| Enterprise customers | 180 days |
+
+#### Communication Templates
+
+**Graceful Cancellation Email:**
+```
+Subject: Your subscription will end on [DATE]
+
+Hi [NAME],
+
+Your subscription has been canceled and will end on [END_DATE].
+
+Until then, you'll continue to have full access to all features.
+
+If you change your mind, you can keep your subscription at any time before [END_DATE].
+
+[Keep My Subscription Button]
+```
+
+**Immediate Cancellation with Refund:**
+```
+Subject: Your subscription has been canceled
+
+Hi [NAME],
+
+Your subscription has been canceled effective immediately.
+
+We've issued a refund of $[AMOUNT] to your payment method.
+It may take 5-10 business days to appear.
+
+Refund Details:
+- Amount: $[AMOUNT]
+- Reason: [REASON]
+- Refund ID: [STRIPE_REFUND_ID]
+
+Your data will be retained for 30 days if you wish to reactivate.
+
+[Reactivate Account Button]
+```
+
+---
+
+### Testing Cancellation Workflows
+
+#### PowerShell Test Script
+
+```powershell
+# Test all cancellation scenarios
+cd billing/scripts
+
+# 1. Graceful cancellation
+.\test-cancellation-flow.ps1 -Scenario graceful
+
+# 2. Immediate without refund
+.\test-cancellation-flow.ps1 -Scenario immediate
+
+# 3. Immediate with refund
+.\test-cancellation-flow.ps1 -Scenario immediate-refund
+
+# 4. Complete deactivation
+.\test-cancellation-flow.ps1 -Scenario deactivate
+
+# 5. Reactivation
+.\test-cancellation-flow.ps1 -CustomerId "cust_xxx" -Scenario reactivate
+```
+
+#### Manual Testing
+
+**Test Graceful Cancellation:**
+```bash
+# 1. Create test customer
+CUSTOMER_ID=$(curl -X POST http://localhost:3000/api/customers/signup \
+  -H "Content-Type: application/json" \
+  -d '{"email":"test@example.com","company_name":"Test","full_name":"Test User","password":"pass123"}' \
+  | jq -r '.customer.customer_id')
+
+# 2. Cancel at period end
+curl -X POST http://localhost:3000/api/subscriptions/cancel-at-period-end \
+  -H "Content-Type: application/json" \
+  -d "{\"customer_id\": \"$CUSTOMER_ID\"}"
+
+# 3. Verify cancel_at_period_end flag
+curl http://localhost:3000/api/subscriptions/$CUSTOMER_ID | jq '.subscription.cancel_at_period_end'
+
+# 4. Undo cancellation
+curl -X POST http://localhost:3000/api/subscriptions/keep \
+  -H "Content-Type: application/json" \
+  -d "{\"customer_id\": \"$CUSTOMER_ID\"}"
+```
+
+**Test Complete Deactivation:**
+```bash
+# 1. Deactivate customer
+curl -X POST http://localhost:3000/api/subscriptions/deactivate \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"customer_id\": \"$CUSTOMER_ID\",
+    \"cancel_subscription\": true,
+    \"issue_refund\": true,
+    \"refund_reason\": \"requested_by_customer\",
+    \"delete_data\": true,
+    \"retention_days\": 30
+  }"
+
+# 2. Verify scheduled deletion
+curl http://localhost:3000/api/subscriptions/scheduled-deletions
+
+# 3. Check refund history
+curl http://localhost:3000/api/subscriptions/$CUSTOMER_ID/refunds
+
+# 4. Reactivate (within 30 days)
+curl -X POST http://localhost:3000/api/subscriptions/reactivate \
+  -H "Content-Type: application/json" \
+  -d "{\"customer_id\": \"$CUSTOMER_ID\"}"
+```
+
+---
+
 ## Troubleshooting
 
 ### Common Issues
@@ -1530,6 +2284,92 @@ docker-compose restart billing
 
 # Check Bull Board
 # Open http://localhost:3100/admin/queues
+```
+
+#### Issue: Refund fails with "No payment found"
+**Cause:** Customer on trial plan or no successful payments  
+**Solution:** 
+- Check if customer has `stripe_subscription_id`
+- Verify subscription status is not "trialing"
+- Check Stripe dashboard for payment history
+
+#### Issue: Cancel at period end not working
+**Cause:** Database not updated or Stripe API call failed  
+**Solution:**
+```bash
+# Check subscription status
+curl http://localhost:3000/api/subscriptions/cust_xxx
+
+# Verify cancel_at_period_end flag
+# Should be: "cancel_at_period_end": true
+
+# Check Stripe dashboard
+# Subscription should show "Cancels on [DATE]"
+```
+
+#### Issue: Deactivation fails but subscription canceled
+**Cause:** Partial failure in deactivation workflow  
+**Solution:**
+```bash
+# Check audit log for details
+SELECT * FROM audit_log 
+WHERE customer_id = 'cust_xxx' 
+ORDER BY created_at DESC;
+
+# Check cleanup queue status
+SELECT * FROM cleanup_queue 
+WHERE customer_id = 'cust_xxx';
+
+# Manually complete deactivation
+UPDATE customers 
+SET is_active = false, deleted_at = NOW() 
+WHERE customer_id = 'cust_xxx';
+```
+
+#### Issue: Customer reactivation fails "Data has been deleted"
+**Cause:** Retention period expired and data permanently deleted  
+**Solution:** 
+- Customer must sign up again as new customer
+- Cannot recover deleted data
+- Check `scheduled_deletion` timestamp
+
+#### Issue: Pro-rated refund calculates $0
+**Cause:** No time remaining in billing period OR customer on trial  
+**Solution:**
+```bash
+# Check subscription period
+curl http://localhost:3000/api/subscriptions/cust_xxx
+
+# Verify current_period_end is in the future
+# If past, no refund is due
+
+# Check if on trial
+# Trial subscriptions have no payments to refund
+```
+
+#### Issue: Scheduled deletion not executing
+**Cause:** Cron job not configured or deletion service not running  
+**Solution:**
+```bash
+# Manually execute scheduled deletions
+npm run execute-deletions
+
+# Or via API endpoint (if exposed)
+curl -X POST http://localhost:3000/api/admin/execute-deletions
+
+# Setup cron job
+crontab -e
+# Add: 0 2 * * * cd /app && npm run execute-deletions
+```
+
+#### Issue: Refund issued but not logged in database
+**Cause:** Database insert failed after Stripe refund  
+**Solution:**
+```bash
+# Check Stripe dashboard for refund ID
+# Manually log refund
+INSERT INTO refunds (customer_id, stripe_refund_id, amount, reason, status, created_at)
+VALUES ('cust_xxx', 're_xxxxx', 5000, 'requested_by_customer', 'succeeded', NOW());
 ```
 
 ### Debugging
@@ -1623,7 +2463,7 @@ DEFAULT_TRIAL_DAYS=14
 ADMIN_API_TOKEN=<64-char-hex-production-token>
 
 # Kubernetes
-BASE_DOMAIN=iotistic.com
+BASE_DOMAIN=iotistic.ca
 HELM_CHART_PATH=/app/charts/customer-instance
 SIMULATE_K8S_DEPLOYMENT=false
 ```

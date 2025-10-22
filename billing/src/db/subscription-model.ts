@@ -10,8 +10,9 @@ export interface Subscription {
   stripe_subscription_id?: string;
   plan: 'starter' | 'professional' | 'enterprise';
   status: 'trialing' | 'active' | 'past_due' | 'canceled' | 'unpaid';
-  trial_ends_at?: Date;
-  current_period_ends_at?: Date;
+  trial_ends_at?: Date | null;
+  current_period_start?: Date | null;
+  current_period_ends_at?: Date | null;
   created_at: Date;
   updated_at: Date;
 }
@@ -47,15 +48,16 @@ export class SubscriptionModel {
     customerId: string,
     plan: Subscription['plan'],
     stripeSubscriptionId: string,
-    currentPeriodEndsAt: Date
+    currentPeriodEndsAt: Date,
+    currentPeriodStart?: Date
   ): Promise<Subscription> {
     const result = await query<Subscription>(
       `INSERT INTO subscriptions (
-        customer_id, stripe_subscription_id, plan, status, current_period_ends_at,
+        customer_id, stripe_subscription_id, plan, status, current_period_start, current_period_ends_at,
         created_at, updated_at
-      ) VALUES ($1, $2, $3, 'active', $4, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      ) VALUES ($1, $2, $3, 'active', $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       RETURNING *`,
-      [customerId, stripeSubscriptionId, plan, currentPeriodEndsAt]
+      [customerId, stripeSubscriptionId, plan, currentPeriodStart || new Date(), currentPeriodEndsAt]
     );
 
     return result.rows[0];
@@ -88,13 +90,14 @@ export class SubscriptionModel {
    */
   static async update(
     customerId: string,
-    data: Partial<Pick<Subscription, 'status' | 'plan' | 'stripe_subscription_id' | 'current_period_ends_at' | 'trial_ends_at'>>
+    data: Partial<Pick<Subscription, 'status' | 'plan' | 'stripe_subscription_id' | 'current_period_start' | 'current_period_ends_at' | 'trial_ends_at'>>
   ): Promise<Subscription> {
     const fields: string[] = [];
     const values: any[] = [];
     let paramIndex = 1;
 
     Object.entries(data).forEach(([key, value]) => {
+      // Allow null to clear fields, skip only undefined
       if (value !== undefined) {
         fields.push(`${key} = $${paramIndex}`);
         values.push(value);

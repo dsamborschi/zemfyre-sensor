@@ -6,6 +6,7 @@
 import Stripe from 'stripe';
 import { CustomerModel } from '../db/customer-model';
 import { SubscriptionModel } from '../db/subscription-model';
+import pool from '../db/connection';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
   apiVersion: '2023-10-16',
@@ -99,6 +100,8 @@ export class StripeService {
         stripe_subscription_id: stripeSubscription.id,
         status: 'active',
         plan,
+        trial_ends_at: null, // Clear trial date when upgrading to paid
+        current_period_start: new Date(stripeSubscription.current_period_start * 1000),
         current_period_ends_at: new Date(stripeSubscription.current_period_end * 1000),
       });
     } else {
@@ -106,7 +109,8 @@ export class StripeService {
         customerId,
         plan,
         stripeSubscription.id,
-        new Date(stripeSubscription.current_period_end * 1000)
+        new Date(stripeSubscription.current_period_end * 1000),
+        new Date(stripeSubscription.current_period_start * 1000)
       );
     }
 
@@ -150,7 +154,8 @@ export class StripeService {
         customer.customer_id,
         plan,
         subscription.id,
-        new Date(subscription.current_period_end * 1000)
+        new Date(subscription.current_period_end * 1000),
+        new Date(subscription.current_period_start * 1000)
       );
 
       console.log(`✅ New subscription created for customer ${customer.customer_id} (${plan})`);
@@ -166,9 +171,14 @@ export class StripeService {
       trialing: 'trialing',
     };
 
+    const mappedStatus = statusMap[subscription.status] || 'active';
+    
     await SubscriptionModel.update(dbSubscription.customer_id, {
-      status: statusMap[subscription.status] || 'active',
+      status: mappedStatus,
+      current_period_start: new Date(subscription.current_period_start * 1000),
       current_period_ends_at: new Date(subscription.current_period_end * 1000),
+      // Clear trial_ends_at when subscription becomes active (paid)
+      ...(mappedStatus === 'active' && { trial_ends_at: null }),
     });
 
     console.log(`✅ Subscription updated for customer ${dbSubscription.customer_id}`);
@@ -258,6 +268,54 @@ export class StripeService {
 
     await stripe.subscriptions.cancel(subscription.stripe_subscription_id);
     await SubscriptionModel.cancel(customerId);
+  }
+
+  /**
+   * Cancel subscription at period end (graceful cancellation)
+   */
+  static async cancelAtPeriodEnd(customerId: string): Promise<void> {
+    const subscription = await SubscriptionModel.getByCustomerId(customerId);
+    if (!subscription || !subscription.stripe_subscription_id) {
+      throw new Error('No active subscription found');
+    }
+
+    // Update subscription to cancel at period end
+    await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+      cancel_at_period_end: true,
+    });
+
+    // Update database status
+    await pool.query(
+      `UPDATE subscriptions 
+       SET cancel_at_period_end = true,
+           updated_at = NOW()
+       WHERE customer_id = $1`,
+      [customerId]
+    );
+  }
+
+  /**
+   * Keep subscription (undo cancel at period end)
+   */
+  static async keepSubscription(customerId: string): Promise<void> {
+    const subscription = await SubscriptionModel.getByCustomerId(customerId);
+    if (!subscription || !subscription.stripe_subscription_id) {
+      throw new Error('No active subscription found');
+    }
+
+    // Remove cancel at period end flag
+    await stripe.subscriptions.update(subscription.stripe_subscription_id, {
+      cancel_at_period_end: false,
+    });
+
+    // Update database status
+    await pool.query(
+      `UPDATE subscriptions 
+       SET cancel_at_period_end = false,
+           updated_at = NOW()
+       WHERE customer_id = $1`,
+      [customerId]
+    );
   }
 
   /**

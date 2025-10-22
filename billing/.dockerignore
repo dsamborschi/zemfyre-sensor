@@ -1,0 +1,50 @@
+# Node
+node_modules
+npm-debug.log
+.npm
+
+# TypeScript
+src
+tsconfig.json
+tsconfig.build.json
+*.ts
+!dist/**/*.js
+
+# Tests
+test
+tests
+*.test.js
+*.spec.js
+
+# Documentation
+*.md
+!README.md
+docs
+
+# Git
+.git
+.gitignore
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Build artifacts
+*.log
+coverage
+.nyc_output
+
+# Scripts (keep migrations and entrypoint)
+scripts
+!docker-entrypoint.sh
+
+# Misc
+.DS_Store
+Thumbs.db

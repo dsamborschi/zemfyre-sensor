@@ -30,7 +30,7 @@ export class K8sDeploymentService {
   constructor() {
     // Path to Helm chart (adjust based on your deployment structure)
     this.chartPath = process.env.HELM_CHART_PATH || path.join(__dirname, '../../../charts/customer-instance');
-    this.baseDomain = process.env.BASE_DOMAIN || 'iotistic.cloud';
+    this.baseDomain = process.env.BASE_DOMAIN || 'iotistic.ca';
   }
 
   /**

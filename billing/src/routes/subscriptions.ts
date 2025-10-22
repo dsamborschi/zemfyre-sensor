@@ -10,6 +10,8 @@ import { SubscriptionModel } from '../db/subscription-model';
 import { LicenseHistoryModel } from '../db/license-history-model';
 import { StripeService } from '../services/stripe-service';
 import { LicenseGenerator } from '../services/license-generator';
+import { RefundService } from '../services/refund-service';
+import { CustomerDeactivationService } from '../services/customer-deactivation';
 
 const router = Router();
 
@@ -171,7 +173,7 @@ router.post('/upgrade', async (req, res) => {
 
 /**
  * POST /api/subscriptions/cancel
- * Cancel subscription
+ * Cancel subscription immediately (legacy endpoint - kept for backwards compatibility)
  */
 router.post('/cancel', async (req, res) => {
   try {
@@ -188,6 +190,235 @@ router.post('/cancel', async (req, res) => {
     });
   } catch (error: any) {
     console.error('Error canceling subscription:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/subscriptions/cancel-at-period-end
+ * Cancel subscription at period end (graceful cancellation)
+ */
+router.post('/cancel-at-period-end', async (req, res) => {
+  try {
+    const { customer_id } = req.body;
+
+    if (!customer_id) {
+      return res.status(400).json({ error: 'customer_id is required' });
+    }
+
+    await StripeService.cancelAtPeriodEnd(customer_id);
+
+    const subscription = await SubscriptionModel.getByCustomerId(customer_id);
+
+    res.json({
+      message: 'Subscription will cancel at period end',
+      subscription,
+    });
+  } catch (error: any) {
+    console.error('Error canceling subscription at period end:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/subscriptions/keep
+ * Keep subscription (undo cancel-at-period-end)
+ */
+router.post('/keep', async (req, res) => {
+  try {
+    const { customer_id } = req.body;
+
+    if (!customer_id) {
+      return res.status(400).json({ error: 'customer_id is required' });
+    }
+
+    await StripeService.keepSubscription(customer_id);
+
+    const subscription = await SubscriptionModel.getByCustomerId(customer_id);
+
+    res.json({
+      message: 'Subscription will continue',
+      subscription,
+    });
+  } catch (error: any) {
+    console.error('Error keeping subscription:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/subscriptions/cancel-immediate
+ * Cancel subscription immediately with optional refund
+ */
+router.post('/cancel-immediate', async (req, res) => {
+  try {
+    const { customer_id, issue_refund, refund_amount, refund_reason } = req.body;
+
+    if (!customer_id) {
+      return res.status(400).json({ error: 'customer_id is required' });
+    }
+
+    // Cancel subscription immediately
+    await StripeService.cancelSubscription(customer_id);
+
+    let refundResult = null;
+
+    // Issue refund if requested
+    if (issue_refund && refund_reason) {
+      try {
+        refundResult = await RefundService.issueRefund({
+          customerId: customer_id,
+          reason: refund_reason,
+          amount: refund_amount, // Optional: if not provided, full refund
+          description: 'Subscription cancellation refund',
+        });
+      } catch (error: any) {
+        console.error('Refund failed:', error);
+        // Continue even if refund fails
+      }
+    }
+
+    res.json({
+      message: 'Subscription canceled immediately',
+      refund: refundResult,
+    });
+  } catch (error: any) {
+    console.error('Error canceling subscription immediately:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/subscriptions/refund
+ * Issue refund for subscription (without canceling)
+ */
+router.post('/refund', async (req, res) => {
+  try {
+    const { customer_id, amount, reason, description, use_prorated } = req.body;
+
+    if (!customer_id || !reason) {
+      return res.status(400).json({ error: 'customer_id and reason are required' });
+    }
+
+    let refundAmount = amount;
+
+    // Calculate pro-rated refund if requested
+    if (use_prorated) {
+      refundAmount = await RefundService.calculateProRatedRefund(customer_id);
+      if (refundAmount === 0) {
+        return res.status(400).json({ error: 'No pro-rated refund available' });
+      }
+    }
+
+    const refundResult = await RefundService.issueRefund({
+      customerId: customer_id,
+      reason,
+      amount: refundAmount,
+      description: description || 'Refund requested',
+    });
+
+    res.json({
+      message: 'Refund issued successfully',
+      refund: refundResult,
+    });
+  } catch (error: any) {
+    console.error('Error issuing refund:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/subscriptions/:customerId/refunds
+ * Get refund history for customer
+ */
+router.get('/:customerId/refunds', async (req, res) => {
+  try {
+    const { customerId } = req.params;
+
+    const refunds = await RefundService.getRefundHistory(customerId);
+
+    res.json({ refunds });
+  } catch (error: any) {
+    console.error('Error fetching refunds:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/subscriptions/deactivate
+ * Complete customer deactivation (cancel, refund, schedule data deletion)
+ */
+router.post('/deactivate', async (req, res) => {
+  try {
+    const {
+      customer_id,
+      cancel_subscription = true,
+      issue_refund = false,
+      refund_reason = 'requested_by_customer',
+      refund_amount,
+      delete_data = true,
+      retention_days = 30,
+      cancel_at_period_end = false,
+    } = req.body;
+
+    if (!customer_id) {
+      return res.status(400).json({ error: 'customer_id is required' });
+    }
+
+    const result = await CustomerDeactivationService.deactivateCustomer(customer_id, {
+      cancelSubscription: cancel_subscription,
+      issueRefund: issue_refund,
+      refundReason: refund_reason,
+      refundAmount: refund_amount,
+      deleteData: delete_data,
+      retentionDays: retention_days,
+      cancelAtPeriodEnd: cancel_at_period_end,
+    });
+
+    res.json({
+      message: 'Customer deactivated successfully',
+      result,
+    });
+  } catch (error: any) {
+    console.error('Error deactivating customer:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * POST /api/subscriptions/reactivate
+ * Reactivate customer (within retention period)
+ */
+router.post('/reactivate', async (req, res) => {
+  try {
+    const { customer_id } = req.body;
+
+    if (!customer_id) {
+      return res.status(400).json({ error: 'customer_id is required' });
+    }
+
+    await CustomerDeactivationService.reactivateCustomer(customer_id);
+
+    res.json({
+      message: 'Customer reactivated successfully',
+    });
+  } catch (error: any) {
+    console.error('Error reactivating customer:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * GET /api/subscriptions/scheduled-deletions
+ * Get customers scheduled for deletion
+ */
+router.get('/scheduled-deletions', async (req, res) => {
+  try {
+    const deletions = await CustomerDeactivationService.getScheduledDeletions();
+
+    res.json({ deletions });
+  } catch (error: any) {
+    console.error('Error fetching scheduled deletions:', error);
     res.status(500).json({ error: error.message });
   }
 });
