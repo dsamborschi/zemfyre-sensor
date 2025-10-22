@@ -112,9 +112,11 @@ router.post('/devices', checkDeviceLimit, handler);
 ## Environment Variables
 
 **Required**:
+### Customer API (.env)
+
 ```bash
-ZEMFYRE_LICENSE_KEY=eyJhbGc...  # JWT from Global Billing API
-LICENSE_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----..."  # RSA public key
+IOTISTIC_LICENSE_KEY=eyJhbGc...  # JWT from Global Billing API
+LICENSE_PUBLIC_KEY=<public-key>
 ```
 
 **Optional**:
@@ -213,7 +215,7 @@ console.log('Public Key:', publicKey);
 ### 2. Test API
 
 ```bash
-export ZEMFYRE_LICENSE_KEY="<jwt>"
+export IOTISTIC_LICENSE_KEY="<jwt>"
 export LICENSE_PUBLIC_KEY="<public_key>"
 
 npm run dev

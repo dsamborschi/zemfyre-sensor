@@ -11,10 +11,17 @@ export interface Customer {
   customer_id: string;
   email: string;
   company_name?: string;
+  full_name?: string;
+  password_hash?: string;
   stripe_customer_id?: string;
   api_key_hash?: string;
   api_key_created_at?: Date;
   api_key_last_used?: Date;
+  deployment_status?: string;
+  instance_url?: string;
+  instance_namespace?: string;
+  deployed_at?: Date;
+  deployment_error?: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -26,14 +33,16 @@ export class CustomerModel {
   static async create(data: {
     email: string;
     companyName?: string;
+    fullName?: string;
+    passwordHash?: string;
   }): Promise<Customer> {
     const customerId = `cust_${uuidv4().replace(/-/g, '')}`;
     
     const result = await query<Customer>(
-      `INSERT INTO customers (customer_id, email, company_name, created_at, updated_at)
-       VALUES ($1, $2, $3, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `INSERT INTO customers (customer_id, email, company_name, full_name, password_hash, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
        RETURNING *`,
-      [customerId, data.email, data.companyName]
+      [customerId, data.email, data.companyName, data.fullName, data.passwordHash]
     );
     
     return result.rows[0];
@@ -169,5 +178,81 @@ export class CustomerModel {
        WHERE customer_id = $1`,
       [customerId]
     );
+  }
+
+  /**
+   * Verify customer password
+   */
+  static async verifyPassword(email: string, password: string): Promise<Customer | null> {
+    const customer = await this.getByEmail(email);
+    
+    if (!customer || !customer.password_hash) {
+      return null;
+    }
+
+    const isValid = await bcrypt.compare(password, customer.password_hash);
+    return isValid ? customer : null;
+  }
+
+  /**
+   * Update password
+   */
+  static async updatePassword(customerId: string, newPassword: string): Promise<void> {
+    const hash = await bcrypt.hash(newPassword, 10);
+    
+    await query(
+      `UPDATE customers 
+       SET password_hash = $1, updated_at = CURRENT_TIMESTAMP
+       WHERE customer_id = $2`,
+      [hash, customerId]
+    );
+  }
+
+  /**
+   * Update deployment status
+   */
+  static async updateDeploymentStatus(
+    customerId: string,
+    status: 'pending' | 'provisioning' | 'ready' | 'failed',
+    data?: {
+      instanceUrl?: string;
+      instanceNamespace?: string;
+      deploymentError?: string;
+    }
+  ): Promise<Customer> {
+    const fields = ['deployment_status = $1', 'updated_at = CURRENT_TIMESTAMP'];
+    const values: any[] = [status];
+    let paramIndex = 2;
+
+    if (data?.instanceUrl) {
+      fields.push(`instance_url = $${paramIndex}`);
+      values.push(data.instanceUrl);
+      paramIndex++;
+    }
+
+    if (data?.instanceNamespace) {
+      fields.push(`instance_namespace = $${paramIndex}`);
+      values.push(data.instanceNamespace);
+      paramIndex++;
+    }
+
+    if (data?.deploymentError) {
+      fields.push(`deployment_error = $${paramIndex}`);
+      values.push(data.deploymentError);
+      paramIndex++;
+    }
+
+    if (status === 'ready') {
+      fields.push('deployed_at = CURRENT_TIMESTAMP');
+    }
+
+    values.push(customerId);
+
+    const result = await query<Customer>(
+      `UPDATE customers SET ${fields.join(', ')} WHERE customer_id = $${paramIndex} RETURNING *`,
+      values
+    );
+
+    return result.rows[0];
   }
 }

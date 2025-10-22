@@ -16,10 +16,10 @@ import express from 'express';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import rateLimit from 'express-rate-limit';
+import { query } from '../db/connection';
 import {
   DeviceModel,
 } from '../db/models';
-import { query } from '../db/connection';
 import {
   validateProvisioningKey,
   incrementProvisioningKeyUsage,
@@ -133,6 +133,43 @@ router.post('/provisioning-keys', async (req, res) => {
         error: 'Invalid request',
         message: 'expiresInDays must be a number between 1 and 3650 (10 years)'
       });
+    }
+
+    // Check license device limit before creating provisioning key
+    const licenseValidator = (req as any).licenseValidator;
+    if (licenseValidator) {
+      const license = licenseValidator.getLicense();
+      const maxDevicesAllowed = license.features.maxDevices;
+      
+      // Count current active devices
+      const deviceCountResult = await query('SELECT COUNT(*) as count FROM devices WHERE is_active = true');
+      const currentDeviceCount = parseInt(deviceCountResult.rows[0].count);
+      
+      if (currentDeviceCount >= maxDevicesAllowed) {
+        await logAuditEvent({
+          eventType: AuditEventType.PROVISIONING_FAILED,
+          severity: AuditSeverity.WARNING,
+          details: {
+            reason: 'Device limit exceeded - cannot create provisioning key',
+            currentDevices: currentDeviceCount,
+            maxDevices: maxDevicesAllowed,
+            plan: license.plan,
+            fleetId
+          }
+        });
+
+        return res.status(403).json({
+          error: 'Device limit exceeded',
+          message: `Your ${license.plan} plan allows a maximum of ${maxDevicesAllowed} devices. You currently have ${currentDeviceCount} active devices. Please upgrade your plan to add more devices.`,
+          details: {
+            currentDevices: currentDeviceCount,
+            maxDevices: maxDevicesAllowed,
+            plan: license.plan
+          }
+        });
+      }
+
+      console.log(`✅ License check passed: ${currentDeviceCount}/${maxDevicesAllowed} devices`);
     }
 
     console.log(`🔑 Creating provisioning key for fleet: ${fleetId}`);

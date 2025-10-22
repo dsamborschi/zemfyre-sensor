@@ -56,7 +56,7 @@ docker run -d \
 | `PORT` | `3002` | Server port |
 | `GRAFANA_URL` | `http://grafana:3000` | Grafana server URL |
 | `GRAFANA_API_TOKEN` | - | Grafana API token (required for Grafana endpoints) |
-| `ZEMFYRE_LICENSE_KEY` | - | License JWT for feature control (optional, runs in unlicensed mode if not set) |
+| `IOTISTIC_LICENSE_KEY` | - | License JWT for feature control (optional, runs in unlicensed mode if not set) |
 | `LICENSE_PUBLIC_KEY` | - | RSA public key for license validation |
 | `BILLING_API_URL` | - | Global billing API URL (for usage reporting) |
 | `BILLING_UPGRADE_URL` | `https://zemfyre.com/upgrade` | Upgrade page URL (shown in feature-blocked errors) |

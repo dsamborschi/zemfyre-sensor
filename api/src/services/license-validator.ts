@@ -12,18 +12,28 @@ export interface LicenseData {
   customerName: string;
   plan: 'trial' | 'starter' | 'professional' | 'enterprise';
   features: {
+    // Core device management
     maxDevices: number;
-    dataRetentionDays: number;
+    
+    // Job execution capabilities
+    canExecuteJobs: boolean;
+    canScheduleJobs: boolean;
+    
+    // Remote access & control
+    canRemoteAccess: boolean;
+    canOtaUpdates: boolean;
+    
+    // Data management
     canExportData: boolean;
+    
+    // Advanced features
     hasAdvancedAlerts: boolean;
-    hasApiAccess: boolean;
-    hasMqttAccess: boolean;
-    hasCustomBranding: boolean;
+    hasCustomDashboards: boolean;
   };
   limits: {
-    maxUsers?: number;
+    maxJobTemplates?: number;
     maxAlertRules?: number;
-    maxDashboards?: number;
+    maxUsers?: number;
   };
   trial: {
     isTrialMode: boolean;
@@ -58,7 +68,7 @@ export class LicenseValidator {
    * Initialize license from environment variable
    */
   async init(): Promise<void> {
-    const licenseKey = process.env.ZEMFYRE_LICENSE_KEY;
+    const licenseKey = process.env.IOTISTIC_LICENSE_KEY;
     
     if (!licenseKey) {
       console.warn('⚠️  No license key found. Running in unlicensed mode (limited features).');
@@ -141,21 +151,23 @@ export class LicenseValidator {
   private getDefaultUnlicensedMode(): LicenseData {
     return {
       customerId: 'unlicensed',
-      customerName: 'Unlicensed Instance',
+      customerName: 'Unlicensed Mode',
       plan: 'trial',
       features: {
-        maxDevices: 3, // Very limited
-        dataRetentionDays: 7,
+        // Very limited for unlicensed mode
+        maxDevices: 2,
+        canExecuteJobs: true,
+        canScheduleJobs: false,
+        canRemoteAccess: true,
+        canOtaUpdates: false,
         canExportData: false,
         hasAdvancedAlerts: false,
-        hasApiAccess: true,
-        hasMqttAccess: true,
-        hasCustomBranding: false,
+        hasCustomDashboards: false,
       },
       limits: {
-        maxUsers: 1,
+        maxJobTemplates: 5,
         maxAlertRules: 5,
-        maxDashboards: 2,
+        maxUsers: 1,
       },
       trial: {
         isTrialMode: true,

@@ -1,0 +1,95 @@
+{{- if .Values.mosquitto.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "customer-instance.fullname" . }}-mosquitto-config
+  labels:
+    {{- include "customer-instance.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mqtt
+data:
+  mosquitto.conf: |
+    listener {{ .Values.mosquitto.ports.mqtt }}
+    protocol mqtt
+    allow_anonymous true
+    
+    listener {{ .Values.mosquitto.ports.websocket }}
+    protocol websockets
+    allow_anonymous true
+    
+    log_dest stdout
+    log_type all
+    
+    persistence true
+    persistence_location /mosquitto/data/
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "customer-instance.fullname" . }}-mosquitto
+  labels:
+    {{- include "customer-instance.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mqtt
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "customer-instance.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: mqtt
+  template:
+    metadata:
+      labels:
+        {{- include "customer-instance.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: mqtt
+    spec:
+      containers:
+      - name: mosquitto
+        image: "{{ .Values.mosquitto.image.repository }}:{{ .Values.mosquitto.image.tag }}"
+        ports:
+        - name: mqtt
+          containerPort: {{ .Values.mosquitto.ports.mqtt }}
+        - name: websocket
+          containerPort: {{ .Values.mosquitto.ports.websocket }}
+        volumeMounts:
+        - name: config
+          mountPath: /mosquitto/config
+        - name: data
+          mountPath: /mosquitto/data
+        resources:
+          {{- toYaml .Values.mosquitto.resources | nindent 10 }}
+        livenessProbe:
+          tcpSocket:
+            port: {{ .Values.mosquitto.ports.mqtt }}
+          initialDelaySeconds: 10
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: {{ .Values.mosquitto.ports.mqtt }}
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: config
+        configMap:
+          name: {{ include "customer-instance.fullname" . }}-mosquitto-config
+      - name: data
+        emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "customer-instance.fullname" . }}-mosquitto
+  labels:
+    {{- include "customer-instance.labels" . | nindent 4 }}
+    app.kubernetes.io/component: mqtt
+spec:
+  type: ClusterIP
+  ports:
+  - name: mqtt
+    port: {{ .Values.mosquitto.ports.mqtt }}
+    targetPort: mqtt
+  - name: websocket
+    port: {{ .Values.mosquitto.ports.websocket }}
+    targetPort: websocket
+  selector:
+    {{- include "customer-instance.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: mqtt
+{{- end }}

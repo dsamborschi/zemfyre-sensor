@@ -152,10 +152,10 @@ try {
     Write-Host ""
     
     Write-Host "📄 License Details:" -ForegroundColor Cyan
-    Write-Info "Customer: $($license.decoded.email)"
+    Write-Info "Customer: $($license.decoded.customerName)"
     Write-Info "Plan: $($license.decoded.plan)"
-    Write-Info "Status: $($license.decoded.status)"
-    Write-Info "Trial: $($license.decoded.trial)"
+    Write-Info "Status: $($license.decoded.subscription.status)"
+    Write-Info "Trial Mode: $($license.decoded.trial.isTrialMode)"
     
     Write-Host ""
     Write-Host "🔧 Features Enabled:" -ForegroundColor Cyan
@@ -182,7 +182,8 @@ Write-Host "  Email: $customerEmail" -ForegroundColor White
 Write-Host "  Plan: $($subscription.subscription.plan)" -ForegroundColor White
 Write-Host "  Status: $($subscription.subscription.status)" -ForegroundColor White
 if ($license) {
-    Write-Host "  Max Devices: $($license.decoded.features.max_devices)" -ForegroundColor White
+    Write-Host "  Max Devices: $($license.decoded.features.maxDevices)" -ForegroundColor White
+    Write-Host "  Trial Mode: $($license.decoded.trial.isTrialMode)" -ForegroundColor White
     Write-Host "  License Valid: ✓" -ForegroundColor Green
 }
 Write-Host ""

@@ -1,0 +1,129 @@
+# Default values for customer-instance
+# This is a YAML-formatted file.
+
+# Customer information (set during deployment)
+customer:
+  id: ""
+  email: ""
+  companyName: ""
+
+# License key (JWT)
+license:
+  key: ""
+
+# Domain configuration
+domain:
+  base: "yourdomain.com"
+  # Instance will be accessible at: {customer.id}.{domain.base}
+
+# PostgreSQL database
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "15-alpine"
+  storage:
+    size: 10Gi
+    storageClass: ""
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  database: zemfyre
+  username: zemfyre
+  # Password will be auto-generated if not provided
+  password: ""
+
+# Mosquitto MQTT broker
+mosquitto:
+  enabled: true
+  image:
+    repository: eclipse-mosquitto
+    tag: "2.0"
+  ports:
+    mqtt: 1883
+    websocket: 9001
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# API service
+api:
+  enabled: true
+  image:
+    repository: iotistic/api
+    tag: latest
+  replicas: 1
+  port: 3001
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  env:
+    NODE_ENV: production
+    LOG_LEVEL: info
+
+# Dashboard (admin panel)
+dashboard:
+  enabled: true
+  image:
+    repository: iotistic/admin
+    tag: latest
+  replicas: 1
+  port: 80
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# Prometheus exporter (metrics)
+exporter:
+  enabled: true
+  image:
+    repository: iotistic/billing-exporter
+    tag: latest
+  port: 9090
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# Ingress configuration
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  tls:
+    enabled: true
+
+# Resource quotas for namespace
+resourceQuota:
+  enabled: true
+  limits:
+    cpu: "4"
+    memory: "4Gi"
+    persistentvolumeclaims: "5"
+
+# Network policies
+networkPolicy:
+  enabled: true
+  # Allow ingress from Ingress controller only
+  allowExternal: true

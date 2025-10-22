@@ -4,8 +4,10 @@
  */
 
 import { Router } from 'express';
+import crypto from 'crypto';
 import { CustomerModel } from '../db/customer-model';
 import { SubscriptionModel } from '../db/subscription-model';
+import { LicenseHistoryModel } from '../db/license-history-model';
 import { StripeService } from '../services/stripe-service';
 import { LicenseGenerator } from '../services/license-generator';
 
@@ -70,6 +72,28 @@ router.post('/trial', async (req, res) => {
     const subscription = await SubscriptionModel.createTrial(customer_id, 'starter', 14);
     const license = await LicenseGenerator.generateLicense(customer, subscription);
 
+    // ✅ Log trial creation
+    const licenseHash = crypto.createHash('sha256').update(license).digest('hex');
+    const decoded = LicenseGenerator.verifyLicense(license);
+    
+    await LicenseHistoryModel.log({
+      customerId: customer_id,
+      action: 'generated',
+      plan: subscription.plan,
+      maxDevices: decoded.features.maxDevices,
+      licenseHash,
+      generatedBy: 'api',
+      metadata: {
+        type: 'trial',
+        trialDays: 14,
+        features: decoded.features,
+        limits: decoded.limits,
+        expiresAt: new Date(decoded.expiresAt * 1000).toISOString(),
+      }
+    });
+
+    console.log(`🎁 Trial license generated for ${customer.email} (14 days)`);
+
     res.status(201).json({
       subscription,
       license,
@@ -96,6 +120,10 @@ router.post('/upgrade', async (req, res) => {
       return res.status(400).json({ error: 'Invalid plan' });
     }
 
+    // Get current subscription for comparison
+    const oldSubscription = await SubscriptionModel.getByCustomerId(customer_id);
+    const oldPlan = oldSubscription?.plan || 'unknown';
+
     await StripeService.upgradeSubscription(customer_id, new_plan);
 
     // Get updated subscription and regenerate license
@@ -107,6 +135,29 @@ router.post('/upgrade', async (req, res) => {
     }
 
     const license = await LicenseGenerator.generateLicense(customer, subscription);
+
+    // ✅ Log upgrade/downgrade
+    const licenseHash = crypto.createHash('sha256').update(license).digest('hex');
+    const decoded = LicenseGenerator.verifyLicense(license);
+    const action = new_plan > oldPlan ? 'upgraded' : 'downgraded';
+    
+    await LicenseHistoryModel.log({
+      customerId: customer_id,
+      action,
+      plan: subscription.plan,
+      maxDevices: decoded.features.maxDevices,
+      licenseHash,
+      generatedBy: 'api',
+      metadata: {
+        oldPlan,
+        newPlan: new_plan,
+        features: decoded.features,
+        limits: decoded.limits,
+        expiresAt: new Date(decoded.expiresAt * 1000).toISOString(),
+      }
+    });
+
+    console.log(`📈 Subscription ${action} for ${customer.email} (${oldPlan} → ${new_plan})`);
 
     res.json({
       subscription,

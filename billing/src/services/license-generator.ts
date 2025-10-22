@@ -14,18 +14,28 @@ export interface LicenseData {
   customerName: string;
   plan: 'trial' | 'starter' | 'professional' | 'enterprise';
   features: {
+    // Core device management
     maxDevices: number;
-    dataRetentionDays: number;
+    
+    // Job execution capabilities
+    canExecuteJobs: boolean;
+    canScheduleJobs: boolean;
+    
+    // Remote access & control
+    canRemoteAccess: boolean;
+    canOtaUpdates: boolean;
+    
+    // Data management
     canExportData: boolean;
+    
+    // Advanced features
     hasAdvancedAlerts: boolean;
-    hasApiAccess: boolean;
-    hasMqttAccess: boolean;
-    hasCustomBranding: boolean;
+    hasCustomDashboards: boolean;
   };
   limits: {
-    maxUsers?: number;
+    maxJobTemplates?: number;
     maxAlertRules?: number;
-    maxDashboards?: number;
+    maxUsers?: number;
   };
   trial: {
     isTrialMode: boolean;
@@ -42,40 +52,77 @@ export interface LicenseData {
 // Plan configurations
 const PLAN_CONFIG = {
   starter: {
-    maxDevices: 10,
-    dataRetentionDays: 30,
+    // Core device management
+    maxDevices: 5,
+    
+    // Job execution
+    canExecuteJobs: true,
+    canScheduleJobs: false,
+    
+    // Remote access & control
+    canRemoteAccess: true,
+    canOtaUpdates: false,
+    
+    // Data management
     canExportData: true,
+    
+    // Advanced features
     hasAdvancedAlerts: false,
-    hasApiAccess: true,
-    hasMqttAccess: true,
-    hasCustomBranding: false,
-    maxUsers: 5,
+    hasCustomDashboards: false,
+    
+    // Limits
+    maxJobTemplates: 10,
     maxAlertRules: 25,
-    maxDashboards: 10,
+    maxUsers: 2,
   },
   professional: {
+    // Core device management
     maxDevices: 50,
-    dataRetentionDays: 365,
+    
+    // Job execution
+    canExecuteJobs: true,
+    canScheduleJobs: true,
+    
+    // Remote access & control
+    canRemoteAccess: true,
+    canOtaUpdates: true,
+    
+    // Data management
     canExportData: true,
+    
+    // Advanced features
     hasAdvancedAlerts: true,
-    hasApiAccess: true,
-    hasMqttAccess: true,
-    hasCustomBranding: false,
-    maxUsers: 10,
+    hasCustomDashboards: true,
+    
+    // Limits
+    maxJobTemplates: 100,
     maxAlertRules: 100,
-    maxDashboards: 20,
+    maxUsers: 10,
   },
   enterprise: {
+    // Core device management
     maxDevices: 999999, // Unlimited
-    dataRetentionDays: 999999, // Unlimited
+    
+    // Job execution
+    canExecuteJobs: true,
+    canScheduleJobs: true,
+    
+    // Remote access & control
+    canRemoteAccess: true,
+    canOtaUpdates: true,
+    
+    // Data management
     canExportData: true,
+    
+    // Advanced features
     hasAdvancedAlerts: true,
-    hasApiAccess: true,
-    hasMqttAccess: true,
-    hasCustomBranding: true,
-    maxUsers: undefined, // Unlimited
+    hasCustomDashboards: true,
+    
+    // Limits
+    maxProvisioningKeys: undefined, // Unlimited
+    maxJobTemplates: undefined, // Unlimited
     maxAlertRules: undefined, // Unlimited
-    maxDashboards: undefined, // Unlimited
+    maxUsers: undefined, // Unlimited
   },
 };
 
@@ -120,17 +167,18 @@ export class LicenseGenerator {
       plan: subscription.plan as any,
       features: {
         maxDevices: planConfig.maxDevices,
-        dataRetentionDays: planConfig.dataRetentionDays,
+        canExecuteJobs: planConfig.canExecuteJobs,
+        canScheduleJobs: planConfig.canScheduleJobs,
+        canRemoteAccess: planConfig.canRemoteAccess,
+        canOtaUpdates: planConfig.canOtaUpdates,
         canExportData: planConfig.canExportData,
         hasAdvancedAlerts: planConfig.hasAdvancedAlerts,
-        hasApiAccess: planConfig.hasApiAccess,
-        hasMqttAccess: planConfig.hasMqttAccess,
-        hasCustomBranding: planConfig.hasCustomBranding,
+        hasCustomDashboards: planConfig.hasCustomDashboards,
       },
       limits: {
-        maxUsers: planConfig.maxUsers,
+        maxJobTemplates: planConfig.maxJobTemplates,
         maxAlertRules: planConfig.maxAlertRules,
-        maxDashboards: planConfig.maxDashboards,
+        maxUsers: planConfig.maxUsers,
       },
       trial: {
         isTrialMode: subscription.status === 'trialing',

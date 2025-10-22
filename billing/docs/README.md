@@ -660,7 +660,7 @@ Customer instances use the **public key** to validate licenses:
 
 ```bash
 # In customer instance .env
-ZEMFYRE_LICENSE_KEY=eyJhbGc...  # JWT from billing API
+IOTISTIC_LICENSE_KEY=eyJhbGc...  # JWT from billing API
 LICENSE_PUBLIC_KEY="$(cat keys/public-key.pem)"  # Public key
 BILLING_API_URL=https://billing.zemfyre.com
 ```

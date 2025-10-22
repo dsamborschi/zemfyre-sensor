@@ -135,7 +135,7 @@ export class LicenseValidator {
    * Initialize license from environment variable
    */
   async init(): Promise<void> {
-    const licenseKey = process.env.ZEMFYRE_LICENSE_KEY;
+    const licenseKey = process.env.IOTISTIC_LICENSE_KEY;
     
     if (!licenseKey) {
       console.warn('⚠️  No license key found. Running in unlicensed mode (limited features).');
@@ -492,7 +492,10 @@ export async function usageReporterJob() {
         usageData,
         {
           headers: {
-            'Authorization': `Bearer ${process.env.ZEMFYRE_LICENSE_KEY}`,
+            headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${process.env.IOTISTIC_LICENSE_KEY}`,
+        },
             'Content-Type': 'application/json',
           },
           timeout: 5000,
@@ -651,7 +654,7 @@ console.log('📊 Usage reporter job ready (currently disabled)');
 
 ```bash
 # License Configuration
-ZEMFYRE_LICENSE_KEY=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9... # JWT from Global Billing API
+IOTISTIC_LICENSE_KEY=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9... # JWT from Global Billing API
 LICENSE_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\nMIIBIj..." # Public key for validation
 
 # Optional: Global Billing API (for usage reporting)

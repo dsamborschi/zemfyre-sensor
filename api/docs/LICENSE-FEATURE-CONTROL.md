@@ -229,8 +229,11 @@ await SystemConfigModel.set('feature_toggle_beta', { enabled: true });
 
 **Required**:
 ```bash
-# License key (JWT from Global Billing API)
-ZEMFYRE_LICENSE_KEY=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJjdXN0b21lcklkIjoiY3VzdF9hYmMxMjMiLCJjdXN0b21lck5hbWUiOiJBY21lIENvcnBvcmF0aW9uIiwicGxhbiI6InByb2Zlc3Npb25hbCIsImZlYXR1cmVzIjp7Im1heERldmljZXMiOjUwLCJkYXRhUmV0ZW50aW9uRGF5cyI6MzY1LCJjYW5FeHBvcnREYXRhIjp0cnVlLCJoYXNBZHZhbmNlZEFsZXJ0cyI6dHJ1ZSwiaGFzQXBpQWNjZXNzIjp0cnVlLCJoYXNNcXR0QWNjZXNzIjp0cnVlLCJoYXNDdXN0b21CcmFuZGluZyI6dHJ1ZX0sImxpbWl0cyI6eyJtYXhVc2VycyI6MTAsIm1heEFsZXJ0UnVsZXMiOjEwMCwibWF4RGFzaGJvYXJkcyI6MjB9LCJ0cmlhbCI6eyJpc1RyaWFsTW9kZSI6ZmFsc2V9LCJzdWJzY3JpcHRpb24iOnsic3RhdHVzIjoiYWN0aXZlIiwiY3VycmVudFBlcmlvZEVuZHNBdCI6IjIwMjUtMTEtMjFUMDA6MDA6MDBaIn0sImlhdCI6MTcyOTQ4MjAwMCwiZXhwIjoxNzYwODMyMDAwfQ.signature
+### Example License JWT
+
+```bash
+IOTISTIC_LICENSE_KEY=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJjdXN0b21lcklkIjoiY3VzdF9hYmMxMjMiLCJjdXN0b21lck5hbWUiOiJBY21lIENvcnBvcmF0aW9uIiwicGxhbiI6InByb2Zlc3Npb25hbCIsImZlYXR1cmVzIjp7Im1heERldmljZXMiOjUwLCJkYXRhUmV0ZW50aW9uRGF5cyI6MzY1LCJjYW5FeHBvcnREYXRhIjp0cnVlLCJoYXNBZHZhbmNlZEFsZXJ0cyI6dHJ1ZSwiaGFzQXBpQWNjZXNzIjp0cnVlLCJoYXNNcXR0QWNjZXNzIjp0cnVlLCJoYXNDdXN0b21CcmFuZGluZyI6dHJ1ZX0sImxpbWl0cyI6eyJtYXhVc2VycyI6MTAsIm1heEFsZXJ0UnVsZXMiOjEwMCwibWF4RGFzaGJvYXJkcyI6MjB9LCJ0cmlhbCI6eyJpc1RyaWFsTW9kZSI6ZmFsc2V9LCJzdW...
+```
 
 # Public key for JWT verification (RS256)
 LICENSE_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----
@@ -421,7 +424,7 @@ console.log(publicKey);
 
 ```bash
 # Set environment variables
-export ZEMFYRE_LICENSE_KEY="<jwt_from_above>"
+export IOTISTIC_LICENSE_KEY="<jwt_from_above>"
 export LICENSE_PUBLIC_KEY="<public_key_from_above>"
 
 # Start API
@@ -443,7 +446,7 @@ curl -X POST http://localhost:3002/api/v1/device/provision \
 
 ```bash
 # Start without license key
-unset ZEMFYRE_LICENSE_KEY
+unset IOTISTIC_LICENSE_KEY
 npm run dev
 
 # Check license (should show unlicensed mode)
