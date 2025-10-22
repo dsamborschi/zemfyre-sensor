@@ -256,15 +256,15 @@ $$ LANGUAGE plpgsql;
 -- Create initial snapshots for existing devices (if target_state exists)
 INSERT INTO state_snapshots (device_uuid, state_type, state, version, checksum, source, notes)
 SELECT 
-    uuid as device_uuid,
+    dts.device_uuid,
     'target' as state_type,
-    target_state as state,
-    1 as version,
-    encode(digest(target_state::text, 'sha256'), 'hex') as checksum,
+    dts.apps as state,  -- Using apps from device_target_state table
+    dts.version,
+    encode(digest(dts.apps::text, 'sha256'), 'hex') as checksum,
     'migration' as source,
     'Initial snapshot from migration' as notes
-FROM devices
-WHERE target_state IS NOT NULL AND target_state != '{}'::jsonb;
+FROM device_target_state dts
+WHERE dts.apps IS NOT NULL AND dts.apps != '{}'::jsonb;
 
 COMMIT;
 
