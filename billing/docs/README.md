@@ -2418,6 +2418,770 @@ docker-compose logs -f stripe-cli
 
 ---
 
+### Docker/Kubernetes Customer Deployment Troubleshooting
+
+This section provides a step-by-step guide for testing and troubleshooting customer instance deployments to Kubernetes.
+
+#### Pre-Flight Checks
+
+Before deploying a new customer, verify:
+
+```bash
+# 1. Check Kubernetes cluster connection
+kubectl cluster-info
+
+# 2. Verify Helm is installed
+helm version
+
+# 3. Check billing service is running
+docker-compose ps billing
+
+# 4. Verify Redis queue is accessible
+curl http://localhost:3100/api/queue/stats
+
+# 5. Check Helm chart exists
+ls -la charts/customer-instance/
+```
+
+---
+
+#### Step 1: Create New Customer
+
+**Using PowerShell Script:**
+
+```powershell
+cd billing/scripts
+.\complete-signup-workflow.ps1
+```
+
+**Using API Directly:**
+
+```bash
+# Create customer
+curl -X POST http://localhost:3100/api/customers/signup \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "customer@example.com",
+    "company_name": "Test Company",
+    "full_name": "Test User",
+    "password": "SecurePass123"
+  }'
+```
+
+**Expected Response:**
+
+```json
+{
+  "customer": {
+    "customer_id": "cust_abc123def456",
+    "email": "customer@example.com",
+    "company_name": "Test Company"
+  },
+  "subscription": {
+    "plan": "starter",
+    "status": "trialing"
+  },
+  "deployment": {
+    "job_id": "uuid-here",
+    "namespace": "customer-abc123de",
+    "status": "queued"
+  }
+}
+```
+
+**Save the Customer ID and Namespace for next steps.**
+
+---
+
+#### Step 2: Monitor Deployment Queue
+
+**Check Queue Status:**
+
+```bash
+# Via API
+curl http://localhost:3100/api/queue/stats
+
+# Expected:
+{
+  "waiting": 0,
+  "active": 1,      # Your deployment job
+  "completed": 5,
+  "failed": 0
+}
+```
+
+**Using Bull Board UI:**
+
+```
+Open: http://localhost:3100/admin/queues
+
+Features:
+- Real-time job progress
+- View job payload
+- Check errors if failed
+- Retry failed jobs
+```
+
+**Check Deployment Logs:**
+
+```bash
+# Billing service logs
+docker-compose logs -f billing | grep -i "deploy\|helm\|k8s"
+
+# Look for:
+# ✅ [DeploymentWorker] Processing deployment for customer-abc123de
+# ✅ [K8sService] Installing Helm chart...
+# ✅ [K8sService] Deployment successful
+```
+
+---
+
+#### Step 3: Verify Kubernetes Namespace Created
+
+**List Customer Namespaces:**
+
+```bash
+kubectl get namespaces | grep customer
+
+# Expected output:
+customer-abc123de   Active   30s
+```
+
+**Check Namespace Details:**
+
+```bash
+# Replace with your namespace
+export NAMESPACE=customer-abc123de
+
+kubectl describe namespace $NAMESPACE
+```
+
+---
+
+#### Step 4: Check Pod Status
+
+**List All Pods:**
+
+```bash
+kubectl get pods -n $NAMESPACE
+
+# Expected output:
+NAME                                         READY   STATUS
+c<shortid>-customer-instance-api-xxx         1/1     Running
+c<shortid>-customer-instance-postgres-xxx    1/1     Running
+c<shortid>-customer-instance-mosquitto-xxx   1/1     Running
+c<shortid>-customer-instance-dashboard-xxx   1/1     Running
+c<shortid>-customer-instance-postgres-init   0/1     Completed
+```
+
+**Watch Pod Creation:**
+
+```bash
+# Watch in real-time
+kubectl get pods -n $NAMESPACE -w
+
+# Or continuously check
+watch kubectl get pods -n $NAMESPACE
+```
+
+**Check Specific Pod Details:**
+
+```bash
+# Get pod name
+export POD_NAME=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/component=api -o jsonpath='{.items[0].metadata.name}')
+
+# Describe pod
+kubectl describe pod $POD_NAME -n $NAMESPACE
+
+# Check for issues:
+# - ImagePullBackOff: Docker image not found
+# - CrashLoopBackOff: Pod keeps crashing
+# - Pending: Resource constraints
+# - ContainerCreating: Normal startup state
+```
+
+---
+
+#### Step 5: Check Init Job (postgres-init-job)
+
+The `postgres-init-job` creates MQTT users and ACL entries.
+
+**Check Job Status:**
+
+```bash
+kubectl get jobs -n $NAMESPACE
+
+# Expected:
+NAME                                 COMPLETIONS   DURATION
+c<shortid>-customer-instance-postgres-init   1/1           45s
+```
+
+**View Job Logs:**
+
+```bash
+# Get job pod name
+export INIT_POD=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/component=init -o jsonpath='{.items[0].metadata.name}')
+
+# View logs
+kubectl logs $INIT_POD -n $NAMESPACE
+
+# Expected output:
+⏳ Waiting for Postgres to be ready...
+✅ Postgres is ready!
+📦 Installing Python and bcrypt...
+🔐 Generating MQTT password hash...
+🗄️ Initializing database...
+⏳ Waiting for API to run migrations...
+✅ Migrations complete, mqtt_users table exists!
+🔐 Creating MQTT admin user...
+INSERT 0 1
+INSERT 0 1
+✅ MQTT admin user 'api_user' created successfully!
+```
+
+**Common Init Job Errors:**
+
+| Error | Cause | Solution |
+|-------|-------|----------|
+| `Postgres is unavailable` (timeout) | Postgres pod not ready | Check postgres pod status |
+| `mqtt_users table does not exist` | API migrations not run | Check API logs for migration errors |
+| `ON CONFLICT ... no unique constraint` | ACL table schema issue | Check migration 017 applied correctly |
+| `INSERT 0 0` | User already exists or constraint violation | Check if init job ran twice |
+
+---
+
+#### Step 6: Verify Database Migrations
+
+**Check API Pod Logs:**
+
+```bash
+# Get API pod name
+export API_POD=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/component=api -o jsonpath='{.items[0].metadata.name}')
+
+# View migration logs
+kubectl logs $API_POD -n $NAMESPACE | grep -i migration
+
+# Expected output:
+🗄️ Running database migrations...
+📋 Applied migration: 000_initial_schema.sql
+📋 Applied migration: 001_add_mqtt_tables.sql
+...
+📋 Applied migration: 022_add_state_tracking.sql
+✅ All migrations applied successfully
+Database is up to date (23 migrations)
+```
+
+**Check Migration Errors:**
+
+```bash
+# Search for errors
+kubectl logs $API_POD -n $NAMESPACE | grep -i "error\|failed"
+
+# Common migration errors:
+# - syntax error at or near "timestamp": Reserved keyword conflict
+# - column "target_state" does not exist: Wrong column name
+# - relation "table_name" already exists: Migration run twice
+```
+
+**Manual Migration Check:**
+
+```bash
+# Get postgres pod
+export PG_POD=$(kubectl get pods -n $NAMESPACE -l app=postgres -o jsonpath='{.items[0].metadata.name}')
+
+# Connect to database
+kubectl exec -n $NAMESPACE $PG_POD -- psql -U Iotistic -d Iotistic -c "\dt"
+
+# Check specific table exists
+kubectl exec -n $NAMESPACE $PG_POD -- psql -U Iotistic -d Iotistic -c "SELECT COUNT(*) FROM mqtt_users;"
+```
+
+---
+
+#### Step 7: Verify MQTT User Created
+
+**Check mqtt_users Table:**
+
+```bash
+# Query MQTT users
+kubectl exec -n $NAMESPACE deployment/$(kubectl get deployment -n $NAMESPACE -l app=postgres -o jsonpath='{.items[0].metadata.name}') -- \
+  psql -U Iotistic -d Iotistic -c "SELECT username, is_superuser, is_active FROM mqtt_users;"
+
+# Expected:
+ username | is_superuser | is_active 
+----------+--------------+-----------
+ api_user | t            | t
+(1 row)
+```
+
+**Check mqtt_acls Table:**
+
+```bash
+# Query ACL entries
+kubectl exec -n $NAMESPACE deployment/$(kubectl get deployment -n $NAMESPACE -l app=postgres -o jsonpath='{.items[0].metadata.name}') -- \
+  psql -U Iotistic -d Iotistic -c "SELECT username, topic, access, priority FROM mqtt_acls WHERE username = 'api_user';"
+
+# Expected:
+ username | topic | access | priority 
+----------+-------+--------+----------
+ api_user | #     |      7 |      100
+(1 row)
+
+# access = 7 means full permissions (read + write + subscribe)
+# topic = '#' means all topics
+```
+
+**If MQTT User Missing:**
+
+```bash
+# Check init job logs for errors
+kubectl logs $INIT_POD -n $NAMESPACE
+
+# Check if init job completed
+kubectl get jobs -n $NAMESPACE
+
+# If job failed, describe it
+kubectl describe job $(kubectl get jobs -n $NAMESPACE -o jsonpath='{.items[0].metadata.name}') -n $NAMESPACE
+
+# Manually create user (temporary fix)
+kubectl exec -n $NAMESPACE deployment/$(kubectl get deployment -n $NAMESPACE -l app=postgres -o jsonpath='{.items[0].metadata.name}') -- \
+  psql -U Iotistic -d Iotistic -c "
+    INSERT INTO mqtt_users (username, password_hash, is_superuser, is_active)
+    VALUES ('api_user', '\$2b\$10\$hashedpassword', TRUE, TRUE)
+    ON CONFLICT (username) DO NOTHING;
+  "
+```
+
+---
+
+#### Step 8: Check Services and Ingress
+
+**List Services:**
+
+```bash
+kubectl get svc -n $NAMESPACE
+
+# Expected:
+NAME                               TYPE        CLUSTER-IP      PORT(S)
+c<shortid>-customer-instance-api       ClusterIP   10.x.x.x        3002/TCP
+c<shortid>-customer-instance-postgres  ClusterIP   10.x.x.x        5432/TCP
+c<shortid>-customer-instance-mosquitto ClusterIP   10.x.x.x        1883/TCP
+c<shortid>-customer-instance-dashboard ClusterIP   10.x.x.x        80/TCP
+```
+
+**Check Ingress:**
+
+```bash
+kubectl get ingress -n $NAMESPACE
+
+# Expected:
+NAME                     HOSTS                              ADDRESS
+customer-instance        customer-abc123de.iotistic.ca      <external-ip>
+```
+
+**Test Service Connectivity:**
+
+```bash
+# Port-forward to test API locally
+kubectl port-forward -n $NAMESPACE svc/$(kubectl get svc -n $NAMESPACE -l app.kubernetes.io/component=api -o jsonpath='{.items[0].metadata.name}') 3002:3002
+
+# In another terminal:
+curl http://localhost:3002/health
+
+# Expected:
+{"status":"ok","version":"1.0.0"}
+```
+
+---
+
+#### Step 9: View Comprehensive Logs
+
+**API Logs (Show All):**
+
+```bash
+kubectl logs $API_POD -n $NAMESPACE --tail=100
+
+# Or follow logs
+kubectl logs -f $API_POD -n $NAMESPACE
+```
+
+**Filter for Specific Issues:**
+
+```bash
+# Migration issues
+kubectl logs $API_POD -n $NAMESPACE | grep -i "migration\|error\|failed"
+
+# MQTT connection issues
+kubectl logs $API_POD -n $NAMESPACE | grep -i "mqtt\|mosquitto"
+
+# Database connection issues
+kubectl logs $API_POD -n $NAMESPACE | grep -i "postgres\|database\|connection"
+```
+
+**Mosquitto Logs:**
+
+```bash
+export MQTT_POD=$(kubectl get pods -n $NAMESPACE -l app=mosquitto -o jsonpath='{.items[0].metadata.name}')
+kubectl logs $MQTT_POD -n $NAMESPACE
+```
+
+---
+
+#### Step 10: Health Checks
+
+**Check Pod Health:**
+
+```bash
+# Get pod health status
+kubectl get pods -n $NAMESPACE -o wide
+
+# Check readiness/liveness probes
+kubectl describe pod $API_POD -n $NAMESPACE | grep -A 10 "Readiness\|Liveness"
+```
+
+**Test API Health Endpoint:**
+
+```bash
+# Via port-forward
+kubectl port-forward -n $NAMESPACE svc/$(kubectl get svc -n $NAMESPACE -l app.kubernetes.io/component=api -o jsonpath='{.items[0].metadata.name}') 3002:3002
+
+# Test
+curl http://localhost:3002/health
+```
+
+**Check Resource Usage:**
+
+```bash
+# CPU and memory
+kubectl top pods -n $NAMESPACE
+
+# Full resource details
+kubectl describe pod $API_POD -n $NAMESPACE | grep -A 10 "Requests\|Limits"
+```
+
+---
+
+#### Common Issues and Solutions
+
+##### Issue: Pods Stuck in `Pending`
+
+**Cause:** Insufficient cluster resources
+
+**Check:**
+
+```bash
+kubectl describe pod $POD_NAME -n $NAMESPACE | grep -i "warning\|error"
+
+# Look for:
+# "Insufficient cpu"
+# "Insufficient memory"
+# "No nodes available"
+```
+
+**Solution:**
+
+```bash
+# Check node resources
+kubectl top nodes
+
+# Scale down other deployments or add nodes
+```
+
+---
+
+##### Issue: Pods in `CrashLoopBackOff`
+
+**Cause:** Application crashing on startup
+
+**Check Logs:**
+
+```bash
+kubectl logs $POD_NAME -n $NAMESPACE --previous
+
+# Check for:
+# - Database connection errors
+# - Missing environment variables
+# - Migration failures
+# - Port conflicts
+```
+
+**Solution:**
+
+```bash
+# Check pod environment variables
+kubectl exec $POD_NAME -n $NAMESPACE -- env
+
+# Check secrets exist
+kubectl get secrets -n $NAMESPACE
+
+# Verify configmaps
+kubectl get configmaps -n $NAMESPACE
+```
+
+---
+
+##### Issue: `ImagePullBackOff`
+
+**Cause:** Docker image not found or registry auth failed
+
+**Check:**
+
+```bash
+kubectl describe pod $POD_NAME -n $NAMESPACE | grep -i "image"
+
+# Look for:
+# "Failed to pull image"
+# "manifest not found"
+# "unauthorized"
+```
+
+**Solution:**
+
+```bash
+# Check image exists
+docker pull iotistic/api:latest
+
+# Verify image pull secrets
+kubectl get secrets -n $NAMESPACE -o jsonpath='{.items[?(@.type=="kubernetes.io/dockerconfigjson")].metadata.name}'
+
+# Update deployment with correct image tag
+kubectl set image deployment/<deployment-name> api=iotistic/api:latest -n $NAMESPACE
+```
+
+---
+
+##### Issue: Init Job Never Completes
+
+**Cause:** Postgres not ready or migrations failed
+
+**Check:**
+
+```bash
+# Init job logs
+kubectl logs $INIT_POD -n $NAMESPACE
+
+# Postgres pod status
+kubectl get pod -n $NAMESPACE -l app=postgres
+```
+
+**Solution:**
+
+```bash
+# Restart postgres pod if stuck
+kubectl delete pod -n $NAMESPACE -l app=postgres
+
+# Wait for postgres to be ready
+kubectl wait --for=condition=ready pod -l app=postgres -n $NAMESPACE --timeout=120s
+
+# Delete and let job retry
+kubectl delete job -n $NAMESPACE $(kubectl get jobs -n $NAMESPACE -o jsonpath='{.items[0].metadata.name}')
+```
+
+---
+
+##### Issue: MQTT User Not Created
+
+**Symptoms:**
+
+```bash
+kubectl exec -n $NAMESPACE deployment/postgres -- psql -U Iotistic -d Iotistic -c "SELECT COUNT(*) FROM mqtt_users;"
+# Returns: 0
+```
+
+**Check Init Job:**
+
+```bash
+kubectl logs $INIT_POD -n $NAMESPACE | grep -i "mqtt\|insert\|error"
+```
+
+**Common Causes:**
+
+1. **Init job failed silently**
+   - Check job status: `kubectl get jobs -n $NAMESPACE`
+   - Look for completions: `1/1` = success, `0/1` = failed
+
+2. **ON CONFLICT error**
+   - Old chart version with bad SQL
+   - Update Helm chart and redeploy
+
+3. **Table doesn't exist**
+   - API migrations didn't run
+   - Check API logs for migration errors
+
+**Manual Fix:**
+
+```bash
+# Get postgres pod
+export PG_POD=$(kubectl get pods -n $NAMESPACE -l app=postgres -o jsonpath='{.items[0].metadata.name}')
+
+# Manually insert MQTT user
+kubectl exec -n $NAMESPACE $PG_POD -- psql -U Iotistic -d Iotistic -c "
+  INSERT INTO mqtt_users (username, password_hash, is_superuser, is_active)
+  SELECT 'api_user', '\$2b\$10\$defaulthash', TRUE, TRUE
+  WHERE NOT EXISTS (SELECT 1 FROM mqtt_users WHERE username = 'api_user');
+  
+  INSERT INTO mqtt_acls (username, topic, access, priority)
+  SELECT 'api_user', '#', 7, 100
+  WHERE NOT EXISTS (SELECT 1 FROM mqtt_acls WHERE username = 'api_user' AND topic = '#');
+"
+```
+
+---
+
+#### Quick Reference Commands
+
+**Set Namespace Variable:**
+
+```bash
+export NAMESPACE=customer-abc123de
+```
+
+**Get Pod Names:**
+
+```bash
+export API_POD=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/component=api -o jsonpath='{.items[0].metadata.name}')
+export PG_POD=$(kubectl get pods -n $NAMESPACE -l app=postgres -o jsonpath='{.items[0].metadata.name}')
+export MQTT_POD=$(kubectl get pods -n $NAMESPACE -l app=mosquitto -o jsonpath='{.items[0].metadata.name}')
+export INIT_POD=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/component=init -o jsonpath='{.items[0].metadata.name}')
+```
+
+**Common Checks:**
+
+```bash
+# Pod status
+kubectl get pods -n $NAMESPACE
+
+# Service status
+kubectl get svc -n $NAMESPACE
+
+# Ingress status
+kubectl get ingress -n $NAMESPACE
+
+# Job status
+kubectl get jobs -n $NAMESPACE
+
+# View API logs
+kubectl logs $API_POD -n $NAMESPACE --tail=50
+
+# View init job logs
+kubectl logs $INIT_POD -n $NAMESPACE
+
+# Check MQTT users
+kubectl exec $PG_POD -n $NAMESPACE -- psql -U Iotistic -d Iotistic -c "SELECT * FROM mqtt_users;"
+
+# Check MQTT ACLs
+kubectl exec $PG_POD -n $NAMESPACE -- psql -U Iotistic -d Iotistic -c "SELECT * FROM mqtt_acls;"
+
+# Port-forward API
+kubectl port-forward -n $NAMESPACE svc/$(kubectl get svc -n $NAMESPACE -l app.kubernetes.io/component=api -o jsonpath='{.items[0].metadata.name}') 3002:3002
+```
+
+**Cleanup Failed Deployment:**
+
+```bash
+# Delete namespace (will delete all resources)
+kubectl delete namespace $NAMESPACE
+
+# Or helm uninstall
+helm uninstall customer-instance -n $NAMESPACE
+```
+
+---
+
+#### Kubernetes Connection Issues
+
+##### Issue: `TLS handshake timeout`
+
+**Symptoms:**
+
+```
+Unable to connect to the server: net/http: TLS handshake timeout
+```
+
+**Causes:**
+- Network connectivity issue
+- Kubernetes API server overloaded
+- kubectl config issue
+- VPN disconnected
+
+**Solutions:**
+
+```bash
+# 1. Check kubectl config
+kubectl config view
+kubectl config current-context
+
+# 2. Test basic connectivity
+ping <kubernetes-api-server-ip>
+
+# 3. Increase timeout
+kubectl get pods --request-timeout=60s
+
+# 4. Check kubeconfig
+cat ~/.kube/config
+
+# 5. Restart kubectl connection
+kubectl config use-context <context-name>
+
+# 6. Check VPN/network
+# Reconnect VPN if applicable
+
+# 7. Wait and retry
+sleep 10
+kubectl get nodes
+```
+
+---
+
+### Testing New Deployment End-to-End
+
+**Complete Test Workflow:**
+
+```bash
+# 1. Create customer
+cd billing/scripts
+.\complete-signup-workflow.ps1
+# Note the customer_id and namespace
+
+# 2. Set variables
+export CUSTOMER_ID=cust_abc123def456
+export NAMESPACE=customer-abc123de
+
+# 3. Wait for deployment (30-60 seconds)
+sleep 60
+
+# 4. Check pods
+kubectl get pods -n $NAMESPACE
+
+# 5. Check init job
+kubectl get jobs -n $NAMESPACE
+kubectl logs $(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/component=init -o jsonpath='{.items[0].metadata.name}') -n $NAMESPACE
+
+# 6. Verify MQTT user
+export PG_POD=$(kubectl get pods -n $NAMESPACE -l app=postgres -o jsonpath='{.items[0].metadata.name}')
+kubectl exec $PG_POD -n $NAMESPACE -- psql -U Iotistic -d Iotistic -c "SELECT username, is_superuser FROM mqtt_users;"
+kubectl exec $PG_POD -n $NAMESPACE -- psql -U Iotistic -d Iotistic -c "SELECT username, topic, access FROM mqtt_acls;"
+
+# 7. Check API health
+kubectl port-forward -n $NAMESPACE svc/$(kubectl get svc -n $NAMESPACE -l app.kubernetes.io/component=api -o jsonpath='{.items[0].metadata.name}') 3002:3002 &
+sleep 2
+curl http://localhost:3002/health
+
+# 8. View API logs
+export API_POD=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/component=api -o jsonpath='{.items[0].metadata.name}')
+kubectl logs $API_POD -n $NAMESPACE | grep -i "migration\|mqtt\|started"
+
+# Success indicators:
+# ✅ All pods Running (except init job = Completed)
+# ✅ Init job shows: "MQTT admin user 'api_user' created successfully"
+# ✅ mqtt_users table has 1 row
+# ✅ mqtt_acls table has 1 row with topic='#' and access=7
+# ✅ API responds to /health with 200 OK
+# ✅ API logs show migrations completed
+```
+
+---
+
 ## Production Deployment
 
 ### Environment Variables
