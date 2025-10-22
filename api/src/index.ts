@@ -169,7 +169,7 @@ async function startServer() {
     const heartbeatMonitor = await import('./services/heartbeat-monitor');
     heartbeatMonitor.default.start();
   } catch (error) {
-    console.error('⚠️  Failed to start heartbeat monitor:', error);
+    console.error(' Failed to start heartbeat monitor:', error);
     // Don't exit - this is not critical for API operation
   }
 
