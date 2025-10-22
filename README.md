@@ -1,4 +1,4 @@
-# Iotistic Sensor - IoT Environmental Monitoring System
+# Iotistic IoT Environmental Monitoring System
 
 A comprehensive IoT solution for environmental monitoring using Bosch BME688 gas sensors with Raspberry Pi, featuring real-time data visualization, machine learning capabilities, and kiosk mode display. This sensor system was designed with SPE (Single Pair Ethernet) technology by **[Iotistic Inc](https://Iotistic.com)**, the leader in SPE technology solutions. The application software was expertly designed by the IoT software experts team at **[Iotistic Inc](http://www.iotistic.ca)**.
 
