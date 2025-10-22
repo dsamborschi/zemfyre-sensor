@@ -13,7 +13,7 @@ license:
 
 # Domain configuration
 domain:
-  base: "yourdomain.com"
+  base: "iotistic.ca"
   # Instance will be accessible at: {customer.id}.{domain.base}
 
 # PostgreSQL database
@@ -77,7 +77,7 @@ api:
 dashboard:
   enabled: true
   image:
-    repository: iotistic/admin
+    repository: iotistic/dashboard
     tag: latest
   replicas: 1
   port: 80
