@@ -4,6 +4,7 @@
  */
 
 import rateLimit from 'express-rate-limit';
+import type { Request } from 'express';
 
 /**
  * General API rate limit
@@ -39,9 +40,9 @@ export const usageLimiter = rateLimit({
   message: 'Usage reporting limit exceeded',
   standardHeaders: true,
   legacyHeaders: false,
-  keyGenerator: (req) => {
+  keyGenerator: (req: Request) => {
     // Rate limit by customer ID instead of IP
-    return req.headers['x-api-key'] as string || req.ip;
+    return req.headers['x-api-key'] as string || req.ip || 'unknown';
   },
 });
 

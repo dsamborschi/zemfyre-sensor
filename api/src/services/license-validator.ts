@@ -113,7 +113,7 @@ export class LicenseValidator {
   /**
    * Validate license JWT
    */
-  private async validateLicense(licenseKey: string): Promise<LicenseData> {
+  public async validateLicense(licenseKey: string): Promise<LicenseData> {
     try {
       const decoded = jwt.verify(licenseKey, LicenseValidator.PUBLIC_KEY, {
         algorithms: ['RS256'], // Asymmetric signing

@@ -10,7 +10,7 @@ services:
       POSTGRES_PASSWORD: billing123
       POSTGRES_DB: billing
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       # Auto-run migrations
@@ -52,7 +52,6 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    command: npm run dev
 
 volumes:
   postgres_data:
