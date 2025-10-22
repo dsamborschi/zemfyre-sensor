@@ -67,13 +67,13 @@ spec:
             is_superuser = TRUE,
             is_active = TRUE;
           
-          -- Grant full access to all topics for admin user
+          -- Grant full access to all topics for admin user (only if not exists)
           INSERT INTO mqtt_acls (username, topic, access, priority)
-          VALUES ('${MQTT_USERNAME}', '#', 7, 100)
-          ON CONFLICT (username, topic) 
-          DO UPDATE SET 
-            access = 7,
-            priority = 100;
+          SELECT '${MQTT_USERNAME}', '#', 7, 100
+          WHERE NOT EXISTS (
+            SELECT 1 FROM mqtt_acls 
+            WHERE username = '${MQTT_USERNAME}' AND topic = '#'
+          );
           
           EOF
           
