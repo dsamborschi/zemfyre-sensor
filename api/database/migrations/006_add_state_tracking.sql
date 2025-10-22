@@ -193,7 +193,7 @@ CREATE OR REPLACE FUNCTION get_state_diff(
     field_path TEXT,
     old_value JSONB,
     new_value JSONB,
-    timestamp TIMESTAMP
+    change_timestamp TIMESTAMP
 ) AS $$
 BEGIN
     IF p_to_version IS NULL THEN
@@ -211,7 +211,7 @@ BEGIN
         sc.field_path,
         sc.old_value,
         sc.new_value,
-        sc.timestamp
+        sc.timestamp AS change_timestamp
     FROM state_changes sc
     WHERE sc.device_uuid = p_device_uuid
     AND sc.state_type = p_state_type
