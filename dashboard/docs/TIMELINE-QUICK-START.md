@@ -39,7 +39,7 @@ The EventTimelineCard component has been redesigned following the Figma Timeline
 The component is ready, but timestamps won't display until you fix the PostgreSQL functions:
 
 ```powershell
-cd c:\Users\Dan\zemfyre-sensor\api
+cd c:\Users\Dan\Iotistic-sensor\api
 
 # Apply the fix
 Get-Content fix-event-timestamp.sql | docker-compose exec -T postgres psql -U postgres -d iotistic
@@ -58,7 +58,7 @@ Get-Content fix-event-timestamp.sql | docker-compose exec -T postgres psql -U po
 After applying the database fix:
 
 ```powershell
-cd c:\Users\Dan\zemfyre-sensor\api
+cd c:\Users\Dan\Iotistic-sensor\api
 docker-compose restart api
 ```
 
@@ -66,7 +66,7 @@ docker-compose restart api
 
 1. Start the dashboard:
    ```powershell
-   cd c:\Users\Dan\zemfyre-sensor\dashboard
+   cd c:\Users\Dan\Iotistic-sensor\dashboard
    npm run dev
    ```
 

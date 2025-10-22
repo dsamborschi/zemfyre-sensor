@@ -28,7 +28,7 @@ AWS IoT → Device:  $iot/device/{uuid}/shadow/name/{name}/update/delta
 AWS IoT → Device:  $iot/device/{uuid}/shadow/name/{name}/update/documents
 ```
 
-**Our Zemfyre system** (without AWS IoT service):
+**Our Iotistic system** (without AWS IoT service):
 - Device publishes directly to: `/update` topic
 - Cloud API needs to subscribe to: `/update` topic (not `/update/accepted`)
 
@@ -251,7 +251,7 @@ LIMIT 10;
 3. AWS IoT publishes to `/update/accepted` or `/update/rejected`
 4. Device subscribes to `/update/accepted` to confirm success
 
-**Zemfyre** (without AWS IoT Core):
+**Iotistic** (without AWS IoT Core):
 1. Device publishes to `/update`
 2. **Cloud API subscribes directly to `/update`** (no service in the middle)
 3. Cloud processes and stores in database

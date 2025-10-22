@@ -254,7 +254,7 @@ Set up alerts for:
 
 1. **Apply Migration**:
    ```powershell
-   psql -h localhost -p 5432 -U postgres -d zemfyre_billing -f billing/migrations/002_add_license_audit.sql
+   psql -h localhost -p 5432 -U postgres -d Iotistic_billing -f billing/migrations/002_add_license_audit.sql
    ```
 
 2. **Test Endpoints**:

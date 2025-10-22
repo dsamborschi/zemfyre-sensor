@@ -86,7 +86,7 @@ await deploymentQueue.add('deploy-customer-stack', {
 
 ```powershell
 # Run comprehensive test suite
-cd c:\Users\Dan\zemfyre-sensor\billing\scripts
+cd c:\Users\Dan\Iotistic-sensor\billing\scripts
 .\test-signup-flow.ps1
 
 # Verify license contents
@@ -112,14 +112,14 @@ $result = Invoke-RestMethod `
 $license = $result.license.jwt
 ```
 
-### Deploy Zemfyre Stack with License
+### Deploy Iotistic Stack with License
 
 ```powershell
 # Set license in environment
 $env:IOTISTIC_LICENSE_KEY = $license
 
 # Start stack
-cd c:\Users\Dan\zemfyre-sensor
+cd c:\Users\Dan\Iotistic-sensor
 docker-compose up -d
 
 # Stack will validate license on startup
@@ -243,7 +243,7 @@ Customer Signup Flow:
 
 Customers can:
 1. Sign up and get license
-2. Deploy Zemfyre stack locally/manually
+2. Deploy Iotistic stack locally/manually
 3. Use license for validation
 4. Upgrade when trial expires
 

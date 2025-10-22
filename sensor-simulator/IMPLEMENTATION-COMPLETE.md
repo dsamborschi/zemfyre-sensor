@@ -104,7 +104,7 @@ sensor1,23.45,45.67,1013.25,245678,2025-10-18T10:30:00.000Z
 ### 1. Start Simulator
 
 ```powershell
-cd c:\Users\Dan\zemfyre-sensor
+cd c:\Users\Dan\Iotistic-sensor
 docker-compose -f docker-compose.dev.yml up -d sensor-simulator
 ```
 
@@ -234,7 +234,7 @@ docker-compose ps sensor-simulator
 docker-compose logs sensor-simulator
 
 # Inspect volume
-docker volume inspect zemfyre-sensor_sensor-sockets
+docker volume inspect Iotistic-sensor_sensor-sockets
 ```
 
 ### Agent Can't Connect
@@ -258,7 +258,7 @@ docker-compose logs sensor-simulator | grep "Published"
 docker-compose logs agent | grep -i sensor
 
 # Subscribe to MQTT
-docker run --rm -it --network=zemfyre-net eclipse-mosquitto mosquitto_sub -h mosquitto -t '#' -v
+docker run --rm -it --network=Iotistic-net eclipse-mosquitto mosquitto_sub -h mosquitto -t '#' -v
 ```
 
 ## 📚 Documentation

@@ -238,7 +238,7 @@ VALUES (VALUES (
 
     'admin',    'admin',
 
-    'admin@zemfyre.local',    'admin@zemfyre.local',
+    'admin@Iotistic.local',    'admin@Iotistic.local',
 
     '$2b$10$rGHvF8p4Yl9hH5K5p0YHXe5g9K5C5g9K5C5g9K5C5g9K5C5g9K5C5O',  -- admin123    '$2b$10$rGHvF8p4Yl9hH5K5p0YHXe5g9K5C5g9K5C5g9K5C5g9K5C5g9K5C5O',  -- admin123
 

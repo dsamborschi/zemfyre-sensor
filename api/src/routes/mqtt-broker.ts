@@ -153,7 +153,7 @@ router.post('/brokers', async (req: Request, res: Response) => {
       client_cert,
       client_key,
       verify_certificate = true,
-      client_id_prefix = 'zemfyre',
+      client_id_prefix = 'Iotistic',
       keep_alive = 60,
       clean_session = true,
       reconnect_period = 1000,

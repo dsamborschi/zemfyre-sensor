@@ -258,7 +258,7 @@ async function testInvalidKeyExchange() {
 
 async function runTests() {
   console.log('\n═══════════════════════════════════════════════════════════');
-  console.log('🔒 Zemfyre Security Implementation Test Suite');
+  console.log('🔒 Iotistic Security Implementation Test Suite');
   console.log('═══════════════════════════════════════════════════════════\n');
   console.log(`API Endpoint: ${API_BASE}`);
   console.log(`Provisioning Key: ${PROVISIONING_KEY ? '✓ Provided' : '✗ Not provided'}\n`);

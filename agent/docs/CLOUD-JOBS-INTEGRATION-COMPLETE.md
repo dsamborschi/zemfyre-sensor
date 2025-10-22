@@ -2,7 +2,7 @@
 
 ## Summary
 
-The **CloudJobsAdapter** has been successfully integrated into the Zemfyre Sensor agent, enabling devices to receive and execute jobs from the cloud management system via HTTP polling.
+The **CloudJobsAdapter** has been successfully integrated into the Iotistic Sensor agent, enabling devices to receive and execute jobs from the cloud management system via HTTP polling.
 
 ## What Was Implemented
 
@@ -95,7 +95,7 @@ device-agent:
     - /var/run/docker.sock:/var/run/docker.sock
     - agent-data:/app/data
   networks:
-    - zemfyre-net
+    - Iotistic-net
 ```
 
 ## How It Works
@@ -152,7 +152,7 @@ async executeJob(job: CloudJob) {
 ### 1. Build the Agent
 
 ```bash
-cd C:\Users\Dan\zemfyre-sensor\agent
+cd C:\Users\Dan\Iotistic-sensor\agent
 npm run build
 ```
 
@@ -306,7 +306,7 @@ export ENABLE_JOB_ENGINE=true
 export CLOUD_API_URL=http://your-cloud-server:4002/api/v1
 
 # Start agent
-cd /opt/zemfyre/agent
+cd /opt/Iotistic/agent
 npm start
 ```
 

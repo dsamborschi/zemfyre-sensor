@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Zemfyre API enforces license limits to ensure customers stay within their plan's device limits. This document explains how device limit enforcement works.
+The Iotistic API enforces license limits to ensure customers stay within their plan's device limits. This document explains how device limit enforcement works.
 
 ---
 

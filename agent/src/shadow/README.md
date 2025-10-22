@@ -1,6 +1,6 @@
 # Shadow Feature
 
-AWS IoT Device Shadow support for Zemfyre Agent.
+AWS IoT Device Shadow support for Iotistic Agent.
 
 Ported from [AWS IoT Device Client](https://github.com/awslabs/aws-iot-device-client) shadow implementation.
 
@@ -17,7 +17,7 @@ The Shadow feature enables your device to:
 
 ### Shadow Topics
 
-The feature uses the Zemfyre IoT device topic convention (same as sensor-publish):
+The feature uses the Iotistic IoT device topic convention (same as sensor-publish):
 
 - `$iot/device/{deviceUuid}/shadow/name/{shadowName}/update` - Publish updates
 - `$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/accepted` - Update succeeded

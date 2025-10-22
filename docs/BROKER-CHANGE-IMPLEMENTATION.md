@@ -106,7 +106,7 @@ Device shadow feature detects `mqtt` field in delta and:
       "port": 8883,
       "useTls": true,
       "verifyCertificate": true,
-      "clientIdPrefix": "zemfyre",
+      "clientIdPrefix": "Iotistic",
       "keepAlive": 60,
       "cleanSession": true,
       "reconnectPeriod": 1000,

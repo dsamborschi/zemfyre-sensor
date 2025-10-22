@@ -123,10 +123,10 @@ const event = StripeService.constructWebhookEvent(req.body, signature);
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name billing.zemfyre.com;
+    server_name billing.Iotistic.com;
 
-    ssl_certificate /etc/letsencrypt/live/billing.zemfyre.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/billing.zemfyre.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/billing.Iotistic.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/billing.Iotistic.com/privkey.pem;
 
     location / {
         proxy_pass http://localhost:3100;
@@ -172,7 +172,7 @@ app.use(cors({
   origin: [
     'https://customer-instance-1.com',
     'https://customer-instance-2.com',
-    'https://dashboard.zemfyre.com', // Admin dashboard
+    'https://dashboard.Iotistic.com', // Admin dashboard
   ],
   credentials: true,
   methods: ['GET', 'POST', 'PATCH', 'DELETE'],

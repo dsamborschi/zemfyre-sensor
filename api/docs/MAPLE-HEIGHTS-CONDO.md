@@ -139,7 +139,7 @@
 ### Network Gateway (1)
 - **Building IoT Gateway**
   - Hardware: Raspberry Pi 4
-  - OS: Zemfyre Sensor OS
+  - OS: Iotistic Sensor OS
   - Location: IT Closet - Ground Floor
   - IP: 192.168.10.50
   - MQTT enabled
@@ -314,4 +314,4 @@ curl "http://localhost:4002/api/v1/graph/device-locations"
 
 **Created:** October 18, 2025  
 **Script:** `api/scripts/create-condo-building.ps1`  
-**Digital Twin System:** Zemfyre Sensor - IoT Environmental Monitoring
+**Digital Twin System:** Iotistic Sensor - IoT Environmental Monitoring

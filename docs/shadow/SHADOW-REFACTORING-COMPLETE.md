@@ -2,7 +2,7 @@
 
 ## What Was Changed
 
-Refactored the Shadow feature to use Zemfyre IoT device topic convention (`$iot/device/{deviceUuid}/...`) instead of AWS IoT convention (`$aws/things/{thingName}/...`), matching the sensor-publish feature for consistency.
+Refactored the Shadow feature to use Iotistic IoT device topic convention (`$iot/device/{deviceUuid}/...`) instead of AWS IoT convention (`$aws/things/{thingName}/...`), matching the sensor-publish feature for consistency.
 
 ## Changes Summary
 
@@ -34,7 +34,7 @@ $aws/things/{thingName}/shadow/name/{shadowName}/update/rejected
 $aws/things/{thingName}/shadow/name/{shadowName}/update/delta
 ```
 
-### After (Zemfyre IoT Style)
+### After (Iotistic IoT Style)
 ```
 $iot/device/{deviceUuid}/shadow/name/{shadowName}/update
 $iot/device/{deviceUuid}/shadow/name/{shadowName}/update/accepted
@@ -60,7 +60,7 @@ new ShadowFeature(
   config: ShadowConfig,
   mqttConnection: MqttConnection,
   logger: Logger,
-  deviceUuid: string  // Zemfyre device UUID
+  deviceUuid: string  // Iotistic device UUID
 )
 ```
 

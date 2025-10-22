@@ -51,7 +51,7 @@ services:
       # - /app/__pycache__
     
     networks:
-      - zemfyre-net
+      - Iotistic-net
     
     healthcheck:
       test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:5000/health')"]
@@ -80,6 +80,6 @@ volumes:
     #   device: ./models/saved
 
 networks:
-  zemfyre-net:
+  Iotistic-net:
     external: true
-    name: zemfyre-net
+    name: Iotistic-net

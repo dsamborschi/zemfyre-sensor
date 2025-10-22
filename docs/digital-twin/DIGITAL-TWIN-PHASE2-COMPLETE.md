@@ -77,7 +77,7 @@ The digital twin updates the `device-state` shadow with this structure:
       "identity": {
         "deviceUuid": "46b68204-9806-43c5-8d19-18b1f53e3b8a",
         "serialNumber": "46b68204-9806-43c5-8d19-18b1f53e3b8a",
-        "model": "zemfyre-sensor",
+        "model": "Iotistic-sensor",
         "firmwareVersion": "1.0.0",
         "lastBootTime": "2025-10-18T10:00:00.000Z"
       },

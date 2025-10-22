@@ -90,7 +90,7 @@ Self-service customer registration with trial.
   },
   "next_steps": [
     "Save your license key (JWT) - you'll need it to configure your instance",
-    "Download and deploy the Zemfyre stack using the provided license",
+    "Download and deploy the Iotistic stack using the provided license",
     "Connect your first BME688 sensor",
     "Your trial expires in 14 days - upgrade anytime to continue"
   ]
@@ -380,7 +380,7 @@ $result = Invoke-RestMethod -Uri "http://localhost:3100/api/customers/signup" `
 # Save license key
 $licenseKey = $result.license.jwt
 
-# 2. Deploy Zemfyre stack with license
+# 2. Deploy Iotistic stack with license
 docker-compose up -d
 
 # Set license in environment

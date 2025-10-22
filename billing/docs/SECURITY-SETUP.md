@@ -175,10 +175,10 @@ curl -H "X-API-Key: cust_abc123_secrettoken" \
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name billing.zemfyre.com;
+    server_name billing.Iotistic.com;
 
-    ssl_certificate /etc/letsencrypt/live/billing.zemfyre.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/billing.zemfyre.com/privkey.pem;
+    ssl_certificate /etc/letsencrypt/live/billing.Iotistic.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/billing.Iotistic.com/privkey.pem;
 
     location / {
         proxy_pass http://localhost:3100;
@@ -201,10 +201,10 @@ metadata:
 spec:
   tls:
   - hosts:
-    - billing.zemfyre.com
+    - billing.Iotistic.com
     secretName: billing-tls
   rules:
-  - host: billing.zemfyre.com
+  - host: billing.Iotistic.com
     http:
       paths:
       - path: /
@@ -221,7 +221,7 @@ spec:
 ## Step 10: Configure Stripe Webhook
 
 1. Go to Stripe Dashboard → Developers → Webhooks
-2. Add endpoint: `https://billing.zemfyre.com/api/webhooks/stripe`
+2. Add endpoint: `https://billing.Iotistic.com/api/webhooks/stripe`
 3. Select events:
    - `checkout.session.completed`
    - `customer.subscription.updated`
@@ -259,7 +259,7 @@ NODE_ENV=production
 
 ```bash
 # Billing integration
-BILLING_API_URL=https://billing.zemfyre.com
+BILLING_API_URL=https://billing.Iotistic.com
 BILLING_API_KEY=cust_abc123_<secret_from_customer_creation>
 CUSTOMER_ID=cust_abc123
 ```
@@ -286,7 +286,7 @@ curl -X POST http://localhost:3100/api/webhooks/stripe \
 # Should return 400 Missing stripe-signature
 
 # 4. Test HTTPS redirect
-curl -I http://billing.zemfyre.com
+curl -I http://billing.Iotistic.com
 # Should return 301 or 308 redirect to https://
 
 # 5. Run security audit
@@ -321,11 +321,11 @@ Set up alerts for:
 ```bash
 # 1. Revoke old key
 curl -X DELETE -H "Authorization: Bearer <admin_token>" \
-  http://billing.zemfyre.com/api/customers/cust_abc123/api-key
+  http://billing.Iotistic.com/api/customers/cust_abc123/api-key
 
 # 2. Generate new key
 curl -X POST -H "Authorization: Bearer <admin_token>" \
-  http://billing.zemfyre.com/api/customers/cust_abc123/api-key
+  http://billing.Iotistic.com/api/customers/cust_abc123/api-key
 
 # 3. Update customer instance immediately
 # Update api/.env with new BILLING_API_KEY

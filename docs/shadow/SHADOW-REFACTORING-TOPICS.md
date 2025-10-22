@@ -2,7 +2,7 @@
 
 ## Summary
 
-The Shadow feature has been refactored to use the Zemfyre IoT device topic convention, matching the sensor-publish feature for consistency.
+The Shadow feature has been refactored to use the Iotistic IoT device topic convention, matching the sensor-publish feature for consistency.
 
 ## Changes Made
 
@@ -19,7 +19,7 @@ $aws/things/{thingName}/shadow/name/{shadowName}/get
 ...
 ```
 
-**New (Zemfyre IoT style):**
+**New (Iotistic IoT style):**
 ```
 $iot/device/{deviceUuid}/shadow/name/{shadowName}/update
 $iot/device/{deviceUuid}/shadow/name/{shadowName}/update/accepted
@@ -48,7 +48,7 @@ constructor(
   config: ShadowConfig,
   mqttConnection: MqttConnection,
   logger: Logger,
-  deviceUuid: string  // Zemfyre device UUID
+  deviceUuid: string  // Iotistic device UUID
 )
 ```
 
@@ -127,7 +127,7 @@ If you have existing shadow data on AWS IoT or another MQTT broker:
    - Set up an MQTT bridge to forward between old and new topics
    - Example with Mosquitto:
    ```conf
-   connection bridge-aws-to-zemfyre
+   connection bridge-aws-to-Iotistic
    topic $aws/things/+/shadow/# both 0 "" $iot/device/
    ```
 

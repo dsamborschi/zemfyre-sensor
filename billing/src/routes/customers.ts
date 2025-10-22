@@ -9,6 +9,7 @@ import { SubscriptionModel } from '../db/subscription-model';
 import { LicenseGenerator } from '../services/license-generator';
 import { LicenseHistoryModel } from '../db/license-history-model';
 import { k8sDeploymentService } from '../services/k8s-deployment-service';
+import { deploymentQueue } from '../services/deployment-queue';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 
@@ -128,24 +129,30 @@ router.post('/signup', async (req, res) => {
     });
 
     // ========================================
-    // Step 6: Trigger Kubernetes deployment
+    // Step 6: Queue Kubernetes deployment
     // ========================================
-    // Deploy customer stack asynchronously (runs in background)
-    // Set initial status to 'pending' while deployment is being scheduled
+    // Add deployment job to queue (instant response, deployment happens in background)
     await CustomerModel.updateDeploymentStatus(customer.customer_id, 'pending');
 
-    // Trigger deployment (async - don't wait for completion)
-    k8sDeploymentService.deployCustomerInstance({
+    // Determine priority based on plan (1=highest, 10=lowest)
+    const priority = subscription.plan === 'enterprise' ? 1 : 
+                     subscription.plan === 'professional' ? 2 : 
+                     subscription.plan === 'starter' ? 3 : 5; // trial = 5
+
+    const job = await deploymentQueue.addDeploymentJob({
       customerId: customer.customer_id,
       email,
       companyName: company_name,
       licenseKey: license,
-    }).catch(error => {
-      console.error('❌ Deployment failed:', error.message);
-      // Error is already logged in deployment service
+      priority,
+      metadata: {
+        signupSource: 'self_service',
+        plan: subscription.plan,
+        trialDays: TRIAL_DAYS,
+      },
     });
 
-    console.log(`🚀 Kubernetes deployment triggered for customer ${customer.customer_id}`);
+    console.log(`🚀 Deployment job queued: ${job.id} for customer ${customer.customer_id}`);
 
     // ========================================
     // Step 7: Send welcome email (TODO)
@@ -160,6 +167,7 @@ router.post('/signup', async (req, res) => {
     console.log(`✅ Customer signup complete: ${email} (${customer.customer_id})`);
     console.log(`   Trial expires: ${subscription.trial_ends_at}`);
     console.log(`   Max devices: ${decoded.features.maxDevices}`);
+    console.log(`   Deployment job: ${job.id}`);
 
     // ========================================
     // Step 8: Return success response
@@ -188,16 +196,16 @@ router.post('/signup', async (req, res) => {
         limits: decoded.limits,
       },
       deployment: {
-        status: 'pending',
-        message: 'Your instance deployment will be available soon',
-        // In production with K8s:
-        // status: 'provisioning',
-        // estimated_time: '2-3 minutes',
-        // instance_url: `https://${customer.customer_id}.yourdomain.com`,
+        status: 'queued',
+        job_id: job.id,
+        message: 'Your instance deployment is queued and will begin shortly',
+        estimated_time: '2-5 minutes',
+        instance_url: `https://${customer.customer_id}.${process.env.BASE_DOMAIN || 'iotistic.cloud'}`,
+        check_status_url: `/api/queue/jobs/${job.id}`,
       },
       next_steps: [
         'Save your license key (JWT) - you\'ll need it to configure your instance',
-        'Download and deploy the Zemfyre stack using the provided license',
+        'Download and deploy the Iotistic stack using the provided license',
         'Connect your first BME688 sensor',
         `Your trial expires in ${TRIAL_DAYS} days - upgrade anytime to continue`,
       ]

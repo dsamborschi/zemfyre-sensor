@@ -34,7 +34,7 @@ The device provisioning process now returns **dynamic MQTT broker configuration 
       "port": 8883,
       "useTls": true,
       "verifyCertificate": true,
-      "clientIdPrefix": "zemfyre",
+      "clientIdPrefix": "Iotistic",
       "keepAlive": 60,
       "cleanSession": true,
       "reconnectPeriod": 1000,

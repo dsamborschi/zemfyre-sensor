@@ -2,7 +2,7 @@
 
 ## Overview
 
-This implementation extends the Zemfyre IoT Digital Twin API with **full entity-relationship graph capabilities**. You can now model buildings, floors, rooms, zones, and their relationships to devices - creating a **true digital twin** with hierarchies, dependencies, and graph queries.
+This implementation extends the Iotistic IoT Digital Twin API with **full entity-relationship graph capabilities**. You can now model buildings, floors, rooms, zones, and their relationships to devices - creating a **true digital twin** with hierarchies, dependencies, and graph queries.
 
 ---
 

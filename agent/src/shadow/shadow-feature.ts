@@ -33,7 +33,7 @@ export class ShadowFeature extends EventEmitter {
   private static readonly TAG = 'ShadowFeature';
   private static readonly DEFAULT_SHADOW_DOCUMENT = { welcome: 'aws-iot' };
   private static readonly DEFAULT_WAIT_TIME_MS = 10000;
-  private static readonly DEFAULT_OUTPUT_DIR = '~/.zemfyre-agent/shadow';
+  private static readonly DEFAULT_OUTPUT_DIR = '~/.Iotistic-agent/shadow';
   private static readonly QOS_AT_LEAST_ONCE = 1;
 
   private config: ShadowConfig;

@@ -231,7 +231,7 @@ Write-Host $script:licenseJwt -ForegroundColor DarkGray
 Write-Host "`n" -ForegroundColor Cyan
 
 Write-Host "Next steps:" -ForegroundColor Yellow
-Write-Host "1. Use this license key to deploy a Zemfyre instance" -ForegroundColor Gray
+Write-Host "1. Use this license key to deploy a Iotistic instance" -ForegroundColor Gray
 Write-Host "2. Test login endpoint with email/password" -ForegroundColor Gray
 Write-Host "3. Verify trial expiration (14 days from now)" -ForegroundColor Gray
 Write-Host "4. Test subscription upgrade flow" -ForegroundColor Gray

@@ -31,7 +31,7 @@ The MQTT broker configuration system allows you to:
 | `client_cert` | TEXT | Client certificate (PEM format) |
 | `client_key` | TEXT | Client private key (PEM format) |
 | `verify_certificate` | BOOLEAN | Verify SSL certificates |
-| `client_id_prefix` | VARCHAR(100) | MQTT client ID prefix (default: "zemfyre") |
+| `client_id_prefix` | VARCHAR(100) | MQTT client ID prefix (default: "Iotistic") |
 | `keep_alive` | INTEGER | Keep-alive interval in seconds (default: 60) |
 | `clean_session` | BOOLEAN | Clean session flag (default: true) |
 | `reconnect_period` | INTEGER | Reconnect delay in ms (default: 1000) |
@@ -127,7 +127,7 @@ GET /brokers/:id
     "ca_cert": null,
     "client_cert": null,
     "verify_certificate": true,
-    "client_id_prefix": "zemfyre",
+    "client_id_prefix": "Iotistic",
     "keep_alive": 60,
     "clean_session": true,
     "reconnect_period": 1000,

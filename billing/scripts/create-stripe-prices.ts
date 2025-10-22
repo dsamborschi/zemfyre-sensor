@@ -71,7 +71,7 @@ async function createPrices() {
 
       // Create product
       const product = await stripe.products.create({
-        name: `Zemfyre ${config.name}`,
+        name: `Iotistic ${config.name}`,
         description: config.description,
         metadata: {
           plan: key,

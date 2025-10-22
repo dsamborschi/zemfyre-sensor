@@ -11,7 +11,7 @@ All 4 critical issues have been resolved. Once the Docker build completes, ML tr
 ### ✅ Issue 1: PostgreSQL Connection
 **Problem**: ML service couldn't connect to PostgreSQL  
 **Error**: `connection to server at "localhost" (127.0.0.1), port 5432 failed`  
-**Fixed**: Updated `docker-compose.yml` to use `DB_HOST=postgres` and join `zemfyre-net` network
+**Fixed**: Updated `docker-compose.yml` to use `DB_HOST=postgres` and join `Iotistic-net` network
 
 ### ✅ Issue 2: SQL Syntax Error
 **Problem**: INTERVAL parameter substitution broken  
@@ -118,12 +118,12 @@ services:
       DB_USER: ${DB_USER:-myuser}
       DB_PASSWORD: ${DB_PASSWORD:-mypassword}
     networks:
-      - zemfyre-net  # ← Changed from ml-network
+      - Iotistic-net  # ← Changed from ml-network
     depends_on:
       - postgres
 
 networks:
-  zemfyre-net:
+  Iotistic-net:
     external: true  # ← Uses existing Digital Twin network
 ```
 

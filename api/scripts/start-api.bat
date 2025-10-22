@@ -1,5 +1,5 @@
 @echo off
-REM Start Zemfyre API Server
+REM Start Iotistic API Server
 cd /d "%~dp0"
 
 set DB_HOST=localhost
@@ -11,7 +11,7 @@ set PORT=4002
 set NODE_ENV=development
 
 echo ========================================
-echo Starting Zemfyre API Server
+echo Starting Iotistic API Server
 echo ========================================
 echo Database: %DB_NAME%@%DB_HOST%:%DB_PORT%
 echo Port: %PORT%

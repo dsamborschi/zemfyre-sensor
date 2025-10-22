@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully ported AWS IoT Device Shadow functionality from `aws-iot-device-client/source/shadow` to the Zemfyre Agent using TypeScript and following your project's naming conventions and coding patterns.
+Successfully ported AWS IoT Device Shadow functionality from `aws-iot-device-client/source/shadow` to the Iotistic Agent using TypeScript and following your project's naming conventions and coding patterns.
 
 ## Files Created
 
@@ -301,7 +301,7 @@ Let me know if you want help designing the cloud shadow service!
 
 ## Differences from AWS Implementation
 
-| AWS C++ | Zemfyre TypeScript |
+| AWS C++ | Iotistic TypeScript |
 |---------|-------------------|
 | C++ with AWS SDK | TypeScript with Node.js |
 | AWS SDK IotShadowClient | Abstract MqttConnection interface |

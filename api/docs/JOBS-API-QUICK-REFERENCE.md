@@ -2,7 +2,7 @@
 
 ## Start API
 ```powershell
-cd C:\Users\Dan\zemfyre-sensor\api
+cd C:\Users\Dan\Iotistic-sensor\api
 .\start-api.bat
 ```
 

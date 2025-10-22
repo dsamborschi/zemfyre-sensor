@@ -143,7 +143,7 @@ Date: October 17, 2025
 
 ### 1. Create Test Policy
 ```bash
-cd C:\Users\Dan\zemfyre-sensor\api
+cd C:\Users\Dan\Iotistic-sensor\api
 npx ts-node scripts/test-image-updates.ts
 ```
 

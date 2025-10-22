@@ -7,10 +7,10 @@ set -euo pipefail
 
 BRANCH="master"
 ANSIBLE_PLAYBOOK_ARGS=()
-REPOSITORY="https://github.com/dsamborschi/zemfyre-sensor.git"
+REPOSITORY="https://github.com/dsamborschi/Iotistic-sensor.git"
 IOTISTIC_REPO_DIR="/home/${USER}/iotistic"
-GITHUB_RELEASES_URL="https://github.com/dsamborschi/zemfyre-sensor/releases"
-GITHUB_RAW_URL="https://raw.githubusercontent.com/dsamborschi/zemfyre-sensor"
+GITHUB_RELEASES_URL="https://github.com/dsamborschi/Iotistic-sensor/releases"
+GITHUB_RAW_URL="https://raw.githubusercontent.com/dsamborschi/Iotistic-sensor"
 DOCKER_TAG="latest"
 UPGRADE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/upgrade_containers.sh"
 APPENGINE_SCRIPT_PATH="${IOTISTIC_REPO_DIR}/bin/build_appengine.sh"

@@ -22,7 +22,7 @@
 
 ```bash
 # Terminal 1: Start Docker services
-cd c:\Users\dsamborschi\zemfyre-sensor
+cd c:\Users\dsamborschi\Iotistic-sensor
 docker-compose -f docker-compose.dev.yml up -d
 
 # Verify services are running

@@ -2,7 +2,7 @@
 
 ## Overview
 
-Both features now use the **same Zemfyre IoT topic convention** for consistency and easier cloud integration.
+Both features now use the **same Iotistic IoT topic convention** for consistency and easier cloud integration.
 
 ## Topic Structure
 
@@ -12,7 +12,7 @@ $iot/device/{deviceUuid}/{feature}/{...}
      │        │            │         └─ Feature-specific subtopics
      │        │            └─ Feature name (sensor|shadow|telemetry|...)
      │        └─ Device UUID from provisioning
-     └─ Zemfyre IoT namespace
+     └─ Iotistic IoT namespace
 ```
 
 ## Side-by-Side Comparison
@@ -196,7 +196,7 @@ $aws/things/{thingName}/shadow/name/{shadowName}/update
 - ❌ Requires AWS-specific ACLs
 - ❌ Hard to migrate to other brokers
 
-### Zemfyre IoT Topics (New Pattern)
+### Iotistic IoT Topics (New Pattern)
 
 ```
 $iot/device/{deviceUuid}/shadow/name/{shadowName}/update
@@ -216,7 +216,7 @@ If you're migrating from AWS IoT Device Shadow:
 
 ```conf
 # Mosquitto bridge config
-connection aws-to-zemfyre
+connection aws-to-Iotistic
 bridge_attempt_unsubscribe false
 topic $aws/things/+/shadow/# in 0 $iot/device/
 ```
@@ -226,17 +226,17 @@ topic $aws/things/+/shadow/# in 0 $iot/device/
 ```typescript
 // Support both patterns temporarily
 const awsTopics = new AwsShadowTopics(thingName, shadowName);
-const zemfyreTopics = new ShadowTopics(deviceUuid, shadowName);
+const IotisticTopics = new ShadowTopics(deviceUuid, shadowName);
 
 // Subscribe to both
 await mqtt.subscribe(awsTopics.updateDelta);
-await mqtt.subscribe(zemfyreTopics.updateDelta);
+await mqtt.subscribe(IotisticTopics.updateDelta);
 ```
 
 ### Option 3: Cloud-Side Translation
 
 ```javascript
-// AWS IoT Rule to forward to Zemfyre topics
+// AWS IoT Rule to forward to Iotistic topics
 SELECT * FROM '$aws/things/+/shadow/#' AS topic
 
 // AWS Lambda to translate and republish

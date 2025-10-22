@@ -58,4 +58,4 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
           cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
           tags: |
-            iotistic/zemfyre-admin:${{ github.event_name == 'release' && github.event.release.tag_name || 'latest' }}-${{ matrix.board }}
+            iotistic/Iotistic-admin:${{ github.event_name == 'release' && github.event.release.tag_name || 'latest' }}-${{ matrix.board }}

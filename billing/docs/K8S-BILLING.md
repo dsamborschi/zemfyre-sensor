@@ -86,10 +86,10 @@ sum(rate(istio_response_bytes_sum{destination_namespace="customer-abc"}[1h])) * 
 
 ```promql
 # PostgreSQL queries per second
-rate(pg_stat_database_xact_commit{datname="zemfyre"}[1h])
+rate(pg_stat_database_xact_commit{datname="Iotistic"}[1h])
 
 # Database size
-pg_database_size_bytes{datname="zemfyre"}
+pg_database_size_bytes{datname="Iotistic"}
 ```
 
 ---
@@ -181,7 +181,7 @@ class BillingExporter {
       baseURL: '/api/v1'
     });
     
-    this.billingApiUrl = process.env.BILLING_API_URL || 'https://billing.zemfyre.com';
+    this.billingApiUrl = process.env.BILLING_API_URL || 'https://billing.Iotistic.com';
     this.customerId = process.env.CUSTOMER_ID!;
     this.instanceId = process.env.INSTANCE_ID || 'k8s-cluster-1';
   }
@@ -292,7 +292,7 @@ metadata:
   namespace: customer-abc
 data:
   PROMETHEUS_URL: "http://prometheus:9090"
-  BILLING_API_URL: "https://billing.zemfyre.com"
+  BILLING_API_URL: "https://billing.Iotistic.com"
   CUSTOMER_ID: "cust_abc123xyz"
   INSTANCE_ID: "k8s-us-east-1"
   NAMESPACE: "customer-abc"

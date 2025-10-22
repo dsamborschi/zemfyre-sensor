@@ -2,7 +2,7 @@
 # Default variables for kiosk role
 
 # Kiosk user (will be created if it doesn't exist)
-kiosk_user: "zemfyre"
+kiosk_user: "Iotistic"
 
 # Auto-detect desktop mode (can be overridden)
 desktop_mode: false

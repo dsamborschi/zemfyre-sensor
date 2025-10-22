@@ -8,7 +8,7 @@
 
 ## Overview
 
-This implementation adds **license-based feature control** to the Zemfyre API. Each customer deployment validates a JWT license key from the Global Billing API and enforces:
+This implementation adds **license-based feature control** to the Iotistic API. Each customer deployment validates a JWT license key from the Global Billing API and enforces:
 
 - Feature flags (export data, advanced alerts, API access, etc.)
 - Device limits (max devices per plan)
@@ -127,7 +127,7 @@ router.post('/api/alerts/advanced', requireFeature('hasAdvancedAlerts'), async (
   "error": "Feature not available",
   "message": "This feature requires a higher plan. Current plan: starter",
   "feature": "canExportData",
-  "upgradeUrl": "https://zemfyre.com/upgrade"
+  "upgradeUrl": "https://Iotistic.com/upgrade"
 }
 ```
 
@@ -208,7 +208,7 @@ await SystemConfigModel.set('feature_toggle_beta', { enabled: true });
       "percentUsed": 46
     }
   },
-  "upgradeUrl": "https://zemfyre.com/upgrade"
+  "upgradeUrl": "https://Iotistic.com/upgrade"
 }
 ```
 
@@ -244,11 +244,11 @@ MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA...
 **Optional**:
 ```bash
 # Global Billing API URL (for usage reporting)
-BILLING_API_URL=https://billing.zemfyre.com
+BILLING_API_URL=https://billing.Iotistic.com
 
 # Upgrade/portal URLs (shown in error messages)
-BILLING_UPGRADE_URL=https://zemfyre.com/upgrade
-BILLING_PORTAL_URL=https://zemfyre.com/billing
+BILLING_UPGRADE_URL=https://Iotistic.com/upgrade
+BILLING_PORTAL_URL=https://Iotistic.com/billing
 
 # Instance ID (for multi-region deployments)
 INSTANCE_ID=us-east-1-prod

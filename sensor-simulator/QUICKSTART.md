@@ -55,7 +55,7 @@ docker-compose logs -f sensor-simulator
 docker-compose logs -f agent
 
 # Subscribe to MQTT to see published data
-docker run --rm -it --network=zemfyre-net eclipse-mosquitto mosquitto_sub -h mosquitto -t 'sensor/#' -v
+docker run --rm -it --network=Iotistic-net eclipse-mosquitto mosquitto_sub -h mosquitto -t 'sensor/#' -v
 ```
 
 ## ⚙️ Configuration
@@ -138,7 +138,7 @@ docker-compose ps sensor-simulator
 docker-compose logs sensor-simulator
 
 # Verify volume
-docker volume inspect zemfyre-sensor_sensor-sockets
+docker volume inspect Iotistic-sensor_sensor-sockets
 ```
 
 ### Agent Can't Connect

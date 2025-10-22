@@ -528,9 +528,9 @@ mosquitto_sub -h localhost -t '$iot/device/+/sensor/#'
 - Busy-polling (0 seconds) wastes CPU
 - Longer intervals save resources but increase downtime
 
-## Integration with Zemfyre Sensor
+## Integration with Iotistic Sensor
 
-If you're using the Zemfyre Sensor project with BME688 sensors:
+If you're using the Iotistic Sensor project with BME688 sensors:
 
 1. **Create a sensor bridge application** that:
    - Reads from your existing MQTT topics

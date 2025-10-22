@@ -74,7 +74,7 @@ export class CloudJobsAdapter {
       timeout: 30000,
       headers: {
         'Content-Type': 'application/json',
-        'User-Agent': `zemfyre-agent/${this.config.deviceUuid}`,
+        'User-Agent': `Iotistic-agent/${this.config.deviceUuid}`,
         'X-Device-API-Key': this.config.deviceApiKey || ''
       }
     });

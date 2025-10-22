@@ -39,7 +39,7 @@ services:
         volumes:
         - ./nginx/nginx.conf:/etc/nginx/conf.d/default.conf
         networks:
-           - zemfyre-net
+           - Iotistic-net
     mosquitto:
         image: eclipse-mosquitto
         restart: always
@@ -49,9 +49,9 @@ services:
         volumes:
           - ./mosquitto/config:/mosquitto/config/
         networks:
-           - zemfyre-net
+           - Iotistic-net
     nodered:
-        image: iotistic/zemfyre-nodered:${DOCKER_TAG}-${DEVICE_TYPE}
+        image: iotistic/Iotistic-nodered:${DOCKER_TAG}-${DEVICE_TYPE}
         build:
             context: ./nodered
             dockerfile: Dockerfile
@@ -63,14 +63,14 @@ services:
             - ./nodered/nodes:/data/nodes
             - /data/node_modules
         networks:
-           - zemfyre-net
+           - Iotistic-net
 
     influx:
         container_name: influxdb
         image: influxdb:alpine
         restart: always
         environment:
-            - INFLUXDB_INIT_ORG=Zemfyre
+            - INFLUXDB_INIT_ORG=Iotistic
             - INFLUXDB_INIT_BUCKET=ZUS80LP
             - INFLUXDB_LOG_LEVEL=debug
         ports:
@@ -79,10 +79,10 @@ services:
             - ./influx/data:/var/lib/influxdb2
             - ./influx/config:/etc/influxdb2
         networks:
-           - zemfyre-net
+           - Iotistic-net
 
     grafana:
-        image: iotistic/zemfyre-grafana:${DOCKER_TAG}-${DEVICE_TYPE}
+        image: iotistic/Iotistic-grafana:${DOCKER_TAG}-${DEVICE_TYPE}
         build:
            context: ./grafana
            dockerfile: Dockerfile
@@ -102,14 +102,14 @@ services:
         ports:
             - "${GRAFANA_PORT_EXT:-53000}:3000"
         networks:
-           - zemfyre-net
+           - Iotistic-net
 volumes:
   agent-data:
     name: agent-data
     driver: local
  
 networks:
-  zemfyre-net:
+  Iotistic-net:
     driver: bridge
 
 

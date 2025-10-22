@@ -154,7 +154,7 @@ ls sensor-simulator\sockets\
 **With WSL (if installed):**
 ```bash
 # In WSL
-nc -U /mnt/c/Users/Dan/zemfyre-sensor/sensor-simulator/sockets/sensor1.sock
+nc -U /mnt/c/Users/Dan/Iotistic-sensor/sensor-simulator/sockets/sensor1.sock
 ```
 
 **With Node.js test script:**

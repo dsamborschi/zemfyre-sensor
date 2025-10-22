@@ -1,6 +1,6 @@
-# Zemfyre Unified API
+# Iotistic Unified API
 
-Unified REST API server combining Grafana management, Docker control, system notifications, and cloud multi-device management for the Zemfyre Sensor IoT system.
+Unified REST API server combining Grafana management, Docker control, system notifications, and cloud multi-device management for the Iotistic Sensor IoT system.
 
 ## Features
 
@@ -37,7 +37,7 @@ npm start
 
 ```bash
 # Build
-docker build -t zemfyre-api .
+docker build -t Iotistic-api .
 
 # Run
 docker run -d \
@@ -45,8 +45,8 @@ docker run -d \
   -v /var/run/docker.sock:/var/run/docker.sock \
   -e GRAFANA_URL=http://grafana:3000 \
   -e GRAFANA_API_TOKEN=your_token_here \
-  --name zemfyre-api \
-  zemfyre-api
+  --name Iotistic-api \
+  Iotistic-api
 ```
 
 ## Environment Variables
@@ -59,7 +59,7 @@ docker run -d \
 | `IOTISTIC_LICENSE_KEY` | - | License JWT for feature control (optional, runs in unlicensed mode if not set) |
 | `LICENSE_PUBLIC_KEY` | - | RSA public key for license validation |
 | `BILLING_API_URL` | - | Global billing API URL (for usage reporting) |
-| `BILLING_UPGRADE_URL` | `https://zemfyre.com/upgrade` | Upgrade page URL (shown in feature-blocked errors) |
+| `BILLING_UPGRADE_URL` | `https://Iotistic.com/upgrade` | Upgrade page URL (shown in feature-blocked errors) |
 
 ## API Endpoints
 

@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide explains the **hybrid approach** for managing applications in the Zemfyre IoT platform, combining:
+This guide explains the **hybrid approach** for managing applications in the Iotistic IoT platform, combining:
 - ✅ **Global ID sequences** (1000+) for unique app identification
 - ✅ **Application catalog table** for reusable templates  
 - ✅ **Device-specific JSONB** for deployed configurations

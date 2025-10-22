@@ -2,7 +2,7 @@
 
 ## 🎉 Refactor Status: COMPLETE ✅
 
-Successfully centralized all MQTT connection management across the Zemfyre Sensor agent application.
+Successfully centralized all MQTT connection management across the Iotistic Sensor agent application.
 
 ---
 
@@ -322,7 +322,7 @@ This refactor was completed following best practices from:
 - MQTT.js documentation and examples
 - Node.js design patterns
 - TypeScript best practices
-- Zemfyre Sensor architecture guidelines
+- Iotistic Sensor architecture guidelines
 
 ---
 

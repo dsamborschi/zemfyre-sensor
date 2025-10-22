@@ -273,7 +273,7 @@ This TypeScript port differs from the original FlowFuse agent:
 2. ✅ **Standalone operation** - Works as a self-contained service
 3. ✅ **Event-driven** - Uses EventEmitter for schema discoveries
 4. ✅ **TypeScript** - Full type safety and modern async/await
-5. ✅ **Integrated** - Part of the unified Zemfyre API
+5. ✅ **Integrated** - Part of the unified Iotistic API
 6. ⚠️ **No persistence** - Doesn't store schemas to external database (uses in-memory storage)
 
 ## Performance
@@ -322,4 +322,4 @@ Potential additions:
 
 ## License
 
-Part of the Zemfyre Sensor project.
+Part of the Iotistic Sensor project.

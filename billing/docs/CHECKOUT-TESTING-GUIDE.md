@@ -324,7 +324,7 @@ Write-Host "  Max Devices: $($license.decoded.features.max_devices)"
 
 **Run the Script**:
 ```powershell
-cd c:\Users\Dan\zemfyre-sensor\billing
+cd c:\Users\Dan\Iotistic-sensor\billing
 .\test-checkout-flow.ps1
 ```
 

@@ -1,7 +1,7 @@
 # Network Implementation - Complete ✅
 
 ## Overview
-Full Docker network support has been successfully implemented across the entire Zemfyre Sensor stack - backend, frontend, and API.
+Full Docker network support has been successfully implemented across the entire Iotistic Sensor stack - backend, frontend, and API.
 
 ## Implementation Status
 

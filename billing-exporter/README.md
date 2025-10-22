@@ -1,6 +1,6 @@
 # Billing Exporter
 
-Kubernetes metrics exporter for Zemfyre billing system. Collects resource usage metrics from Prometheus and reports them to the Global Billing API.
+Kubernetes metrics exporter for Iotistic billing system. Collects resource usage metrics from Prometheus and reports them to the Global Billing API.
 
 ## Overview
 
@@ -41,7 +41,7 @@ Customer K8s Namespace
 # Required
 CUSTOMER_ID=cust_abc123xyz          # Customer identifier
 PROMETHEUS_URL=http://prometheus:9090  # Prometheus endpoint
-BILLING_API_URL=https://billing.zemfyre.com  # Billing API URL
+BILLING_API_URL=https://billing.Iotistic.com  # Billing API URL
 
 # Optional
 INSTANCE_ID=k8s-us-east-1           # Instance identifier (default: k8s-cluster-1)
@@ -112,7 +112,7 @@ docker push iotistic/billing-exporter:latest
 docker run --rm \
   -e CUSTOMER_ID=cust_test123 \
   -e PROMETHEUS_URL=http://prometheus:9090 \
-  -e BILLING_API_URL=https://billing.zemfyre.com \
+  -e BILLING_API_URL=https://billing.Iotistic.com \
   -e NAMESPACE=test \
   iotistic/billing-exporter:latest
 ```
@@ -156,7 +156,7 @@ metadata:
   namespace: customer-abc
 data:
   PROMETHEUS_URL: "http://prometheus-kube-prometheus-prometheus.monitoring:9090"
-  BILLING_API_URL: "https://billing.zemfyre.com"
+  BILLING_API_URL: "https://billing.Iotistic.com"
   CUSTOMER_ID: "cust_abc123xyz"
   INSTANCE_ID: "k8s-us-east-1"
   NAMESPACE: "customer-abc"
@@ -316,13 +316,13 @@ kubectl get prometheus -n monitoring -o yaml | grep -A 20 scrape_configs
 
 ```bash
 # Check network connectivity from pod
-kubectl exec -it deployment/billing-exporter -n customer-abc -- wget -O- https://billing.zemfyre.com/health
+kubectl exec -it deployment/billing-exporter -n customer-abc -- wget -O- https://billing.Iotistic.com/health
 
 # Verify BILLING_API_URL in config
 kubectl get configmap billing-exporter-config -n customer-abc -o jsonpath='{.data.BILLING_API_URL}'
 
 # Check if DNS resolution works
-kubectl exec -it deployment/billing-exporter -n customer-abc -- nslookup billing.zemfyre.com
+kubectl exec -it deployment/billing-exporter -n customer-abc -- nslookup billing.Iotistic.com
 
 # Check exporter logs for API errors
 kubectl logs -f deployment/billing-exporter -n customer-abc | grep "billing API"
@@ -435,4 +435,4 @@ Logs are JSON-formatted with timestamps:
 
 ## License
 
-Proprietary - Zemfyre Technologies Inc.
+Proprietary - Iotistic Technologies Inc.

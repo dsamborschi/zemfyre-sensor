@@ -2,7 +2,7 @@
 
 ## ✅ Completed Refactor
 
-Successfully centralized MQTT connection management across the Zemfyre Sensor agent application.
+Successfully centralized MQTT connection management across the Iotistic Sensor agent application.
 
 ---
 

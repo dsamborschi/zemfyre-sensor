@@ -182,7 +182,7 @@ export class TwinStateManager {
     return {
       deviceUuid: deviceInfo.uuid,
       serialNumber: (deviceInfo as any).serialNumber || deviceInfo.uuid, // Use UUID as fallback
-      model: deviceInfo.deviceType || 'zemfyre-sensor',
+      model: deviceInfo.deviceType || 'Iotistic-sensor',
       firmwareVersion: process.env.FIRMWARE_VERSION || '1.0.0',
       lastBootTime: new Date(this.startTime).toISOString(),
     };

@@ -1,7 +1,7 @@
 # Top Process Metrics Integration - Implementation Summary
 
 ## Overview
-Successfully integrated top process metrics collection, storage, API endpoints, and dashboard visualization across the entire Zemfyre Sensor stack.
+Successfully integrated top process metrics collection, storage, API endpoints, and dashboard visualization across the entire Iotistic Sensor stack.
 
 ## Changes Made
 

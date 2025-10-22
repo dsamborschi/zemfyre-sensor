@@ -189,15 +189,15 @@ Get-Content fix-event-timestamp.sql | docker-compose exec -T postgres psql -U po
 
 ```powershell
 # Start API
-cd c:\Users\Dan\zemfyre-sensor\api
+cd c:\Users\Dan\Iotistic-sensor\api
 docker-compose up -d
 
 # Start Dashboard
-cd c:\Users\Dan\zemfyre-sensor\dashboard
+cd c:\Users\Dan\Iotistic-sensor\dashboard
 npm run dev
 
 # Apply database fix
-cd c:\Users\Dan\zemfyre-sensor\api
+cd c:\Users\Dan\Iotistic-sensor\api
 Get-Content fix-event-timestamp.sql | docker-compose exec -T postgres psql -U postgres -d iotistic
 docker-compose restart api
 

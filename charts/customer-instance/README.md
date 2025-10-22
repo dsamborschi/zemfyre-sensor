@@ -1,6 +1,6 @@
 # Customer Instance Helm Chart
 
-Kubernetes Helm chart for deploying isolated customer instances of the Zemfyre IoT platform.
+Kubernetes Helm chart for deploying isolated customer instances of the Iotistic IoT platform.
 
 ## Overview
 

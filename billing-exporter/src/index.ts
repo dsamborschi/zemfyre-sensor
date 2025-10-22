@@ -9,7 +9,7 @@ dotenv.config();
 
 // Configuration
 const PROMETHEUS_URL = process.env.PROMETHEUS_URL || 'http://prometheus-kube-prometheus-prometheus.monitoring:9090';
-const BILLING_API_URL = process.env.BILLING_API_URL || 'https://billing.zemfyre.com';
+const BILLING_API_URL = process.env.BILLING_API_URL || 'https://billing.Iotistic.com';
 const CUSTOMER_ID = process.env.CUSTOMER_ID;
 const INSTANCE_ID = process.env.INSTANCE_ID || 'k8s-cluster-1';
 const NAMESPACE = process.env.NAMESPACE || 'default';

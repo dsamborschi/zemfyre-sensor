@@ -1,6 +1,6 @@
-# Zemfyre BME688 Sensor Setup Guide
+# Iotistic BME688 Sensor Setup Guide
 
-> **Complete setup and configuration guide for the Zemfyre BME688 environmental sensor with SPE connectivity**
+> **Complete setup and configuration guide for the Iotistic BME688 environmental sensor with SPE connectivity**
 
 This comprehensive guide covers everything from initial hardware connection to full sensor configuration and operation.
 
@@ -21,7 +21,7 @@ This comprehensive guide covers everything from initial hardware connection to f
 ## 🔌 Hardware Setup
 
 ### Prerequisites
-- Zemfyre BME688 sensor with SPE connectivity
+- Iotistic BME688 sensor with SPE connectivity
 - Raspberry Pi 3+ or compatible device
 - Ethernet cable (Cat5e or better)
 - Power supply for sensor
@@ -50,7 +50,7 @@ This comprehensive guide covers everything from initial hardware connection to f
 
 1. Launch PuTTY
 2. Configure settings as shown above
-3. (Optional) Save session as "zemfyre-sensor" for future use
+3. (Optional) Save session as "Iotistic-sensor" for future use
 4. Click **Open** to start the session
 5. Press `Enter` if no prompt appears initially
 
@@ -252,9 +252,9 @@ sensor -status         # Sensor initialization status
 ## 🏢 About
 
 **Sensor Technology**: BOSCH BME688 4-in-1 environmental sensor with SPE connectivity  
-**SPE Technology**: Provided by [Zemfyre Inc](https://zemfyre.com) - Leader in SPE technology  
+**SPE Technology**: Provided by [Iotistic Inc](https://Iotistic.com) - Leader in SPE technology  
 **Software Development**: IoT software experts team by [iotistic.ca](http://www.iotistic.ca)
 
 ---
 
-*For technical support and additional resources, visit [zemfyre.com](https://zemfyre.com)*
+*For technical support and additional resources, visit [Iotistic.com](https://Iotistic.com)*

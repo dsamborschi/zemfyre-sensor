@@ -32,8 +32,8 @@ postgres:
     limits:
       cpu: 500m
       memory: 512Mi
-  database: zemfyre
-  username: zemfyre
+  database: Iotistic
+  username: Iotistic
   # Password will be auto-generated if not provided
   password: ""
 

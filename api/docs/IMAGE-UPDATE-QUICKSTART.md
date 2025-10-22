@@ -5,7 +5,7 @@
 ### 1. Create Your First Policy
 
 ```bash
-cd C:\Users\Dan\zemfyre-sensor\api
+cd C:\Users\Dan\Iotistic-sensor\api
 npx ts-node scripts/test-image-updates.ts
 ```
 
@@ -273,7 +273,7 @@ ORDER BY timestamp DESC;
 1. Go to your Docker Hub repository
 2. Click "Webhooks" tab
 3. Add webhook:
-   - Name: `Zemfyre Rollout`
+   - Name: `Iotistic Rollout`
    - URL: `https://your-domain.com/api/v1/webhooks/docker-registry`
    - Secret: (optional, set in `DOCKER_WEBHOOK_SECRET` env var)
 

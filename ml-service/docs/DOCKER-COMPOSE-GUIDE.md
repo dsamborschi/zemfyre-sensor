@@ -171,7 +171,7 @@ ML_SERVICE_PORT=5001 docker-compose up -d
 
 ### Connect to Main Project Network
 
-To share network with main `zemfyre-sensor` stack:
+To share network with main `Iotistic-sensor` stack:
 
 Edit `docker-compose.yml`:
 
@@ -179,7 +179,7 @@ Edit `docker-compose.yml`:
 networks:
   ml-network:
     external: true
-    name: zemfyre-net    # Use existing network
+    name: Iotistic-net    # Use existing network
 ```
 
 Then start:
@@ -465,7 +465,7 @@ services:
   ml-service:
     image: iotistic/ml-service:latest
     networks:
-      - zemfyre-net
+      - Iotistic-net
     environment:
       - DB_HOST=postgres
       - DB_PORT=5432

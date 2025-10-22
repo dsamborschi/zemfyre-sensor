@@ -120,13 +120,13 @@ curl "http://localhost:5000/ml/forecasts/predict/46b68204-9806-43c5-8d19-18b1f53
    - Check `docker-compose.cloud.yml` has `ports: - "5432:5432"`
 
 3. **If running in Docker:**
-   - Make sure `zemfyre-net` network exists:
+   - Make sure `Iotistic-net` network exists:
      ```powershell
-     docker network ls | Select-String zemfyre-net
+     docker network ls | Select-String Iotistic-net
      ```
    - If not, create it:
      ```powershell
-     docker network create zemfyre-net
+     docker network create Iotistic-net
      ```
    - Restart ML service:
      ```powershell

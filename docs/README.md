@@ -1,6 +1,6 @@
-# Zemfyre Sensor Documentation
+# Iotistic Sensor Documentation
 
-Comprehensive documentation for the Zemfyre Sensor IoT platform.
+Comprehensive documentation for the Iotistic Sensor IoT platform.
 
 ---
 

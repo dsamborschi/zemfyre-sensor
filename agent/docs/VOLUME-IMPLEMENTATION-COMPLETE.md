@@ -2,7 +2,7 @@
 
 ## Overview
 
-Successfully implemented full volume support for the Zemfyre Sensor container orchestration system, following the same pattern as network management. Volumes are now fully integrated across backend orchestration and frontend UI.
+Successfully implemented full volume support for the Iotistic Sensor container orchestration system, following the same pattern as network management. Volumes are now fully integrated across backend orchestration and frontend UI.
 
 ## Implementation Summary
 

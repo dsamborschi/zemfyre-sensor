@@ -354,7 +354,7 @@ export class K8sDeploymentService {
 
     const secrets = {
       metadata: {
-        name: 'zemfyre-secrets',
+        name: 'Iotistic-secrets',
         namespace,
       },
       type: 'Opaque',
@@ -407,7 +407,7 @@ export class K8sDeploymentService {
                   name: 'IOTISTIC_LICENSE_KEY',
                   valueFrom: {
                     secretKeyRef: {
-                      name: 'zemfyre-secrets',
+                      name: 'Iotistic-secrets',
                       key: 'IOTISTIC_LICENSE_KEY',
                     }
                   }
@@ -416,7 +416,7 @@ export class K8sDeploymentService {
                   name: 'LICENSE_PUBLIC_KEY',
                   valueFrom: {
                     secretKeyRef: {
-                      name: 'zemfyre-secrets',
+                      name: 'Iotistic-secrets',
                       key: 'LICENSE_PUBLIC_KEY',
                     }
                   }
@@ -430,7 +430,7 @@ export class K8sDeploymentService {
                   name: 'DB_PASSWORD',
                   valueFrom: {
                     secretKeyRef: {
-                      name: 'zemfyre-secrets',
+                      name: 'Iotistic-secrets',
                       key: 'POSTGRES_PASSWORD',
                     }
                   }
@@ -472,7 +472,7 @@ export class K8sDeploymentService {
   ) {
     const ingress = {
       metadata: {
-        name: 'zemfyre-ingress',
+        name: 'Iotistic-ingress',
         namespace,
         annotations: {
           'kubernetes.io/ingress.class': 'nginx',
@@ -778,7 +778,7 @@ Instead of manual K8s API calls, use Helm:
 
 ```typescript
 // Install via Helm
-await exec(`helm install customer-${customerId} ./charts/zemfyre \\
+await exec(`helm install customer-${customerId} ./charts/Iotistic \\
   --namespace ${namespace} \\
   --set license.key="${license}" \\
   --set customer.id="${customerId}" \\

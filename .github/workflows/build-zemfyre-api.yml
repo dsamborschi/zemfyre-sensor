@@ -6,7 +6,7 @@ on:
       - master
     paths:
       - 'api/**' 
-      - '.github/workflows/build-zemfyre-api.yml'
+      - '.github/workflows/build-Iotistic-api.yml'
 
 jobs:
   buildx:
@@ -51,4 +51,4 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
           cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
           tags: |
-            iotistic/zemfyre-api:latest-${{ matrix.board }}
+            iotistic/Iotistic-api:latest-${{ matrix.board }}

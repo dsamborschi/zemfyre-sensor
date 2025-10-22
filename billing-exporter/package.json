@@ -1,7 +1,7 @@
 {
   "name": "billing-exporter",
   "version": "1.0.0",
-  "description": "Kubernetes metrics exporter for Zemfyre billing system",
+  "description": "Kubernetes metrics exporter for Iotistic billing system",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

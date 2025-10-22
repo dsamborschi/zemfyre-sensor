@@ -2,7 +2,7 @@
 
 ## ✅ What Was Implemented
 
-Critical security vulnerabilities in the Zemfyre provisioning system have been fixed based on AWS IoT Fleet Provisioning best practices.
+Critical security vulnerabilities in the Iotistic provisioning system have been fixed based on AWS IoT Fleet Provisioning best practices.
 
 ### Security Improvements
 
@@ -17,7 +17,7 @@ Critical security vulnerabilities in the Zemfyre provisioning system have been f
 ### Step 1: Install Dependencies
 
 ```powershell
-cd C:\Users\Dan\zemfyre-sensor\api
+cd C:\Users\Dan\Iotistic-sensor\api
 npm install
 ```
 
@@ -85,7 +85,7 @@ npx ts-node scripts/test-security.ts
 
 Expected output:
 ```
-🔒 Zemfyre Security Implementation Test Suite
+🔒 Iotistic Security Implementation Test Suite
 ═══════════════════════════════════════════════════════════
 
 ✅ Invalid provisioning key rejected

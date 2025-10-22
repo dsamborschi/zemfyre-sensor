@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  Developed for the Zemfyre Sensor project - a containerized IoT environmental monitoring system for Bosch BME688 sensors.
+  Developed for the Iotistic Sensor project - a containerized IoT environmental monitoring system for Bosch BME688 sensors.
 </p>
 
 > Iotistic Admin is built with [Vuestic UI](https://ui.vuestic.dev) components for a professional admin interface experience.
@@ -50,7 +50,7 @@ See [DOCKER.md](./DOCKER.md) for complete Docker documentation.
 - **Docker Setup:** [DOCKER.md](./DOCKER.md) - Complete Docker build and deployment guide
 - **Rebranding:** [REBRANDING.md](./REBRANDING.md) - Iotistic branding changes
 - **Application Manager:** [APPLICATION_MANAGER_INTEGRATION.md](./APPLICATION_MANAGER_INTEGRATION.md) - Backend integration
-- **Main Project:** [../README.md](../README.md) - Full Zemfyre Sensor documentation
+- **Main Project:** [../README.md](../README.md) - Full Iotistic Sensor documentation
 - **Vuestic UI:** [ui.vuestic.dev](https://ui.vuestic.dev) - Component documentation
 
 ### Features

@@ -17,7 +17,7 @@ Implement automated fleet-wide updates when new Docker images are released, with
                            │
                            ↓
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Zemfyre API Server                            │
+│                    Iotistic API Server                            │
 │                                                                  │
 │  POST /api/v1/webhooks/docker-registry                          │
 │         ↓                                                        │

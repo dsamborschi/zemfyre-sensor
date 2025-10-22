@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Zemfyre Device CLI
+ * Iotistic Device CLI
  * ==================
  * Command-line interface for device management and configuration
  * 
@@ -80,7 +80,7 @@ function validateUrl(url: string): boolean {
 function showHelp(): void {
 	console.log(`
 ╔═══════════════════════════════════════════════════════════════════════════╗
-║                        Zemfyre Device CLI                                 ║
+║                        Iotistic Device CLI                                 ║
 ╚═══════════════════════════════════════════════════════════════════════════╝
 
 CONFIGURATION COMMANDS:
@@ -289,7 +289,7 @@ function showVersion(): void {
 		try {
 			if (existsSync(packagePath)) {
 				const packageJson = JSON.parse(readFileSync(packagePath, 'utf-8'));
-				console.log(`Zemfyre Device CLI v${packageJson.version}`);
+				console.log(`Iotistic Device CLI v${packageJson.version}`);
 				return;
 			}
 		} catch {
@@ -298,7 +298,7 @@ function showVersion(): void {
 	}
 	
 	// Fallback version
-	console.log('Zemfyre Device CLI v1.0.0');
+	console.log('Iotistic Device CLI v1.0.0');
 }
 
 // ============================================================================

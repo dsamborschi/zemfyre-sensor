@@ -622,7 +622,7 @@ router.put('/devices/:uuid/broker', async (req, res) => {
       port: broker.port,
       useTls: broker.use_tls,
       verifyCertificate: broker.verify_certificate,
-      clientIdPrefix: broker.client_id_prefix || 'zemfyre',
+      clientIdPrefix: broker.client_id_prefix || 'Iotistic',
       keepAlive: broker.keep_alive || 60,
       cleanSession: broker.clean_session !== false,
       reconnectPeriod: broker.reconnect_period || 1000,

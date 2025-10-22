@@ -21,6 +21,19 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   billing:
     build: .
     ports:
@@ -29,6 +42,14 @@ services:
       NODE_ENV: development
       PORT: 3100
       DATABASE_URL: postgres://billing:billing123@postgres:5432/billing
+      
+      # Redis (for deployment queue)
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_DB: 0
+      QUEUE_CONCURRENCY: 3
+      QUEUE_MAX_RETRIES: 3
+      QUEUE_RETRY_DELAY: 60000
       
       # Stripe (use your test keys)
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
@@ -47,11 +68,20 @@ services:
 
       # Trial configuration
       DEFAULT_TRIAL_DAYS: 14
+      
+      # Kubernetes deployment
+      BASE_DOMAIN: iotistic.cloud
+      HELM_CHART_PATH: /app/charts/customer-instance
+      # Set to 'true' for local testing without K8s cluster (simulates deployment)
+      SIMULATE_K8S_DEPLOYMENT: ${SIMULATE_K8S_DEPLOYMENT:-true}
     volumes:
       - ./keys:/app/keys
       - ./dist:/app/dist
+      - ../charts:/app/charts
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   # Stripe CLI for webhook testing
@@ -71,3 +101,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

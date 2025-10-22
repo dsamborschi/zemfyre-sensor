@@ -1,6 +1,6 @@
 FROM node:18-alpine
 
-LABEL maintainer="Zemfyre Sensor Team"
+LABEL maintainer="Iotistic Sensor Team"
 LABEL description="BME688 Sensor Simulator - Generates fake sensor data over Unix sockets"
 
 # Create app directory

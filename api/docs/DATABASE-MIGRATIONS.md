@@ -1,6 +1,6 @@
 # Database Migrations Guide
 
-Automatic database migration system for the Zemfyre API.
+Automatic database migration system for the Iotistic API.
 
 ## Overview
 

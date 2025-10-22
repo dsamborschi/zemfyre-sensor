@@ -22,8 +22,8 @@ services:
       - EOM_DELIMITER=${SIM_EOM_DELIMITER:-\n}
       - LOG_LEVEL=${SIM_LOG_LEVEL:-info}
     networks:
-      - zemfyre-net
+      - Iotistic-net
 
 networks:
-  zemfyre-net:
+  Iotistic-net:
     driver: bridge

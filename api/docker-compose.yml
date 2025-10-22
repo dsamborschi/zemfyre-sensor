@@ -5,7 +5,7 @@
 #
 # This stack provides:
 #   - PostgreSQL 16 database for persistent device state storage
-#   - Zemfyre API server with Balena-style endpoints
+#   - Iotistic API server with Balena-style endpoints
 #
 # Environment variables (configure in .env):
 #   - DB_PASSWORD=<password>    # PostgreSQL password
@@ -25,7 +25,7 @@ services:
         ports:
             - "5432:5432"
         volumes:
-            - zemfyre-pg-data:/var/lib/postgresql/data
+            - Iotistic-pg-data:/var/lib/postgresql/data
             - ./database/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
             - ./database/pg_hba.conf:/etc/postgresql/pg_hba.conf:ro
             - ./database/postgresql.conf:/etc/postgresql/postgresql.conf:ro
@@ -39,7 +39,7 @@ services:
             timeout: 5s
             retries: 5
         networks:
-           - zemfyre-net
+           - Iotistic-net
 
     # api:
     #     build:
@@ -74,7 +74,7 @@ services:
     #         postgres:
     #             condition: service_healthy
     #     networks:
-    #        - zemfyre-net
+    #        - Iotistic-net
     mosquitto:
         image: iegomez/mosquitto-go-auth
         restart: always
@@ -93,13 +93,13 @@ services:
             postgres:
                 condition: service_healthy
         networks:
-           - zemfyre-net
+           - Iotistic-net
 
 volumes:
-  zemfyre-pg-data:
+  Iotistic-pg-data:
     driver: local
  
 networks:
-  zemfyre-net:
+  Iotistic-net:
     driver: bridge
     external: true  # Use existing network from main docker-compose

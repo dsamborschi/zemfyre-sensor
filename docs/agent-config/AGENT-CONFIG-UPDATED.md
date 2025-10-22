@@ -79,7 +79,7 @@ Once agent connects, you'll see:
 If you have MQTT broker running:
 ```powershell
 # Subscribe to sensor data
-docker run --rm -it --network=zemfyre-net eclipse-mosquitto mosquitto_sub -h mosquitto -t 'sensor/#' -v
+docker run --rm -it --network=Iotistic-net eclipse-mosquitto mosquitto_sub -h mosquitto -t 'sensor/#' -v
 
 # Expected output:
 sensor/data {"sensor_name":"sensor1","temperature":23.45,...}

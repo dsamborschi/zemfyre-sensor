@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document describes the security improvements implemented in the Zemfyre provisioning system, based on AWS IoT Fleet Provisioning best practices.
+This document describes the security improvements implemented in the Iotistic provisioning system, based on AWS IoT Fleet Provisioning best practices.
 
 ## Security Enhancements Implemented
 
@@ -308,7 +308,7 @@ GROUP BY d.fleet_id;
 **Resolution**:
 ```bash
 # Check key status
-psql -d zemfyre -c "SELECT id, fleet_id, is_active, expires_at, devices_provisioned, max_devices FROM provisioning_keys;"
+psql -d Iotistic -c "SELECT id, fleet_id, is_active, expires_at, devices_provisioned, max_devices FROM provisioning_keys;"
 
 # Create new key if needed
 npx ts-node scripts/create-provisioning-key.ts

@@ -82,7 +82,7 @@ function generate_ssh_key() {
     ssh-keygen -t ed25519 \
         -f "$SSH_KEY_PATH" \
         -N "" \
-        -C "zemfyre-device-$(hostname)" \
+        -C "Iotistic-device-$(hostname)" \
         -q
     
     # Set correct permissions

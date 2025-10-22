@@ -90,7 +90,7 @@ This guide shows how to enhance the Digital Twin system with machine learning fo
 ## 📦 Project Structure
 
 ```
-zemfyre-sensor/
+Iotistic-sensor/
 ├── api/                          # Existing Node.js API
 ├── ml-service/                   # NEW: Python ML Service
 │   ├── Dockerfile
@@ -917,7 +917,7 @@ services:
     volumes:
       - ml-models:/app/models/saved
     networks:
-      - zemfyre-net
+      - Iotistic-net
     depends_on:
       - postgres
     restart: unless-stopped
@@ -1157,7 +1157,7 @@ def train_all_devices():
 
 1. **Deploy ML Service**:
    ```bash
-   cd zemfyre-sensor
+   cd Iotistic-sensor
    docker-compose up -d ml-service
    ```
 

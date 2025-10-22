@@ -7,9 +7,9 @@
 
 - name: Ensure ~/bin is in PATH in .bashrc
   become: true
-  become_user: zemfyre
+  become_user: Iotistic
   lineinfile:
-    path: /home/zemfyre/.bashrc
+    path: /home/Iotistic/.bashrc
     insertafter: EOF
     line: 'export PATH="$HOME/bin:$PATH"'
     create: yes
@@ -24,5 +24,5 @@
 
 - name: Enable lingering for user so user services run without active login session
   become: true
-  command: loginctl enable-linger zemfyre
+  command: loginctl enable-linger Iotistic
 

@@ -485,4 +485,4 @@ MQTT_METRICS_UPDATE_INTERVAL=10000
 
 ## License
 
-Part of the Zemfyre Sensor project.
+Part of the Iotistic Sensor project.

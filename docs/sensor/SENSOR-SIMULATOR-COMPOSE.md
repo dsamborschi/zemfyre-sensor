@@ -80,7 +80,7 @@ volumes:
 ```
 
 **Inside container:** `/tmp/sensors/sensor1.sock`  
-**On Windows:** `C:\Users\Dan\zemfyre-sensor\sensor-simulator\sockets\sensor1.sock`  
+**On Windows:** `C:\Users\Dan\Iotistic-sensor\sensor-simulator\sockets\sensor1.sock`  
 **Agent accesses:** `../sensor-simulator/sockets/sensor1.sock` (relative path)
 
 ## 🛑 Stop Simulator
@@ -155,11 +155,11 @@ node test-socket.js
 
 ## 📋 Network Setup
 
-The simulator uses the `zemfyre-net` bridge network, allowing it to communicate with other services like MQTT broker if needed.
+The simulator uses the `Iotistic-net` bridge network, allowing it to communicate with other services like MQTT broker if needed.
 
 ```yaml
 networks:
-  zemfyre-net:
+  Iotistic-net:
     driver: bridge
 ```
 

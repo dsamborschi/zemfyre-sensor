@@ -3,7 +3,7 @@ import { promisify } from 'util';
 import * as path from 'path';
 import * as fs from 'fs/promises';
 import { logger } from '../utils/logger';
-import { db } from '../db';
+import { CustomerModel } from '../db/customer-model';
 
 const execAsync = promisify(exec);
 
@@ -46,15 +46,40 @@ export class K8sDeploymentService {
         namespace 
       });
 
-      // Update customer deployment status to 'deploying'
-      await db('customers')
-        .where({ id: options.customerId })
-        .update({
-          deployment_status: 'deploying',
-          instance_namespace: namespace,
-          instance_url: instanceUrl,
-          updated_at: db.fn.now()
+      // Update customer deployment status to 'provisioning'
+      await CustomerModel.updateDeploymentStatus(options.customerId, 'provisioning', {
+        instanceNamespace: namespace,
+        instanceUrl: instanceUrl
+      });
+
+      // 🎭 SIMULATION MODE - Skip actual K8s deployment for local testing
+      if (process.env.SIMULATE_K8S_DEPLOYMENT === 'true') {
+        logger.info('🎭 Simulating Kubernetes deployment (SIMULATE_K8S_DEPLOYMENT=true)', {
+          customerId: options.customerId,
+          namespace
         });
+
+        // Simulate deployment time (3-5 seconds)
+        const delay = 3000 + Math.random() * 2000;
+        await new Promise(resolve => setTimeout(resolve, delay));
+
+        logger.info('🎭 Simulated deployment complete', {
+          customerId: options.customerId,
+          namespace,
+          duration: `${Math.round(delay / 1000)}s`
+        });
+
+        // Update to ready status
+        await CustomerModel.updateDeploymentStatus(options.customerId, 'ready', {
+          deploymentError: ''
+        });
+
+        return {
+          success: true,
+          namespace,
+          instanceUrl
+        };
+      }
 
       // 1. Create namespace if it doesn't exist
       await this.createNamespace(namespace, options.customerId);
@@ -65,15 +90,10 @@ export class K8sDeploymentService {
       // 3. Wait for deployment to be ready
       await this.waitForDeployment(namespace);
 
-      // 4. Update customer deployment status to 'deployed'
-      await db('customers')
-        .where({ id: options.customerId })
-        .update({
-          deployment_status: 'deployed',
-          deployed_at: db.fn.now(),
-          deployment_error: null,
-          updated_at: db.fn.now()
-        });
+      // 4. Update customer deployment status to 'ready'
+      await CustomerModel.updateDeploymentStatus(options.customerId, 'ready', {
+        deploymentError: ''
+      });
 
       logger.info('Kubernetes deployment successful', { 
         customerId: options.customerId,
@@ -97,13 +117,9 @@ export class K8sDeploymentService {
       });
 
       // Update customer deployment status to 'failed'
-      await db('customers')
-        .where({ id: options.customerId })
-        .update({
-          deployment_status: 'failed',
-          deployment_error: errorMessage,
-          updated_at: db.fn.now()
-        });
+      await CustomerModel.updateDeploymentStatus(options.customerId, 'failed', {
+        deploymentError: errorMessage
+      });
 
       return {
         success: false,
@@ -224,15 +240,11 @@ export class K8sDeploymentService {
         logger.warn('Namespace delete error', { error: error.message });
       }
 
-      // 3. Update customer record
-      await db('customers')
-        .where({ id: customerId })
-        .update({
-          deployment_status: 'deleted',
-          instance_namespace: null,
-          instance_url: null,
-          updated_at: db.fn.now()
-        });
+      // 3. Update customer record - set to pending (reset state)
+      await CustomerModel.updateDeploymentStatus(customerId, 'pending', {
+        instanceNamespace: '',
+        instanceUrl: ''
+      });
 
       logger.info('Customer instance deleted', { customerId });
 
@@ -259,9 +271,7 @@ export class K8sDeploymentService {
    * Get deployment status for a customer
    */
   async getDeploymentStatus(customerId: string): Promise<any> {
-    const customer = await db('customers')
-      .where({ id: customerId })
-      .first();
+    const customer = await CustomerModel.getById(customerId);
 
     if (!customer) {
       throw new Error('Customer not found');

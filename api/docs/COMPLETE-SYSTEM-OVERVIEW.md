@@ -346,7 +346,7 @@ Returns devices with their building → floor → room hierarchy
 
 ---
 
-**Digital Twin System:** Zemfyre Sensor IoT Platform  
+**Digital Twin System:** Iotistic Sensor IoT Platform  
 **Database:** PostgreSQL with entity-relationship graph model  
 **API:** REST API with 23 endpoints  
 **Created:** October 18, 2025

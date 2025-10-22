@@ -142,7 +142,7 @@ Response:
 
 1. **Go to Repository Settings** → Webhooks
 2. **Add Webhook**:
-   - Name: `Zemfyre Image Updates`
+   - Name: `Iotistic Image Updates`
    - Webhook URL: `https://your-server.com/api/v1/webhooks/docker-registry`
    - (Optional) Secret for signature verification
 

@@ -1,11 +1,11 @@
 ---
-- name: Deploy zemfyre-sensor to Raspberry Pi (Headless and Desktop)
+- name: Deploy Iotistic-sensor to Raspberry Pi (Headless and Desktop)
   hosts: all
   become: yes
   vars:
-    repo_url: "https://github.com/dsamborschi/zemfyre-sensor.git"
+    repo_url: "https://github.com/dsamborschi/Iotistic-sensor.git"
     repo_dir: "iotistic"
-    kiosk_user: "zemfyre"
+    kiosk_user: "Iotistic"
     ntp_server_ip: "192.168.2.121"
     nm_ip: "192.168.2.30/24"
     nm_gateway: ""

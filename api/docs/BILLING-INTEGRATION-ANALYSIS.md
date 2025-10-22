@@ -2,13 +2,13 @@
 
 **Date**: October 21, 2025  
 **Source**: `api/billing/` (JavaScript - Stripe-based)  
-**Target**: Zemfyre API (TypeScript - PostgreSQL-based)
+**Target**: Iotistic API (TypeScript - PostgreSQL-based)
 
 ---
 
 ## Executive Summary
 
-The `api/billing/` directory contains a **production-ready Stripe billing system** with trial management that can be adapted for your Zemfyre API. Here's what you can reuse:
+The `api/billing/` directory contains a **production-ready Stripe billing system** with trial management that can be adapted for your Iotistic API. Here's what you can reuse:
 
 ### ✅ What CAN Be Reused (High Value)
 1. **Trial Management Logic** - Complete trial lifecycle (creation, reminders, expiration)
@@ -710,11 +710,11 @@ export default router;
 <body>
   <div class="container">
     <div class="header">
-      <h1>Welcome to Zemfyre!</h1>
+      <h1>Welcome to Iotistic!</h1>
     </div>
     <div class="content">
       <p>Hi {{username}},</p>
-      <p>Your trial account has been created successfully. You now have <strong>{{trialDuration}} days</strong> to explore all features of Zemfyre.</p>
+      <p>Your trial account has been created successfully. You now have <strong>{{trialDuration}} days</strong> to explore all features of Iotistic.</p>
       <p>During your trial, you can:</p>
       <ul>
         <li>Connect up to {{maxDevices}} devices</li>
@@ -726,7 +726,7 @@ export default router;
         <a href="{{dashboardUrl}}" class="cta-button">Go to Dashboard</a>
       </p>
       <p>Need help? Reply to this email or visit our <a href="{{docsUrl}}">documentation</a>.</p>
-      <p>Best regards,<br>The Zemfyre Team</p>
+      <p>Best regards,<br>The Iotistic Team</p>
     </div>
   </div>
 </body>
@@ -820,7 +820,7 @@ export async function cleanupOldData(userId: number): Promise<void> {
 
 ## Key Differences: Their System vs Yours
 
-| Feature | Billing System | Your Zemfyre API | Adaptation |
+| Feature | Billing System | Your Iotistic API | Adaptation |
 |---------|---------------|------------------|------------|
 | **Primary Entity** | Team (multi-user) | User (single account) | Map Team → User or create Fleet concept |
 | **Billable Items** | Cloud instances (hourly) | Devices (monthly/yearly) | Charge per device or flat rate |

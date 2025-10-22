@@ -135,7 +135,7 @@ api/
 
 ```bash
 # 1. Setup
-cd C:\Users\Dan\zemfyre-sensor\api
+cd C:\Users\Dan\Iotistic-sensor\api
 npx ts-node scripts/test-complete-system.ts
 
 # 2. Start server

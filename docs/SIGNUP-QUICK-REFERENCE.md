@@ -4,7 +4,7 @@
 
 ```powershell
 # Run comprehensive test suite
-cd c:\Users\Dan\zemfyre-sensor\billing\scripts
+cd c:\Users\Dan\Iotistic-sensor\billing\scripts
 .\test-signup-flow.ps1
 ```
 
@@ -241,7 +241,7 @@ Currently: `pending` (K8s deployment not yet implemented)
 
 ## Next Steps
 
-1. **Deploy Instance**: Use the license JWT to configure your Zemfyre stack
+1. **Deploy Instance**: Use the license JWT to configure your Iotistic stack
 2. **Test Features**: Connect BME688 sensors, test device limits
 3. **Monitor Trial**: Track days remaining, plan upgrade flow
 4. **Upgrade Flow**: Implement Stripe checkout for paid plans

@@ -26,7 +26,7 @@ CREATE TABLE IF NOT EXISTS mqtt_broker_config (
     verify_certificate BOOLEAN DEFAULT true,
     
     -- Connection Options
-    client_id_prefix VARCHAR(100) DEFAULT 'zemfyre',
+    client_id_prefix VARCHAR(100) DEFAULT 'Iotistic',
     keep_alive INTEGER DEFAULT 60,  -- Seconds
     clean_session BOOLEAN DEFAULT true,
     reconnect_period INTEGER DEFAULT 1000,  -- Milliseconds

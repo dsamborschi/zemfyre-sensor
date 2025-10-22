@@ -2,7 +2,7 @@
 
 ## Summary
 
-I've successfully implemented critical security improvements to the Zemfyre provisioning system based on AWS IoT Fleet Provisioning best practices. All **8 critical security vulnerabilities** identified in the analysis have been addressed.
+I've successfully implemented critical security improvements to the Iotistic provisioning system based on AWS IoT Fleet Provisioning best practices. All **8 critical security vulnerabilities** identified in the analysis have been addressed.
 
 ---
 

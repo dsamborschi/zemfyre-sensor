@@ -14,7 +14,7 @@ export const auditLogger = winston.createLogger({
     winston.format.errors({ stack: true }),
     winston.format.json()
   ),
-  defaultMeta: { service: 'zemfyre-api' },
+  defaultMeta: { service: 'Iotistic-api' },
   transports: [
     // Write all logs to audit.log
     new winston.transports.File({ 

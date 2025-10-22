@@ -15,7 +15,7 @@ const logger = winston.createLogger({
     winston.format.splat(),
     winston.format.json()
   ),
-  defaultMeta: { service: 'zemfyre-api' },
+  defaultMeta: { service: 'Iotistic-api' },
   transports: [
     // Write all logs to combined.log
     new winston.transports.File({ 

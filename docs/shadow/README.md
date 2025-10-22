@@ -1,6 +1,6 @@
 # Shadow Documentation
 
-AWS IoT Shadow implementation for Zemfyre Sensor platform.
+AWS IoT Shadow implementation for Iotistic Sensor platform.
 
 ---
 

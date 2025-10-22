@@ -1,6 +1,6 @@
 # Kubernetes Deployment Guide
 
-Complete guide for deploying the Zemfyre IoT platform with customer isolation on Kubernetes.
+Complete guide for deploying the Iotistic IoT platform with customer isolation on Kubernetes.
 
 ## Table of Contents
 
@@ -16,7 +16,7 @@ Complete guide for deploying the Zemfyre IoT platform with customer isolation on
 
 ## Overview
 
-The Zemfyre platform uses a **multi-tenant architecture** with **namespace-level isolation**:
+The Iotistic platform uses a **multi-tenant architecture** with **namespace-level isolation**:
 
 - **Billing Service**: Single shared instance managing customers, subscriptions, licenses
 - **Customer Instances**: Isolated per customer, each in their own namespace

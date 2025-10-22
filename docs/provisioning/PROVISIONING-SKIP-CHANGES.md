@@ -66,7 +66,7 @@ Created comprehensive documentation:
 1. **Fresh Installation (First Time)**
 ```bash
 # On a fresh device
-curl -sSL https://raw.githubusercontent.com/dsamborschi/zemfyre-sensor/master/bin/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/dsamborschi/Iotistic-sensor/master/bin/install.sh | bash
 
 # Expected: Prompts for provisioning API key
 ```

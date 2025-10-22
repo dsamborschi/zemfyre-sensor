@@ -594,6 +594,6 @@ curl "http://localhost:4002/api/v1/entities?entity_type=zone"
 ---
 
 **Documentation Created:** October 18, 2025  
-**System:** Zemfyre Sensor Digital Twin - Fire Safety Module  
+**System:** Iotistic Sensor Digital Twin - Fire Safety Module  
 **Building:** Maple Heights Condominium, Toronto  
 **Script:** `api/scripts/add-fire-safety-system.ps1`

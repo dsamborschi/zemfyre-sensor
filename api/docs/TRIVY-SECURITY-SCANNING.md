@@ -136,7 +136,7 @@ TRIVY_HIGH_THRESHOLD=10
 ```yaml
 services:
   api:
-    image: iotistic/zemfyre-api:latest
+    image: iotistic/Iotistic-api:latest
     environment:
       # Trivy Configuration
       TRIVY_ENABLED: "true"

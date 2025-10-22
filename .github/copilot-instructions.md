@@ -1,4 +1,4 @@
-# Zemfyre Sensor - AI Coding Agent Instructions
+# Iotistic Sensor - AI Coding Agent Instructions
 
 **Full Documentation**: See [docs/AI-AGENT-GUIDE.md](../docs/AI-AGENT-GUIDE.md) for comprehensive architecture patterns, workflows, and troubleshooting.
 
@@ -20,7 +20,7 @@ When working with the admin panel, **always use the `admin/` directory**, never 
 
 - **Multi-service IoT stack**: Device Agent, MQTT, Node-RED, InfluxDB, Grafana, Nginx, Admin Panel, API
 
-- **Multi-architecture**: Raspberry Pi (ARM6/7/64) and x86_64 with device-specific Docker image tags**Zemfyre Sensor** is a containerized IoT environmental monitoring system for Bosch BME688 sensors connected via Single Pair Ethernet (SPE). Runs on Raspberry Pi with real-time data visualization, MQTT communication, and custom container orchestration inspired by Balena Supervisor.**Zemfyre Sensor** is a containerized IoT environmental monitoring system for Bosch BME688 sensors connected via Single Pair Ethernet (SPE). The system runs primarily on Raspberry Pi devices and provides real-time data visualization, MQTT-based communication, and container orchestration.
+- **Multi-architecture**: Raspberry Pi (ARM6/7/64) and x86_64 with device-specific Docker image tags**Iotistic Sensor** is a containerized IoT environmental monitoring system for Bosch BME688 sensors connected via Single Pair Ethernet (SPE). Runs on Raspberry Pi with real-time data visualization, MQTT communication, and custom container orchestration inspired by Balena Supervisor.**Iotistic Sensor** is a containerized IoT environmental monitoring system for Bosch BME688 sensors connected via Single Pair Ethernet (SPE). The system runs primarily on Raspberry Pi devices and provides real-time data visualization, MQTT-based communication, and container orchestration.
 
 - **Container orchestration**: Custom agent inspired by Balena Supervisor
 
@@ -128,7 +128,7 @@ TARGET_ARCH=amd64    → DEVICE_TYPE=x86  → iotistic/agent:latest-x86- **api**
 
 ```
 
-**Critical Pattern**: Services communicate via Docker bridge network `zemfyre-net` and reference each other by container name (e.g., `mqtt://mosquitto:1883`).
+**Critical Pattern**: Services communicate via Docker bridge network `Iotistic-net` and reference each other by container name (e.g., `mqtt://mosquitto:1883`).
 
 **Critical Flow**:
 
@@ -364,7 +364,7 @@ PLATFORM=${{ matrix.platform }}      # linux/arm/v7, linux/arm64/v8```
 
 **Broker Configuration**: `mosquitto/config/mosquitto.conf`
 
-**Docker Image Builds**: See `.github/workflows/build-device-agent.yml`, `build-zemfyre-*.yml`
+**Docker Image Builds**: See `.github/workflows/build-device-agent.yml`, `build-Iotistic-*.yml`
 
 **MQTT in Application Manager**:
 
@@ -487,7 +487,7 @@ const influxUrl = 'http://influxdb:8086';npx tsx test/mock-data-test.ts       # 
 
 ```powershell
 
-**Network**: All services (except agent) on `zemfyre-net` Docker bridge network.# Windows PowerShell
+**Network**: All services (except agent) on `Iotistic-net` Docker bridge network.# Windows PowerShell
 
 cd application-manager
 
@@ -533,7 +533,7 @@ device-agent/logs       # Agent logs (optional, if MQTT logging enabled)- Check 
 
 - Verify mosquitto container is running: `docker ps`
 
-### Local Development Stack- Check network: `docker network inspect zemfyre-net`
+### Local Development Stack- Check network: `docker network inspect Iotistic-net`
 
 - Test connection: `mosquitto_pub -h localhost -t test -m "hello"`
 
@@ -648,7 +648,7 @@ npx tsx quick-start.ts
 
 ENABLE_REMOTE_ACCESS=true1. **Port changes**: Update both internal and external port mappings
 
-CLOUD_HOST=cloud.example.com2. **New service**: Add to `zemfyre-net` network for inter-service communication
+CLOUD_HOST=cloud.example.com2. **New service**: Add to `Iotistic-net` network for inter-service communication
 
 SSH_TUNNEL_USER=tunnel3. **Environment variables**: Use `${VAR:-default}` pattern for flexibility
 
@@ -748,7 +748,7 @@ docker ps
 
 # Install on Raspberry Pi---
 
-curl -sSL https://raw.githubusercontent.com/dsamborschi/zemfyre-sensor/master/bin/install.sh | bash
+curl -sSL https://raw.githubusercontent.com/dsamborschi/Iotistic-sensor/master/bin/install.sh | bash
 
 This project emphasizes **modularity** (microservices), **configurability** (environment variables), and **developer experience** (livepush, comprehensive logging, clear APIs). When making changes, preserve these patterns and always test in the full Docker stack context.
 

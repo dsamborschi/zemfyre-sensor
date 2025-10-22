@@ -116,7 +116,7 @@ Add line:
 4. Action: Start a program
    - Program: `npx`
    - Arguments: `ts-node scripts/maintain-metrics-partitions.ts --retention=30`
-   - Start in: `C:\Users\Dan\zemfyre-sensor\api`
+   - Start in: `C:\Users\Dan\Iotistic-sensor\api`
 
 ### Option 3: Docker Container Health Check
 Add to docker-compose.yml:

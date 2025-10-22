@@ -8,6 +8,9 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { testConnection } from './db/connection';
 import { LicenseGenerator } from './services/license-generator';
+import { createBullBoard } from '@bull-board/api';
+import { BullAdapter } from '@bull-board/api/bullAdapter';
+import { ExpressAdapter } from '@bull-board/express';
 
 // Routes
 import customersRouter from './routes/customers';
@@ -15,6 +18,11 @@ import subscriptionsRouter from './routes/subscriptions';
 import licensesRouter from './routes/licenses';
 import usageRouter from './routes/usage';
 import webhooksRouter from './routes/webhooks';
+import queueRouter from './routes/queue';
+
+// Workers
+import { deploymentWorker } from './workers/deployment-worker';
+import { deploymentQueue } from './services/deployment-queue';
 
 // Load environment variables
 dotenv.config();
@@ -28,6 +36,19 @@ app.use(cors());
 // IMPORTANT: Stripe webhooks need raw body, other routes need JSON
 app.use('/api/webhooks/stripe', express.raw({ type: 'application/json' }));
 app.use(express.json());
+
+// Bull Board UI - Queue monitoring dashboard
+const serverAdapter = new ExpressAdapter();
+serverAdapter.setBasePath('/admin/queues');
+
+createBullBoard({
+  queues: [
+    new BullAdapter(deploymentQueue.getQueue())
+  ],
+  serverAdapter: serverAdapter,
+});
+
+app.use('/admin/queues', serverAdapter.getRouter());
 
 // Health check
 app.get('/health', (req, res) => {
@@ -44,6 +65,7 @@ app.use('/api/subscriptions', subscriptionsRouter);
 app.use('/api/licenses', licensesRouter);
 app.use('/api/usage', usageRouter);
 app.use('/api/webhooks', webhooksRouter);
+app.use('/api/queue', queueRouter);
 
 // 404 handler
 app.use((req, res) => {
@@ -70,15 +92,36 @@ async function start() {
     console.log('✅ License generator initialized');
 
     // Start server
-    app.listen(PORT, () => {
+    app.listen(PORT, async () => {
       console.log(`✅ Billing listening on port ${PORT}`);
       console.log(`   Health: http://localhost:${PORT}/health`);
       console.log(`   API: http://localhost:${PORT}/api`);
+      
+      // Start deployment worker
+      try {
+        await deploymentWorker.start();
+        console.log(`✅ Deployment worker started`);
+      } catch (error) {
+        console.error('⚠️  Failed to start deployment worker:', error);
+      }
     });
   } catch (error) {
     console.error('❌ Failed to start server:', error);
     process.exit(1);
   }
 }
+
+// Graceful shutdown
+process.on('SIGTERM', async () => {
+  console.log('📴 SIGTERM received, shutting down gracefully...');
+  await deploymentWorker.stop();
+  process.exit(0);
+});
+
+process.on('SIGINT', async () => {
+  console.log('📴 SIGINT received, shutting down gracefully...');
+  await deploymentWorker.stop();
+  process.exit(0);
+});
 
 start();

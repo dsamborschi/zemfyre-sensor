@@ -2,14 +2,14 @@
 
 ## What Was Implemented
 
-The cloud-based device jobs management system is now **fully integrated** into the Zemfyre Sensor API. This enables you to create, execute, and monitor jobs across your IoT device fleet from the portal/dashboard.
+The cloud-based device jobs management system is now **fully integrated** into the Iotistic Sensor API. This enables you to create, execute, and monitor jobs across your IoT device fleet from the portal/dashboard.
 
 ## Quick Start
 
 ### 1. Start the API Server
 
 ```powershell
-cd C:\Users\Dan\zemfyre-sensor\api
+cd C:\Users\Dan\Iotistic-sensor\api
 .\start-api.bat
 ```
 

@@ -1,4 +1,4 @@
--- Zemfyre Cloud API - PostgreSQL Database Schema
+-- Iotistic Cloud API - PostgreSQL Database Schema
 -- Inspired by Balena Cloud architecture
 
 -- Enable UUID extension

@@ -1,6 +1,6 @@
-# PostgreSQL Backend for Zemfyre Sensor
+# PostgreSQL Backend for Iotistic Sensor
 
-The Zemfyre API now supports a PostgreSQL backend for persistent device state storage, inspired by Balena Cloud's architecture.
+The Iotistic API now supports a PostgreSQL backend for persistent device state storage, inspired by Balena Cloud's architecture.
 
 ## Quick Start
 
@@ -30,16 +30,16 @@ docker-compose -f docker-compose.dev.yml up -d
    The PostgreSQL container will:
    - Start on port 5432
    - Auto-initialize the schema from `api/database/schema.sql`
-   - Create a persistent volume `zemfyre-pg-data`
+   - Create a persistent volume `Iotistic-pg-data`
 
 3. **Verify:**
    ```bash
    # Check API is using PostgreSQL
-   docker logs zemfyre-api
+   docker logs Iotistic-api
    # Should show: "🐘 Using PostgreSQL backend for device state"
    
    # Test database connection
-   docker exec -it zemfyre-postgres psql -U postgres -d zemfyre -c "SELECT COUNT(*) FROM devices;"
+   docker exec -it Iotistic-postgres psql -U postgres -d Iotistic -c "SELECT COUNT(*) FROM devices;"
    ```
 
 ## Environment Variables
@@ -63,10 +63,10 @@ The docker-compose stack includes:
 
 - **postgres** - PostgreSQL 16 Alpine (port 5432)
   - Auto-initializes schema on first start
-  - Persistent volume: `zemfyre-pg-data`
+  - Persistent volume: `Iotistic-pg-data`
   - Health checks every 10s
 
-- **api** - Zemfyre API (port 3002)
+- **api** - Iotistic API (port 3002)
   - Connects to postgres when `USE_POSTGRES=true`
   - Falls back to in-memory if postgres unavailable
   - Waits for postgres health check before starting
@@ -77,10 +77,10 @@ The docker-compose stack includes:
 
 ```bash
 # Via Docker
-docker exec -it zemfyre-postgres psql -U postgres -d zemfyre
+docker exec -it Iotistic-postgres psql -U postgres -d Iotistic
 
 # From host (if port exposed)
-psql -h localhost -U postgres -d zemfyre
+psql -h localhost -U postgres -d Iotistic
 ```
 
 ### Common Commands
@@ -107,10 +107,10 @@ ORDER BY timestamp DESC LIMIT 20;
 
 ```bash
 # Backup
-docker exec zemfyre-postgres pg_dump -U postgres zemfyre > zemfyre_backup.sql
+docker exec Iotistic-postgres pg_dump -U postgres Iotistic > Iotistic_backup.sql
 
 # Restore
-cat zemfyre_backup.sql | docker exec -i zemfyre-postgres psql -U postgres -d zemfyre
+cat Iotistic_backup.sql | docker exec -i Iotistic-postgres psql -U postgres -d Iotistic
 ```
 
 ### Reset Database
@@ -120,7 +120,7 @@ cat zemfyre_backup.sql | docker exec -i zemfyre-postgres psql -U postgres -d zem
 docker-compose -f docker-compose.dev.yml down
 
 # Remove volume
-docker volume rm zemfyre-pg-data
+docker volume rm Iotistic-pg-data
 
 # Restart (will auto-initialize)
 docker-compose -f docker-compose.dev.yml up -d
@@ -153,7 +153,7 @@ To migrate from in-memory to PostgreSQL:
 
 Check logs:
 ```bash
-docker logs zemfyre-api
+docker logs Iotistic-api
 ```
 
 Common issues:
@@ -165,20 +165,20 @@ Common issues:
 
 ```bash
 # Check PostgreSQL status
-docker exec zemfyre-postgres pg_isready -U postgres
+docker exec Iotistic-postgres pg_isready -U postgres
 
 # View PostgreSQL logs
-docker logs zemfyre-postgres
+docker logs Iotistic-postgres
 
 # Test connection
-docker exec -it zemfyre-postgres psql -U postgres -d zemfyre -c "SELECT NOW();"
+docker exec -it Iotistic-postgres psql -U postgres -d Iotistic -c "SELECT NOW();"
 ```
 
 ### Schema Issues
 
 ```bash
 # Manually apply schema
-docker exec -i zemfyre-postgres psql -U postgres -d zemfyre < api/database/schema.sql
+docker exec -i Iotistic-postgres psql -U postgres -d Iotistic < api/database/schema.sql
 ```
 
 ## Production Considerations
@@ -195,12 +195,12 @@ For production deployments:
 3. **Set up automated backups:**
    ```bash
    # Add to crontab
-   0 2 * * * docker exec zemfyre-postgres pg_dump -U postgres zemfyre | gzip > /backups/zemfyre-$(date +\%Y\%m\%d).sql.gz
+   0 2 * * * docker exec Iotistic-postgres pg_dump -U postgres Iotistic | gzip > /backups/Iotistic-$(date +\%Y\%m\%d).sql.gz
    ```
 
 4. **Monitor disk usage:**
    ```bash
-   docker system df -v | grep zemfyre-pg-data
+   docker system df -v | grep Iotistic-pg-data
    ```
 
 5. **Configure retention policies** (see `api/POSTGRES-BACKEND.md`)

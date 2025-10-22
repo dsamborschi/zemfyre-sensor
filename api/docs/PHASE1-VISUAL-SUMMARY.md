@@ -18,7 +18,7 @@
 
 ```bash
 # 1. Create test policy
-cd C:\Users\Dan\zemfyre-sensor\api
+cd C:\Users\Dan\Iotistic-sensor\api
 npx ts-node scripts/test-image-updates.ts
 
 # 2. Start server

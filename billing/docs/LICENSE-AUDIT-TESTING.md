@@ -10,7 +10,7 @@ First, apply the migration:
 
 ```powershell
 # Connect to billing database
-psql -h localhost -p 5432 -U postgres -d zemfyre_billing
+psql -h localhost -p 5432 -U postgres -d Iotistic_billing
 
 # Run migration
 \i billing/migrations/002_add_license_audit.sql

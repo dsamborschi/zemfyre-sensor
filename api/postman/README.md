@@ -1,6 +1,6 @@
-# Postman Mock Server for Zemfyre Cloud API
+# Postman Mock Server for Iotistic Cloud API
 
-This directory contains a Postman collection with comprehensive mock examples for the Zemfyre Cloud API (based on `cloud-postgres.ts`).
+This directory contains a Postman collection with comprehensive mock examples for the Iotistic Cloud API (based on `cloud-postgres.ts`).
 
 ## 🔥 IMPORTANT: SimpleState Format
 
@@ -57,7 +57,7 @@ The collection includes **13 API endpoints** organized into 6 folders:
 
 2. **Import Collection**:
    - Click **Import** button
-   - Select `Zemfyre-Cloud-API-Mock.postman_collection.json`
+   - Select `Iotistic-Cloud-API-Mock.postman_collection.json`
    - Click **Import**
 
 3. **Set Variables**:
@@ -77,7 +77,7 @@ The collection includes **13 API endpoints** organized into 6 folders:
 
 2. **Create Mock Server**:
    - Right-click collection → **Mock Collection**
-   - Name: `Zemfyre Cloud API Mock`
+   - Name: `Iotistic Cloud API Mock`
    - Environment: Create new or use existing
    - Make it public ✅ (optional)
    - Click **Create Mock Server**
@@ -252,7 +252,7 @@ Each request in the collection includes **example responses** that demonstrate:
     }
   },
   "config": {
-    "hostname": "zemfyre-pi-001",
+    "hostname": "Iotistic-pi-001",
     "timezone": "UTC"
   },
   "version": 5
@@ -374,7 +374,7 @@ To update the collection:
 
 1. Make changes in Postman
 2. Export collection (Collection → ... → Export)
-3. Replace `Zemfyre-Cloud-API-Mock.postman_collection.json`
+3. Replace `Iotistic-Cloud-API-Mock.postman_collection.json`
 4. Commit and push
 
 ## 📝 Notes

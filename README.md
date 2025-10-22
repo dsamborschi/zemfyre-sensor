@@ -1,6 +1,6 @@
-# Zemfyre Sensor - IoT Environmental Monitoring System
+# Iotistic Sensor - IoT Environmental Monitoring System
 
-A comprehensive IoT solution for environmental monitoring using Bosch BME688 gas sensors with Raspberry Pi, featuring real-time data visualization, machine learning capabilities, and kiosk mode display. This sensor system was designed with SPE (Single Pair Ethernet) technology by **[Zemfyre Inc](https://zemfyre.com)**, the leader in SPE technology solutions. The application software was expertly designed by the IoT software experts team at **[Iotistic Inc](http://www.iotistic.ca)**.
+A comprehensive IoT solution for environmental monitoring using Bosch BME688 gas sensors with Raspberry Pi, featuring real-time data visualization, machine learning capabilities, and kiosk mode display. This sensor system was designed with SPE (Single Pair Ethernet) technology by **[Iotistic Inc](https://Iotistic.com)**, the leader in SPE technology solutions. The application software was expertly designed by the IoT software experts team at **[Iotistic Inc](http://www.iotistic.ca)**.
 
 ## 🌟 Features
 
@@ -81,7 +81,7 @@ The system consists of several containerized services:
 ### Sensor Hardware
 - **Bosch BME688 Environmental Sensor**
 - **4-in-1 measurements**: Temperature, Humidity, Pressure, Gas/Air Quality
-- **SPE Connectivity**: Single Pair Ethernet for data and power (designed by [Zemfyre Inc](https://zemfyre.com))
+- **SPE Connectivity**: Single Pair Ethernet for data and power (designed by [Iotistic Inc](https://Iotistic.com))
 - **Ethernet Connection**: Sensor connected to Raspberry Pi via Ethernet interface
 - **Default Network Address**: Configurable via DHCP or static IP assignment
 
@@ -125,8 +125,8 @@ This will:
 
 1. **Clone the repository**:
 ```bash
-git clone https://github.com/dsamborschi/zemfyre-sensor.git
-cd zemfyre-sensor
+git clone https://github.com/dsamborschi/Iotistic-sensor.git
+cd Iotistic-sensor
 ```
 
 2. **Run the installer**:
@@ -183,8 +183,8 @@ For development and testing:
 
 ```bash
 # Clone repository
-git clone https://github.com/dsamborschi/zemfyre-sensor.git
-cd zemfyre-sensor
+git clone https://github.com/dsamborschi/Iotistic-sensor.git
+cd Iotistic-sensor
 
 # Start development stack
 docker-compose -f docker-compose.dev.yml up -d
@@ -206,7 +206,7 @@ GRAFANA_PORT_EXT=53000
 ADMIN_PORT=51850
 
 # InfluxDB Configuration
-INFLUXDB_INIT_ORG=Zemfyre
+INFLUXDB_INIT_ORG=Iotistic
 INFLUXDB_INIT_BUCKET=ZUS80LP
 
 # Network Configuration
@@ -453,7 +453,7 @@ For more details, see [`docs/REMOTE-ACCESS.md`](docs/REMOTE-ACCESS.md).
 ### Project Structure
 
 ```
-zemfyre-sensor/
+Iotistic-sensor/
 ├── admin/                  # Web admin interface
 ├── ansible/               # Deployment automation
 │   ├── roles/
@@ -517,7 +517,7 @@ your-sensor:
     - /dev:/dev
   privileged: true
   networks:
-    - zemfyre-net
+    - Iotistic-net
 ```
 
 ### Custom Node-RED Nodes
@@ -617,22 +617,22 @@ This project is licensed under the MIT License. See [LICENSE](LICENSE) for detai
 
 ## 🆘 Support
 
-- **Issues**: [GitHub Issues](https://github.com/dsamborschi/zemfyre-sensor/issues)
-- **Documentation**: [Wiki](https://github.com/dsamborschi/zemfyre-sensor/wiki)
-- **Discussions**: [GitHub Discussions](https://github.com/dsamborschi/zemfyre-sensor/discussions)
+- **Issues**: [GitHub Issues](https://github.com/dsamborschi/Iotistic-sensor/issues)
+- **Documentation**: [Wiki](https://github.com/dsamborschi/Iotistic-sensor/wiki)
+- **Discussions**: [GitHub Discussions](https://github.com/dsamborschi/Iotistic-sensor/discussions)
 
 ## 🏷️ Version
 
 Current version: **Latest** (rolling release from master branch)
 
-For stable releases, check: [Releases](https://github.com/dsamborschi/zemfyre-sensor/releases)
+For stable releases, check: [Releases](https://github.com/dsamborschi/Iotistic-sensor/releases)
 
 ---
 
-**Powered by [Zemfyre Inc](https://zemfyre.com) SPE Technology** | **Software by [Iotistic Inc](http://www.iotistic.ca) IoT Experts** | **Made with ❤️ for the IoT community**
+**Powered by [Iotistic Inc](https://Iotistic.com) SPE Technology** | **Software by [Iotistic Inc](http://www.iotistic.ca) IoT Experts** | **Made with ❤️ for the IoT community**
 
-### About Zemfyre Inc
-[Zemfyre Inc](https://zemfyre.com) is the industry leader in Single Pair Ethernet (SPE) technology, providing innovative solutions for simplified industrial networking. Our SPE technology enables both data and power transmission over a single pair of wires, reducing installation complexity and costs for IoT deployments.
+### About Iotistic Inc
+[Iotistic Inc](https://Iotistic.com) is the industry leader in Single Pair Ethernet (SPE) technology, providing innovative solutions for simplified industrial networking. Our SPE technology enables both data and power transmission over a single pair of wires, reducing installation complexity and costs for IoT deployments.
 
 ### About Iotistic Inc 
 The application software was expertly crafted by the IoT software specialists at **[Iotistic Inc](http://www.iotistic.ca)**. Our team brings decades of experience in industrial IoT solutions, containerized applications, and real-time data systems. We specialize in creating robust, scalable IoT platforms for environmental monitoring and industrial automation.

@@ -8,12 +8,12 @@ Connection refused to localhost:5432
 ```
 
 **Root Cause:**
-ML service was configured to connect to `localhost:5432`, but PostgreSQL is running in Docker on the `zemfyre-net` network as container `postgres`.
+ML service was configured to connect to `localhost:5432`, but PostgreSQL is running in Docker on the `Iotistic-net` network as container `postgres`.
 
 **Solution:**
 Updated ML service Docker Compose to:
 1. Use `DB_HOST=postgres` (container name, not localhost)
-2. Connect to `zemfyre-net` network (same as PostgreSQL)
+2. Connect to `Iotistic-net` network (same as PostgreSQL)
 3. Add dependency on PostgreSQL container
 
 ---
@@ -115,7 +115,7 @@ curl "http://localhost:5000/ml/forecasts/predict/46b68204-9806-43c5-8d19-18b1f53
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                   Docker Network                         │
-│                   zemfyre-net                            │
+│                   Iotistic-net                            │
 │                                                          │
 │  ┌──────────────┐           ┌──────────────┐           │
 │  │  PostgreSQL  │◄──────────┤  ML Service  │           │
@@ -141,7 +141,7 @@ curl "http://localhost:5000/ml/forecasts/predict/46b68204-9806-43c5-8d19-18b1f53
 │                  │
 │  ┌────────────┐  │      ┌─────────────────────┐
 │  │ ML Service │◄─┼──────┤  Docker Network     │
-│  │ (Python)   │  │      │  zemfyre-net        │
+│  │ (Python)   │  │      │  Iotistic-net        │
 │  │ Port: 5000 │  │      │                     │
 │  └────────────┘  │      │  ┌──────────────┐  │
 │                  │      │  │  PostgreSQL  │  │
@@ -156,7 +156,7 @@ curl "http://localhost:5000/ml/forecasts/predict/46b68204-9806-43c5-8d19-18b1f53
 
 1. **`docker-compose.yml`**
    - Changed `DB_HOST` from `localhost` to `postgres`
-   - Changed network from `ml-network` to `zemfyre-net`
+   - Changed network from `ml-network` to `Iotistic-net`
    - Added `depends_on: postgres`
 
 2. **Created `run-local.ps1`**
@@ -204,7 +204,7 @@ docker ps --filter "name=postgres"
 
 **Check network exists:**
 ```powershell
-docker network ls | Select-String zemfyre-net
+docker network ls | Select-String Iotistic-net
 ```
 
 **View logs:**

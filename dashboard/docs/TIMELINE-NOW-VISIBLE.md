@@ -116,7 +116,7 @@ I've updated `SystemMetrics.tsx` to show **both timeline versions side-by-side**
 Make sure your API is running:
 
 ```powershell
-cd c:\Users\Dan\zemfyre-sensor\api
+cd c:\Users\Dan\Iotistic-sensor\api
 docker-compose up -d
 ```
 
@@ -125,7 +125,7 @@ Both timelines will fetch from: `http://localhost:4002/api/v1/events/device/{dev
 ## To Apply Database Fix for Timestamps
 
 ```powershell
-cd c:\Users\Dan\zemfyre-sensor\api
+cd c:\Users\Dan\Iotistic-sensor\api
 Get-Content fix-event-timestamp.sql | docker-compose exec -T postgres psql -U postgres -d iotistic
 docker-compose restart api
 ```

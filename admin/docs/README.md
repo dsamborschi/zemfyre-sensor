@@ -1,6 +1,6 @@
 # Admin Panel Documentation
 
-Web-based administration panel for managing Zemfyre Sensor devices.
+Web-based administration panel for managing Iotistic Sensor devices.
 
 ---
 

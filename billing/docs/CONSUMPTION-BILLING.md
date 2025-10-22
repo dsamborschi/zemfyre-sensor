@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document outlines how to implement **consumption-based billing** for Zemfyre IoT Platform, specifically tracking network traffic and data usage from customer deployments.
+This document outlines how to implement **consumption-based billing** for Iotistic IoT Platform, specifically tracking network traffic and data usage from customer deployments.
 
 ---
 

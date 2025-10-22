@@ -116,12 +116,12 @@ If you have WSL2 installed, you can run both agent and simulator in WSL:
 
 ```bash
 # In WSL2
-cd /mnt/c/Users/Dan/zemfyre-sensor/sensor-simulator
+cd /mnt/c/Users/Dan/Iotistic-sensor/sensor-simulator
 npm install
 node simulator.js
 
 # In another WSL2 terminal
-cd /mnt/c/Users/Dan/zemfyre-sensor/agent
+cd /mnt/c/Users/Dan/Iotistic-sensor/agent
 npm run dev
 ```
 
@@ -143,7 +143,7 @@ This works because WSL2 has full Linux Unix socket support.
 
 ```powershell
 # Terminal 1: Start simulator
-cd c:\Users\Dan\zemfyre-sensor\sensor-simulator
+cd c:\Users\Dan\Iotistic-sensor\sensor-simulator
 .\run-local.ps1
 
 # VS Code: Start agent (F5)

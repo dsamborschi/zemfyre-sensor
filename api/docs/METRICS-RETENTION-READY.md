@@ -119,7 +119,7 @@ npx ts-node scripts/cleanup-old-metrics.ts --retention=7
 crontab -e
 
 # Add this line (runs daily at 2 AM)
-0 2 * * * cd /path/to/zemfyre-sensor/api && npx ts-node scripts/cleanup-old-metrics.ts --retention=30 >> /var/log/metrics-cleanup.log 2>&1
+0 2 * * * cd /path/to/Iotistic-sensor/api && npx ts-node scripts/cleanup-old-metrics.ts --retention=30 >> /var/log/metrics-cleanup.log 2>&1
 ```
 
 ### Option 2: Windows Task Scheduler
@@ -129,8 +129,8 @@ crontab -e
 3. Trigger: Daily at 2:00 AM
 4. Action: Start a program
 5. Program: `C:\Program Files\nodejs\node.exe`
-6. Arguments: `C:\path\to\zemfyre-sensor\api\node_modules\.bin\ts-node scripts/cleanup-old-metrics.ts --retention=30`
-7. Start in: `C:\path\to\zemfyre-sensor\api`
+6. Arguments: `C:\path\to\Iotistic-sensor\api\node_modules\.bin\ts-node scripts/cleanup-old-metrics.ts --retention=30`
+7. Start in: `C:\path\to\Iotistic-sensor\api`
 
 ### Option 3: Node.js Scheduled Job (In Application)
 

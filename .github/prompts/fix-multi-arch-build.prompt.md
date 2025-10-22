@@ -5,7 +5,7 @@ mode: agent
 # Fix Multi-Architecture Docker Build Issues
 
 ## Context
-The Zemfyre Sensor project supports multiple architectures: Raspberry Pi (ARMv6/7/64) and x86_64. Docker images are tagged by device type (pi3, pi4, x86) rather than generic architecture names.
+The Iotistic Sensor project supports multiple architectures: Raspberry Pi (ARMv6/7/64) and x86_64. Docker images are tagged by device type (pi3, pi4, x86) rather than generic architecture names.
 
 ## Common Issues
 

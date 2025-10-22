@@ -1,6 +1,6 @@
-# Zemfyre Global Billing API
+# Iotistic Global Billing API
 
-**Global SaaS Control Plane** for Zemfyre IoT Platform - Handles Stripe subscriptions, license generation, and customer management.
+**Global SaaS Control Plane** for Iotistic IoT Platform - Handles Stripe subscriptions, license generation, and customer management.
 
 ---
 
@@ -94,7 +94,7 @@ cat keys/public-key.pem
 
 ```bash
 # Create PostgreSQL database
-createdb zemfyre_billing
+createdb Iotistic_billing
 
 # Run migrations
 npm run migrate
@@ -325,8 +325,8 @@ Create Stripe checkout session
 {
   "customerId": "cust_123",
   "plan": "professional",
-  "successUrl": "https://app.zemfyre.com/success",
-  "cancelUrl": "https://app.zemfyre.com/pricing"
+  "successUrl": "https://app.Iotistic.com/success",
+  "cancelUrl": "https://app.Iotistic.com/pricing"
 }
 ```
 
@@ -458,7 +458,7 @@ CREATE TABLE usage_reports (
 ```bash
 # Starter Plan
 stripe products create \
-  --name "Zemfyre Starter" \
+  --name "Iotistic Starter" \
   --description "Up to 10 devices"
 
 stripe prices create \
@@ -469,7 +469,7 @@ stripe prices create \
 
 # Professional Plan
 stripe products create \
-  --name "Zemfyre Professional" \
+  --name "Iotistic Professional" \
   --description "Up to 50 devices"
 
 stripe prices create \
@@ -482,7 +482,7 @@ stripe prices create \
 ### 2. Configure Webhooks
 
 Add webhook endpoint in Stripe dashboard:
-- URL: `https://billing.zemfyre.com/webhooks/stripe`
+- URL: `https://billing.Iotistic.com/webhooks/stripe`
 - Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
 
 ### 3. Get Webhook Secret
@@ -537,7 +537,7 @@ Signed with RS256 using `keys/private-key.pem`.
 
 ```bash
 # Build
-docker build -t zemfyre-billing-api .
+docker build -t Iotistic-billing-api .
 
 # Run
 docker run -d \
@@ -546,7 +546,7 @@ docker run -d \
   -e STRIPE_SECRET_KEY=sk_live_... \
   -v ./keys:/app/keys:ro \
   --name billing-api \
-  zemfyre-billing-api
+  Iotistic-billing-api
 ```
 
 ### Production Checklist
@@ -662,19 +662,19 @@ Customer instances use the **public key** to validate licenses:
 # In customer instance .env
 IOTISTIC_LICENSE_KEY=eyJhbGc...  # JWT from billing API
 LICENSE_PUBLIC_KEY="$(cat keys/public-key.pem)"  # Public key
-BILLING_API_URL=https://billing.zemfyre.com
+BILLING_API_URL=https://billing.Iotistic.com
 ```
 
 ---
 
 ## Support
 
-- **Email**: support@zemfyre.com
-- **Docs**: https://docs.zemfyre.com
-- **Status**: https://status.zemfyre.com
+- **Email**: support@Iotistic.com
+- **Docs**: https://docs.Iotistic.com
+- **Status**: https://status.Iotistic.com
 
 ---
 
 ## License
 
-Proprietary - Zemfyre Technologies Inc.
+Proprietary - Iotistic Technologies Inc.

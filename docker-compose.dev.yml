@@ -52,7 +52,7 @@ services:
         volumes:
             - ml-models:/app/models/saved
         networks:
-           - zemfyre-net
+           - Iotistic-net
         depends_on:
             - postgres
         healthcheck:
@@ -68,7 +68,7 @@ volumes:
     driver: local
  
 networks:
-  zemfyre-net:
+  Iotistic-net:
     driver: bridge
 
 

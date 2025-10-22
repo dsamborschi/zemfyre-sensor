@@ -10,11 +10,11 @@ Connection refused to localhost:5432
 ```
 
 **Root Cause:**  
-ML service Docker Compose was configured with `DB_HOST=localhost` but PostgreSQL runs as container `postgres` on `zemfyre-net` network.
+ML service Docker Compose was configured with `DB_HOST=localhost` but PostgreSQL runs as container `postgres` on `Iotistic-net` network.
 
 **Fix:**
 - Updated `docker-compose.yml`: Changed `DB_HOST=postgres`
-- Connected ML service to `zemfyre-net` network
+- Connected ML service to `Iotistic-net` network
 - Added `depends_on: postgres`
 
 ---

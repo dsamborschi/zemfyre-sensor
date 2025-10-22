@@ -1,6 +1,6 @@
 # MQTT Documentation
 
-MQTT communication, centralization, and debugging for Zemfyre Sensor.
+MQTT communication, centralization, and debugging for Iotistic Sensor.
 
 ---
 

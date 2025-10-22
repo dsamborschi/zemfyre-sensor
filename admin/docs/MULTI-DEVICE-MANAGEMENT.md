@@ -1,6 +1,6 @@
 # Multi-Device Management Feature
 
-This document describes the multi-device management system that allows you to control multiple Zemfyre sensor devices from a single admin interface.
+This document describes the multi-device management system that allows you to control multiple Iotistic sensor devices from a single admin interface.
 
 ## Architecture Overview
 
