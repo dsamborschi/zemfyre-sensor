@@ -45,6 +45,9 @@ spec:
           
           echo "🗄️ Creating MQTT database schema..."
           psql "postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@{{ include "customer-instance.fullname" . }}-postgres:5432/${POSTGRES_DB}" <<EOF
+          -- Enable UUID extension (required for migrations)
+          CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+          
           -- Create mqtt_users table
           CREATE TABLE IF NOT EXISTS mqtt_users (
             id SERIAL PRIMARY KEY,
