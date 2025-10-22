@@ -18,7 +18,7 @@ const config: { [key: string]: Knex.Config } = {
     migrations: {
       directory: './database/migrations',
       tableName: 'knex_migrations',
-      extension: 'ts'
+      extension: 'sql'  // API uses custom SQL migration system (see src/db/migrations.ts)
     },
     seeds: {
       directory: './database/seeds',
