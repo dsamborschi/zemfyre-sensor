@@ -214,6 +214,3 @@ CREATE TRIGGER update_device_rollout_status_updated_at BEFORE UPDATE ON device_r
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 COMMIT;
-
--- Success message
-\echo '✅ Image update management tables created successfully'
