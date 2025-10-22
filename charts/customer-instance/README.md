@@ -8,7 +8,7 @@ This chart deploys a complete IoT stack for each customer, including:
 
 - **PostgreSQL** - Time-series database for sensor data
 - **Mosquitto** - MQTT broker for device communication
-- **API** - Backend API service with license validation
+- **API** - Backend API service
 - **Dashboard** - Web-based admin panel
 - **Billing Exporter** - Metrics collector for usage tracking
 
@@ -70,7 +70,7 @@ license:
   key: "eyJhbGc..."               # JWT license key
 
 domain:
-  base: "iotistic.cloud"          # Base domain for customer subdomains
+  base: "iotistdashic.ca"          # Base domain for customer subdomains
 ```
 
 ### Optional Values (with defaults)
@@ -116,7 +116,7 @@ api:
 
 # Dashboard
 dashboard:
-  image: iotistic/admin:latest
+  image: iotistic/dashbaoard:latest
   port: 80
   resources:
     requests:
@@ -169,7 +169,7 @@ Once deployed, the customer instance is accessible at:
 - **API**: `https://{customer.id}.{domain.base}/api`
 - **Metrics**: `https://{customer.id}.{domain.base}/metrics` (internal only)
 
-Example: `https://abc123.iotistic.cloud/`
+Example: `https://abc123.iotistic.ca/`
 
 ## Architecture
 
