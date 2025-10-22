@@ -30,11 +30,20 @@ spec:
             secretKeyRef:
               name: {{ include "customer-instance.fullname" . }}-secrets
               key: CUSTOMER_ID
-        - name: DATABASE_URL
+        - name: INSTANCE_ID
+          value: "{{ .Release.Name }}"
+        - name: NAMESPACE
           valueFrom:
-            secretKeyRef:
-              name: {{ include "customer-instance.fullname" . }}-secrets
-              key: DATABASE_URL
+            fieldRef:
+              fieldPath: metadata.namespace
+        - name: PROMETHEUS_URL
+          value: "{{ .Values.exporter.prometheusUrl }}"
+        - name: BILLING_API_URL
+          value: "{{ .Values.exporter.billingApiUrl }}"
+        - name: COLLECTION_INTERVAL
+          value: "{{ .Values.exporter.collectionInterval }}"
+        - name: HEALTH_CHECK_PORT
+          value: "{{ .Values.exporter.port }}"
         resources:
           {{- toYaml .Values.exporter.resources | nindent 10 }}
 ---

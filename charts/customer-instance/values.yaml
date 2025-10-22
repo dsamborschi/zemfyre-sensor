@@ -105,7 +105,10 @@ exporter:
   image:
     repository: iotistic/billing-exporter
     tag: latest
-  port: 9090
+  port: 8080
+  prometheusUrl: "http://prometheus-kube-prometheus-prometheus.monitoring:9090"
+  billingApiUrl: "http://billing-service.default:3000"
+  collectionInterval: "3600000"  # 1 hour in milliseconds
   resources:
     requests:
       cpu: 50m
