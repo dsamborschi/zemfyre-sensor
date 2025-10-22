@@ -31,19 +31,20 @@ services:
       DATABASE_URL: postgres://billing:billing123@postgres:5432/billing
       
       # Stripe (use your test keys)
-      STRIPE_SECRET_KEY: sk_test_...
-      STRIPE_PUBLISHABLE_KEY: pk_test_...
-      STRIPE_WEBHOOK_SECRET: whsec_...
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLISHABLE_KEY}
+      # Get this from: docker logs billing-stripe-cli (look for "Ready! Your webhook signing secret is whsec_...")
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
       
       # Stripe Price IDs (create these in Stripe dashboard)
-      STRIPE_PRICE_STARTER: price_starter
-      STRIPE_PRICE_PROFESSIONAL: price_professional
-      STRIPE_PRICE_ENTERPRISE: price_enterprise
+      STRIPE_PRICE_STARTER: ${STRIPE_PRICE_STARTER}
+      STRIPE_PRICE_PROFESSIONAL: ${STRIPE_PRICE_PROFESSIONAL}
+      STRIPE_PRICE_ENTERPRISE: ${STRIPE_PRICE_ENTERPRISE}
       
       # License keys
-      LICENSE_PRIVATE_KEY_PATH: /app/keys/private-key.pem
-      LICENSE_PUBLIC_KEY_PATH: /app/keys/public-key.pem
-      
+      LICENSE_PRIVATE_KEY_PATH: ${LICENSE_PRIVATE_KEY_PATH}
+      LICENSE_PUBLIC_KEY_PATH: ${LICENSE_PUBLIC_KEY_PATH}
+
       # Trial configuration
       DEFAULT_TRIAL_DAYS: 14
     volumes:
@@ -52,6 +53,21 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+
+  # Stripe CLI for webhook testing
+  stripe-cli:
+    image: stripe/stripe-cli:latest
+    container_name: billing-stripe-cli
+    command: listen --forward-to http://billing:3100/api/webhooks/stripe --skip-verify
+    environment:
+      # Set your Stripe API key
+      STRIPE_API_KEY: ${STRIPE_SECRET_KEY}
+    depends_on:
+      - billing
+    # Note: On first run, you'll need to get the webhook signing secret
+    # Run: docker logs billing-stripe-cli
+    # Look for: "Ready! Your webhook signing secret is whsec_..." 
+    # Update STRIPE_WEBHOOK_SECRET in billing service with this value
 
 volumes:
   postgres_data:

@@ -62,6 +62,17 @@ export class CustomerModel {
   }
 
   /**
+   * Get customer by Stripe customer ID
+   */
+  static async getByStripeCustomerId(stripeCustomerId: string): Promise<Customer | null> {
+    const result = await query<Customer>(
+      'SELECT * FROM customers WHERE stripe_customer_id = $1',
+      [stripeCustomerId]
+    );
+    return result.rows[0] || null;
+  }
+
+  /**
    * Update customer
    */
   static async update(

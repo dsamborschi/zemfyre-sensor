@@ -34,16 +34,49 @@ router.post('/stripe', async (req, res) => {
         await StripeService.handleCheckoutCompleted(event.data.object);
         break;
 
+      case 'customer.subscription.created':
+        console.log('✅ Subscription created');
+        await StripeService.handleSubscriptionUpdated(event.data.object);
+        break;
+
       case 'customer.subscription.updated':
+        console.log('✅ Subscription updated');
         await StripeService.handleSubscriptionUpdated(event.data.object);
         break;
 
       case 'customer.subscription.deleted':
+        console.log('✅ Subscription deleted');
         await StripeService.handleSubscriptionDeleted(event.data.object);
         break;
 
+      case 'invoice.payment_succeeded':
+        console.log('✅ Invoice payment succeeded');
+        await StripeService.handlePaymentSucceeded(event.data.object);
+        break;
+
+      case 'invoice.payment_failed':
+        console.log('❌ Invoice payment failed');
+        await StripeService.handlePaymentFailed(event.data.object);
+        break;
+
+      // Optional: Log but don't process these events
+      case 'customer.created':
+      case 'customer.updated':
+      case 'payment_method.attached':
+      case 'payment_intent.created':
+      case 'payment_intent.succeeded':
+      case 'charge.succeeded':
+      case 'invoice.created':
+      case 'invoice.finalized':
+      case 'invoice.paid':
+      case 'product.created':
+      case 'plan.created':
+      case 'price.created':
+        console.log(`ℹ️  Event logged but not processed: ${event.type}`);
+        break;
+
       default:
-        console.log(`⚠️ Unhandled event type: ${event.type}`);
+        console.log(`⚠️  Unhandled event type: ${event.type}`);
     }
 
     res.json({ received: true });

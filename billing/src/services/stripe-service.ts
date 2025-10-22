@@ -119,13 +119,45 @@ export class StripeService {
   static async handleSubscriptionUpdated(
     subscription: Stripe.Subscription
   ): Promise<void> {
-    const dbSubscription = await SubscriptionModel.getByStripeId(subscription.id);
+    // Try to find existing subscription
+    let dbSubscription = await SubscriptionModel.getByStripeId(subscription.id);
+    
+    // If not found, this might be a new subscription - try to find by Stripe customer ID
     if (!dbSubscription) {
-      console.warn('Subscription not found in database:', subscription.id);
+      const stripeCustomerId = typeof subscription.customer === 'string' 
+        ? subscription.customer 
+        : subscription.customer.id;
+      
+      const customer = await CustomerModel.getByStripeCustomerId(stripeCustomerId);
+      
+      if (!customer) {
+        console.warn(`⚠️  Customer not found for Stripe subscription ${subscription.id}`);
+        console.warn(`   Stripe customer ID: ${stripeCustomerId}`);
+        console.warn(`   ℹ️  This is normal for test webhooks. Real webhooks will have a customer in the database.`);
+        return;
+      }
+
+      // Determine plan from price ID
+      const priceId = subscription.items.data[0]?.price.id;
+      let plan: 'starter' | 'professional' | 'enterprise' | 'trial' = 'starter';
+      
+      if (priceId === process.env.STRIPE_PRICE_STARTER) plan = 'starter';
+      else if (priceId === process.env.STRIPE_PRICE_PROFESSIONAL) plan = 'professional';
+      else if (priceId === process.env.STRIPE_PRICE_ENTERPRISE) plan = 'enterprise';
+
+      // Create new subscription
+      await SubscriptionModel.createPaid(
+        customer.customer_id,
+        plan,
+        subscription.id,
+        new Date(subscription.current_period_end * 1000)
+      );
+
+      console.log(`✅ New subscription created for customer ${customer.customer_id} (${plan})`);
       return;
     }
 
-    // Map Stripe status to our status
+    // Update existing subscription
     const statusMap: Record<string, any> = {
       active: 'active',
       past_due: 'past_due',
@@ -156,6 +188,63 @@ export class StripeService {
 
     await SubscriptionModel.cancel(dbSubscription.customer_id);
     console.log(`✅ Subscription canceled for customer ${dbSubscription.customer_id}`);
+  }
+
+  /**
+   * Handle successful payment
+   */
+  static async handlePaymentSucceeded(
+    invoice: Stripe.Invoice
+  ): Promise<void> {
+    if (!invoice.subscription) {
+      console.log('Invoice is not for a subscription, skipping');
+      return;
+    }
+
+    const dbSubscription = await SubscriptionModel.getByStripeId(
+      invoice.subscription as string
+    );
+    
+    if (!dbSubscription) {
+      console.warn('Subscription not found in database:', invoice.subscription);
+      return;
+    }
+
+    // Update subscription to active status
+    await SubscriptionModel.update(dbSubscription.customer_id, {
+      status: 'active',
+      current_period_ends_at: new Date(invoice.period_end * 1000),
+    });
+
+    console.log(`✅ Payment succeeded for customer ${dbSubscription.customer_id}`);
+  }
+
+  /**
+   * Handle failed payment
+   */
+  static async handlePaymentFailed(
+    invoice: Stripe.Invoice
+  ): Promise<void> {
+    if (!invoice.subscription) {
+      console.log('Invoice is not for a subscription, skipping');
+      return;
+    }
+
+    const dbSubscription = await SubscriptionModel.getByStripeId(
+      invoice.subscription as string
+    );
+    
+    if (!dbSubscription) {
+      console.warn('Subscription not found in database:', invoice.subscription);
+      return;
+    }
+
+    // Update subscription to past_due status
+    await SubscriptionModel.update(dbSubscription.customer_id, {
+      status: 'past_due',
+    });
+
+    console.log(`❌ Payment failed for customer ${dbSubscription.customer_id}`);
   }
 
   /**
