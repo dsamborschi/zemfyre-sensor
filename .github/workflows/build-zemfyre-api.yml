@@ -41,7 +41,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Build & Push Admin image
+      - name: Build & Push API image
         uses: docker/build-push-action@v5
         with:
           context: ./api
@@ -51,4 +51,4 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
           cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
           tags: |
-            iotistic/Iotistic-api:latest-${{ matrix.board }}
+            iotistic/api:latest-${{ matrix.board }}
