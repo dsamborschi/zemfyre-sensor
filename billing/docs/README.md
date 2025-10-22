@@ -189,7 +189,85 @@ SIMULATE_K8S_DEPLOYMENT=true  # For local testing
 ### 4. Start Database & Redis
 
 ```bash
+# Start PostgreSQL and Redis
 docker-compose up -d postgres redis
+
+# Verify services are running
+docker-compose ps
+
+# Check Redis connection
+docker exec billing-redis-1 redis-cli ping
+# Should return: PONG
+```
+
+**Redis Configuration:**
+
+The billing service uses Redis for:
+- **Deployment Queue** (Bull) - Background job processing
+- **Session Storage** (optional)
+- **Rate Limiting** (optional)
+
+Default Redis connection settings in `docker-compose.yml`:
+```yaml
+redis:
+  image: redis:7-alpine
+  container_name: billing-redis
+  ports:
+    - "6379:6379"
+  volumes:
+    - redis-data:/data
+  command: redis-server --appendonly yes
+  healthcheck:
+    test: ["CMD", "redis-cli", "ping"]
+    interval: 10s
+    timeout: 3s
+    retries: 3
+```
+
+**Redis Security (Production):**
+
+For production deployments, enable authentication:
+
+```yaml
+redis:
+  image: redis:7-alpine
+  command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+  environment:
+    - REDIS_PASSWORD=${REDIS_PASSWORD}
+```
+
+Update `.env`:
+```bash
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_PASSWORD=your-secure-password-here
+REDIS_DB=0
+```
+
+**Redis Persistence:**
+
+Redis is configured with AOF (Append-Only File) persistence:
+- All write operations are logged
+- Data survives container restarts
+- Volume: `redis-data:/data`
+
+**Monitoring Redis:**
+
+```bash
+# Connect to Redis CLI
+docker exec -it billing-redis-1 redis-cli
+
+# Check memory usage
+INFO memory
+
+# List all keys
+KEYS *
+
+# Monitor commands in real-time
+MONITOR
+
+# Check queue status
+KEYS bull:*
 ```
 
 ### 5. Run Migrations
@@ -846,6 +924,285 @@ server {
 
 ---
 
+## Redis Queue System
+
+### Overview
+
+The billing service uses **Bull** (Redis-based queue) for background job processing:
+
+- **Deployment Queue** - Kubernetes deployments for new customers
+- **Webhook Processing** - Async Stripe webhook handling
+- **Email Notifications** - Async email sending
+- **License Generation** - Batch license regeneration
+
+### Queue Architecture
+
+```
+Stripe Webhook → API Endpoint → Bull Queue → Worker → Kubernetes Deployment
+                                     ↓
+                                Redis Storage
+                                     ↓
+                               Bull Board UI
+```
+
+### Bull Board Dashboard
+
+**Access:** http://localhost:3100/admin/queues
+
+**Features:**
+- Real-time job monitoring
+- Job status (waiting, active, completed, failed)
+- Retry failed jobs
+- Job details and logs
+- Progress tracking
+- Performance metrics
+
+### Queue Configuration
+
+**Environment Variables:**
+
+```bash
+# Redis Connection
+REDIS_HOST=redis              # Redis hostname
+REDIS_PORT=6379              # Redis port
+REDIS_PASSWORD=              # Optional password (production)
+REDIS_DB=0                   # Database number
+
+# Queue Settings
+QUEUE_CONCURRENCY=3          # Parallel workers
+QUEUE_MAX_RETRY=3            # Retry attempts
+QUEUE_BACKOFF_DELAY=5000     # Retry delay (ms)
+```
+
+**Queue Options (code):**
+
+```typescript
+// billing/src/services/deployment-queue.ts
+const queue = new Queue('customer-deployments', {
+  redis: {
+    host: process.env.REDIS_HOST,
+    port: parseInt(process.env.REDIS_PORT || '6379'),
+    password: process.env.REDIS_PASSWORD,
+    db: parseInt(process.env.REDIS_DB || '0'),
+  },
+  defaultJobOptions: {
+    attempts: 3,
+    backoff: {
+      type: 'exponential',
+      delay: 5000,
+    },
+    removeOnComplete: 100,  // Keep last 100 completed
+    removeOnFail: 200,      // Keep last 200 failed
+  },
+});
+```
+
+### Job Lifecycle
+
+1. **Job Created**
+   - API receives request (e.g., new customer signup)
+   - Job added to queue with payload
+
+2. **Job Queued**
+   - Stored in Redis
+   - Status: `waiting`
+   - Visible in Bull Board
+
+3. **Worker Picks Up Job**
+   - Worker process polls queue
+   - Status: `active`
+   - Progress updates visible
+
+4. **Job Processing**
+   - Execute business logic
+   - Report progress (0-100%)
+   - Log operations
+
+5. **Job Complete**
+   - Status: `completed` or `failed`
+   - Stored for audit
+   - Retry if failed (up to 3 times)
+
+### Queue Operations
+
+**Add Job to Queue:**
+
+```typescript
+import { deploymentQueue } from './services/deployment-queue';
+
+await deploymentQueue.add('deploy-customer', {
+  customerId: 'cust_abc123',
+  plan: 'professional',
+  namespace: 'customer-abc123',
+});
+```
+
+**Check Queue Status:**
+
+```bash
+# Via API
+curl http://localhost:3100/api/queue/stats
+
+# Via Bull Board
+# Open http://localhost:3100/admin/queues
+```
+
+**Response:**
+```json
+{
+  "waiting": 5,
+  "active": 2,
+  "completed": 150,
+  "failed": 3,
+  "delayed": 0
+}
+```
+
+**Retry Failed Job:**
+
+Via Bull Board:
+1. Go to "Failed" tab
+2. Click on job
+3. Click "Retry" button
+
+Via Code:
+```typescript
+const job = await queue.getJob(jobId);
+await job.retry();
+```
+
+**Remove Jobs:**
+
+```typescript
+// Clean old jobs
+await queue.clean(1000 * 60 * 60 * 24); // 24 hours
+
+// Remove specific job
+const job = await queue.getJob(jobId);
+await job.remove();
+```
+
+### Monitoring & Debugging
+
+**View Queue Logs:**
+
+```bash
+# Application logs
+docker-compose logs -f billing
+
+# Worker logs (if separate)
+docker-compose logs -f billing-worker
+```
+
+**Redis Queue Keys:**
+
+```bash
+# Connect to Redis
+docker exec -it billing-redis-1 redis-cli
+
+# List Bull queues
+KEYS bull:customer-deployments:*
+
+# Get waiting jobs count
+LLEN bull:customer-deployments:wait
+
+# Get job data
+HGETALL bull:customer-deployments:1
+```
+
+**Common Issues:**
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Jobs stuck in waiting | Worker not running | Check `npm run dev` or restart service |
+| Jobs failing repeatedly | Invalid configuration | Check job payload and environment vars |
+| Redis connection error | Redis not running | `docker-compose up -d redis` |
+| High memory usage | Too many completed jobs | Run `queue.clean()` or reduce retention |
+
+### Production Deployment
+
+**Separate Worker Process:**
+
+For production, run workers in separate containers:
+
+```yaml
+# docker-compose.production.yml
+services:
+  billing-api:
+    build: .
+    command: npm start
+    # API only, no workers
+    
+  billing-worker:
+    build: .
+    command: npm run worker
+    replicas: 3  # Multiple workers
+    environment:
+      - QUEUE_CONCURRENCY=5
+```
+
+**Redis Cluster (High Availability):**
+
+```yaml
+redis:
+  image: redis:7-alpine
+  command: >
+    redis-server
+    --requirepass ${REDIS_PASSWORD}
+    --appendonly yes
+    --cluster-enabled yes
+    --cluster-config-file nodes.conf
+    --cluster-node-timeout 5000
+```
+
+**Monitoring:**
+
+- Use Bull Board UI for real-time monitoring
+- Set up alerts for failed jobs (>10% failure rate)
+- Monitor Redis memory usage
+- Track queue depth (alert if >100 waiting)
+
+### Queue Best Practices
+
+1. **Job Idempotency**
+   - Jobs should be safely retryable
+   - Check if work already done before executing
+   - Use unique job IDs
+
+2. **Timeouts**
+   - Set reasonable job timeouts
+   - Prevent hung jobs
+   ```typescript
+   defaultJobOptions: {
+     timeout: 300000, // 5 minutes
+   }
+   ```
+
+3. **Progress Reporting**
+   - Update job progress for long-running tasks
+   ```typescript
+   job.progress(50); // 50% complete
+   ```
+
+4. **Error Handling**
+   - Catch errors and provide context
+   - Log useful debugging information
+   ```typescript
+   try {
+     await deployCustomer(job.data);
+   } catch (error) {
+     await job.log(`Deployment failed: ${error.message}`);
+     throw error;
+   }
+   ```
+
+5. **Resource Cleanup**
+   - Clean up resources even if job fails
+   - Use try/finally blocks
+   - Remove temporary files
+
+---
+
 ## Kubernetes Deployment
 
 ### Architecture
@@ -1237,6 +1594,13 @@ DATABASE_URL=postgresql://user:password@prod-db:5432/billing
 REDIS_HOST=prod-redis.cache.amazonaws.com
 REDIS_PORT=6379
 REDIS_PASSWORD=<redis_password>
+REDIS_DB=0
+REDIS_TLS_ENABLED=true  # For managed Redis services
+
+# Queue Configuration
+QUEUE_CONCURRENCY=5
+QUEUE_MAX_RETRY=3
+QUEUE_BACKOFF_DELAY=5000
 
 # Stripe (live keys)
 STRIPE_SECRET_KEY=sk_live_...
@@ -1266,17 +1630,134 @@ SIMULATE_K8S_DEPLOYMENT=false
 
 ### Docker Deployment
 
+**Option 1: Docker Compose (Recommended)**
+
+```bash
+# Production docker-compose
+docker-compose -f docker-compose.production.yml up -d
+
+# Verify services
+docker-compose ps
+
+# View logs
+docker-compose logs -f billing
+docker-compose logs -f billing-worker
+```
+
+**docker-compose.production.yml:**
+```yaml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: billing
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD} --appendonly yes
+    volumes:
+      - redis-data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+  billing:
+    build: .
+    command: npm start
+    ports:
+      - "3100:3100"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/billing
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+      - STRIPE_WEBHOOK_SECRET=${STRIPE_WEBHOOK_SECRET}
+    volumes:
+      - ./keys:/app/keys:ro
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+
+  billing-worker:
+    build: .
+    command: npm run worker
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASSWORD}@postgres:5432/billing
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+      - QUEUE_CONCURRENCY=5
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    deploy:
+      replicas: 3  # Multiple workers for high availability
+
+volumes:
+  postgres-data:
+  redis-data:
+```
+
+**Option 2: Standalone Containers**
+
 ```bash
 # Build
 docker build -t billing-api:latest .
 
-# Run
+# Create network
+docker network create billing-network
+
+# Start Redis
+docker run -d \
+  --name billing-redis \
+  --network billing-network \
+  -e REDIS_PASSWORD=your-secure-password \
+  -v redis-data:/data \
+  redis:7-alpine \
+  redis-server --requirepass your-secure-password --appendonly yes
+
+# Start PostgreSQL
+docker run -d \
+  --name billing-postgres \
+  --network billing-network \
+  -e POSTGRES_DB=billing \
+  -e POSTGRES_USER=billing \
+  -e POSTGRES_PASSWORD=your-secure-password \
+  -v postgres-data:/var/lib/postgresql/data \
+  postgres:15-alpine
+
+# Start API
 docker run -d \
   --name billing-api \
+  --network billing-network \
   -p 3100:3100 \
   --env-file .env.production \
   -v /path/to/keys:/app/keys:ro \
   billing-api:latest
+
+# Start Worker
+docker run -d \
+  --name billing-worker \
+  --network billing-network \
+  --env-file .env.production \
+  -e QUEUE_CONCURRENCY=5 \
+  billing-api:latest \
+  npm run worker
 ```
 
 ### Kubernetes Deployment
@@ -1306,6 +1787,144 @@ spec:
       - name: license-keys
         secret:
           secretName: license-keys
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing-worker
+spec:
+  replicas: 5
+  template:
+    spec:
+      containers:
+      - name: worker
+        image: iotistic/billing-api:latest
+        command: ["npm", "run", "worker"]
+        envFrom:
+        - secretRef:
+            name: billing-secrets
+        env:
+        - name: QUEUE_CONCURRENCY
+          value: "5"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+spec:
+  ports:
+  - port: 6379
+    targetPort: 6379
+  selector:
+    app: redis
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: redis
+spec:
+  serviceName: redis
+  replicas: 1
+  selector:
+    matchLabels:
+      app: redis
+  template:
+    metadata:
+      labels:
+        app: redis
+    spec:
+      containers:
+      - name: redis
+        image: redis:7-alpine
+        command:
+        - redis-server
+        - --requirepass
+        - $(REDIS_PASSWORD)
+        - --appendonly
+        - "yes"
+        ports:
+        - containerPort: 6379
+          name: redis
+        env:
+        - name: REDIS_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: billing-secrets
+              key: redis-password
+        volumeMounts:
+        - name: redis-data
+          mountPath: /data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+  volumeClaimTemplates:
+  - metadata:
+      name: redis-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 10Gi
+```
+
+**Create Secrets:**
+
+```bash
+# Create billing secrets
+kubectl create secret generic billing-secrets \
+  --from-literal=database-url=postgresql://user:pass@postgres:5432/billing \
+  --from-literal=redis-host=redis \
+  --from-literal=redis-port=6379 \
+  --from-literal=redis-password=your-secure-password \
+  --from-literal=stripe-secret-key=sk_live_... \
+  --from-literal=stripe-webhook-secret=whsec_... \
+  --from-literal=admin-api-token=your-admin-token
+
+# Create license keys secret
+kubectl create secret generic license-keys \
+  --from-file=private-key.pem=./keys/private-key.pem \
+  --from-file=public-key.pem=./keys/public-key.pem
+```
+
+**Deploy:**
+
+```bash
+# Apply manifests
+kubectl apply -f k8s/billing.yaml
+
+# Check status
+kubectl get pods -l app=billing
+kubectl get pods -l app=billing-worker
+kubectl get pods -l app=redis
+
+# View logs
+kubectl logs -f deployment/billing-api
+kubectl logs -f deployment/billing-worker
+
+# Check Redis
+kubectl exec -it redis-0 -- redis-cli -a your-password ping
+```
+
+**Using Managed Redis (AWS ElastiCache, Azure Cache, GCP Memorystore):**
+
+Update billing-secrets:
+```bash
+kubectl create secret generic billing-secrets \
+  --from-literal=redis-host=prod-redis.xxx.cache.amazonaws.com \
+  --from-literal=redis-port=6379 \
+  --from-literal=redis-password=managed-redis-password \
+  --from-literal=redis-tls-enabled=true \
+  --dry-run=client -o yaml | kubectl apply -f -
+```
+
+Remove Redis StatefulSet if using managed service:
+```bash
+kubectl delete statefulset redis
+kubectl delete service redis
 ```
 
 ### Secrets Management
