@@ -2,14 +2,21 @@
 node_modules/
 **/node_modules/
 
-# Node-RED specific
-nodered/data/node-modules/*
-nodered/data/lib/*
-nodered/data/.npm
+# Node-RED specific - ignore ALL runtime data
+nodered/data/
 
-# InfluxDB data
-influx/data/engine/*
-influx/data/influxd.sqlite
+# InfluxDB data - ignore ALL runtime data
+influx/data/
+
+# Grafana data - ignore ALL runtime data
+grafana/data/
+
+# Portainer data - ignore ALL runtime data
+portainer/data/
+
+# Mosquitto data - ignore runtime data
+mosquitto/data/
+mosquitto/log/
 
 # Environment files
 .env
