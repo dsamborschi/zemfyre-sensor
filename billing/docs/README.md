@@ -1,69 +1,130 @@
-# Iotistic Global Billing API
+# Iotistic Billing System - Complete Guide
 
-**Global SaaS Control Plane** for Iotistic IoT Platform - Handles Stripe subscriptions, license generation, and customer management.
+> **All-in-one documentation for the Iotistic Global Billing API**  
+> Last Updated: October 22, 2025
+
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Architecture](#architecture)
+3. [Quick Start](#quick-start)
+4. [API Endpoints](#api-endpoints)
+5. [License System](#license-system)
+6. [Plan Configuration](#plan-configuration)
+7. [Stripe Integration](#stripe-integration)
+8. [Security](#security)
+9. [Kubernetes Deployment](#kubernetes-deployment)
+10. [Testing](#testing)
+11. [Consumption Billing](#consumption-billing)
+12. [Management](#management)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
 ## Overview
 
-This is the **centralized billing API** that:
-- ✅ Manages customer subscriptions via Stripe
-- ✅ Generates JWT license keys for customer instances
-- ✅ Tracks usage from deployed customer instances
-- ✅ Handles trial periods and plan upgrades
-- ✅ Processes Stripe webhooks
+The **Iotistic Global Billing API** is a production-ready, centralized billing service that:
 
-**Customer instances** (deployed in K8s clusters) validate licenses and report usage back to this API.
+✅ Manages customer subscriptions via Stripe  
+✅ Generates JWT license keys for customer instances  
+✅ Tracks usage from deployed customer instances  
+✅ Handles trial periods and plan upgrades  
+✅ Processes Stripe webhooks  
+✅ Supports consumption-based billing
+
+### Technology Stack
+
+- **Node.js 18+** / TypeScript 5.3
+- **Express** - REST API framework
+- **PostgreSQL** - Customer, subscription, usage data
+- **Stripe SDK 14.9** - Payment processing
+- **Bull + Redis** - Job queue for deployments
+- **jsonwebtoken** - RS256 JWT signing/verification
+- **Docker** - Containerized deployment
 
 ---
 
 ## Architecture
 
+### Deployment Model
+
 ```
-┌─────────────────────────────────────────┐
-│   Global Billing API (This Repo)       │
-│   - Stripe integration                  │
-│   - License generation (JWT)            │
-│   - Customer management                 │
-│   - Usage aggregation                   │
-│   - Subscription lifecycle              │
-└─────────────────────────────────────────┘
-                    ↓
-              License JWT
-                    ↓
-┌─────────────────────────────────────────┐
-│  Customer Instance (Per Customer)       │
-│  - Validates license                    │
-│  - Enforces feature flags               │
-│  - Reports usage daily                  │
-└─────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    YOUR CLOUD (Single Instance)             │
+│  ┌────────────────────────────────────────────────────────┐ │
+│  │  Global Billing API (billing/)                         │ │
+│  │  - Stripe checkout & subscriptions                     │ │
+│  │  - License JWT generation (RS256 private key)          │ │
+│  │  - Customer/subscription database                      │ │
+│  │  - Usage aggregation                                   │ │
+│  │  - Deployment queue (Bull + Redis)                    │ │
+│  └────────────────────────────────────────────────────────┘ │
+│                          ↓ Generates License JWT            │
+│                          ↓ (signed with private key)        │
+└─────────────────────────────────────────────────────────────┘
+                                    ↓
+              ┌─────────────────────┼─────────────────────┐
+              ↓                     ↓                     ↓
+┌─────────────────────┐  ┌─────────────────────┐  ┌─────────────────────┐
+│  Customer Instance  │  │  Customer Instance  │  │  Customer Instance  │
+│  (THEIR K8s/Cloud)  │  │  (THEIR K8s/Cloud)  │  │  (THEIR K8s/Cloud)  │
+│  ┌───────────────┐  │  │  ┌───────────────┐  │  │  ┌───────────────┐  │
+│  │ Validates     │  │  │  │ Validates     │  │  │  │ Validates     │  │
+│  │ License JWT   │  │  │  │ License JWT   │  │  │  │ License JWT   │  │
+│  │ (public key)  │  │  │  │ (public key)  │  │  │  │ (public key)  │  │
+│  │               │  │  │  │               │  │  │  │               │  │
+│  │ Reports Usage │  │  │  │ Reports Usage │  │  │  │ Reports Usage │  │
+│  └───────────────┘  │  │  └───────────────┘  │  │  └───────────────┘  │
+│   api/ (validates)  │  │   api/ (validates)  │  │   api/ (validates)  │
+└─────────────────────┘  └─────────────────────┘  └─────────────────────┘
 ```
 
----
+### Directory Structure
 
-## Features
-
-### ✅ Stripe Integration
-- Subscription creation with checkout sessions
-- Plan management (Starter, Professional, Enterprise)
-- Promo code support
-- Webhook handling (payment success, subscription canceled, etc.)
-
-### ✅ License Management
-- JWT-based licenses (RS256 asymmetric signing)
-- Feature flags per plan
-- Device limits and usage quotas
-- License renewal and revocation
-
-### ✅ Trial Management
-- 14-day free trials
-- Trial-to-paid conversion
-- Trial expiration handling
-
-### ✅ Usage Tracking
-- Receive usage reports from customer instances
-- Aggregate device counts
-- Usage-based billing (future)
+```
+billing/
+├── src/
+│   ├── db/                     # Database layer (PostgreSQL)
+│   │   ├── connection.ts       # Database connection pool
+│   │   ├── customer-model.ts   # Customer CRUD operations
+│   │   ├── subscription-model.ts # Trial + paid subscriptions
+│   │   ├── usage-report-model.ts # Usage tracking
+│   │   └── license-history-model.ts # License audit trail
+│   ├── services/
+│   │   ├── license-generator.ts  # RS256 JWT license signing
+│   │   ├── stripe-service.ts     # Stripe integration
+│   │   ├── deployment-queue.ts   # Bull queue configuration
+│   │   └── k8s-deployment-service.ts # Kubernetes deployment
+│   ├── workers/
+│   │   └── deployment-worker.ts  # Background deployment jobs
+│   ├── routes/
+│   │   ├── customers.ts        # Customer management API
+│   │   ├── subscriptions.ts    # Subscription API
+│   │   ├── licenses.ts         # License generation API
+│   │   ├── usage.ts            # Usage reporting API
+│   │   └── webhooks.ts         # Stripe webhook handler
+│   ├── middleware/
+│   │   ├── auth.ts             # Authentication middleware
+│   │   └── rate-limit.ts       # Rate limiting
+│   └── index.ts                # Express server + Bull Board
+├── migrations/
+│   ├── 001_initial_schema.sql  # PostgreSQL schema
+│   └── 002_add_license_audit.sql # License history table
+├── scripts/
+│   ├── generate-keys.ts        # RSA key pair generator
+│   ├── test-checkout-flow.ps1  # Stripe checkout test
+│   ├── test-queue.ps1          # Deployment queue test
+│   └── upgrade-customer.ps1    # Customer upgrade tool
+├── docs/                       # Documentation (this file)
+├── package.json                # Dependencies
+├── tsconfig.json               # TypeScript config
+├── Dockerfile                  # Production container
+├── docker-compose.yml          # Local development stack
+├── .env.example                # Environment template
+└── .gitignore                  # Excludes keys/
+```
 
 ---
 
@@ -72,229 +133,80 @@ This is the **centralized billing API** that:
 ### 1. Install Dependencies
 
 ```bash
+cd billing
 npm install
 ```
 
-### 2. Generate RSA Keys
+### 2. Generate RSA Keys (for license signing)
 
-```bash
-# Automated script
+```powershell
 npm run generate-keys
-
-# OR manually:
-mkdir keys
-openssl genrsa -out keys/private-key.pem 2048
-openssl rsa -in keys/private-key.pem -pubout -out keys/public-key.pem
-
-# IMPORTANT: Copy public key to customer instances
-cat keys/public-key.pem
 ```
 
-### 3. Set Up Database
+This creates:
+- `keys/private-key.pem` - **Keep secret!** Used to sign licenses
+- `keys/public-key.pem` - Share with customer instances to verify licenses
+
+### 3. Configure Environment
+
+Copy `.env.example` to `.env`:
 
 ```bash
-# Create PostgreSQL database
-createdb Iotistic_billing
+PORT=3100
+DATABASE_URL=postgres://billing:billing123@localhost:5432/billing
 
-# Run migrations
+# Redis (for deployment queue)
+REDIS_HOST=redis
+REDIS_PORT=6379
+REDIS_DB=0
+QUEUE_CONCURRENCY=3
+
+# Get these from https://dashboard.stripe.com/test/apikeys
+STRIPE_SECRET_KEY=sk_test_...
+STRIPE_PUBLISHABLE_KEY=pk_test_...
+
+# Get this from Stripe CLI or webhooks dashboard
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Stripe Price IDs (create products in Stripe dashboard first)
+STRIPE_PRICE_STARTER=price_...
+STRIPE_PRICE_PROFESSIONAL=price_...
+STRIPE_PRICE_ENTERPRISE=price_...
+
+# License keys (just generated)
+LICENSE_PRIVATE_KEY_PATH=./keys/private-key.pem
+LICENSE_PUBLIC_KEY_PATH=./keys/public-key.pem
+
+# Trial settings
+DEFAULT_TRIAL_DAYS=14
+
+# Kubernetes deployment
+BASE_DOMAIN=iotistic.cloud
+HELM_CHART_PATH=/app/charts/customer-instance
+SIMULATE_K8S_DEPLOYMENT=true  # For local testing
+```
+
+### 4. Start Database & Redis
+
+```bash
+docker-compose up -d postgres redis
+```
+
+### 5. Run Migrations
+
+```bash
 npm run migrate
 ```
 
-### 4. Configure Environment
-
-```bash
-cp .env.example .env
-# Edit .env with your Stripe keys and database URL
-```
-
-### 5. Run Development Server
+### 6. Start Development Server
 
 ```bash
 npm run dev
 ```
 
-Server runs on `http://localhost:3100`
+Server runs on http://localhost:3100
 
----
-
-## Management Scripts
-
-### Customer Management (`customer-manager.ts`)
-
-**Add New Customer:**
-```bash
-npm run customer -- add \
-  --email customer@example.com \
-  --name "Customer Name" \
-  --company "Company Inc"
-
-# Output:
-# ✅ Customer created successfully!
-# Customer Details:
-# ─────────────────────────────────────────
-# ID:               cust_abc123xyz
-# Email:            customer@example.com
-# Name:             Customer Name
-# Company:          Company Inc
-# Created:          10/21/2025, 10:30:00 AM
-# ─────────────────────────────────────────
-# 
-# 📜 Initial License JWT (Trial):
-# eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
-# 
-# 💡 Add this to customer instance .env file:
-# LICENSE_JWT=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
-# CUSTOMER_ID=cust_abc123xyz
-```
-
-**Upgrade Customer:**
-```bash
-npm run customer -- upgrade \
-  --id cust_abc123xyz \
-  --plan professional
-
-# Output:
-# ✅ Checkout session created!
-# Checkout Details:
-# ─────────────────────────────────────────
-# Session ID:       cs_test_123xyz
-# Plan:             professional
-# ─────────────────────────────────────────
-# 
-# 🔗 Checkout URL:
-# https://checkout.stripe.com/c/pay/cs_test_123xyz...
-# 
-# 💡 Send this URL to the customer to complete payment.
-#    After payment, webhook will auto-provision subscription.
-```
-
-**Deactivate Customer:**
-```bash
-npm run customer -- deactivate --id cust_abc123xyz
-
-# Output:
-# ✅ Customer deactivated successfully!
-# Deactivation Details:
-# ─────────────────────────────────────────
-# Customer ID:      cust_abc123xyz
-# Subscription ID:  sub_123xyz
-# Previous Plan:    professional
-# Cancelled At:     10/21/2025, 2:45:00 PM
-# ─────────────────────────────────────────
-# 
-# 💡 Customer will revert to trial mode.
-#    They can reactivate by subscribing again.
-```
-
-**List All Customers:**
-```bash
-npm run customer -- list
-
-# Output:
-# Found 3 customer(s):
-# 
-# ─────────────────────────────────────────────────────────────────────────────
-# ID                    | Email                        | Name                  | Company
-# ─────────────────────────────────────────────────────────────────────────────
-# cust_abc123xyz        | customer@example.com         | Customer Name         | Company Inc
-# cust_def456uvw        | another@example.com          | Another Customer      | Acme Corp
-# cust_ghi789rst        | test@test.com                | Test Customer         | -
-# ─────────────────────────────────────────────────────────────────────────────
-```
-
----
-
-### Usage Report Viewer (`usage-viewer.ts`)
-
-**View Customer Usage:**
-```bash
-npm run usage -- --customer cust_abc123xyz
-
-# View last 30 days
-npm run usage -- --customer cust_abc123xyz --days 30
-
-# Output:
-# Customer Information:
-# ═════════════════════════════════════════════════════════════════════════════
-# ID:               cust_abc123xyz
-# Email:            customer@example.com
-# Name:             Customer Name
-# Company:          Company Inc
-# ═════════════════════════════════════════════════════════════════════════════
-# 
-# Subscription Information:
-# ─────────────────────────────────────────────────────────────────────────────
-# Plan:             PROFESSIONAL
-# Status:           ACTIVE
-# Device Limit:     50
-# Renewal Date:     11/21/2025, 12:00:00 AM
-# ─────────────────────────────────────────────────────────────────────────────
-# 
-# Usage Reports (Last 7 Days):
-# ─────────────────────────────────────────────────────────────────────────────
-# Date                 | Instance ID    | Active | Total | Utilization
-# ─────────────────────────────────────────────────────────────────────────────
-# 10/21/2025, 10:00 AM | production-1   |     42 |    45 |       84.0%
-# 10/20/2025, 10:00 AM | production-1   |     40 |    45 |       80.0%
-# 10/19/2025, 10:00 AM | production-1   |     38 |    45 |       76.0%
-# ─────────────────────────────────────────────────────────────────────────────
-# 
-# Summary Statistics:
-# ─────────────────────────────────────────────────────────────────────────────
-# Total Reports:    7
-# Avg Active:       39.4 devices
-# Peak Active:      42 devices
-# Current Active:   42 devices
-# Current Total:    45 devices
-# Limit:            50 devices
-# Remaining:        8 devices
-# 
-# ⚠️  WARNING: 84.0% of device limit used!
-#     Consider upgrading to a higher plan.
-# ─────────────────────────────────────────────────────────────────────────────
-```
-
-**View All Customer Usage:**
-```bash
-npm run usage -- --all
-
-# View all customers for last 30 days
-npm run usage -- --all --days 30
-
-# Output:
-# Found 3 customer(s)
-# ═════════════════════════════════════════════════════════════════════════════
-# 
-# Customer Name (customer@example.com)
-#   Customer ID:  cust_abc123xyz
-#   Plan:         PROFESSIONAL
-#   Device Limit: 50
-#   Active:       42 devices
-#   Total:        45 devices
-#   Utilization:  84.0%
-#   Reports:      7 in last 7 days
-#   ⚠️  WARNING: 84.0% of limit used!
-# 
-# Another Customer (another@example.com)
-#   Customer ID:  cust_def456uvw
-#   Plan:         STARTER
-#   Device Limit: 10
-#   Active:       8 devices
-#   Total:        10 devices
-#   Utilization:  80.0%
-#   Reports:      7 in last 7 days
-#   ⚠️  WARNING: 80.0% of limit used!
-# 
-# Test Customer (test@test.com)
-#   Customer ID:  cust_ghi789rst
-#   Plan:         TRIAL
-#   Device Limit: 5
-#   Active:       2 devices
-#   Total:        3 devices
-#   Utilization:  40.0%
-#   Reports:      5 in last 7 days
-# ═════════════════════════════════════════════════════════════════════════════
-```
+**Bull Board UI** (Queue Dashboard): http://localhost:3100/admin/queues
 
 ---
 
@@ -302,158 +214,413 @@ npm run usage -- --all --days 30
 
 ### Customer Management
 
-**POST /api/customers**
-Create a new customer account
-```json
+#### Create Customer
+
+```http
+POST /api/customers
+Content-Type: application/json
+
 {
   "email": "customer@example.com",
-  "companyName": "Acme Corp",
-  "plan": "professional"
+  "company_name": "Acme Corp",
+  "full_name": "John Doe",
+  "password": "SecurePass123"
 }
 ```
 
-**GET /api/customers/:customerId**
-Get customer details
-
----
-
-### Subscription Management
-
-**POST /api/subscriptions/create-checkout**
-Create Stripe checkout session
+**Response:**
 ```json
 {
-  "customerId": "cust_123",
-  "plan": "professional",
-  "successUrl": "https://app.Iotistic.com/success",
-  "cancelUrl": "https://app.Iotistic.com/pricing"
-}
-```
-
-**POST /api/subscriptions/create-trial**
-Start a free trial
-```json
-{
-  "customerId": "cust_123",
-  "plan": "professional"
-}
-```
-
-**POST /api/subscriptions/:subscriptionId/upgrade**
-Upgrade subscription plan
-
-**POST /api/subscriptions/:subscriptionId/cancel**
-Cancel subscription
-
----
-
-### License Management
-
-**GET /api/licenses/:customerId**
-Generate license JWT for customer
-```json
-{
-  "license": "eyJhbGc...",
-  "publicKey": "-----BEGIN PUBLIC KEY-----..."
-}
-```
-
-**POST /api/licenses/:customerId/revoke**
-Revoke customer license
-
----
-
-### Usage Reporting
-
-**POST /api/usage/report**
-Receive usage report from customer instance
-```json
-{
-  "customerId": "cust_123",
-  "instanceId": "us-east-1",
-  "timestamp": "2025-10-21T10:00:00Z",
-  "metrics": {
-    "activeDevices": 23,
-    "totalDevices": 30
+  "customer": {
+    "customer_id": "cust_abc123xyz",
+    "email": "customer@example.com",
+    "company_name": "Acme Corp",
+    "stripe_customer_id": "cus_xxx",
+    "created_at": "2025-10-22T10:00:00Z"
+  },
+  "subscription": {
+    "plan": "starter",
+    "status": "trialing",
+    "trial_ends_at": "2025-11-05T10:00:00Z"
+  },
+  "license": {
+    "jwt": "eyJhbGc..."
   }
 }
 ```
 
-**GET /api/usage/:customerId**
-Get usage history for customer
+#### Get Customer
 
----
+```http
+GET /api/customers/:customerId
+```
+
+#### List Customers
+
+```http
+GET /api/customers?page=1&limit=20
+```
+
+### Subscription Management
+
+#### Create Checkout Session
+
+```http
+POST /api/subscriptions/checkout
+Content-Type: application/json
+
+{
+  "customer_id": "cust_abc123",
+  "plan": "professional",
+  "success_url": "https://app.example.com/success",
+  "cancel_url": "https://app.example.com/cancel"
+}
+```
+
+**Response:**
+```json
+{
+  "session_id": "cs_test_xxx",
+  "checkout_url": "https://checkout.stripe.com/c/pay/cs_test_xxx"
+}
+```
+
+#### Get Subscription
+
+```http
+GET /api/subscriptions/:customerId
+```
+
+#### Upgrade Subscription
+
+```http
+POST /api/subscriptions/upgrade
+Content-Type: application/json
+
+{
+  "customer_id": "cust_abc123",
+  "new_plan": "enterprise"
+}
+```
+
+#### Cancel Subscription
+
+```http
+POST /api/subscriptions/cancel
+Content-Type: application/json
+
+{
+  "customer_id": "cust_abc123"
+}
+```
+
+### License Management
+
+#### Generate License
+
+```http
+GET /api/licenses/:customerId
+```
+
+**Response:**
+```json
+{
+  "license": "eyJhbGc...",
+  "decoded": {
+    "customerId": "cust_abc123",
+    "customerName": "Acme Corp",
+    "plan": "professional",
+    "features": {
+      "maxDevices": 50,
+      "dataRetentionDays": 365,
+      "canExportData": true,
+      "hasAdvancedAlerts": true,
+      "hasApiAccess": true,
+      "hasMqttAccess": true,
+      "hasCustomBranding": false
+    },
+    "limits": {
+      "maxUsers": 15,
+      "maxAlertRules": 100,
+      "maxDashboards": 20
+    },
+    "subscription": {
+      "status": "active",
+      "currentPeriodEndsAt": "2025-11-22T00:00:00Z"
+    }
+  }
+}
+```
+
+#### Get Public Key
+
+```http
+GET /api/licenses/public-key
+```
+
+#### Get License History
+
+```http
+GET /api/licenses/:customerId/history
+```
+
+**Response:**
+```json
+{
+  "customer_id": "cust_abc123",
+  "email": "customer@example.com",
+  "history": [
+    {
+      "id": 42,
+      "action": "upgraded",
+      "plan": "professional",
+      "max_devices": 50,
+      "generated_at": "2025-10-21T10:30:00Z",
+      "metadata": {
+        "oldPlan": "starter",
+        "newPlan": "professional",
+        "features": {...}
+      }
+    }
+  ],
+  "statistics": {
+    "totalGenerations": 5,
+    "byAction": { "generated": 3, "upgraded": 2 },
+    "byPlan": { "starter": 2, "professional": 3 }
+  }
+}
+```
+
+#### Revoke License
+
+```http
+POST /api/licenses/:customerId/revoke
+Content-Type: application/json
+
+{
+  "reason": "Customer requested cancellation"
+}
+```
+
+### Usage Reporting
+
+#### Report Usage
+
+```http
+POST /api/usage/report
+Content-Type: application/json
+
+{
+  "customer_id": "cust_abc123",
+  "instance_id": "prod-1",
+  "active_devices": 42,
+  "total_devices": 45,
+  "mqtt_messages_published": 150000,
+  "mqtt_messages_received": 120000,
+  "mqtt_bytes_sent": 1500000,
+  "mqtt_bytes_received": 1200000,
+  "http_requests": 5000,
+  "http_bytes_sent": 500000,
+  "http_bytes_received": 300000,
+  "postgres_size_mb": 125.5,
+  "postgres_row_count": 500000
+}
+```
+
+#### Get Usage History
+
+```http
+GET /api/usage/:customerId?days=30
+```
+
+### Deployment Queue
+
+#### Get Queue Stats
+
+```http
+GET /api/queue/stats
+```
+
+**Response:**
+```json
+{
+  "waiting": 0,
+  "active": 1,
+  "completed": 15,
+  "failed": 2,
+  "delayed": 0
+}
+```
 
 ### Webhooks
 
-**POST /webhooks/stripe**
-Stripe webhook handler (payment success, subscription canceled, etc.)
+#### Stripe Webhook Handler
+
+```http
+POST /api/webhooks/stripe
+Stripe-Signature: t=xxx,v1=yyy
+
+{
+  "type": "checkout.session.completed",
+  "data": { ... }
+}
+```
+
+**Supported Events:**
+- `checkout.session.completed` - Payment completed
+- `customer.subscription.updated` - Subscription changed
+- `customer.subscription.deleted` - Subscription canceled
+- `invoice.payment_succeeded` - Invoice paid
+- `invoice.payment_failed` - Payment failed
 
 ---
 
-## Database Schema
+## License System
 
-### customers
-```sql
-CREATE TABLE customers (
-  id SERIAL PRIMARY KEY,
-  customer_id VARCHAR(255) UNIQUE NOT NULL,
-  email VARCHAR(255) UNIQUE NOT NULL,
-  company_name VARCHAR(255),
-  stripe_customer_id VARCHAR(255),
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+### How It Works
+
+1. **Billing API** generates JWT license with customer's plan features
+2. **Customer Instance** validates JWT using public key (RS256)
+3. **Feature Guards** enforce limits (max devices, retention, etc.)
+
+### License JWT Payload Example
+
+```json
+{
+  "customerId": "cust_abc123",
+  "customerName": "Acme Corp",
+  "plan": "professional",
+  "features": {
+    "maxDevices": 50,
+    "dataRetentionDays": 365,
+    "canExportData": true,
+    "hasAdvancedAlerts": true,
+    "hasApiAccess": true,
+    "hasMqttAccess": true,
+    "hasCustomBranding": false
+  },
+  "limits": {
+    "maxUsers": 15,
+    "maxAlertRules": 100,
+    "maxDashboards": 20
+  },
+  "trial": {
+    "isTrialMode": false
+  },
+  "subscription": {
+    "status": "active",
+    "currentPeriodEndsAt": "2025-11-21T00:00:00Z"
+  },
+  "issuedAt": 1729500000,
+  "expiresAt": 1761036000
+}
 ```
 
-### subscriptions
-```sql
-CREATE TABLE subscriptions (
-  id SERIAL PRIMARY KEY,
-  customer_id VARCHAR(255) REFERENCES customers(customer_id),
-  stripe_subscription_id VARCHAR(255),
-  plan VARCHAR(50) NOT NULL,
-  status VARCHAR(50) NOT NULL,
-  trial_ends_at TIMESTAMP,
-  current_period_ends_at TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+### License Audit Logging
 
-### usage_reports
-```sql
-CREATE TABLE usage_reports (
-  id SERIAL PRIMARY KEY,
-  customer_id VARCHAR(255) REFERENCES customers(customer_id),
-  instance_id VARCHAR(255),
-  active_devices INTEGER,
-  total_devices INTEGER,
-  reported_at TIMESTAMP NOT NULL,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
+All license-related events are logged to `license_history` table:
+
+- **What IS stored** (Safe):
+  - License hash (SHA-256 of JWT)
+  - Plan name and features
+  - Customer ID
+  - Timestamps
+  - Metadata (features/limits)
+
+- **What is NOT stored** (Secure):
+  - ❌ Actual JWT license token
+  - ❌ Private key
+  - ❌ Customer API keys
+  - ❌ Stripe payment details
+
+### License Enforcement
+
+**Enforcement Point:** Provisioning key generation (NOT device registration)
+
+When creating a provisioning key, the system:
+1. Checks the license
+2. Counts active devices
+3. Compares current vs limit
+4. Blocks or allows key creation
+
+**Error Response (403 Forbidden):**
+```json
+{
+  "error": "Device limit exceeded",
+  "message": "Your professional plan allows a maximum of 50 devices. You currently have 50 active devices. Please upgrade your plan to add more devices.",
+  "details": {
+    "currentDevices": 50,
+    "maxDevices": 50,
+    "plan": "professional"
+  }
+}
 ```
 
 ---
 
 ## Plan Configuration
 
-| Feature | Starter | Professional | Enterprise |
-|---------|---------|--------------|------------|
-| **Price** | $29/mo | $99/mo | Custom |
-| **Max Devices** | 10 | 50 | Unlimited |
-| **Data Retention** | 30 days | 365 days | Custom |
-| **Export Data** | ✅ | ✅ | ✅ |
-| **Advanced Alerts** | ❌ | ✅ | ✅ |
-| **Custom Branding** | ❌ | ❌ | ✅ |
-| **API Access** | ✅ | ✅ | ✅ |
-| **Support** | Email | Priority | 24/7 Phone |
+### Subscription Plans
+
+| Plan | Price | Max Devices | Data Retention | Advanced Alerts | Custom Branding | Max Users |
+|------|-------|-------------|----------------|-----------------|-----------------|-----------|
+| **Trial** | FREE | 10 | 30 days | ❌ | ❌ | 2 |
+| **Starter** | $29/mo | 10 | 30 days | ❌ | ❌ | 5 |
+| **Professional** | $99/mo | 50 | 365 days | ✅ | ❌ | 15 |
+| **Enterprise** | Custom | Unlimited | Unlimited | ✅ | ✅ | Unlimited |
+
+### Feature Comparison
+
+#### Core Device Management
+- **Max Devices**: Device limit per plan
+- **Device Hours**: Tracked for billing
+
+#### Job Execution Capabilities
+- **Can Execute Jobs**: Run commands on remote devices (all plans)
+- **Can Schedule Jobs**: Set up recurring jobs (Professional+)
+
+#### Remote Access & Control
+- **Remote Access**: SSH tunnel access (all plans)
+- **OTA Updates**: Over-the-air updates (Professional+)
+
+#### Data Management
+- **Data Retention**: How long data is stored
+- **Can Export Data**: Export to CSV/JSON (all plans)
+
+#### Advanced Features
+- **Advanced Alerts**: Complex alert rules (Professional+)
+- **Custom Dashboards**: Create custom Grafana dashboards (Professional+)
+- **API Access**: Full REST API (all plans)
+- **MQTT Access**: Direct MQTT broker access (all plans)
+- **Custom Branding**: White-label UI (Enterprise only)
+
+#### Limits
+- **Max Job Templates**: Reusable job templates
+- **Max Alert Rules**: Alert rules per customer
+- **Max Users**: User accounts per customer
+
+### Unlicensed Mode (Fallback)
+
+If no valid license is provided:
+
+| Feature | Unlicensed Mode |
+|---------|-----------------|
+| Max Devices | 2 |
+| Can Execute Jobs | ✅ |
+| Can Schedule Jobs | ❌ |
+| Remote Access | ✅ |
+| OTA Updates | ❌ |
+| Can Export Data | ❌ |
+| Trial Duration | 7 days |
 
 ---
 
-## Stripe Setup
+## Stripe Integration
 
-### 1. Create Products in Stripe
+### Setup Products & Prices
+
+1. Go to Stripe Dashboard → Products
+2. Create products for each plan:
 
 ```bash
 # Starter Plan
@@ -477,204 +644,766 @@ stripe prices create \
   --currency usd \
   --unit-amount 9900 \
   --recurring[interval]=month
+
+# Enterprise Plan
+stripe products create \
+  --name "Iotistic Enterprise" \
+  --description "Unlimited devices"
+
+stripe prices create \
+  --product prod_ZZZ \
+  --currency usd \
+  --unit-amount 29900 \
+  --recurring[interval]=month
 ```
 
-### 2. Configure Webhooks
+3. Copy Price IDs to `.env`:
+```bash
+STRIPE_PRICE_STARTER=price_xxx
+STRIPE_PRICE_PROFESSIONAL=price_yyy
+STRIPE_PRICE_ENTERPRISE=price_zzz
+```
 
-Add webhook endpoint in Stripe dashboard:
-- URL: `https://billing.Iotistic.com/webhooks/stripe`
-- Events: `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.payment_failed`
+### Configure Webhooks
 
-### 3. Get Webhook Secret
+#### Development (Stripe CLI)
 
 ```bash
-stripe listen --forward-to localhost:3100/webhooks/stripe
-# Copy webhook secret to .env
+# Start Stripe CLI
+docker logs billing-stripe-cli
+
+# Look for:
+# Ready! Your webhook signing secret is whsec_xxxxx
+
+# Copy to .env
+STRIPE_WEBHOOK_SECRET=whsec_xxxxx
+
+# Restart billing service
+docker-compose restart billing
 ```
 
----
+#### Production
 
-## License JWT Structure
+1. Go to Stripe Dashboard → Webhooks
+2. Add endpoint: `https://billing.yourdomain.com/api/webhooks/stripe`
+3. Select events:
+   - `checkout.session.completed`
+   - `customer.subscription.updated`
+   - `customer.subscription.deleted`
+   - `invoice.payment_succeeded`
+   - `invoice.payment_failed`
+4. Copy webhook signing secret to production `.env`
 
-```typescript
-{
-  customerId: "cust_abc123",
-  customerName: "Acme Corporation",
-  plan: "professional",
-  features: {
-    maxDevices: 50,
-    dataRetentionDays: 365,
-    canExportData: true,
-    hasAdvancedAlerts: true,
-    hasApiAccess: true,
-    hasMqttAccess: true,
-    hasCustomBranding: false
-  },
-  limits: {
-    maxUsers: 10,
-    maxAlertRules: 100,
-    maxDashboards: 20
-  },
-  trial: {
-    isTrialMode: false
-  },
-  subscription: {
-    status: "active",
-    currentPeriodEndsAt: "2025-11-21T00:00:00Z"
-  },
-  issuedAt: 1729500000,
-  expiresAt: 1761036000
-}
-```
+### Test Cards
 
-Signed with RS256 using `keys/private-key.pem`.
+| Card Number | Scenario |
+|-------------|----------|
+| `4242 4242 4242 4242` | ✅ Success |
+| `4000 0000 0000 0002` | ❌ Card declined |
+| `4000 0000 0000 9995` | ❌ Insufficient funds |
+| `4000 0027 6000 3184` | 🔐 Requires 3D Secure |
 
----
-
-## Deployment
-
-### Docker
-
-```bash
-# Build
-docker build -t Iotistic-billing-api .
-
-# Run
-docker run -d \
-  -p 3100:3100 \
-  -e DATABASE_URL=postgresql://... \
-  -e STRIPE_SECRET_KEY=sk_live_... \
-  -v ./keys:/app/keys:ro \
-  --name billing-api \
-  Iotistic-billing-api
-```
-
-### Production Checklist
-
-- [ ] Use production Stripe keys
-- [ ] Secure RSA private key (AWS Secrets Manager, Azure Key Vault)
-- [ ] Enable HTTPS (SSL/TLS)
-- [ ] Set up database backups
-- [ ] Configure monitoring (Datadog, New Relic)
-- [ ] Rate limiting
-- [ ] DDoS protection (Cloudflare)
-- [ ] Logging aggregation (ELK, Splunk)
+**Expiry:** Any future date (e.g., 12/28)  
+**CVC:** Any 3 digits (e.g., 123)  
+**ZIP:** Any 5 digits (e.g., 12345)
 
 ---
 
 ## Security
 
-### Private Key Management
+### ⚠️ Current Status: NO AUTHENTICATION IMPLEMENTED
 
-**NEVER commit `keys/private-key.pem` to git!**
+**All billing endpoints are currently PUBLIC.** This must be fixed before production deployment.
 
-Production options:
-- AWS Secrets Manager
-- Azure Key Vault
-- HashiCorp Vault
-- Environment variable (base64 encoded)
+### Required Security Implementations
 
-### Webhook Verification
+#### 1. API Key Authentication (Customer Instances)
 
-All Stripe webhooks are verified using `STRIPE_WEBHOOK_SECRET` to prevent forgery.
+**Purpose:** Allow customer instances to report usage and get licenses
 
-### Customer Instance Authentication
+**Setup:**
+```bash
+npm install bcrypt
+```
 
-Customer instances authenticate with their license JWT when reporting usage.
+**Usage:**
+```typescript
+// Customer instance sends:
+headers: {
+  'X-API-Key': 'cust_abc123_secrettoken456'
+}
+```
+
+**Implementation:**
+```typescript
+// billing/src/index.ts
+import { authenticateCustomer } from './middleware/auth';
+
+app.use('/api/usage', authenticateCustomer, usageRouter);
+app.use('/api/licenses', authenticateCustomer, licensesRouter);
+```
+
+#### 2. Admin Token (Management Operations)
+
+**Purpose:** Protect customer creation/modification
+
+**Setup:**
+```bash
+# Generate token
+openssl rand -hex 32
+
+# Add to .env
+ADMIN_API_TOKEN=<your_64_char_hex>
+```
+
+**Usage:**
+```typescript
+// Management scripts send:
+headers: {
+  'Authorization': 'Bearer <admin_token>'
+}
+```
+
+**Implementation:**
+```typescript
+import { authenticateAdmin } from './middleware/auth';
+
+app.use('/api/customers', authenticateAdmin, customersRouter);
+```
+
+#### 3. Rate Limiting
+
+**Setup:**
+```bash
+npm install express-rate-limit
+```
+
+**Configuration:**
+```typescript
+// billing/src/middleware/rate-limit.ts
+export const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+});
+
+export const usageLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 60, // 60 requests per hour
+  keyGenerator: (req) => req.body.customer_id, // Per customer
+});
+```
+
+#### 4. Security Headers
+
+**Setup:**
+```bash
+npm install helmet
+```
+
+**Implementation:**
+```typescript
+import helmet from 'helmet';
+
+app.use(helmet());
+```
+
+#### 5. HTTPS/TLS (Production)
+
+**Nginx Configuration:**
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name billing.iotistic.com;
+
+    ssl_certificate /etc/letsencrypt/live/billing.iotistic.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/billing.iotistic.com/privkey.pem;
+
+    location / {
+        proxy_pass http://localhost:3100;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+### Security Checklist
+
+- [ ] Install dependencies (bcrypt, express-rate-limit, helmet)
+- [ ] Run database migration (API key columns)
+- [ ] Generate and set ADMIN_API_TOKEN
+- [ ] Enable authentication middleware
+- [ ] Generate API keys for customers
+- [ ] Update customer instances with API keys
+- [ ] Enable rate limiting
+- [ ] Add security headers
+- [ ] Configure HTTPS/TLS
+- [ ] Set up Stripe webhook with secret
+- [ ] Test authentication flows
+- [ ] Run security audit (`npm audit`)
+- [ ] Set up monitoring and alerts
+
+**Do not deploy to production until all items are checked!**
+
+---
+
+## Kubernetes Deployment
+
+### Architecture
+
+```yaml
+# Customer Instance Deployment
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer-abc123
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: api
+        image: iotistic/api:latest
+        env:
+        - name: IOTISTIC_LICENSE_KEY
+          value: "eyJhbGc..."  # From billing API
+        - name: CUSTOMER_ID
+          value: "cust_abc123"
+```
+
+### Helm Chart
+
+The billing service deploys customer instances using Helm:
+
+**Location:** `charts/customer-instance/`
+
+**Components:**
+- PostgreSQL (database)
+- Mosquitto (MQTT broker with PostgreSQL auth)
+- Redis (cache and queue)
+- API (backend)
+- Dashboard (admin UI)
+- Billing Exporter (metrics)
+
+**Deployment Process:**
+
+1. Customer signs up → `POST /api/customers/signup`
+2. Billing creates customer + trial subscription
+3. Job queued → `deployment-queue.ts`
+4. Worker picks up job → `deployment-worker.ts`
+5. Helm install → `charts/customer-instance`
+6. License generated and injected
+7. Customer instance starts
+
+**Simulation Mode:**
+
+For local testing without K8s:
+
+```bash
+SIMULATE_K8S_DEPLOYMENT=true
+```
+
+Simulates deployment with 3-5 second delay.
+
+### Bull Board (Queue Dashboard)
+
+Access at: http://localhost:3100/admin/queues
+
+**Features:**
+- Real-time job monitoring
+- Job inspection (click any job)
+- Progress tracking (visual bars)
+- Retry failed jobs (one-click)
+- Clean old jobs
+- Multiple view tabs (waiting, active, completed, failed, delayed)
+- Timing metrics
 
 ---
 
 ## Testing
 
-### Quick Test Workflow
+### Complete Checkout Flow Test
 
-```bash
-# 1. Add test customer
-npm run customer -- add \
-  --email test@example.com \
-  --name "Test Customer" \
-  --company "Test Corp"
+```powershell
+# Step 1: Create Customer
+$customerBody = @{
+    email = "test@example.com"
+    company_name = "Test Corp"
+    full_name = "Test User"
+    password = "SecurePass123"
+} | ConvertTo-Json
 
-# Save the CUSTOMER_ID from output
+$customer = Invoke-RestMethod -Uri "http://localhost:3100/api/customers/signup" `
+    -Method POST -Body $customerBody -ContentType "application/json"
 
-# 2. View customer usage (will be empty initially)
-npm run usage -- --customer <CUSTOMER_ID>
+$customerId = $customer.customer.customer_id
+Write-Host "Customer ID: $customerId"
 
-# 3. Simulate usage report (from customer instance)
-curl -X POST http://localhost:3100/api/usage/report \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customer_id": "<CUSTOMER_ID>",
-    "instance_id": "dev-1",
-    "active_devices": 5,
-    "total_devices": 10
-  }'
+# Step 2: Create Checkout Session
+$checkoutBody = @{
+    customer_id = $customerId
+    plan = "professional"
+    success_url = "http://localhost:3100/success"
+    cancel_url = "http://localhost:3100/cancel"
+} | ConvertTo-Json
 
-# 4. View usage again
-npm run usage -- --customer <CUSTOMER_ID>
+$checkout = Invoke-RestMethod -Uri "http://localhost:3100/api/subscriptions/checkout" `
+    -Method POST -Body $checkoutBody -ContentType "application/json"
 
-# 5. Upgrade to paid plan
-npm run customer -- upgrade \
-  --id <CUSTOMER_ID> \
-  --plan professional
+Write-Host "Checkout URL: $($checkout.checkout_url)"
+Start-Process $checkout.checkout_url
 
-# 6. Deactivate when done testing
-npm run customer -- deactivate --id <CUSTOMER_ID>
+# Step 3: Complete payment with test card
+# Card: 4242 4242 4242 4242
+# Expiry: Any future date
+# CVC: Any 3 digits
+
+# Step 4: Verify subscription (wait for webhook)
+Start-Sleep -Seconds 5
+
+$subscription = Invoke-RestMethod -Uri "http://localhost:3100/api/subscriptions/$customerId"
+Write-Host "Status: $($subscription.subscription.status)"
+Write-Host "Plan: $($subscription.subscription.plan)"
+
+# Step 5: Get license
+$license = Invoke-RestMethod -Uri "http://localhost:3100/api/licenses/$customerId"
+Write-Host "License: $($license.license)"
 ```
 
-### Manual API Testing
+### Test Deployment Queue
 
-**Create Customer:**
-```bash
-curl -X POST http://localhost:3100/api/customers \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "test@example.com",
-    "name": "Test Corp",
-    "company": "Test Corp"
-  }'
+```powershell
+# Run queue test script
+.\test-queue.ps1
 ```
 
-**Generate License:**
+### Trigger Stripe Webhooks
+
 ```bash
-curl http://localhost:3100/api/licenses/<CUSTOMER_ID>
+# Enter Stripe CLI container
+docker exec -it billing-stripe-cli sh
+
+# Trigger events
+stripe trigger checkout.session.completed
+stripe trigger customer.subscription.updated
+stripe trigger customer.subscription.deleted
+stripe trigger invoice.payment_succeeded
 ```
 
-**Report Usage:**
+### View Logs
+
 ```bash
-curl -X POST http://localhost:3100/api/usage/report \
-  -H "Content-Type: application/json" \
-  -d '{
-    "customer_id": "cust_test123",
-    "instance_id": "dev-1",
-    "active_devices": 5,
-    "total_devices": 10
-  }'
+# Billing service logs
+docker-compose logs -f billing
+
+# Stripe CLI logs
+docker logs -f billing-stripe-cli
+
+# Queue processing
+# Access Bull Board at http://localhost:3100/admin/queues
 ```
 
 ---
 
-## Integration with Customer Instances
+## Consumption Billing
 
-Customer instances use the **public key** to validate licenses:
+### Metrics Tracked
+
+#### Device Metrics (Already Implemented)
+- Active devices count
+- Total devices count
+- Device hours
+
+#### Network Traffic (NEW)
+- **MQTT Messages**
+  - Message count (publish/subscribe)
+  - Payload size (bytes)
+  - QoS level
+- **HTTP API Calls**
+  - Request count
+  - Request/response size (bytes)
+  - Endpoint categories
+
+#### Data Storage (NEW)
+- Database size (MB)
+- Row count
+- Object storage (if applicable)
+
+### Architecture
+
+```
+Customer Instance
+    ↓
+Traffic Monitor → Aggregate → Usage Reporter
+    ↓
+Global Billing API
+    ↓
+Stripe Metered Billing
+```
+
+### Pricing Model
+
+**Base Subscription** (Fixed Monthly):
+- **Starter**: $29/mo → 10 devices, 10 GB traffic, 5 GB storage
+- **Professional**: $99/mo → 50 devices, 100 GB traffic, 50 GB storage
+- **Enterprise**: Custom → Unlimited
+
+**Overage Pricing** (Pay-as-you-go):
+- **MQTT Traffic**: $0.10 per GB over limit
+- **HTTP Traffic**: $0.15 per GB over limit
+- **Storage**: $0.20 per GB/month over limit
+- **API Calls**: $0.50 per 1,000 calls over limit
+- **Additional Devices**: $2 per device/month over limit
+
+### Implementation Status
+
+- ✅ Device metrics tracking
+- ⏳ MQTT traffic monitoring (TrafficMonitor service)
+- ⏳ HTTP traffic tracking (middleware)
+- ⏳ Storage monitoring (PostgreSQL)
+- ⏳ Stripe metered billing integration
+
+---
+
+## Management
+
+### Customer Manager CLI
 
 ```bash
-# In customer instance .env
-IOTISTIC_LICENSE_KEY=eyJhbGc...  # JWT from billing API
-LICENSE_PUBLIC_KEY="$(cat keys/public-key.pem)"  # Public key
-BILLING_API_URL=https://billing.Iotistic.com
+# Add customer
+npm run customer -- add \
+  --email customer@example.com \
+  --name "Customer Name" \
+  --company "Company Inc"
+
+# Upgrade customer
+npm run customer -- upgrade \
+  --id cust_abc123 \
+  --plan professional
+
+# Deactivate customer
+npm run customer -- deactivate --id cust_abc123
+
+# List customers
+npm run customer -- list
 ```
+
+### Usage Viewer CLI
+
+```bash
+# View customer usage
+npm run usage -- --customer cust_abc123
+
+# View last 30 days
+npm run usage -- --customer cust_abc123 --days 30
+
+# View all customers
+npm run usage -- --all
+```
+
+### Upgrade Customer Script
+
+```powershell
+# Upgrade specific customer
+.\upgrade-customer.ps1 -CustomerId "cust_abc123" -Plan "professional"
+```
+
+**Output:**
+- Verifies customer exists
+- Checks current subscription
+- Creates checkout session
+- Opens browser for payment
+- Provides verification commands
+
+---
+
+## Troubleshooting
+
+### Common Issues
+
+#### Issue: "Customer not found" in webhook logs
+**Cause:** Webhook using test Stripe customer ID  
+**Solution:** Use real checkout flow, not `stripe trigger`
+
+#### Issue: Checkout URL doesn't open
+**Cause:** Browser security or URL encoding  
+**Solution:** Copy URL manually and paste in browser
+
+#### Issue: Webhook not received
+**Cause:** Stripe CLI not forwarding  
+**Solution:** Check Stripe CLI logs:
+```bash
+docker logs billing-stripe-cli
+# Should see: Ready! Your webhook signing secret is whsec_...
+```
+
+#### Issue: Subscription still shows "trialing"
+**Cause:** Webhook not processed yet  
+**Solution:** Wait 3-5 seconds after payment, then check again
+
+#### Issue: License not updated
+**Cause:** License generation is lazy (on GET request)  
+**Solution:** Call `GET /api/licenses/:customerId` to trigger generation
+
+#### Issue: TypeScript errors after npm install
+**Solution:**
+```bash
+npm run build
+```
+
+#### Issue: Database connection fails
+**Solution:**
+- Check `DATABASE_URL` in `.env`
+- Ensure PostgreSQL is running
+- Run migrations: `npm run migrate`
+
+#### Issue: License generation fails
+**Solution:**
+- Run `npm run generate-keys`
+- Check `LICENSE_PRIVATE_KEY_PATH` points to existing file
+
+#### Issue: Deployment queue stuck
+**Cause:** Redis not running or Bull worker crashed  
+**Solution:**
+```bash
+# Check Redis
+docker ps | grep redis
+
+# Restart billing service
+docker-compose restart billing
+
+# Check Bull Board
+# Open http://localhost:3100/admin/queues
+```
+
+### Debugging
+
+#### Check Queue Status
+
+```bash
+# API endpoint
+curl http://localhost:3100/api/queue/stats
+
+# Bull Board UI
+# Open http://localhost:3100/admin/queues
+```
+
+#### Check Database
+
+```bash
+# Connect to database
+docker exec -it billing-postgres-1 psql -U billing -d billing
+
+# Check customers
+SELECT customer_id, email, company_name, created_at FROM customers;
+
+# Check subscriptions
+SELECT customer_id, plan, status, stripe_subscription_id FROM subscriptions;
+
+# Check usage reports
+SELECT customer_id, active_devices, reported_at FROM usage_reports ORDER BY reported_at DESC LIMIT 10;
+
+# Check license history
+SELECT customer_id, action, plan, generated_at FROM license_history ORDER BY generated_at DESC LIMIT 10;
+```
+
+#### View Logs
+
+```bash
+# All services
+docker-compose logs -f
+
+# Specific service
+docker-compose logs -f billing
+docker-compose logs -f postgres
+docker-compose logs -f redis
+docker-compose logs -f stripe-cli
+```
+
+---
+
+## Production Deployment
+
+### Environment Variables
+
+```bash
+# Production .env
+NODE_ENV=production
+PORT=3100
+
+# Database (use managed service)
+DATABASE_URL=postgresql://user:password@prod-db:5432/billing
+
+# Redis (use managed service)
+REDIS_HOST=prod-redis.cache.amazonaws.com
+REDIS_PORT=6379
+REDIS_PASSWORD=<redis_password>
+
+# Stripe (live keys)
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+
+# Stripe Price IDs (production)
+STRIPE_PRICE_STARTER=price_...
+STRIPE_PRICE_PROFESSIONAL=price_...
+STRIPE_PRICE_ENTERPRISE=price_...
+
+# License keys (use secrets manager)
+LICENSE_PRIVATE_KEY_PATH=/secrets/license_private_key.pem
+LICENSE_PUBLIC_KEY_PATH=/secrets/license_public_key.pem
+
+# Trial settings
+DEFAULT_TRIAL_DAYS=14
+
+# Security
+ADMIN_API_TOKEN=<64-char-hex-production-token>
+
+# Kubernetes
+BASE_DOMAIN=iotistic.com
+HELM_CHART_PATH=/app/charts/customer-instance
+SIMULATE_K8S_DEPLOYMENT=false
+```
+
+### Docker Deployment
+
+```bash
+# Build
+docker build -t billing-api:latest .
+
+# Run
+docker run -d \
+  --name billing-api \
+  -p 3100:3100 \
+  --env-file .env.production \
+  -v /path/to/keys:/app/keys:ro \
+  billing-api:latest
+```
+
+### Kubernetes Deployment
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: billing-api
+spec:
+  replicas: 3
+  template:
+    spec:
+      containers:
+      - name: billing
+        image: iotistic/billing-api:latest
+        ports:
+        - containerPort: 3100
+        envFrom:
+        - secretRef:
+            name: billing-secrets
+        volumeMounts:
+        - name: license-keys
+          mountPath: /app/keys
+          readOnly: true
+      volumes:
+      - name: license-keys
+        secret:
+          secretName: license-keys
+```
+
+### Secrets Management
+
+**Use a secrets manager:**
+- AWS Secrets Manager
+- Azure Key Vault
+- HashiCorp Vault
+- Kubernetes Secrets
+
+**Never:**
+- Commit secrets to git
+- Store secrets in plain text
+- Share secrets via email/Slack
+
+### Monitoring
+
+**Metrics to track:**
+- API response times
+- Error rates (4xx, 5xx)
+- Queue processing time
+- Database connection pool usage
+- Stripe webhook success rate
+
+**Alerts:**
+- Failed authentication >5%
+- 500 errors >0.1%
+- Response time >1s
+- Queue backlog >100 jobs
+- Database connection failures
+
+### Backup Strategy
+
+**Database:**
+- Automated daily backups
+- Point-in-time recovery
+- Test restore monthly
+
+**Secrets:**
+- Backup RSA keys to encrypted storage
+- Document recovery procedures
+- Test key rotation
+
+---
+
+## Changelog
+
+### Version 1.0.0 (October 2025)
+
+**Features:**
+- ✅ Stripe integration (checkout, subscriptions, webhooks)
+- ✅ JWT license generation (RS256)
+- ✅ Customer management API
+- ✅ Usage tracking and reporting
+- ✅ License audit logging
+- ✅ Device limit enforcement
+- ✅ Deployment queue (Bull + Redis)
+- ✅ Bull Board UI for queue monitoring
+- ✅ Kubernetes deployment support
+- ✅ Multi-plan support (Starter, Professional, Enterprise)
+- ✅ Trial period management
+- ✅ Comprehensive documentation
+
+**Security:**
+- ✅ Webhook signature verification
+- ✅ SQL injection prevention
+- ✅ Secrets in environment variables
+- ⏳ API authentication (planned)
+- ⏳ Rate limiting (planned)
+- ⏳ Security headers (planned)
+
+**Infrastructure:**
+- ✅ Docker containerization
+- ✅ Docker Compose for local development
+- ✅ PostgreSQL database
+- ✅ Redis for queueing
+- ✅ TypeScript build system
+- ✅ Database migrations
 
 ---
 
 ## Support
 
-- **Email**: support@Iotistic.com
-- **Docs**: https://docs.Iotistic.com
-- **Status**: https://status.Iotistic.com
+For questions or issues:
+
+- **Documentation**: This file covers everything
+- **Security**: See Security section above
+- **Testing**: See Testing section above
+- **Production**: See Production Deployment section above
 
 ---
 
 ## License
 
 Proprietary - Iotistic Technologies Inc.
+
+---
+
+**End of Documentation**
+
+*This is a complete, all-in-one guide for the Iotistic Billing System. All original documentation files have been consolidated into this single document for easier reference.*
