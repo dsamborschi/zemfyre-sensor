@@ -2,6 +2,7 @@ import { Job } from 'bull';
 import { deploymentQueue } from '../services/deployment-queue';
 import { k8sDeploymentService } from '../services/k8s-deployment-service';
 import { CustomerModel } from '../db/customer-model';
+import { upgradeService } from '../services/upgrade-service';
 
 interface DeploymentJobData {
   customerId: string;
@@ -20,6 +21,11 @@ interface UpdateJobData {
 interface DeleteJobData {
   customerId: string;
   namespace: string;
+}
+
+interface UpgradeJobData {
+  upgradeId: string;
+  customerIds?: string[];
 }
 
 export class DeploymentWorker {
@@ -52,6 +58,11 @@ export class DeploymentWorker {
     // Process deletion jobs
     queue.process('delete-customer-stack', concurrency, async (job: Job<DeleteJobData>) => {
       return this.handleDeletion(job);
+    });
+
+    // Process upgrade jobs (single concurrency for upgrades)
+    queue.process('system-upgrade', 1, async (job: Job<UpgradeJobData>) => {
+      return this.handleUpgrade(job);
     });
 
     this.isRunning = true;
@@ -191,6 +202,36 @@ export class DeploymentWorker {
 
     } catch (error: any) {
       console.error(`❌ Deletion failed for customer ${customerId}:`, error.message);
+      throw error;
+    }
+  }
+
+  /**
+   * Handle upgrade job
+   */
+  private async handleUpgrade(job: Job<UpgradeJobData>) {
+    const { upgradeId, customerIds } = job.data;
+
+    console.log(`🔄 Processing system upgrade ${upgradeId}`);
+
+    try {
+      await job.progress(10);
+
+      // Execute the upgrade
+      await upgradeService.executeUpgrade(upgradeId, customerIds);
+
+      await job.progress(100);
+
+      console.log(`✅ Upgrade ${upgradeId} completed`);
+
+      return {
+        success: true,
+        upgradeId,
+        completedAt: new Date().toISOString(),
+      };
+
+    } catch (error: any) {
+      console.error(`❌ Upgrade ${upgradeId} failed:`, error.message);
       throw error;
     }
   }

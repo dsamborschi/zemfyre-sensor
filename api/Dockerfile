@@ -12,6 +12,9 @@ RUN npm install
 # Copy source code
 COPY src ./src
 
+# Copy database migrations (needed at runtime)
+COPY database ./database
+
 # Build TypeScript
 RUN npm run build
 

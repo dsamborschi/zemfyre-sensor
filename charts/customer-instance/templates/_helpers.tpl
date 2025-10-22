@@ -62,6 +62,27 @@ Generate postgres password
 {{- if .Values.postgres.password }}
 {{- .Values.postgres.password }}
 {{- else }}
+{{- $secret := lookup "v1" "Secret" .Release.Namespace (printf "%s-secrets" (include "customer-instance.fullname" .)) }}
+{{- if $secret }}
+{{- index $secret.data "POSTGRES_PASSWORD" | b64dec }}
+{{- else }}
 {{- randAlphaNum 32 }}
+{{- end }}
+{{- end }}
+{{- end }}
+
+{{/*
+Generate MQTT password
+*/}}
+{{- define "customer-instance.mqttPassword" -}}
+{{- if .Values.mosquitto.credentials.password }}
+{{- .Values.mosquitto.credentials.password }}
+{{- else }}
+{{- $secret := lookup "v1" "Secret" .Release.Namespace (printf "%s-secrets" (include "customer-instance.fullname" .)) }}
+{{- if $secret }}
+{{- index $secret.data "MQTT_PASSWORD" | b64dec }}
+{{- else }}
+{{- randAlphaNum 32 }}
+{{- end }}
 {{- end }}
 {{- end }}

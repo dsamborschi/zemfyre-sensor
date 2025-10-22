@@ -42,7 +42,7 @@ mosquitto:
   enabled: true
   image:
     repository: iegomez/mosquitto-go-auth
-    tag: "2.0.18-mosquitto_2.0.18"
+    tag: "latest"
   ports:
     mqtt: 1883
     websocket: 9001
@@ -59,6 +59,10 @@ mosquitto:
     hasher: bcrypt
     hasherCost: 10
     logLevel: info
+  # Default MQTT credentials for API service
+  credentials:
+    username: "api_user"
+    password: ""  # Auto-generated if empty
 
 # API service
 api:

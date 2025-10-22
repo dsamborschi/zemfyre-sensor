@@ -57,8 +57,18 @@ spec:
               name: {{ include "customer-instance.fullname" . }}-secrets
               key: POSTGRES_DB
         # MQTT connection
-        - name: MQTT_BROKER
+        - name: MQTT_BROKER_URL
           value: mqtt://{{ include "customer-instance.fullname" . }}-mosquitto:{{ .Values.mosquitto.ports.mqtt }}
+        - name: MQTT_USERNAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "customer-instance.fullname" . }}-secrets
+              key: MQTT_USERNAME
+        - name: MQTT_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "customer-instance.fullname" . }}-secrets
+              key: MQTT_PASSWORD
         # Customer info
         - name: CUSTOMER_ID
           valueFrom:

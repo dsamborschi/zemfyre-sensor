@@ -35,11 +35,12 @@ data:
     auth_opt_backends postgres
     
     # PostgreSQL connection settings
+    # Using environment variables for sensitive data
     auth_opt_pg_host {{ include "customer-instance.fullname" . }}-postgres
     auth_opt_pg_port 5432
-    auth_opt_pg_dbname {{ .Values.postgres.database }}
-    auth_opt_pg_user {{ .Values.postgres.username }}
-    auth_opt_pg_password {{ .Values.postgres.password }}
+    auth_opt_pg_dbname ${DB_NAME}
+    auth_opt_pg_user ${DB_USER}
+    auth_opt_pg_password ${DB_PASSWORD}
     auth_opt_pg_sslmode disable
     
     # User authentication query
@@ -87,9 +88,49 @@ spec:
         {{- include "customer-instance.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: mqtt
     spec:
+      initContainers:
+      - name: config-init
+        image: alpine:latest
+        command:
+        - sh
+        - -c
+        - |
+          apk add --no-cache gettext
+          envsubst < /config-template/mosquitto.conf > /config-processed/mosquitto.conf
+          cat /config-processed/mosquitto.conf
+        env:
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "customer-instance.fullname" . }}-secrets
+              key: POSTGRES_DB
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "customer-instance.fullname" . }}-secrets
+              key: POSTGRES_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "customer-instance.fullname" . }}-secrets
+              key: POSTGRES_PASSWORD
+        volumeMounts:
+        - name: config-template
+          mountPath: /config-template
+        - name: config-processed
+          mountPath: /config-processed
+        resources:
+          requests:
+            cpu: 50m
+            memory: 64Mi
+          limits:
+            cpu: 100m
+            memory: 128Mi
       containers:
       - name: mosquitto
         image: "{{ .Values.mosquitto.image.repository }}:{{ .Values.mosquitto.image.tag }}"
+        command: ["/usr/sbin/mosquitto"]
+        args: ["-c", "/mosquitto/config/mosquitto.conf"]
         ports:
         - name: mqtt
           containerPort: {{ .Values.mosquitto.ports.mqtt }}
@@ -116,7 +157,7 @@ spec:
               name: {{ include "customer-instance.fullname" . }}-secrets
               key: POSTGRES_PASSWORD
         volumeMounts:
-        - name: config
+        - name: config-processed
           mountPath: /mosquitto/config
         - name: data
           mountPath: /mosquitto/data
@@ -133,9 +174,11 @@ spec:
           initialDelaySeconds: 5
           periodSeconds: 5
       volumes:
-      - name: config
+      - name: config-template
         configMap:
           name: {{ include "customer-instance.fullname" . }}-mosquitto-config
+      - name: config-processed
+        emptyDir: {}
       - name: data
         emptyDir: {}
 ---

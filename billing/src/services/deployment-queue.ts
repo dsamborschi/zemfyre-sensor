@@ -120,6 +120,19 @@ export class DeploymentQueue extends EventEmitter {
   }
 
   /**
+   * Add a generic job to the queue (for upgrades, etc.)
+   */
+  async add(
+    jobName: string,
+    data: any,
+    options?: JobOptions
+  ): Promise<Job> {
+    const job = await this.queue.add(jobName, data, options);
+    console.log(`📋 Job queued: ${jobName} (${job.id})`);
+    return job;
+  }
+
+  /**
    * Get job by ID
    */
   async getJob(jobId: string): Promise<Job | null> {
