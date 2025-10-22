@@ -6,10 +6,6 @@ metadata:
   labels:
     {{- include "customer-instance.labels" . | nindent 4 }}
     app.kubernetes.io/component: init
-  annotations:
-    "helm.sh/hook": post-install,post-upgrade
-    "helm.sh/hook-weight": "1"
-    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
 spec:
   ttlSecondsAfterFinished: 300
   backoffLimit: 10
