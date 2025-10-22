@@ -42,7 +42,7 @@ import { LicenseValidator } from './services/license-validator';
 import licenseRoutes from './routes/license';
 import billingRoutes from './routes/billing';
 
-// API Version Configuration - Change here to update all routes
+// API Version Configuration - Change here to update all routesggg
 const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE = `/api/${API_VERSION}`;
 

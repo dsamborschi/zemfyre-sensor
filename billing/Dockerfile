@@ -4,8 +4,23 @@ FROM node:18-alpine
 
 WORKDIR /app
 
-# Install PostgreSQL client for migrations
-RUN apk add --no-cache postgresql-client
+# Install system dependencies
+RUN apk add --no-cache \
+    postgresql-client \
+    curl \
+    bash \
+    ca-certificates
+
+# Install kubectl
+RUN curl -LO "https://dl.k8s.io/release/v1.28.0/bin/linux/amd64/kubectl" \
+    && chmod +x kubectl \
+    && mv kubectl /usr/local/bin/kubectl
+
+# Install Helm
+RUN curl -fsSL https://get.helm.sh/helm-v3.13.0-linux-amd64.tar.gz -o helm.tar.gz \
+    && tar -zxvf helm.tar.gz \
+    && mv linux-amd64/helm /usr/local/bin/helm \
+    && rm -rf helm.tar.gz linux-amd64
 
 # Install dependencies
 COPY package*.json ./

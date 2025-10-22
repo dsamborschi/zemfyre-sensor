@@ -123,10 +123,10 @@ ingress:
 # Resource quotas for namespace
 resourceQuota:
   enabled: true
-  limits:
-    cpu: "4"
-    memory: "4Gi"
-    persistentvolumeclaims: "5"
+  cpu: "4"
+  memory: "4Gi"
+  pvcs: "5"
+  services: "10"
 
 # Network policies
 networkPolicy:

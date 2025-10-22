@@ -34,10 +34,30 @@ export class K8sDeploymentService {
   }
 
   /**
+   * Sanitize customer ID for use as Kubernetes namespace
+   * K8s namespace rules: lowercase alphanumeric + hyphens, max 63 chars
+   * Uses shortened customer ID to avoid length issues with Helm resource names
+   */
+  private sanitizeNamespace(customerId: string): string {
+    // Extract short unique portion: "cust_dc5fec42901a..." -> "dc5fec42"
+    // This keeps total length manageable for Helm-generated resource names
+    const shortId = customerId.replace(/^cust_/, '').substring(0, 8);
+    return `customer-${shortId}`;
+  }
+
+  /**
+   * Sanitize customer ID for use in DNS names (ingress hosts)
+   * DNS rules: lowercase alphanumeric + hyphens + dots, no underscores
+   */
+  private sanitizeCustomerId(customerId: string): string {
+    return customerId.replace(/_/g, '-').toLowerCase();
+  }
+
+  /**
    * Deploy a customer instance to Kubernetes using Helm
    */
   async deployCustomerInstance(options: DeploymentOptions): Promise<DeploymentResult> {
-    const namespace = options.namespace || `customer-${options.customerId}`;
+    const namespace = options.namespace || this.sanitizeNamespace(options.customerId);
     const instanceUrl = `https://${options.customerId}.${this.baseDomain}`;
 
     try {
@@ -140,9 +160,12 @@ export class K8sDeploymentService {
     } catch (error) {
       // Namespace doesn't exist, create it
       logger.info('Creating namespace', { namespace });
+      await execAsync(`kubectl create namespace ${namespace}`);
+      
+      // Add labels after creation
       await execAsync(
-        `kubectl create namespace ${namespace} ` +
-        `--labels=customer-id=${customerId},managed-by=iotistic`
+        `kubectl label namespace ${namespace} ` +
+        `customer-id=${customerId} managed-by=iotistic`
       );
     }
   }
@@ -151,11 +174,16 @@ export class K8sDeploymentService {
    * Install or upgrade Helm release
    */
   private async installHelmRelease(namespace: string, options: DeploymentOptions): Promise<void> {
-    const releaseName = `customer-${options.customerId}`;
+    const releaseName = namespace;  // Use sanitized namespace as release name
+    const sanitizedCustomerId = this.sanitizeCustomerId(options.customerId);
+    // shortId: first 8 chars of the customer id (without 'cust_' prefix)
+    const shortId = options.customerId.replace(/^cust_/, '').replace(/_/g, '-').substring(0, 8);
     
     // Build Helm values arguments
     const helmValues = [
-      `--set customer.id=${options.customerId}`,
+      `--set customer.id=${sanitizedCustomerId}`,  // Use sanitized ID for DNS names
+  `--set customer.shortId=${shortId}`,
+      `--set customer.originalId=${options.customerId}`,  // Keep original for reference
       `--set customer.email=${options.email}`,
       `--set customer.companyName="${options.companyName}"`,
       `--set license.key="${options.licenseKey}"`,
@@ -218,8 +246,8 @@ export class K8sDeploymentService {
    * Delete a customer instance from Kubernetes
    */
   async deleteCustomerInstance(customerId: string): Promise<DeploymentResult> {
-    const namespace = `customer-${customerId}`;
-    const releaseName = `customer-${customerId}`;
+    const namespace = this.sanitizeNamespace(customerId);
+    const releaseName = namespace;
 
     try {
       logger.info('Deleting Kubernetes deployment', { customerId, namespace });
@@ -277,8 +305,8 @@ export class K8sDeploymentService {
       throw new Error('Customer not found');
     }
 
-    const namespace = customer.instance_namespace || `customer-${customerId}`;
-    const releaseName = `customer-${customerId}`;
+    const namespace = customer.instance_namespace || this.sanitizeNamespace(customerId);
+    const releaseName = namespace;
 
     try {
       // Get Helm release status

@@ -217,7 +217,8 @@ export class CustomerDeactivationService {
     // This would integrate with your deployment queue
     // For now, we'll just log it to a cleanup queue table
 
-    const namespace = `customer-${customerId.substring(5, 13)}`;
+    // Sanitize namespace: replace underscores with hyphens
+    const namespace = `customer-${customerId.replace(/_/g, '-').toLowerCase()}`;
 
     await pool.query(
       `INSERT INTO cleanup_queue (customer_id, namespace, scheduled_for, status)

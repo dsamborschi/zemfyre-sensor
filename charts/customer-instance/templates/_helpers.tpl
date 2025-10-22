@@ -13,6 +13,12 @@ Create a default fully qualified app name.
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
 {{- $name := default .Chart.Name .Values.nameOverride }}
+{{- /* prefer a short sanitized customer id when available to avoid long names */ -}}
+{{- $short := .Values.customer.shortId }}
+{{- if $short }}
+{{- /* prepend 'c' to ensure it starts with a letter (DNS-1035 compliance) */ -}}
+{{- printf "c%s-%s" $short $name | trunc 63 | trimSuffix "-" }}
+{{- else }}
 {{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -20,7 +26,7 @@ Create a default fully qualified app name.
 {{- end }}
 {{- end }}
 {{- end }}
-
+{{- end }}
 {{/*
 Create chart name and version as used by the chart label.
 */}}
