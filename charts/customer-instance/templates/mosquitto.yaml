@@ -8,17 +8,63 @@ metadata:
     app.kubernetes.io/component: mqtt
 data:
   mosquitto.conf: |
-    listener {{ .Values.mosquitto.ports.mqtt }}
+    # Mosquitto configuration with Go-Auth plugin
+    # PostgreSQL backend for authentication and ACL
+    
+    # Basic Mosquitto settings
+    listener {{ .Values.mosquitto.ports.mqtt }} 0.0.0.0
     protocol mqtt
-    allow_anonymous true
     
-    listener {{ .Values.mosquitto.ports.websocket }}
+    listener {{ .Values.mosquitto.ports.websocket }} 0.0.0.0
     protocol websockets
-    allow_anonymous true
     
+    # Disable anonymous access (require authentication)
+    allow_anonymous {{ .Values.mosquitto.auth.allowAnonymous }}
+    
+    # Logging
     log_dest stdout
-    log_type all
+    log_type error
+    log_type warning
+    log_type notice
+    log_type information
     
+    # Load Go-Auth plugin
+    auth_plugin /mosquitto/go-auth.so
+    
+    # Backend configuration
+    auth_opt_backends postgres
+    
+    # PostgreSQL connection settings
+    auth_opt_pg_host {{ include "customer-instance.fullname" . }}-postgres
+    auth_opt_pg_port 5432
+    auth_opt_pg_dbname {{ .Values.postgres.database }}
+    auth_opt_pg_user {{ .Values.postgres.username }}
+    auth_opt_pg_password {{ .Values.postgres.password }}
+    auth_opt_pg_sslmode disable
+    
+    # User authentication query
+    # Returns password_hash for the given username
+    auth_opt_pg_userquery SELECT password_hash FROM mqtt_users WHERE username = $1 AND is_active = true LIMIT 1
+    
+    # ACL check query for mosquitto-go-auth with PostgreSQL
+    # Parameters passed by mosquitto-go-auth: $1 = username, $2 = acc
+    # The plugin will pattern-match returned topics against the requested topic
+    # access column values: 1=read, 2=write, 3=read+write, 4=subscribe
+    auth_opt_pg_aclquery SELECT topic FROM mqtt_acls WHERE username = $1 AND (access & $2) != 0
+    
+    # Superuser query (optional - returns 1 if user is superuser)
+    auth_opt_pg_superquery SELECT COUNT(*) FROM mqtt_users WHERE username = $1 AND is_superuser = true
+    
+    # Password hashing configuration for mosquitto-go-auth
+    auth_opt_hasher {{ .Values.mosquitto.auth.hasher }}
+    auth_opt_hasher_cost {{ .Values.mosquitto.auth.hasherCost }}
+    auth_opt_hasher_salt_size 16
+    
+    # Logging level
+    auth_opt_log_level {{ .Values.mosquitto.auth.logLevel }}
+    auth_opt_log_dest stdout
+    
+    # Persistence
     persistence true
     persistence_location /mosquitto/data/
 ---
@@ -49,6 +95,26 @@ spec:
           containerPort: {{ .Values.mosquitto.ports.mqtt }}
         - name: websocket
           containerPort: {{ .Values.mosquitto.ports.websocket }}
+        env:
+        - name: DB_HOST
+          value: {{ include "customer-instance.fullname" . }}-postgres
+        - name: DB_PORT
+          value: "5432"
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "customer-instance.fullname" . }}-secrets
+              key: POSTGRES_DB
+        - name: DB_USER
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "customer-instance.fullname" . }}-secrets
+              key: POSTGRES_USER
+        - name: DB_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "customer-instance.fullname" . }}-secrets
+              key: POSTGRES_PASSWORD
         volumeMounts:
         - name: config
           mountPath: /mosquitto/config

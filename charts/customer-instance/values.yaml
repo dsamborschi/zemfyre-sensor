@@ -41,8 +41,8 @@ postgres:
 mosquitto:
   enabled: true
   image:
-    repository: eclipse-mosquitto
-    tag: "2.0"
+    repository: iegomez/mosquitto-go-auth
+    tag: "2.0.18-mosquitto_2.0.18"
   ports:
     mqtt: 1883
     websocket: 9001
@@ -53,6 +53,12 @@ mosquitto:
     limits:
       cpu: 200m
       memory: 128Mi
+  # PostgreSQL authentication configuration
+  auth:
+    allowAnonymous: false
+    hasher: bcrypt
+    hasherCost: 10
+    logLevel: info
 
 # API service
 api:

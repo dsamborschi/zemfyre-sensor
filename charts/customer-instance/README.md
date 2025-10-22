@@ -6,8 +6,8 @@ Kubernetes Helm chart for deploying isolated customer instances of the Iotistic 
 
 This chart deploys a complete IoT stack for each customer, including:
 
-- **PostgreSQL** - Time-series database for sensor data
-- **Mosquitto** - MQTT broker for device communication
+- **PostgreSQL** - Database for sensor data and MQTT authentication
+- **Mosquitto** - MQTT broker with PostgreSQL authentication (mosquitto-go-auth)
 - **API** - Backend API service
 - **Dashboard** - Web-based admin panel
 - **Billing Exporter** - Metrics collector for usage tracking
@@ -89,11 +89,16 @@ postgres:
       cpu: 500m
       memory: 512Mi
 
-# Mosquitto MQTT Broker
+# Mosquitto MQTT Broker (with PostgreSQL Auth)
 mosquitto:
-  image: eclipse-mosquitto:2.0
+  image: iegomez/mosquitto-go-auth:2.0.18-mosquitto_2.0.18
   mqttPort: 1883
   websocketPort: 9001
+  auth:
+    allowAnonymous: false          # Require authentication
+    hasher: bcrypt                 # Password hashing algorithm
+    hasherCost: 10                 # Bcrypt cost factor
+    logLevel: info                 # Auth plugin log level
   resources:
     requests:
       cpu: 100m
@@ -185,9 +190,11 @@ Internet
     └─── Namespace: customer-{id}
               │
               ├─── PostgreSQL (ClusterIP:5432)
-              │     └─── PVC (10Gi)
+              │     ├─── PVC (10Gi)
+              │     └─── Tables: mqtt_users, mqtt_acls
               │
               ├─── Mosquitto (ClusterIP:1883,9001)
+              │     └─── Auth via PostgreSQL (mosquitto-go-auth plugin)
               │
               ├─── API
               │     └─── Connects to: PostgreSQL, Mosquitto
@@ -198,6 +205,82 @@ Internet
               └─── Exporter
                     └─── Connects to: PostgreSQL
 ```
+
+## MQTT Authentication
+
+Mosquitto uses PostgreSQL for authentication and ACL management via the `mosquitto-go-auth` plugin.
+
+### Database Tables
+
+The following tables must exist in PostgreSQL:
+
+**mqtt_users** - User credentials
+```sql
+CREATE TABLE mqtt_users (
+  username VARCHAR(255) PRIMARY KEY,
+  password_hash VARCHAR(255) NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  is_superuser BOOLEAN DEFAULT false,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+**mqtt_acls** - Access control lists
+```sql
+CREATE TABLE mqtt_acls (
+  username VARCHAR(255),
+  topic VARCHAR(255),
+  access INTEGER,  -- 1=read, 2=write, 3=read+write, 4=subscribe
+  PRIMARY KEY (username, topic)
+);
+```
+
+### Creating MQTT Users
+
+```bash
+# Connect to PostgreSQL
+kubectl exec -it -n customer-abc123 deployment/customer-abc123-postgres -- \
+  psql -U postgres -d iotistic
+
+# Create a device user (bcrypt hash for password)
+INSERT INTO mqtt_users (username, password_hash, is_active, is_superuser)
+VALUES ('device001', '$2a$10$...bcrypt-hash...', true, false);
+
+# Grant read/write access to device topics
+INSERT INTO mqtt_acls (username, topic, access)
+VALUES 
+  ('device001', 'sensor/device001/#', 3),  -- read+write
+  ('device001', 'command/device001/#', 1); -- read only
+```
+
+### Testing MQTT Connection
+
+```bash
+# Port forward Mosquitto service
+kubectl port-forward -n customer-abc123 svc/customer-abc123-mosquitto 1883:1883
+
+# Test with mosquitto_pub (requires authentication)
+mosquitto_pub -h localhost -p 1883 \
+  -u device001 -P yourpassword \
+  -t sensor/device001/temperature \
+  -m '{"value": 22.5, "unit": "C"}'
+
+# Test subscribe
+mosquitto_sub -h localhost -p 1883 \
+  -u device001 -P yourpassword \
+  -t sensor/device001/#
+```
+
+### Authentication Configuration
+
+The mosquitto-go-auth plugin is configured via the mosquitto.conf ConfigMap:
+
+- **Backend**: PostgreSQL
+- **Hashing**: bcrypt (cost: 10)
+- **Queries**:
+  - User auth: `SELECT password_hash FROM mqtt_users WHERE username = $1 AND is_active = true`
+  - ACL check: `SELECT topic FROM mqtt_acls WHERE username = $1 AND (access & $2) != 0`
+  - Superuser: `SELECT COUNT(*) FROM mqtt_users WHERE username = $1 AND is_superuser = true`
 
 ## Upgrading
 
