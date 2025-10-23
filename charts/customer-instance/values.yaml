@@ -61,7 +61,7 @@ mosquitto:
     logLevel: info
   # Default MQTT credentials for API service
   credentials:
-    username: "api_user"
+    username: "admin"
     password: ""  # Auto-generated if empty
 
 # API service

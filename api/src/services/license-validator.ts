@@ -53,7 +53,8 @@ export class LicenseValidator {
   private licenseKey: string | null = null;
   
   // Public key for verifying JWT (Global Billing API signs with private key)
-  private static readonly PUBLIC_KEY = process.env.LICENSE_PUBLIC_KEY || '';
+  // Convert \n literals to actual newlines if needed
+  private static readonly PUBLIC_KEY = (process.env.LICENSE_PUBLIC_KEY || '').replace(/\\n/g, '\n');
 
   private constructor() {}
 
@@ -125,6 +126,16 @@ export class LicenseValidator {
    */
   public async validateLicense(licenseKey: string): Promise<LicenseData> {
     try {
+      // Validate that we have a proper public key
+      if (!LicenseValidator.PUBLIC_KEY || LicenseValidator.PUBLIC_KEY.length < 100) {
+        throw new Error('LICENSE_PUBLIC_KEY is not configured or invalid. Please set a valid RSA public key.');
+      }
+
+      // Ensure the key has proper PEM format
+      if (!LicenseValidator.PUBLIC_KEY.includes('-----BEGIN PUBLIC KEY-----')) {
+        throw new Error('LICENSE_PUBLIC_KEY must be in PEM format (-----BEGIN PUBLIC KEY-----)');
+      }
+
       const decoded = jwt.verify(licenseKey, LicenseValidator.PUBLIC_KEY, {
         algorithms: ['RS256'], // Asymmetric signing
       }) as LicenseData;
