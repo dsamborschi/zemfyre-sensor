@@ -2602,53 +2602,7 @@ kubectl describe pod $POD_NAME -n $NAMESPACE
 
 ---
 
-#### Step 5: Check Init Job (postgres-init-job)
 
-The `postgres-init-job` creates MQTT users and ACL entries.
-
-**Check Job Status:**
-
-```bash
-kubectl get jobs -n $NAMESPACE
-
-# Expected:
-NAME                                 COMPLETIONS   DURATION
-c<shortid>-customer-instance-postgres-init   1/1           45s
-```
-
-**View Job Logs:**
-
-```bash
-# Get job pod name
-export INIT_POD=$(kubectl get pods -n $NAMESPACE -l app.kubernetes.io/component=init -o jsonpath='{.items[0].metadata.name}')
-
-# View logs
-kubectl logs $INIT_POD -n $NAMESPACE
-
-# Expected output:
-⏳ Waiting for Postgres to be ready...
-✅ Postgres is ready!
-📦 Installing Python and bcrypt...
-🔐 Generating MQTT password hash...
-🗄️ Initializing database...
-⏳ Waiting for API to run migrations...
-✅ Migrations complete, mqtt_users table exists!
-🔐 Creating MQTT admin user...
-INSERT 0 1
-INSERT 0 1
-✅ MQTT admin user 'api_user' created successfully!
-```
-
-**Common Init Job Errors:**
-
-| Error | Cause | Solution |
-|-------|-------|----------|
-| `Postgres is unavailable` (timeout) | Postgres pod not ready | Check postgres pod status |
-| `mqtt_users table does not exist` | API migrations not run | Check API logs for migration errors |
-| `ON CONFLICT ... no unique constraint` | ACL table schema issue | Check migration 017 applied correctly |
-| `INSERT 0 0` | User already exists or constraint violation | Check if init job ran twice |
-
----
 
 #### Step 6: Verify Database Migrations
 

@@ -71,7 +71,7 @@ api:
     repository: iotistic/api
     tag: latest
   replicas: 1
-  port: 3001
+  port: 3002
   resources:
     requests:
       cpu: 250m

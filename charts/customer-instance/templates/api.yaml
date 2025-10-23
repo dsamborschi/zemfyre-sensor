@@ -76,6 +76,8 @@ spec:
               name: {{ include "customer-instance.fullname" . }}-secrets
               key: CUSTOMER_ID
         # App config
+        - name: PORT
+          value: {{ .Values.api.port | quote }}
         - name: NODE_ENV
           value: {{ .Values.api.env.NODE_ENV | quote }}
         - name: LOG_LEVEL
