@@ -1,0 +1,83 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: opencost
+  namespace: {{ .Values.serviceMonitor.namespace | default "monitoring" }}
+  labels:
+    app: opencost
+    app.kubernetes.io/name: opencost
+    app.kubernetes.io/instance: {{ .Release.Name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: opencost
+  template:
+    metadata:
+      labels:
+        app: opencost
+        app.kubernetes.io/name: opencost
+    spec:
+      serviceAccountName: opencost
+      containers:
+      - name: opencost
+        image: "{{ .Values.opencost.image.repository }}:{{ .Values.opencost.image.tag }}"
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 9003
+          name: metrics
+        {{- if .Values.opencost.ui.enabled }}
+        - containerPort: 9090
+          name: ui
+        {{- end }}
+        env:
+        # Prometheus configuration
+        - name: PROMETHEUS_SERVER_ENDPOINT
+          value: "http://{{ .Values.opencost.prometheus.internal.serviceName }}:{{ .Values.opencost.prometheus.internal.port }}"
+        
+        # Cloud provider
+        {{- if .Values.opencost.cloudProvider.provider }}
+        - name: CLOUD_PROVIDER
+          value: {{ .Values.opencost.cloudProvider.provider | quote }}
+        {{- end }}
+        
+        # Custom pricing
+        - name: CPU_PRICE
+          value: {{ .Values.opencost.pricing.cpu | quote }}
+        - name: MEMORY_PRICE
+          value: {{ .Values.opencost.pricing.memory | quote }}
+        - name: STORAGE_PRICE
+          value: {{ .Values.opencost.pricing.storage | quote }}
+        - name: NETWORK_PRICE
+          value: {{ .Values.opencost.pricing.network | quote }}
+        
+        # Cost allocation
+        - name: COST_ALLOCATION_NAMESPACE_LABEL
+          value: {{ .Values.costAllocation.namespaceLabel | quote }}
+        
+        # Retention
+        - name: RETENTION_DAYS
+          value: {{ .Values.retention.days | quote }}
+        - name: RESOLUTION
+          value: {{ .Values.retention.resolution | quote }}
+        
+        # Logging
+        - name: LOG_LEVEL
+          value: "info"
+        
+        resources:
+          {{- toYaml .Values.opencost.resources | nindent 10 }}
+        
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 9003
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 9003
+          initialDelaySeconds: 10
+          periodSeconds: 5

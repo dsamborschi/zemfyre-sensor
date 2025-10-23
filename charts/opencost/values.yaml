@@ -1,0 +1,125 @@
+# OpenCost Helm Chart Values
+# Tracks Kubernetes infrastructure costs across all customer namespaces
+
+# OpenCost configuration
+opencost:
+  image:
+    repository: quay.io/kubecost1/kubecost-cost-model
+    tag: latest
+  
+  # Prometheus integration
+  prometheus:
+    # Use cluster Prometheus (adjust if using different Prometheus)
+    internal:
+      enabled: true
+      serviceName: prometheus-kube-prometheus-prometheus.monitoring
+      port: 9090
+  
+  # Cloud provider integration (RECOMMENDED for accurate pricing)
+  cloudProvider:
+    # Set to: AWS, GCP, Azure, or leave empty for generic pricing
+    # OpenCost will automatically fetch real-time pricing from cloud APIs
+    provider: ""  # Set to "AWS", "GCP", or "Azure" for your cluster
+    
+    # AWS specific (if provider=AWS)
+    # OpenCost uses AWS Pricing API (no config needed, just IAM permissions)
+    aws:
+      # Optional: Spot instance data feed S3 bucket for spot pricing
+      spotDataBucket: ""
+      spotDataPrefix: ""
+      # Required IAM permissions: pricing:GetProducts, pricing:DescribeServices
+      # OpenCost will auto-detect region from node metadata
+      
+    # GCP specific (if provider=GCP)
+    # Requires BigQuery billing export to be enabled
+    gcp:
+      # BigQuery billing export dataset
+      # Format: "project-id.dataset_name"
+      # Example: "my-project.billing_export"
+      billingDataDataset: ""
+      # OpenCost queries this for actual billed costs including discounts
+      
+    # Azure specific (if provider=Azure)
+    # Uses Azure Rate Card API for pricing
+    azure:
+      # Subscription ID (find in Azure Portal)
+      subscriptionId: ""
+      # Resource group name
+      resourceGroup: ""
+      # Required permissions: Microsoft.Compute/*/read, Microsoft.RateCard/*/read
+  
+  # Custom pricing (FALLBACK - used only if cloudProvider.provider is empty)
+  # These are generic baseline costs based on AWS c5.large pricing
+  # For accurate costs: Set cloudProvider.provider to "AWS", "GCP", or "Azure"
+  pricing:
+    cpu: "0.031611"      # $0.031611 per vCPU/hour (AWS c5.large: $0.085/hr ÷ 2 vCPUs)
+    memory: "0.004237"   # $0.004237 per GB RAM/hour (AWS c5.large: 4GB for $0.017/hr)
+    storage: "0.00005"   # $0.00005 per GB storage/hour (AWS EBS gp3: $0.08/GB/month)
+    network: "0.01"      # $0.01 per GB egress (AWS inter-region transfer pricing)
+    # NOTE: These are ESTIMATES. Real costs vary by:
+    #  - Instance type (t3.micro vs c5.24xlarge)
+    #  - Region (us-east-1 vs ap-southeast-1)
+    #  - Commitment discounts (reserved instances, savings plans)
+    #  - Spot vs on-demand pricing
+
+  # Resource requests/limits
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # Service configuration
+  service:
+    type: ClusterIP
+    port: 9003
+    annotations: {}
+
+  # ServiceMonitor for Prometheus scraping
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring
+    interval: 60s
+    scrapeTimeout: 30s
+
+  # UI (optional - web interface for cost visualization)
+  ui:
+    enabled: true
+    port: 9090
+
+# Namespace labels for cost allocation
+# OpenCost will track costs by these labels
+costAllocation:
+  # Label that identifies customer namespaces
+  namespaceLabel: "customer-id"
+  
+  # Enable namespace-level cost tracking
+  enableNamespaceCosts: true
+  
+  # Enable pod-level cost tracking
+  enablePodCosts: true
+  
+  # Enable service-level cost tracking (more granular)
+  enableServiceCosts: true
+
+# Retention settings
+retention:
+  # How long to keep cost data (in days)
+  days: 15
+  
+  # Resolution of cost data
+  # Options: daily, hourly
+  resolution: "hourly"
+
+# Export configuration
+export:
+  # Export cost data to external systems
+  enabled: false
+  
+  # CSV export to S3/GCS/Azure Blob (optional)
+  csv:
+    enabled: false
+    bucket: ""
+    path: "opencost-exports"

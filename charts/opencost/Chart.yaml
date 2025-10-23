@@ -1,0 +1,14 @@
+apiVersion: v2
+name: opencost
+description: Kubernetes cost monitoring and allocation using OpenCost
+type: application
+version: 1.0.0
+appVersion: "latest"
+keywords:
+  - kubernetes
+  - cost
+  - monitoring
+  - finops
+  - billing
+maintainers:
+  - name: Iotistic Platform

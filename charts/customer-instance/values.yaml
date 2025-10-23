@@ -195,3 +195,50 @@ monitoring:
   grafana:
     enabled: false  # Only if monitoring.dedicated=true
     adminPassword: ""  # Auto-generated if empty
+
+# Cost monitoring with OpenCost
+opencost:
+  # Enable cost monitoring (enabled for all tiers)
+  enabled: true
+  
+  # Docker image
+  image:
+    repository: quay.io/kubecost1/kubecost-cost-model
+    tag: latest
+    pullPolicy: IfNotPresent
+  
+  # Resources
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  
+  # Cloud provider pricing (set by billing service based on cluster location)
+  # Leave empty for Docker Desktop / local dev (uses generic pricing)
+  cloudProvider:
+    provider: ""  # Set to "AWS", "GCP", or "Azure" in production
+  
+  # Default pricing (used when cloudProvider.provider is empty)
+  # Based on AWS c5.large pricing as baseline
+  pricing:
+    cpu: "0.031611"      # $0.031611 per vCPU/hour
+    memory: "0.004237"   # $0.004237 per GB RAM/hour
+    storage: "0.00005"   # $0.00005 per GB storage/hour
+    network: "0.01"      # $0.01 per GB egress
+  
+  # Cost retention (how long to keep cost data)
+  retention:
+    days: 15
+    resolution: "hourly"  # hourly or daily
+  
+  # Service port
+  service:
+    port: 9003
+    type: ClusterIP
+  
+  # UI (optional web interface)
+  ui:
+    enabled: false  # Disable UI to save resources, use Grafana instead

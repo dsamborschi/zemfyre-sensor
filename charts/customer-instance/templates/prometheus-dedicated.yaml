@@ -89,6 +89,16 @@ data:
           service: 'postgres'
           customer_id: {{ .Values.customer.id | quote }}
     {{- end }}
+    
+    {{- if .Values.opencost.enabled }}
+    # OpenCost - infrastructure cost metrics
+    - job_name: 'opencost'
+      static_configs:
+      - targets: ['{{ include "customer-instance.fullname" . }}-opencost:{{ .Values.opencost.service.port }}']
+        labels:
+          service: 'opencost'
+          customer_id: {{ .Values.customer.id | quote }}
+    {{- end }}
 ---
 apiVersion: apps/v1
 kind: Deployment
