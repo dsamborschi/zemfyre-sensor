@@ -261,6 +261,13 @@ monitoring:
       size: "${grafana.persistence.size}"`;
     }
     
+    // MQTT exporter configuration (only for dedicated monitoring)
+    const hasDedicatedPrometheus = monitoringConfig.dedicated;
+    const mosquittoMetricsSection = `
+mosquitto:
+  metrics:
+    enabled: ${hasDedicatedPrometheus}  # Only enable if dedicated Prometheus is deployed`;
+    
     const valuesContent = `
 customer:
   id: ${sanitizedCustomerId}
@@ -274,6 +281,7 @@ license:
 ${this.licensePublicKey.split('\n').map(line => '    ' + line).join('\n')}
 domain:
   base: ${this.baseDomain}${monitoringSection}
+${mosquittoMetricsSection}
 `;
     
     await fs.writeFile(tempValuesFile, valuesContent, 'utf8');

@@ -70,9 +70,10 @@ mosquitto:
   credentials:
     username: "admin"
     password: ""  # Auto-generated if empty
-  # Prometheus metrics exporter
+  # Prometheus metrics exporter (only for dedicated Prometheus - Enterprise tier)
+  # For Starter/Professional: Use shared monitoring or no metrics
   metrics:
-    enabled: true
+    enabled: false  # Will be set to true if monitoring.dedicated=true
     port: 9234
     exporter:
       image:
