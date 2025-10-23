@@ -2,7 +2,7 @@ import { Job } from 'bull';
 import { deploymentQueue } from '../services/deployment-queue';
 import { k8sDeploymentService } from '../services/k8s-deployment-service';
 import { CustomerModel } from '../db/customer-model';
-// import { upgradeService } from '../services/upgrade-service'; // Disabled - missing module
+import { upgradeService } from '../services/upgrade-service';
 
 interface DeploymentJobData {
   customerId: string;
@@ -60,10 +60,10 @@ export class DeploymentWorker {
       return this.handleDeletion(job);
     });
 
-    // Process upgrade jobs (single concurrency for upgrades) - Disabled (missing upgrade-service)
-    // queue.process('system-upgrade', 1, async (job: Job<UpgradeJobData>) => {
-    //   return this.handleUpgrade(job);
-    // });
+    // Process upgrade jobs (single concurrency for upgrades)
+    queue.process('system-upgrade', 1, async (job: Job<UpgradeJobData>) => {
+      return this.handleUpgrade(job);
+    });
 
     this.isRunning = true;
     console.log(`✅ Deployment worker started (concurrency: ${concurrency})`);
@@ -207,26 +207,34 @@ export class DeploymentWorker {
   }
 
   /**
-   * Handle upgrade job - Disabled (missing upgrade-service)
+   * Handle upgrade job
    */
-  // private async handleUpgrade(job: Job<UpgradeJobData>) {
-  //   const { upgradeId, customerIds } = job.data;
-  //   console.log(`🔄 Processing system upgrade ${upgradeId}`);
-  //   try {
-  //     await job.progress(10);
-  //     await upgradeService.executeUpgrade(upgradeId, customerIds);
-  //     await job.progress(100);
-  //     console.log(`✅ Upgrade ${upgradeId} completed`);
-  //     return {
-  //       success: true,
-  //       upgradeId,
-  //       completedAt: new Date().toISOString(),
-  //     };
-  //   } catch (error: any) {
-  //     console.error(`❌ Upgrade ${upgradeId} failed:`, error.message);
-  //     throw error;
-  //   }
-  // }
+  private async handleUpgrade(job: Job<UpgradeJobData>) {
+    const { upgradeId, customerIds } = job.data;
+
+    console.log(`🔄 Processing system upgrade ${upgradeId}`);
+
+    try {
+      await job.progress(10);
+
+      // Execute the upgrade
+      await upgradeService.executeUpgrade(upgradeId, customerIds);
+
+      await job.progress(100);
+
+      console.log(`✅ Upgrade ${upgradeId} completed`);
+
+      return {
+        success: true,
+        upgradeId,
+        completedAt: new Date().toISOString(),
+      };
+
+    } catch (error: any) {
+      console.error(`❌ Upgrade ${upgradeId} failed:`, error.message);
+      throw error;
+    }
+  }
 
   /**
    * Stop the worker

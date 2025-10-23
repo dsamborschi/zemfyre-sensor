@@ -187,19 +187,31 @@ export class K8sDeploymentService {
     // shortId: first 8 chars of the customer id (without 'cust_' prefix)
     const shortId = options.customerId.replace(/^cust_/, '').replace(/_/g, '-').substring(0, 8);
     
-    // Escape the license public key for shell (contains newlines and special chars)
-    const escapedPublicKey = this.licensePublicKey.replace(/\n/g, '\\n');
+    // Create a temporary values file for complex values like LICENSE_PUBLIC_KEY
+    const tempValuesFile = path.join('/tmp', `values-${namespace}.yaml`);
+    const valuesContent = `
+customer:
+  id: ${sanitizedCustomerId}
+  shortId: ${shortId}
+  originalId: ${options.customerId}
+  email: ${options.email}
+  companyName: "${options.companyName}"
+license:
+  key: "${options.licenseKey}"
+  publicKey: |
+${this.licensePublicKey.split('\n').map(line => '    ' + line).join('\n')}
+domain:
+  base: ${this.baseDomain}
+`;
     
-    // Build Helm values arguments
-    const helmValues = [
-      `--set customer.id=${sanitizedCustomerId}`,  // Use sanitized ID for DNS names
-      `--set customer.shortId=${shortId}`,
-      `--set customer.originalId=${options.customerId}`,  // Keep original for reference
-      `--set customer.email=${options.email}`,
-      `--set customer.companyName="${options.companyName}"`,
-      `--set license.key="${options.licenseKey}"`,
-      `--set license.publicKey="${escapedPublicKey}"`,  // Inject at deploy time (not in values.yaml!)
-      `--set domain.base=${this.baseDomain}`,
+    await fs.writeFile(tempValuesFile, valuesContent, 'utf8');
+    
+    // Build Helm command using values file
+    const helmCommand = [
+      'helm upgrade --install',
+      releaseName,
+      this.chartPath,
+      `-f ${tempValuesFile}`,
       `--namespace ${namespace}`,
       `--create-namespace`,
       `--wait`,
@@ -208,11 +220,12 @@ export class K8sDeploymentService {
 
     // Try to upgrade if exists, otherwise install
     try {
-      logger.info('Installing Helm release', { releaseName, namespace });
-      
-      const helmCommand = `helm upgrade --install ${releaseName} ${this.chartPath} ${helmValues}`;
+      logger.info('Installing Helm release', { releaseName, namespace, valuesFile: tempValuesFile });
       
       const { stdout, stderr } = await execAsync(helmCommand);
+      
+      // Clean up temp values file
+      await fs.unlink(tempValuesFile).catch(() => {});
       
       if (stderr && !stderr.includes('STATUS: deployed')) {
         logger.warn('Helm deployment warnings', { stderr });
@@ -221,6 +234,9 @@ export class K8sDeploymentService {
       logger.info('Helm release deployed', { releaseName, stdout });
       
     } catch (error: any) {
+      // Clean up temp values file on error
+      await fs.unlink(tempValuesFile).catch(() => {});
+      
       logger.error('Helm deployment failed', { 
         releaseName, 
         error: error.message,

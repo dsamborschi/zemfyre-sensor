@@ -72,6 +72,7 @@ services:
       # License keys
       LICENSE_PRIVATE_KEY_PATH: ${LICENSE_PRIVATE_KEY_PATH}
       LICENSE_PUBLIC_KEY_PATH: ${LICENSE_PUBLIC_KEY_PATH}
+      LICENSE_PUBLIC_KEY: ${LICENSE_PUBLIC_KEY}  # For K8s deployment injection
 
       # Trial configuration
       DEFAULT_TRIAL_DAYS: 14

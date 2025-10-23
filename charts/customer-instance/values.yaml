@@ -103,7 +103,7 @@ dashboard:
 
 # Prometheus exporter (metrics)
 exporter:
-  enabled: true
+  enabled: false  # Disabled - image not built yet
   image:
     repository: iotistic/billing-exporter
     tag: latest
