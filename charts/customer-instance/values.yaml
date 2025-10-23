@@ -10,6 +10,8 @@ customer:
 # License key (JWT)
 license:
   key: ""
+  # publicKey is injected at deploy time from billing service (not stored in Git!)
+  publicKey: ""
 
 # Domain configuration
 domain:

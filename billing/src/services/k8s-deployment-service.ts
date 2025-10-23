@@ -26,11 +26,19 @@ interface DeploymentResult {
 export class K8sDeploymentService {
   private readonly chartPath: string;
   private readonly baseDomain: string;
+  private readonly licensePublicKey: string;
 
   constructor() {
     // Path to Helm chart (adjust based on your deployment structure)
     this.chartPath = process.env.HELM_CHART_PATH || path.join(__dirname, '../../../charts/customer-instance');
     this.baseDomain = process.env.BASE_DOMAIN || 'iotistic.ca';
+    
+    // Load LICENSE_PUBLIC_KEY from environment (never store in values.yaml!)
+    this.licensePublicKey = process.env.LICENSE_PUBLIC_KEY || '';
+    
+    if (!this.licensePublicKey) {
+      logger.warn('⚠️  LICENSE_PUBLIC_KEY not set - customer instances will run in unlicensed mode');
+    }
   }
 
   /**
@@ -179,14 +187,18 @@ export class K8sDeploymentService {
     // shortId: first 8 chars of the customer id (without 'cust_' prefix)
     const shortId = options.customerId.replace(/^cust_/, '').replace(/_/g, '-').substring(0, 8);
     
+    // Escape the license public key for shell (contains newlines and special chars)
+    const escapedPublicKey = this.licensePublicKey.replace(/\n/g, '\\n');
+    
     // Build Helm values arguments
     const helmValues = [
       `--set customer.id=${sanitizedCustomerId}`,  // Use sanitized ID for DNS names
-  `--set customer.shortId=${shortId}`,
+      `--set customer.shortId=${shortId}`,
       `--set customer.originalId=${options.customerId}`,  // Keep original for reference
       `--set customer.email=${options.email}`,
       `--set customer.companyName="${options.companyName}"`,
       `--set license.key="${options.licenseKey}"`,
+      `--set license.publicKey="${escapedPublicKey}"`,  // Inject at deploy time (not in values.yaml!)
       `--set domain.base=${this.baseDomain}`,
       `--namespace ${namespace}`,
       `--create-namespace`,

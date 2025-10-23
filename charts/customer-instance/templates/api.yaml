@@ -25,12 +25,17 @@ spec:
         - name: http
           containerPort: {{ .Values.api.port }}
         env:
-        # License key
+        # License key and public key
         - name: IOTISTIC_LICENSE_KEY
           valueFrom:
             secretKeyRef:
               name: {{ include "customer-instance.fullname" . }}-secrets
               key: IOTISTIC_LICENSE_KEY
+        - name: LICENSE_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: {{ include "customer-instance.fullname" . }}-secrets
+              key: LICENSE_PUBLIC_KEY
         # Database connection
         - name: DATABASE_URL
           valueFrom:
