@@ -82,6 +82,15 @@ app.get('/', (req, res) => {
   });
 });
 
+// Health check endpoint (for Kubernetes probes)
+app.get('/health', (req, res) => {
+  res.status(200).json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime()
+  });
+});
+
 // Setup API documentation
 import { setupApiDocs } from './docs';
 setupApiDocs(app, API_BASE);
