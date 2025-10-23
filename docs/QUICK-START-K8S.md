@@ -121,6 +121,25 @@ helm install cert-manager jetstack/cert-manager \
 kubectl get pods -n cert-manager
 ```
 
+### Install ServiceMonitor CRD (Required for Monitoring)
+
+**CRITICAL**: This CRD must be installed before deploying any customer instances, or deployments will fail.
+
+```bash
+# Install ServiceMonitor CRD for Prometheus monitoring
+kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+
+# Verify installation
+kubectl get crd servicemonitors.monitoring.coreos.com
+```
+
+**Why**: Customer instances create `ServiceMonitor` resources for metrics collection. Without this CRD, Helm deployments fail with:
+```
+Error: no matches for kind "ServiceMonitor" in version "monitoring.coreos.com/v1"
+```
+
+**Note**: For production, install the full Prometheus Operator stack (see `K8S-DEPLOYMENT-GUIDE.md`). For local dev, just the CRD is sufficient to prevent deployment errors.
+
 ### Configure /etc/hosts
 
 ```bash

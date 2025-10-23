@@ -581,7 +581,104 @@ mosquitto_sub -h localhost -t test/topic
 
 ## Monitoring
 
-### Kubernetes Dashboard
+### 1. Install Prometheus Operator CRDs
+
+**CRITICAL**: Install ServiceMonitor CRDs before deploying any customer instances. This is required for the shared monitoring architecture.
+
+```bash
+# Install ServiceMonitor CRD (required for shared monitoring)
+kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/main/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml
+
+# Verify CRD installation
+kubectl get crd servicemonitors.monitoring.coreos.com
+```
+
+**Note**: Without this CRD, customer deployments will fail with:
+```
+Error: no matches for kind "ServiceMonitor" in version "monitoring.coreos.com/v1"
+```
+
+### 2. Install Prometheus Stack (Shared Monitoring)
+
+For **Starter** and **Professional** plans, customer instances use a shared Prometheus cluster.
+
+```bash
+# Add Helm repo
+helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
+helm repo update
+
+# Install kube-prometheus-stack (includes Prometheus Operator, Prometheus, Grafana)
+helm install prometheus-operator prometheus-community/kube-prometheus-stack \
+  --namespace monitoring \
+  --create-namespace \
+  --set prometheus.prometheusSpec.serviceMonitorSelectorNilUsesHelmValues=false \
+  --set prometheus.prometheusSpec.podMonitorSelectorNilUsesHelmValues=false
+
+# Verify installation
+kubectl get pods -n monitoring
+
+# Access Grafana
+kubectl port-forward -n monitoring svc/prometheus-operator-grafana 3000:80
+# Default credentials: admin/prom-operator
+```
+
+**What this installs**:
+- **Prometheus Operator**: Manages Prometheus instances via CRDs
+- **Prometheus**: Scrapes metrics from customer ServiceMonitors
+- **Grafana**: Pre-configured dashboards for K8s monitoring
+- **AlertManager**: Alert routing and management
+
+### 3. Monitoring Architecture
+
+The platform supports **two monitoring modes** based on subscription plan:
+
+#### Shared Monitoring (Starter & Professional)
+
+- **One Prometheus instance** in `monitoring` namespace scrapes all customer instances
+- Each customer gets a **ServiceMonitor** resource with labels for isolation:
+  - `customer_id`: Unique customer identifier
+  - `customer_plan`: Subscription plan (starter/professional)
+  - `customer_company`: Company name
+  - `customer_namespace`: K8s namespace
+
+**Example ServiceMonitor**:
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: customer-abc123-instance
+  namespace: customer-abc123
+  labels:
+    customer-id: cust_abc123
+    prometheus: kube-prometheus  # Discovered by shared Prometheus
+spec:
+  endpoints:
+    - interval: 30s  # Starter: 30s, Pro: 15s
+      path: /metrics
+      port: http
+      relabelings:
+        - targetLabel: customer_id
+          replacement: cust_abc123
+        - targetLabel: customer_plan
+          replacement: starter
+```
+
+**Data Retention**:
+- Starter: 7 days
+- Professional: 15 days
+
+#### Dedicated Monitoring (Enterprise)
+
+- **Per-customer Prometheus + Grafana** deployed in customer's namespace
+- Full control over retention and storage
+- Isolated metrics and dashboards
+
+**Default Configuration**:
+- Retention: 30 days
+- Storage: 50GB PVC
+- Dedicated Grafana instance with custom dashboards
+
+### 4. Kubernetes Dashboard (Optional)
 
 ```bash
 # Install dashboard
@@ -601,20 +698,27 @@ kubectl proxy
 open http://localhost:8001/api/v1/namespaces/kubernetes-dashboard/services/https:kubernetes-dashboard:/proxy/
 ```
 
-### Prometheus + Grafana (Optional)
+### 5. Verify Customer Monitoring
+
+### 5. Verify Customer Monitoring
+
+After deploying a customer instance, verify monitoring is configured:
 
 ```bash
-# Install kube-prometheus-stack
-helm repo add prometheus-community https://prometheus-community.github.io/helm-charts
-helm repo update
+# Check ServiceMonitor was created
+kubectl get servicemonitor -n customer-abc123
 
-helm install monitoring prometheus-community/kube-prometheus-stack \
-  --namespace monitoring \
-  --create-namespace
+# View ServiceMonitor configuration
+kubectl get servicemonitor -n customer-abc123 -o yaml
 
-# Access Grafana
-kubectl port-forward -n monitoring svc/monitoring-grafana 3000:80
-# Default: admin/prom-operator
+# Check if Prometheus is discovering targets (shared monitoring)
+kubectl port-forward -n monitoring svc/prometheus-operator-kube-prom-prometheus 9090:9090
+# Open http://localhost:9090/targets
+# Look for customer-abc123 targets
+
+# For dedicated monitoring (Enterprise), check Prometheus in customer namespace
+kubectl get prometheus -n customer-abc123
+kubectl port-forward -n customer-abc123 svc/customer-abc123-prometheus 9091:9090
 ```
 
 ### Customer Usage Metrics

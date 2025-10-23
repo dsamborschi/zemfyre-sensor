@@ -19,8 +19,7 @@ import licensesRouter from './routes/licenses';
 import usageRouter from './routes/usage';
 import webhooksRouter from './routes/webhooks';
 import queueRouter from './routes/queue';
-// TODO: Fix missing upgrade-service module
-// import upgradesRouter from './routes/upgrades';
+import upgradesRouter from './routes/upgrades';
 
 // Workers
 import { deploymentWorker } from './workers/deployment-worker';
@@ -68,7 +67,7 @@ app.use('/api/licenses', licensesRouter);
 app.use('/api/usage', usageRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/queue', queueRouter);
-// app.use('/api/upgrades', upgradesRouter); // Disabled - missing upgrade-service
+app.use('/api/upgrades', upgradesRouter);
 
 // 404 handler
 app.use((req, res) => {

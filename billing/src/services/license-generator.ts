@@ -31,6 +31,12 @@ export interface LicenseData {
     // Advanced features
     hasAdvancedAlerts: boolean;
     hasCustomDashboards: boolean;
+    
+    // Monitoring & observability
+    hasDedicatedPrometheus: boolean;
+    hasDedicatedGrafana: boolean;
+    prometheusRetentionDays: number;
+    prometheusStorageGb: number;
   };
   limits: {
     maxJobTemplates?: number;
@@ -70,6 +76,12 @@ const PLAN_CONFIG = {
     hasAdvancedAlerts: false,
     hasCustomDashboards: false,
     
+    // Monitoring & observability (shared Prometheus)
+    hasDedicatedPrometheus: false,
+    hasDedicatedGrafana: false,
+    prometheusRetentionDays: 7,  // Shared cluster default
+    prometheusStorageGb: 0,  // Shared storage
+    
     // Limits
     maxJobTemplates: 10,
     maxAlertRules: 25,
@@ -94,6 +106,12 @@ const PLAN_CONFIG = {
     hasAdvancedAlerts: true,
     hasCustomDashboards: true,
     
+    // Monitoring & observability (shared Prometheus with better retention)
+    hasDedicatedPrometheus: false,
+    hasDedicatedGrafana: false,
+    prometheusRetentionDays: 15,  // Shared cluster with longer retention
+    prometheusStorageGb: 0,  // Shared storage
+    
     // Limits
     maxJobTemplates: 100,
     maxAlertRules: 100,
@@ -117,6 +135,12 @@ const PLAN_CONFIG = {
     // Advanced features
     hasAdvancedAlerts: true,
     hasCustomDashboards: true,
+    
+    // Monitoring & observability (dedicated Prometheus + Grafana)
+    hasDedicatedPrometheus: true,
+    hasDedicatedGrafana: true,
+    prometheusRetentionDays: 30,  // Dedicated instance with 30-day retention
+    prometheusStorageGb: 50,  // 50GB dedicated storage
     
     // Limits
     maxProvisioningKeys: undefined, // Unlimited
@@ -174,6 +198,10 @@ export class LicenseGenerator {
         canExportData: planConfig.canExportData,
         hasAdvancedAlerts: planConfig.hasAdvancedAlerts,
         hasCustomDashboards: planConfig.hasCustomDashboards,
+        hasDedicatedPrometheus: planConfig.hasDedicatedPrometheus,
+        hasDedicatedGrafana: planConfig.hasDedicatedGrafana,
+        prometheusRetentionDays: planConfig.prometheusRetentionDays,
+        prometheusStorageGb: planConfig.prometheusStorageGb,
       },
       limits: {
         maxJobTemplates: planConfig.maxJobTemplates,

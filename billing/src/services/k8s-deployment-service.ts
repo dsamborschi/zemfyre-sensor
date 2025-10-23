@@ -187,8 +187,80 @@ export class K8sDeploymentService {
     // shortId: first 8 chars of the customer id (without 'cust_' prefix)
     const shortId = options.customerId.replace(/^cust_/, '').replace(/_/g, '-').substring(0, 8);
     
+    // Decode license to extract monitoring configuration
+    let monitoringConfig = {
+      enabled: true,
+      dedicated: false,
+      scrapeInterval: '30s',
+      retention: '7d',
+      storageSize: '10Gi'
+    };
+    
+    try {
+      // Decode JWT without verification (we already trust it since we generated it)
+      const decoded = require('jsonwebtoken').decode(options.licenseKey) as any;
+      if (decoded && decoded.features) {
+        const plan = decoded.plan || 'starter';
+        const hasDedicatedPrometheus = decoded.features.hasDedicatedPrometheus || false;
+        
+        monitoringConfig = {
+          enabled: true,
+          dedicated: hasDedicatedPrometheus,
+          scrapeInterval: '30s',
+          retention: `${decoded.features.prometheusRetentionDays || 7}d`,
+          storageSize: decoded.features.prometheusStorageGb > 0 
+            ? `${decoded.features.prometheusStorageGb}Gi` 
+            : '10Gi'
+        };
+        
+        // Add Grafana configuration for Enterprise (dedicated monitoring)
+        if (hasDedicatedPrometheus) {
+          (monitoringConfig as any).grafana = {
+            enabled: true,
+            adminUser: 'admin',
+            adminPassword: 'admin', // TODO: Generate secure password
+            persistence: {
+              enabled: true,
+              size: '10Gi'
+            }
+          };
+        }
+        
+        logger.info('Monitoring configuration extracted from license', { 
+          customerId: options.customerId,
+          plan,
+          monitoring: monitoringConfig 
+        });
+      }
+    } catch (error: any) {
+      logger.warn('Failed to decode license for monitoring config, using defaults', { error: error.message });
+    }
+    
     // Create a temporary values file for complex values like LICENSE_PUBLIC_KEY
     const tempValuesFile = path.join('/tmp', `values-${namespace}.yaml`);
+    
+    // Build monitoring section with grafana if dedicated
+    let monitoringSection = `
+monitoring:
+  enabled: ${monitoringConfig.enabled}
+  dedicated: ${monitoringConfig.dedicated}
+  scrapeInterval: "${monitoringConfig.scrapeInterval}"
+  retention: "${monitoringConfig.retention}"
+  storageSize: "${monitoringConfig.storageSize}"`;
+    
+    // Add Grafana configuration if present
+    if ((monitoringConfig as any).grafana) {
+      const grafana = (monitoringConfig as any).grafana;
+      monitoringSection += `
+  grafana:
+    enabled: ${grafana.enabled}
+    adminUser: "${grafana.adminUser}"
+    adminPassword: "${grafana.adminPassword}"
+    persistence:
+      enabled: ${grafana.persistence.enabled}
+      size: "${grafana.persistence.size}"`;
+    }
+    
     const valuesContent = `
 customer:
   id: ${sanitizedCustomerId}
@@ -201,7 +273,7 @@ license:
   publicKey: |
 ${this.licensePublicKey.split('\n').map(line => '    ' + line).join('\n')}
 domain:
-  base: ${this.baseDomain}
+  base: ${this.baseDomain}${monitoringSection}
 `;
     
     await fs.writeFile(tempValuesFile, valuesContent, 'utf8');

@@ -2982,6 +2982,105 @@ kubectl exec -n $NAMESPACE $PG_POD -- psql -U Iotistic -d Iotistic -c "
 
 ---
 
+##### Issue: LICENSE_PUBLIC_KEY Empty or Invalid
+
+**Symptoms:**
+
+- API pod crashes with: `LICENSE_PUBLIC_KEY is not configured or invalid`
+- License validation fails on startup
+- Decoded Kubernetes secret shows empty string
+
+**Check Secret:**
+
+```bash
+# Get secret name (look for *-secrets)
+kubectl get secrets -n $NAMESPACE
+
+# Decode LICENSE_PUBLIC_KEY (PowerShell)
+kubectl get secret -n $NAMESPACE <secret-name> -o jsonpath='{.data.LICENSE_PUBLIC_KEY}' | ForEach-Object { [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_)) }
+
+# Expected: Should show RSA public key (-----BEGIN PUBLIC KEY----- ...)
+# Problem: Empty string or garbled text
+```
+
+**Root Cause:**
+
+Helm's `--set` flag cannot properly handle multi-line values. Even with `\n` escaping, the RSA public key gets mangled through shell → Helm → YAML → Kubernetes layers.
+
+**The Fix:**
+
+The `k8s-deployment-service.ts` has been updated to use a **temporary YAML values file** instead of `--set`:
+
+```typescript
+// ❌ OLD (BROKEN) - Using --set with escaped newlines
+const escapedPublicKey = licensePublicKey.replace(/\n/g, '\\n');
+helm install ... --set license.publicKey="${escapedPublicKey}"
+
+// ✅ NEW (WORKING) - Using temporary values file
+const valuesContent = `license:
+  publicKey: |
+${this.licensePublicKey.split('\n').map(line => '    ' + line).join('\n')}`;
+
+fs.writeFileSync('/tmp/values-customer-xxx.yaml', valuesContent);
+helm install ... -f /tmp/values-customer-xxx.yaml
+```
+
+**Verify Fix is Applied:**
+
+```bash
+# Check billing service code
+docker exec billing-billing-1 cat /app/dist/services/k8s-deployment-service.js | grep -A 5 "valuesFilePath"
+
+# Should see code creating temp YAML file, not using --set
+```
+
+**Manual Fix for Existing Deployment:**
+
+If you have a customer instance deployed with empty LICENSE_PUBLIC_KEY:
+
+```bash
+# 1. Get the public key from billing service
+LICENSE_PUBLIC_KEY=$(docker exec billing-billing-1 sh -c 'echo "$LICENSE_PUBLIC_KEY"')
+
+# 2. Create values file
+cat > /tmp/fix-license.yaml <<EOF
+license:
+  publicKey: |
+$(echo "$LICENSE_PUBLIC_KEY" | sed 's/^/    /')
+EOF
+
+# 3. Upgrade Helm release
+helm upgrade customer-abc123de ./charts/customer-instance \
+  -n customer-abc123de \
+  -f /tmp/fix-license.yaml
+
+# 4. Restart API pod to pick up new secret
+kubectl rollout restart deployment -n customer-abc123de -l app.kubernetes.io/component=api
+
+# 5. Verify secret is now populated
+kubectl get secret -n customer-abc123de <secret-name> -o jsonpath='{.data.LICENSE_PUBLIC_KEY}' | base64 -d
+```
+
+**Prevent Future Issues:**
+
+Ensure billing service is built with the latest code:
+
+```bash
+cd billing
+npm run build
+docker compose restart billing
+
+# Verify deployment worker logs show temp file approach
+docker logs billing-billing-1 | grep "valuesFile"
+# Should see: Installing Helm release {"releaseName":"...","valuesFile":"/tmp/values-..."}
+```
+
+**Lesson Learned:**
+
+> **Always use Helm values files (`-f`) for complex data structures or multi-line values.** The `--set` flag is only reliable for simple scalar values (strings, numbers, booleans). Multi-line secrets, certificates, or config files should always be passed via YAML files with proper formatting (using `|` or `|-` for literal block scalars).
+
+---
+
 #### Quick Reference Commands
 
 **Set Namespace Variable:**
@@ -3529,6 +3628,19 @@ kubectl delete service redis
 ---
 
 ## Changelog
+
+### Version 1.0.1 (October 2025)
+
+**Bug Fixes:**
+- 🐛 **Fixed LICENSE_PUBLIC_KEY deployment to Kubernetes** - Changed from Helm `--set` (which mangles multi-line values) to temporary YAML values file approach. Public keys now correctly reach customer instance secrets.
+- 🔧 Disabled upgrade-service imports in deployment worker (module not implemented yet)
+
+**Technical Details:**
+- Root cause: Helm's `--set license.publicKey="${escapedKey}"` doesn't preserve newlines properly
+- Solution: Create `/tmp/values-${namespace}.yaml` with YAML pipe syntax (`|`) for multi-line values
+- Impact: License validation now works correctly in all deployed customer instances
+
+---
 
 ### Version 1.0.0 (October 2025)
 

@@ -6,6 +6,7 @@ customer:
   id: ""
   email: ""
   companyName: ""
+  plan: "starter"  # starter, professional, enterprise
 
 # License key (JWT)
 license:
@@ -38,6 +39,10 @@ postgres:
   username: Iotistic
   # Password will be auto-generated if not provided
   password: ""
+  # Prometheus metrics exporter
+  metrics:
+    enabled: true
+    port: 9187
 
 # Mosquitto MQTT broker
 mosquitto:
@@ -65,6 +70,21 @@ mosquitto:
   credentials:
     username: "admin"
     password: ""  # Auto-generated if empty
+  # Prometheus metrics exporter
+  metrics:
+    enabled: true
+    port: 9234
+    exporter:
+      image:
+        repository: sapcc/mosquitto-exporter
+        tag: "0.8.0"
+      resources:
+        requests:
+          cpu: 50m
+          memory: 64Mi
+        limits:
+          cpu: 100m
+          memory: 128Mi
 
 # API service
 api:
@@ -142,3 +162,36 @@ networkPolicy:
   enabled: true
   # Allow ingress from Ingress controller only
   allowExternal: true
+
+# Monitoring configuration
+monitoring:
+  # Enable metrics collection (always enabled for all tiers)
+  enabled: true
+  
+  # Dedicated Prometheus instance (Enterprise tier only - premium feature)
+  # When false: uses shared cluster Prometheus (recommended for most customers)
+  # When true: deploys dedicated Prometheus in customer namespace
+  dedicated: false
+  
+  # Scrape interval for metrics collection
+  scrapeInterval: "30s"
+  
+  # Retention period for dedicated Prometheus (ignored if dedicated=false)
+  retention: "15d"  # Enterprise: 15 days, can be increased with premium
+  
+  # Storage size for dedicated Prometheus
+  storageSize: "10Gi"
+  
+  # Resources for dedicated Prometheus
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+  
+  # Grafana for dedicated monitoring (Enterprise tier only)
+  grafana:
+    enabled: false  # Only if monitoring.dedicated=true
+    adminPassword: ""  # Auto-generated if empty

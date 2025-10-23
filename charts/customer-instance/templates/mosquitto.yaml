@@ -28,6 +28,10 @@ data:
     log_type notice
     log_type information
     
+    # System statistics publishing (required for metrics exporter)
+    # Publishes broker stats to $SYS/# topics every 10 seconds
+    sys_interval 10
+    
     # Load Go-Auth plugin
     auth_plugin /mosquitto/go-auth.so
     
