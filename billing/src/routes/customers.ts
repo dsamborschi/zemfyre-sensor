@@ -487,4 +487,57 @@ router.delete('/:id/deployment', async (req, res) => {
   }
 });
 
+/**
+ * DELETE /api/customers/:id
+ * Delete customer account and all resources
+ * 
+ * This endpoint:
+ * 1. Marks customer as deleted in database
+ * 2. Queues a job to delete Kubernetes namespace
+ * 3. Returns immediately (deletion happens asynchronously)
+ * 
+ * Use case: Customer cancellation, account termination, cleanup
+ */
+router.delete('/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    console.log(`🗑️  Customer deletion requested: ${id}`);
+
+    // Get customer record
+    const customer = await CustomerModel.getById(id);
+    if (!customer) {
+      return res.status(404).json({ error: 'Customer not found' });
+    }
+
+    // Check if already being deleted
+    if (customer.deployment_status === 'pending' && !customer.instance_namespace) {
+      return res.status(400).json({ 
+        error: 'Customer deletion already in progress',
+        customerId: id
+      });
+    }
+
+    // Queue deletion job (asynchronous processing)
+    const job = await deploymentQueue.addDeleteJob({
+      customerId: id,
+      namespace: customer.instance_namespace || ''
+    });
+
+    console.log(`✅ Deletion job queued: ${job.id}`);
+
+    res.json({
+      message: 'Customer deletion queued successfully',
+      customerId: id,
+      jobId: job.id,
+      status: 'pending',
+      note: 'Kubernetes namespace will be deleted asynchronously. Check job status for progress.'
+    });
+
+  } catch (error: any) {
+    console.error('Error deleting customer:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
 export default router;

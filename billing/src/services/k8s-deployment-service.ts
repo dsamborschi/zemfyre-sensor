@@ -352,37 +352,109 @@ ${mosquittoMetricsSection}
 
   /**
    * Delete a customer instance from Kubernetes
+   * Removes namespace and all resources (Pods, Services, ConfigMaps, PVCs, etc.)
+   * Also cleans up cluster-scoped resources (ClusterRole, ClusterRoleBinding from OpenCost)
    */
   async deleteCustomerInstance(customerId: string): Promise<DeploymentResult> {
     const namespace = this.sanitizeNamespace(customerId);
     const releaseName = namespace;
 
     try {
-      logger.info('Deleting Kubernetes deployment', { customerId, namespace });
+      logger.info('Starting customer instance deletion', { customerId, namespace });
 
-      // 1. Uninstall Helm release
+      // Check if in simulation mode
+      const simulateMode = process.env.SIMULATE_K8S_DEPLOYMENT === 'true';
+      
+      if (simulateMode) {
+        logger.info('🎭 SIMULATION MODE - Would delete Kubernetes resources', {
+          customerId,
+          namespace,
+          releaseName
+        });
+
+        await CustomerModel.updateDeploymentStatus(customerId, 'pending', {
+          instanceNamespace: '',
+          instanceUrl: ''
+        });
+
+        return { success: true, namespace };
+      }
+
+      // Real deletion - Step 1: Uninstall Helm release
       try {
+        logger.info('Uninstalling Helm release', { releaseName, namespace });
         await execAsync(`helm uninstall ${releaseName} --namespace ${namespace}`);
-        logger.info('Helm release uninstalled', { releaseName });
+        logger.info('✅ Helm release uninstalled', { releaseName });
       } catch (error: any) {
-        logger.warn('Helm uninstall error (may not exist)', { error: error.message });
+        if (error.message.includes('not found') || error.message.includes('NotFound')) {
+          logger.warn('Helm release not found (may have been manually deleted)', { releaseName });
+        } else {
+          logger.warn('Helm uninstall error (non-critical, continuing)', { error: error.message });
+        }
       }
 
-      // 2. Delete namespace (will cascade delete all resources)
+      // Step 2: Delete namespace (cascades to all resources)
       try {
-        await execAsync(`kubectl delete namespace ${namespace} --timeout=60s`);
-        logger.info('Namespace deleted', { namespace });
+        logger.info('Deleting Kubernetes namespace', { namespace });
+        await execAsync(`kubectl delete namespace ${namespace} --timeout=5m`);
+        logger.info('✅ Namespace deleted successfully', { namespace });
       } catch (error: any) {
-        logger.warn('Namespace delete error', { error: error.message });
+        if (error.message.includes('NotFound') || error.message.includes('not found')) {
+          logger.warn('Namespace already deleted or never existed', { namespace });
+        } else {
+          throw new Error(`Failed to delete namespace: ${error.message}`);
+        }
       }
 
-      // 3. Update customer record - set to pending (reset state)
+      // Step 3: Clean up cluster-scoped resources (OpenCost creates these)
+      const clusterResourcePrefix = `c${namespace.replace('customer-', '')}-customer-instance`;
+      
+      try {
+        logger.info('Cleaning up cluster-scoped resources', { prefix: clusterResourcePrefix });
+        
+        // Delete ClusterRoleBindings
+        const { stdout: bindings } = await execAsync(
+          `kubectl get clusterrolebinding -o name 2>/dev/null | grep "${clusterResourcePrefix}" || echo ""`
+        );
+        
+        if (bindings.trim()) {
+          for (const binding of bindings.trim().split('\n').filter(b => b)) {
+            try {
+              await execAsync(`kubectl delete ${binding}`);
+              logger.info('Deleted ClusterRoleBinding', { binding });
+            } catch (err: any) {
+              logger.warn('Failed to delete ClusterRoleBinding', { binding, error: err.message });
+            }
+          }
+        }
+
+        // Delete ClusterRoles
+        const { stdout: roles } = await execAsync(
+          `kubectl get clusterrole -o name 2>/dev/null | grep "${clusterResourcePrefix}" || echo ""`
+        );
+        
+        if (roles.trim()) {
+          for (const role of roles.trim().split('\n').filter(r => r)) {
+            try {
+              await execAsync(`kubectl delete ${role}`);
+              logger.info('Deleted ClusterRole', { role });
+            } catch (err: any) {
+              logger.warn('Failed to delete ClusterRole', { role, error: err.message });
+            }
+          }
+        }
+
+      } catch (error: any) {
+        logger.warn('Error cleaning up cluster-scoped resources (non-critical)', { error: error.message });
+      }
+
+      // Step 4: Update customer record - reset to pending state (instance removed)
       await CustomerModel.updateDeploymentStatus(customerId, 'pending', {
         instanceNamespace: '',
         instanceUrl: ''
       });
 
-      logger.info('Customer instance deleted', { customerId });
+      logger.info('✅ Customer instance deleted successfully', { customerId, namespace });
 
       return {
         success: true,
@@ -392,7 +464,13 @@ ${mosquittoMetricsSection}
     } catch (error: any) {
       logger.error('Failed to delete customer instance', { 
         customerId, 
-        error: error.message 
+        error: error.message,
+        stack: error.stack
+      });
+
+      // Update customer with error
+      await CustomerModel.updateDeploymentStatus(customerId, 'failed', {
+        deploymentError: `Deletion failed: ${error.message}`
       });
 
       return {

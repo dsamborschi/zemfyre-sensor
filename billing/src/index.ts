@@ -20,6 +20,7 @@ import usageRouter from './routes/usage';
 import webhooksRouter from './routes/webhooks';
 import queueRouter from './routes/queue';
 import upgradesRouter from './routes/upgrades';
+import adminRouter from './routes/admin';
 
 // Workers
 import { deploymentWorker } from './workers/deployment-worker';
@@ -68,6 +69,7 @@ app.use('/api/usage', usageRouter);
 app.use('/api/webhooks', webhooksRouter);
 app.use('/api/queue', queueRouter);
 app.use('/api/upgrades', upgradesRouter);
+app.use('/api/admin', adminRouter);
 
 // 404 handler
 app.use((req, res) => {
