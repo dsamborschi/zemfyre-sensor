@@ -41,11 +41,11 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Build & Push Billing Exporter image
+      - name: Build & Push MQTT Exporter image
         uses: docker/build-push-action@v5
         with:
-          context: ./billing-exporter
-          file: ./billing-exporter/Dockerfile
+          context: ./mqtt-exporter
+          file: ./mqtt-exporter/Dockerfile
           push: true
           platforms: ${{ matrix.platform }}
           cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
