@@ -149,6 +149,10 @@ async function startServer() {
     // Initialize schema
     await db.initializeSchema();
     console.log('✅ PostgreSQL database initialized successfully\n');
+    
+    // Initialize MQTT admin user (replaces K8s postgres-init-job)
+    const { initializeMqttAdmin } = await import('./services/mqtt-bootstrap');
+    await initializeMqttAdmin();
   } catch (error) {
     console.error('❌ Database initialization error:', error);
     process.exit(1);
