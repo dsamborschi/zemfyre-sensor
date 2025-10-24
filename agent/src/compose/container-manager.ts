@@ -44,6 +44,12 @@ export interface ContainerService {
 	imageName: string; // e.g., "nginx:latest"
 	appId: number;
 	appName: string;
+	
+	// Desired replica count (K8s-style)
+	// 0 = service should be stopped but config preserved
+	// 1+ = number of instances to run (Docker driver supports max 1)
+	// undefined = defaults to 1
+	replicas?: number;
 
 	// Configuration
 	config: {
@@ -987,6 +993,20 @@ export class ContainerManager extends EventEmitter {
 
 		// Download images and start all services
 		for (const service of app.services) {
+			// Check replicas (defaults to 1 if not specified)
+			const replicas = service.replicas !== undefined ? service.replicas : 1;
+			
+			// Skip services with 0 replicas (stopped state)
+			if (replicas === 0) {
+				this.logger?.debugSync('Skipping service with 0 replicas (stopped)', {
+					component: 'ContainerManager',
+					operation: 'stepsToAddApp',
+					serviceName: service.serviceName,
+					appId: app.appId
+				});
+				continue;
+			}
+			
 			// 1. Download image
 			steps.push({
 				action: 'downloadImage',
@@ -1046,6 +1066,20 @@ export class ContainerManager extends EventEmitter {
 
 			// Service added
 			if (!currentSvc && targetSvc) {
+				// Check replicas (defaults to 1 if not specified)
+				const replicas = targetSvc.replicas !== undefined ? targetSvc.replicas : 1;
+				
+				// Skip services with 0 replicas (stopped state)
+				if (replicas === 0) {
+					this.logger?.debugSync('Skipping new service with 0 replicas (stopped)', {
+						component: 'ContainerManager',
+						operation: 'stepsToUpdateApp',
+						serviceName: targetSvc.serviceName,
+						appId: target.appId
+					});
+					continue;
+				}
+				
 				this.logger?.debugSync('Service needs to be added', {
 					component: 'ContainerManager',
 					operation: 'calculateSteps',
@@ -1079,8 +1113,61 @@ export class ContainerManager extends EventEmitter {
 				});
 			}
 
-			// Service updated (image or config changed) OR container is not running
+			// Service updated (image or config changed) OR container is not running OR replicas changed
 			if (currentSvc && targetSvc) {
+				// Check replicas change
+				const currentReplicas = currentSvc.replicas !== undefined ? currentSvc.replicas : 1;
+				const targetReplicas = targetSvc.replicas !== undefined ? targetSvc.replicas : 1;
+				const replicasChanged = currentReplicas !== targetReplicas;
+				
+				// Special case: replicas changed to 0 (stop service)
+				if (targetReplicas === 0 && currentSvc.containerId) {
+					this.logger?.infoSync('Service replicas set to 0 - stopping', {
+						component: 'ContainerManager',
+						operation: 'stepsToUpdateApp',
+						serviceName: currentSvc.serviceName,
+						currentReplicas,
+						targetReplicas
+					});
+					
+					steps.push({
+						action: 'stopContainer',
+						appId: current.appId,
+						serviceId: serviceId,
+						containerId: currentSvc.containerId,
+					});
+					steps.push({
+						action: 'removeContainer',
+						appId: current.appId,
+						serviceId: serviceId,
+						containerId: currentSvc.containerId,
+					});
+					continue; // Don't check other changes
+				}
+				
+				// Special case: replicas changed from 0 to 1+ (start service)
+				if (currentReplicas === 0 && targetReplicas > 0) {
+					this.logger?.infoSync('Service replicas changed from 0 - starting', {
+						component: 'ContainerManager',
+						operation: 'stepsToUpdateApp',
+						serviceName: targetSvc.serviceName,
+						currentReplicas,
+						targetReplicas
+					});
+					
+					steps.push({
+						action: 'downloadImage',
+						appId: target.appId,
+						imageName: targetSvc.imageName,
+					});
+					steps.push({
+						action: 'startContainer',
+						appId: target.appId,
+						service: targetSvc,
+					});
+					continue; // Don't check other changes
+				}
+				
 				// Check if image changed (this requires container recreation)
 				const imageChanged = currentSvc.imageName !== targetSvc.imageName;
 				

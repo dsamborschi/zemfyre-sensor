@@ -22,6 +22,12 @@ export interface ServiceConfig {
 	imageName: string;
 	appId: number;
 	appName: string;
+	
+	// Desired replica count (K8s-style)
+	// 0 = service should be stopped but config preserved
+	// 1+ = number of instances to run
+	// undefined = defaults to 1
+	replicas?: number;
 
 	// Container configuration
 	config: {
