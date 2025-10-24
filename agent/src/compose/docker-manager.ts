@@ -7,7 +7,7 @@
  */
 
 import Docker from 'dockerode';
-import { SimpleService } from './container-manager';
+import { ContainerService } from './container-manager';
 
 export interface DockerContainerInfo {
 	id: string;
@@ -109,7 +109,7 @@ export class DockerManager {
 	/**
 	 * Create and start a container from a service definition
 	 */
-	async startContainer(service: SimpleService): Promise<string> {
+	async startContainer(service: ContainerService): Promise<string> {
 		console.log(`    Starting container: ${service.serviceName}`);
 
 		try {
@@ -159,6 +159,9 @@ export class DockerManager {
 			// 4. Build container configuration
 			const containerName = `${service.appName}_${service.serviceName}_${service.serviceId}`;
 
+			// 5. Parse resource limits (K8s-style)
+			const resourceLimits = this.parseResourceLimits(service);
+
 			const createOptions: Docker.ContainerCreateOptions = {
 				name: containerName,
 				Image: service.imageName,
@@ -176,6 +179,8 @@ export class DockerManager {
 						Name: service.config.restart || 'unless-stopped',
 						MaximumRetryCount: 0,
 					},
+					// Apply resource limits
+					...resourceLimits,
 				},
 				Labels: {
 					'iotistic.app-id': service.appId.toString(),
@@ -395,6 +400,112 @@ export class DockerManager {
 	// ========================================================================
 	// UTILITY
 	// ========================================================================
+
+	/**
+	 * Parse K8s-style resource limits to Docker format
+	 * 
+	 * K8s format:
+	 *   cpu: "0.5" (50% of 1 CPU), "2" (2 CPUs), "500m" (500 millicores = 0.5 CPU)
+	 *   memory: "512M", "1G", "256Mi", "2Gi"
+	 * 
+	 * Docker format:
+	 *   NanoCpus: 1000000000 = 1 CPU, 500000000 = 0.5 CPU
+	 *   Memory: bytes (e.g., 536870912 = 512MB)
+	 */
+	private parseResourceLimits(service: ContainerService): Partial<Docker.HostConfig> {
+		const hostConfig: Partial<Docker.HostConfig> = {};
+		
+		if (!service.config.resources) {
+			return hostConfig;
+		}
+
+		// Parse CPU limits
+		if (service.config.resources.limits?.cpu) {
+			const cpuLimit = this.parseCpuLimit(service.config.resources.limits.cpu);
+			if (cpuLimit > 0) {
+				hostConfig.NanoCpus = cpuLimit;
+				console.log(`    Setting CPU limit: ${service.config.resources.limits.cpu} (${cpuLimit} nanocpus)`);
+			}
+		}
+
+		// Parse memory limits
+		if (service.config.resources.limits?.memory) {
+			const memoryLimit = this.parseMemoryLimit(service.config.resources.limits.memory);
+			if (memoryLimit > 0) {
+				hostConfig.Memory = memoryLimit;
+				console.log(`    Setting memory limit: ${service.config.resources.limits.memory} (${memoryLimit} bytes)`);
+			}
+		}
+
+		// Parse CPU requests (Docker doesn't have direct equivalent, but we can use CpuShares)
+		// CpuShares is relative weight: 1024 = normal, 512 = half, 2048 = double
+		if (service.config.resources.requests?.cpu) {
+			const cpuRequest = this.parseCpuLimit(service.config.resources.requests.cpu);
+			// Convert NanoCpus to CpuShares (1 CPU = 1024 shares)
+			const cpuShares = Math.round((cpuRequest / 1000000000) * 1024);
+			if (cpuShares > 0) {
+				hostConfig.CpuShares = cpuShares;
+				console.log(`    Setting CPU request: ${service.config.resources.requests.cpu} (${cpuShares} shares)`);
+			}
+		}
+
+		// Parse memory requests (use as reservation)
+		if (service.config.resources.requests?.memory) {
+			const memoryRequest = this.parseMemoryLimit(service.config.resources.requests.memory);
+			if (memoryRequest > 0) {
+				hostConfig.MemoryReservation = memoryRequest;
+				console.log(`    Setting memory request: ${service.config.resources.requests.memory} (${memoryRequest} bytes)`);
+			}
+		}
+
+		return hostConfig;
+	}
+
+	/**
+	 * Parse CPU limit string to Docker NanoCpus format
+	 * Examples: "0.5" -> 500000000, "2" -> 2000000000, "500m" -> 500000000
+	 */
+	private parseCpuLimit(cpu: string): number {
+		// Handle millicores (e.g., "500m" = 0.5 CPU)
+		if (cpu.endsWith('m')) {
+			const millicores = parseFloat(cpu.slice(0, -1));
+			return Math.round((millicores / 1000) * 1000000000);
+		}
+		
+		// Handle decimal (e.g., "0.5" = 0.5 CPU, "2" = 2 CPUs)
+		const cpuFloat = parseFloat(cpu);
+		return Math.round(cpuFloat * 1000000000);
+	}
+
+	/**
+	 * Parse memory limit string to bytes
+	 * Examples: "512M" -> 536870912, "1G" -> 1073741824, "256Mi" -> 268435456
+	 */
+	private parseMemoryLimit(memory: string): number {
+		const units: Record<string, number> = {
+			// Decimal units (1000-based)
+			'K': 1000,
+			'M': 1000 * 1000,
+			'G': 1000 * 1000 * 1000,
+			'T': 1000 * 1000 * 1000 * 1000,
+			// Binary units (1024-based, K8s standard)
+			'Ki': 1024,
+			'Mi': 1024 * 1024,
+			'Gi': 1024 * 1024 * 1024,
+			'Ti': 1024 * 1024 * 1024 * 1024,
+		};
+
+		// Try binary units first (K8s standard)
+		for (const [suffix, multiplier] of Object.entries(units)) {
+			if (memory.endsWith(suffix)) {
+				const value = parseFloat(memory.slice(0, -suffix.length));
+				return Math.round(value * multiplier);
+			}
+		}
+
+		// No unit specified, assume bytes
+		return parseInt(memory);
+	}
 
 	/**
 	 * Check if Docker daemon is accessible

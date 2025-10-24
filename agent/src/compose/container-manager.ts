@@ -26,6 +26,8 @@ import crypto from 'crypto';
 import type Docker from 'dockerode';
 import { DockerManager } from './docker-manager';
 import { RetryManager } from './retry-manager';
+import { HealthCheckManager } from './health-check-manager';
+import { HealthProbe } from './types/health-check';
 import * as db from '../db';
 import type { ContainerLogMonitor } from '../logging/monitor';
 import * as networkManager from './network-manager';
@@ -35,7 +37,7 @@ import { Network } from './network';
 // TYPES (Simplified)
 // ============================================================================
 
-export interface SimpleService {
+export interface ContainerService {
 	serviceId: number;
 	serviceName: string;
 	imageName: string; // e.g., "nginx:latest"
@@ -52,6 +54,79 @@ export interface SimpleService {
 		networkMode?: string;
 		restart?: string;
 		labels?: Record<string, string>;
+		
+		// K8s-style resource limits
+		resources?: {
+			limits?: {
+				cpu?: string;    // e.g., "0.5" = 50% of 1 CPU, "2" = 2 CPUs
+				memory?: string; // e.g., "512M", "1G", "256Mi"
+			};
+			requests?: {
+				cpu?: string;    // Minimum CPU guarantee
+				memory?: string; // Minimum memory guarantee
+			};
+		};
+		
+		// K8s-style health probes
+		livenessProbe?: {
+			type: 'http' | 'tcp' | 'exec';
+			// HTTP specific
+			path?: string;
+			port?: number;
+			scheme?: 'http' | 'https';
+			headers?: Record<string, string>;
+			expectedStatus?: number[];
+			// TCP specific
+			tcpPort?: number;
+			// Exec specific
+			command?: string[];
+			// Common settings
+			initialDelaySeconds?: number;
+			periodSeconds?: number;
+			timeoutSeconds?: number;
+			successThreshold?: number;
+			failureThreshold?: number;
+		};
+		
+		readinessProbe?: {
+			type: 'http' | 'tcp' | 'exec';
+			// HTTP specific
+			path?: string;
+			port?: number;
+			scheme?: 'http' | 'https';
+			headers?: Record<string, string>;
+			expectedStatus?: number[];
+			// TCP specific
+			tcpPort?: number;
+			// Exec specific
+			command?: string[];
+			// Common settings
+			initialDelaySeconds?: number;
+			periodSeconds?: number;
+			timeoutSeconds?: number;
+			successThreshold?: number;
+			failureThreshold?: number;
+		};
+		
+		startupProbe?: {
+			type: 'http' | 'tcp' | 'exec';
+			// HTTP specific
+			path?: string;
+			port?: number;
+			scheme?: 'http' | 'https';
+			headers?: Record<string, string>;
+			expectedStatus?: number[];
+			// TCP specific
+			tcpPort?: number;
+			// Exec specific
+			command?: string[];
+			// Common settings
+			initialDelaySeconds?: number;
+			periodSeconds?: number;
+			timeoutSeconds?: number;
+			successThreshold?: number;
+			failureThreshold?: number;
+		};
 	};
 
 	// Runtime state (for current state)
@@ -73,7 +148,7 @@ export interface SimpleApp {
 	appId: number;
 	appName: string;
 	appUuid?: string; // Optional UUID for network naming
-	services: SimpleService[];
+	services: ContainerService[];
 }
 
 export interface SimpleState {
@@ -96,7 +171,7 @@ export type SimpleStep =
 			serviceId: number;
 			containerId: string;
 	  }
-	| { action: 'startContainer'; appId: number; service: SimpleService }
+	| { action: 'startContainer'; appId: number; service: ContainerService }
 	| { action: 'removeNetwork'; appId: number; networkName: string }
 	| { action: 'removeVolume'; appId: number; volumeName: string }
 	| { action: 'noop' };
@@ -117,6 +192,7 @@ export class ContainerManager extends EventEmitter {
 	private isApplyingState = false;
 	private dockerManager: DockerManager;
 	private retryManager: RetryManager;
+	private healthCheckManager: HealthCheckManager;
 	private useRealDocker: boolean;
 	private reconciliationInterval?: NodeJS.Timeout;
 	private isReconciliationEnabled = false;
@@ -130,6 +206,22 @@ export class ContainerManager extends EventEmitter {
 		console.log(`[ContainerManager] Creating DockerManager (platform: ${process.platform})`);
 		this.dockerManager = new DockerManager();
 		this.retryManager = new RetryManager();
+		this.healthCheckManager = new HealthCheckManager(this.dockerManager.getDockerInstance());
+		
+		// Listen to health check events
+		this.healthCheckManager.on('liveness-failed', async ({ containerId, serviceName, message }) => {
+			console.log(`[ContainerManager] Liveness probe failed for ${serviceName}, restarting container...`);
+			await this.restartUnhealthyContainer(containerId, serviceName, message);
+		});
+		
+		this.healthCheckManager.on('readiness-changed', ({ containerId, serviceName, isReady }) => {
+			console.log(`[ContainerManager] Readiness changed for ${serviceName}: ${isReady ? 'ready' : 'not ready'}`);
+			// Could emit event for external consumers
+		});
+		
+		this.healthCheckManager.on('startup-completed', ({ containerId, serviceName }) => {
+			console.log(`[ContainerManager] Startup completed for ${serviceName}`);
+		});
 	}
 
 	/**
@@ -400,7 +492,7 @@ export class ContainerManager extends EventEmitter {
 				}
 
 				// Add service
-				const service: SimpleService = {
+				const service: ContainerService = {
 					serviceId,
 					serviceName,
 					imageName: container.image,
@@ -1025,12 +1117,16 @@ export class ContainerManager extends EventEmitter {
 
 			case 'stopContainer':
 				await this.stopContainer(step.containerId);
+				// Stop health monitoring when container is stopped
+				this.healthCheckManager.stopMonitoring(step.containerId);
 				break;
 
 			case 'removeContainer':
 				await this.removeContainer(step.containerId);
 				// Update current state
 				this.removeServiceFromCurrentState(step.appId, step.serviceId);
+				// Stop health monitoring when container is removed
+				this.healthCheckManager.stopMonitoring(step.containerId);
 				break;
 
 			case 'startContainer': {
@@ -1042,6 +1138,8 @@ export class ContainerManager extends EventEmitter {
 					this.markServiceAsRunning(step.appId, step.service.serviceId);
 					// Attach logs automatically
 					await this.attachLogsToContainer(containerId, step.service);
+					// Start health check monitoring if probes are configured
+					this.startHealthMonitoring(containerId, step.service);
 				} catch (error: any) {
 					console.error(`❌ Failed to start ${step.service.serviceName}:`, error.message);
 					this.markServiceAsError(
@@ -1110,7 +1208,7 @@ export class ContainerManager extends EventEmitter {
 		}
 	}
 
-	private async startContainer(service: SimpleService): Promise<string> {
+	private async startContainer(service: ContainerService): Promise<string> {
 		if (this.useRealDocker) {
 			// Real Docker start (now supports networks)
 			return await this.dockerManager.startContainer(service);
@@ -1326,7 +1424,7 @@ export class ContainerManager extends EventEmitter {
 
 	private addServiceToCurrentState(
 		appId: number,
-		service: SimpleService,
+		service: ContainerService,
 		containerId: string,
 	): void {
 		// Ensure app exists
@@ -1705,7 +1803,7 @@ export class ContainerManager extends EventEmitter {
 	 */
 	private async attachLogsToContainer(
 		containerId: string,
-		service: SimpleService,
+		service: ContainerService,
 	): Promise<void> {
 		if (!this.logMonitor) {
 			return;
@@ -1749,6 +1847,152 @@ export class ContainerManager extends EventEmitter {
 				}
 			}
 		}
+	}
+
+	// ========================================================================
+	// HEALTH CHECK MONITORING
+	// ========================================================================
+
+	/**
+	 * Start health check monitoring for a container
+	 */
+	private startHealthMonitoring(containerId: string, service: ContainerService): void {
+		const { livenessProbe, readinessProbe, startupProbe } = service.config;
+		
+		// Only start monitoring if at least one probe is configured
+		if (!livenessProbe && !readinessProbe && !startupProbe) {
+			return;
+		}
+
+		console.log(`🏥 Starting health monitoring for ${service.serviceName} (${containerId.slice(0, 12)})`);
+
+		// Convert service config probes to HealthProbe format
+		const config: {
+			containerId: string;
+			serviceName: string;
+			livenessProbe?: HealthProbe;
+			readinessProbe?: HealthProbe;
+			startupProbe?: HealthProbe;
+		} = {
+			containerId,
+			serviceName: service.serviceName,
+		};
+
+		if (livenessProbe) {
+			config.livenessProbe = this.convertToHealthProbe(livenessProbe);
+		}
+
+		if (readinessProbe) {
+			config.readinessProbe = this.convertToHealthProbe(readinessProbe);
+		}
+
+		if (startupProbe) {
+			config.startupProbe = this.convertToHealthProbe(startupProbe);
+		}
+
+		this.healthCheckManager.startMonitoring(config);
+	}
+
+	/**
+	 * Convert service config probe to HealthProbe format
+	 */
+	private convertToHealthProbe(probe: any): HealthProbe {
+		const healthProbe: HealthProbe = {
+			check: {
+				type: probe.type,
+			} as any,
+			initialDelaySeconds: probe.initialDelaySeconds,
+			periodSeconds: probe.periodSeconds,
+			timeoutSeconds: probe.timeoutSeconds,
+			successThreshold: probe.successThreshold,
+			failureThreshold: probe.failureThreshold,
+		};
+
+		// Add type-specific fields
+		if (probe.type === 'http') {
+			healthProbe.check = {
+				type: 'http',
+				path: probe.path || '/',
+				port: probe.port,
+				scheme: probe.scheme,
+				headers: probe.headers,
+				expectedStatus: probe.expectedStatus,
+			};
+		} else if (probe.type === 'tcp') {
+			healthProbe.check = {
+				type: 'tcp',
+				port: probe.tcpPort || probe.port,
+			};
+		} else if (probe.type === 'exec') {
+			healthProbe.check = {
+				type: 'exec',
+				command: probe.command || [],
+			};
+		}
+
+		return healthProbe;
+	}
+
+	/**
+	 * Restart a container that failed its liveness probe
+	 */
+	private async restartUnhealthyContainer(
+		containerId: string,
+		serviceName: string,
+		message?: string
+	): Promise<void> {
+		console.log(`🔄 Restarting unhealthy container: ${serviceName} (${message || 'liveness check failed'})`);
+
+		try {
+		// Find the service in current state
+		let targetService: ContainerService | undefined;
+		let targetAppId: number | undefined;			for (const app of Object.values(this.currentState.apps)) {
+				for (const service of app.services) {
+					if (service.containerId === containerId) {
+						targetService = service;
+						targetAppId = app.appId;
+						break;
+					}
+				}
+				if (targetService) break;
+			}
+
+			if (!targetService || targetAppId === undefined) {
+				console.error(`Cannot restart container ${containerId}: service not found in current state`);
+				return;
+			}
+
+			// Stop health monitoring during restart
+			this.healthCheckManager.stopMonitoring(containerId);
+
+			// Stop and remove the unhealthy container
+			await this.stopContainer(containerId);
+			await this.removeContainer(containerId);
+
+			// Start a new container with the same configuration
+			const newContainerId = await this.startContainer(targetService);
+
+			// Update current state
+			this.removeServiceFromCurrentState(targetAppId, targetService.serviceId);
+			this.addServiceToCurrentState(targetAppId, targetService, newContainerId);
+
+			// Restart health monitoring
+			this.startHealthMonitoring(newContainerId, targetService);
+
+			// Attach logs
+			await this.attachLogsToContainer(newContainerId, targetService);
+
+			console.log(`✅ Container restarted: ${serviceName} (new ID: ${newContainerId.slice(0, 12)})`);
+		} catch (error) {
+			console.error(`Failed to restart unhealthy container ${serviceName}:`, error);
+		}
+	}
+
+	/**
+	 * Get health status for all containers
+	 */
+	public getContainerHealth(): any[] {
+		return this.healthCheckManager.getAllHealth();
 	}
 }
 

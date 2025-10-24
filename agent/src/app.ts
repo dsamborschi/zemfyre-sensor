@@ -29,10 +29,10 @@ process.on('unhandledRejection', (reason, promise) => {
 	process.exit(1);
 });
 
-// Start the device supervisor
+// Start the device agent
 const supervisor = new DeviceSupervisor();
 
 supervisor.init().catch((error) => {
-	console.error('Failed to initialize device supervisor:', error);
+	console.error('Failed to initialize device agent:', error);
 	process.exit(1);
 });
