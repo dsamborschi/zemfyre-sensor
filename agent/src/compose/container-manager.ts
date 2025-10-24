@@ -25,6 +25,7 @@ import _ from 'lodash';
 import crypto from 'crypto';
 import type Docker from 'dockerode';
 import { DockerManager } from './docker-manager';
+import { RetryManager } from './retry-manager';
 import * as db from '../db';
 import type { ContainerLogMonitor } from '../logging/monitor';
 import * as networkManager from './network-manager';
@@ -56,6 +57,16 @@ export interface SimpleService {
 	// Runtime state (for current state)
 	containerId?: string;
 	status?: string; // "Running", "Exited", etc.
+	
+	// Error tracking (K8s-style)
+	serviceStatus?: 'pending' | 'running' | 'stopped' | 'error';
+	error?: {
+		type: 'ImagePullBackOff' | 'ErrImagePull' | 'StartFailure' | 'CrashLoopBackOff';
+		message: string;
+		timestamp: string;
+		retryCount: number;
+		nextRetry?: string; // ISO timestamp
+	};
 }
 
 export interface SimpleApp {
@@ -105,6 +116,7 @@ export class ContainerManager extends EventEmitter {
 	private targetState: SimpleState = { apps: {} };
 	private isApplyingState = false;
 	private dockerManager: DockerManager;
+	private retryManager: RetryManager;
 	private useRealDocker: boolean;
 	private reconciliationInterval?: NodeJS.Timeout;
 	private isReconciliationEnabled = false;
@@ -117,6 +129,7 @@ export class ContainerManager extends EventEmitter {
 		this.useRealDocker = true;
 		console.log(`[ContainerManager] Creating DockerManager (platform: ${process.platform})`);
 		this.dockerManager = new DockerManager();
+		this.retryManager = new RetryManager();
 	}
 
 	/**
@@ -255,6 +268,7 @@ export class ContainerManager extends EventEmitter {
 	 */
 	public async setTarget(target: SimpleState): Promise<void> {
 		console.log('Setting target state...');
+		
 		this.targetState = _.cloneDeep(target);
 		
 		// Sanitize the target state to ensure correct data types
@@ -313,9 +327,14 @@ export class ContainerManager extends EventEmitter {
 					};
 				}
 
-				// Get network and environment information from container inspect
+				// Get network, environment, volumes, and other config from container inspect
 				let networks: string[] = [];
 				let environment: Record<string, string> = {};
+				let volumes: string[] = [];
+				let restart: string = 'no';
+				let labels: Record<string, string> = {};
+				let networkMode: string = 'bridge';
+				
 				try {
 					const containerInfo = await this.dockerManager.inspectContainer(container.id);
 					
@@ -346,6 +365,36 @@ export class ContainerManager extends EventEmitter {
 							}
 						}
 					}
+					
+					// Extract volumes (mounts)
+					if (containerInfo.Mounts) {
+						volumes = containerInfo.Mounts
+							.filter((mount: any) => mount.Type === 'volume' || mount.Type === 'bind')
+							.map((mount: any) => {
+								// Format as "source:destination" or "volumeName:destination"
+								const source = mount.Type === 'volume' ? mount.Name : mount.Source;
+								return `${source}:${mount.Destination}`;
+							});
+					}
+					
+					// Extract restart policy
+					if (containerInfo.HostConfig?.RestartPolicy) {
+						restart = containerInfo.HostConfig.RestartPolicy.Name || 'no';
+					}
+					
+					// Extract labels (only iotistic labels, not all Docker labels)
+					if (containerInfo.Config?.Labels) {
+						Object.entries(containerInfo.Config.Labels).forEach(([key, value]) => {
+							if (key.startsWith('iotistic.') && typeof value === 'string') {
+								labels[key] = value;
+							}
+						});
+					}
+					
+					// Extract network mode
+					if (containerInfo.HostConfig?.NetworkMode) {
+						networkMode = containerInfo.HostConfig.NetworkMode;
+					}
 				} catch (error) {
 					console.error(`Warning: Failed to inspect container ${container.id}:`, error);
 				}
@@ -367,8 +416,12 @@ export class ContainerManager extends EventEmitter {
 							.filter(p => p.PublicPort && p.PrivatePort)
 							.map(p => `${p.PublicPort}:${p.PrivatePort}`)))
 						: [],  // Use empty array instead of undefined
-						networks,  // Already defaults to []
+						volumes: volumes.length > 0 ? volumes : [],  // Include volumes
+						networks: networks.length > 0 ? networks : [],  // Include networks
 						environment,  // Extract actual environment variables
+						restart,  // Include restart policy
+						labels: Object.keys(labels).length > 0 ? labels : undefined,  // Include labels if any
+						networkMode,  // Include network mode
 					},
 				};
 				
@@ -428,26 +481,52 @@ export class ContainerManager extends EventEmitter {
 				}
 			});
 
-			// Step 2: Execute steps sequentially
+			// Step 2: Execute steps sequentially (K8s-style: continue on failures)
 			console.log('\nExecuting steps...\n');
+			const failures: Array<{ step: SimpleStep; error: any }> = [];
+
 			for (let i = 0; i < steps.length; i++) {
 				const step = steps[i];
 				console.log(`[${i + 1}/${steps.length}] ${step.action}...`);
-				await this.executeStep(step);
-				console.log(`  Done`);
+				
+				try {
+					await this.executeStep(step);
+					console.log(`  ✅ Done`);
+				} catch (error: any) {
+					console.error(`  ❌ Failed:`, error.message);
+					failures.push({ step, error });
+					// ✅ Continue to next step instead of stopping
+				}
 			}
 
-			console.log('\nState reconciliation complete!');
+			// Report summary
+			console.log('\n' + '='.repeat(80));
+			if (failures.length === 0) {
+				console.log('✅ State reconciliation complete - all services healthy!');
+			} else {
+				console.log(`⚠️  State reconciliation complete with ${failures.length} failure(s):`);
+				failures.forEach(({ step, error }) => {
+					if (step.action === 'downloadImage') {
+						console.log(`   - ${step.action}: ${step.imageName} - ${error.message}`);
+					} else if (step.action === 'startContainer') {
+						console.log(`   - ${step.action}: ${step.service.serviceName} - ${error.message}`);
+					} else {
+						console.log(`   - ${step.action} - ${error.message}`);
+					}
+				});
+				console.log('\n💡 Failed services will be retried in next reconciliation cycle (30s)');
+			}
 			console.log('='.repeat(80) + '\n');
 
-			// Save current state snapshot after successful reconciliation (if requested)
+			// Save current state snapshot (includes error states)
 			if (saveState) {
 				await this.saveCurrentStateToDB();
 			}
 
 			this.emit('state-applied');
+			
 		} catch (error) {
-			console.error('Error applying state:', error);
+			console.error('❌ Critical error during reconciliation:', error);
 			throw error;
 		} finally {
 			this.isApplyingState = false;
@@ -722,7 +801,6 @@ export class ContainerManager extends EventEmitter {
 	): SimpleStep[] {
 		const steps: SimpleStep[] = [];
 
-		// Build maps for easy lookup
 		const currentServices = new Map(
 			current.services.map((s) => [s.serviceId, s]),
 		);
@@ -758,6 +836,17 @@ export class ContainerManager extends EventEmitter {
 
 			// Service added
 			if (!currentSvc && targetSvc) {
+				console.log(`   → Action: ADD (service exists in target but not in current)`);
+				
+				// Check if we can proceed with this image
+				const imageKey = `image:${targetSvc.imageName}`;
+				const canRetryImage = this.retryManager.shouldRetry(imageKey);
+				
+				if (!canRetryImage) {
+					console.log(`⏭️  Skipping ${targetSvc.serviceName} - image pull failed (max retries exceeded)`);
+					continue; // Skip this service entirely
+				}
+				
 				steps.push({
 					action: 'downloadImage',
 					appId: target.appId,
@@ -802,7 +891,17 @@ export class ContainerManager extends EventEmitter {
 				const targetNetworks = JSON.stringify(targetSvc.config.networks || []);
 				const networksChanged = currentNetworks !== targetNetworks;
 				
-				const configChanged = portsChanged || envChanged || volumesChanged || networksChanged;
+				// Compare restart policy (only if defined in target)
+				const currentRestart = currentSvc.config.restart || 'no';
+				const targetRestart = targetSvc.config.restart || 'no';
+				const restartChanged = targetSvc.config.restart !== undefined && currentRestart !== targetRestart;
+				
+				// Compare network mode (only if defined in target)
+				const currentNetworkMode = currentSvc.config.networkMode || 'bridge';
+				const targetNetworkMode = targetSvc.config.networkMode || 'bridge';
+				const networkModeChanged = targetSvc.config.networkMode !== undefined && currentNetworkMode !== targetNetworkMode;
+				
+				const configChanged = portsChanged || envChanged || volumesChanged || networksChanged || restartChanged || networkModeChanged;
 				
 				// Only check if container is stopped/exited (not just "not running")
 				// Don't restart containers that are already running
@@ -883,14 +982,42 @@ export class ContainerManager extends EventEmitter {
 	}
 
 	// ========================================================================
-	// STEP EXECUTION
+	// STEP EXECUTION (with K8s-style error handling)
 	// ========================================================================
 
 	private async executeStep(step: SimpleStep): Promise<void> {
+		const stepKey = this.getStepKey(step);
+
 		switch (step.action) {
-			case 'downloadImage':
-				await this.downloadImage(step.imageName);
+			case 'downloadImage': {
+				// Check if we should retry this image
+				if (!this.retryManager.shouldRetry(stepKey)) {
+					console.log(`⏭️  Skipping ${step.imageName} (max retries exceeded)`);
+					this.markServiceAsError(
+						step.appId,
+						step.imageName,
+						'ImagePullBackOff',
+						'Max retries exceeded'
+					);
+					throw new Error(`Max retries exceeded for ${step.imageName}`);
+				}
+
+				try {
+					await this.downloadImage(step.imageName);
+					this.retryManager.recordSuccess(stepKey); // Clear retry state
+				} catch (error: any) {
+					console.error(`❌ Failed to pull image ${step.imageName}:`, error.message);
+					this.retryManager.recordFailure(stepKey, error.message);
+					this.markServiceAsError(
+						step.appId,
+						step.imageName,
+						'ImagePullBackOff',
+						error.message
+					);
+					throw error; // Re-throw to mark step as failed
+				}
 				break;
+			}
 
 			case 'createNetwork':
 				await this.createNetwork(step.appId, step.networkName);
@@ -906,13 +1033,27 @@ export class ContainerManager extends EventEmitter {
 				this.removeServiceFromCurrentState(step.appId, step.serviceId);
 				break;
 
-			case 'startContainer':
-				const containerId = await this.startContainer(step.service);
-				// Update current state
-				this.addServiceToCurrentState(step.appId, step.service, containerId);
-				// Attach logs automatically
-				await this.attachLogsToContainer(containerId, step.service);
+			case 'startContainer': {
+				try {
+					const containerId = await this.startContainer(step.service);
+					// Update current state
+					this.addServiceToCurrentState(step.appId, step.service, containerId);
+					// Mark as running successfully
+					this.markServiceAsRunning(step.appId, step.service.serviceId);
+					// Attach logs automatically
+					await this.attachLogsToContainer(containerId, step.service);
+				} catch (error: any) {
+					console.error(`❌ Failed to start ${step.service.serviceName}:`, error.message);
+					this.markServiceAsError(
+						step.appId,
+						step.service.serviceId,
+						'StartFailure',
+						error.message
+					);
+					throw error; // Re-throw to mark step as failed
+				}
 				break;
+			}
 
 			case 'removeNetwork':
 				await this.removeNetwork(step.appId, step.networkName);
@@ -1081,6 +1222,94 @@ export class ContainerManager extends EventEmitter {
 	// STATE MANAGEMENT HELPERS
 	// ========================================================================
 
+	/**
+	 * Generate unique key for retry tracking
+	 */
+	private getStepKey(step: SimpleStep): string {
+		switch (step.action) {
+			case 'downloadImage':
+				return `image:${step.imageName}`;
+			case 'startContainer':
+				return `service:${step.appId}:${step.service.serviceId}`;
+			case 'stopContainer':
+			case 'removeContainer':
+				return `service:${step.appId}:${step.serviceId}`;
+			case 'createVolume':
+				return `volume:${step.appId}:${step.volumeName}`;
+			case 'createNetwork':
+				return `network:${step.appId}:${step.networkName}`;
+			case 'removeNetwork':
+				return `network:${step.appId}:${step.networkName}`;
+			case 'removeVolume':
+				return `volume:${step.appId}:${step.volumeName}`;
+			case 'noop':
+				return 'noop';
+		}
+	}
+
+	/**
+	 * Mark service as having an error (K8s-style)
+	 */
+	private markServiceAsError(
+		appId: number,
+		serviceIdOrImage: number | string,
+		errorType: 'ImagePullBackOff' | 'ErrImagePull' | 'StartFailure' | 'CrashLoopBackOff',
+		message: string
+	): void {
+		const app = this.currentState.apps[appId] || this.targetState.apps[appId];
+		if (!app) {
+			console.warn(`⚠️  Cannot mark error: app ${appId} not found`);
+			return;
+		}
+
+		// Find service by ID or image name
+		const service = typeof serviceIdOrImage === 'number'
+			? app.services.find(s => s.serviceId === serviceIdOrImage)
+			: app.services.find(s => s.imageName === serviceIdOrImage);
+
+		if (!service) {
+			console.warn(`⚠️  Cannot mark error: service not found (${serviceIdOrImage})`);
+			return;
+		}
+
+		const retryKey = typeof serviceIdOrImage === 'number'
+			? `service:${appId}:${serviceIdOrImage}`
+			: `image:${serviceIdOrImage}`;
+
+		const retryState = this.retryManager.getState(retryKey);
+
+		service.serviceStatus = 'error';
+		service.error = {
+			type: errorType,
+			message,
+			timestamp: new Date().toISOString(),
+			retryCount: retryState?.count || 0,
+			nextRetry: retryState?.nextRetry?.toISOString(),
+		};
+
+		console.log(`❌ Marked service '${service.serviceName}' as ${errorType}:`);
+		console.log(`   Message: ${message}`);
+		console.log(`   Retry count: ${service.error.retryCount}`);
+		if (service.error.nextRetry) {
+			console.log(`   Next retry: ${service.error.nextRetry}`);
+		}
+	}
+
+	/**
+	 * Mark service as running successfully
+	 */
+	private markServiceAsRunning(appId: number, serviceId: number): void {
+		const app = this.currentState.apps[appId];
+		if (!app) return;
+
+		const service = app.services.find(s => s.serviceId === serviceId);
+		if (service) {
+			service.serviceStatus = 'running';
+			delete service.error; // Clear any previous errors
+			console.log(`✅ Service '${service.serviceName}' marked as running`);
+		}
+	}
+
 	private removeServiceFromCurrentState(
 		appId: number,
 		serviceId: number,
@@ -1133,7 +1362,17 @@ export class ContainerManager extends EventEmitter {
 	 */
 	private sanitizeState(state: SimpleState): void {
 		for (const app of Object.values(state.apps)) {
+			// Ensure appId is a number
+			if (typeof app.appId === 'string') {
+				app.appId = parseInt(app.appId, 10);
+			}
+			
 			for (const service of app.services) {
+				// Ensure serviceId is a number (critical for Map lookups!)
+				if (typeof service.serviceId === 'string') {
+					service.serviceId = parseInt(service.serviceId, 10);
+				}
+				
 				// Normalize flat format to nested config format
 				// If service has properties at top level (from cloud API), move them to config
 				const flatService = service as any;

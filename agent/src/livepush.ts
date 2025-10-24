@@ -53,7 +53,8 @@ export async function startLivepush(opts: LivepushOptions): Promise<LivepushInst
 		dockerfile,
 		sourceDir = process.cwd(),
 		ignored = ['node_modules/**', '.git/**', 'dist/**', 'data/**', '*.log'],
-		dockerSocket = process.env.DOCKER_SOCKET || '/var/run/docker.sock',
+		dockerSocket = process.env.DOCKER_SOCKET || 
+			(process.platform === 'win32' ? '//./pipe/docker_engine' : '/var/run/docker.sock'),
 	} = opts;
 
 	console.log('🔄 Starting livepush for container:', containerId);

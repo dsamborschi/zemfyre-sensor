@@ -63,7 +63,7 @@ export default class DeviceSupervisor {
 	private readonly CLOUD_API_ENDPOINT = process.env.CLOUD_API_ENDPOINT || 'https://90bd9cd2-1a3d-44d4-8625-ec5fb7411bfb.mock.pstmn.io';
 
 	public async init(): Promise<void> {
-		console.log('🚀 Initializing Device Supervisor...');
+		console.log('🚀 Initializing Device Agent...');
 		console.log('='.repeat(80));
 
 		try {

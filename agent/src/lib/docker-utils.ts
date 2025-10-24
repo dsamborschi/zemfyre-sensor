@@ -3,4 +3,15 @@
  */
 import Docker from 'dockerode';
 
-export const docker = new Docker({ socketPath: '/var/run/docker.sock' });
+// Detect platform and use appropriate Docker socket
+const getDockerSocketPath = (): string => {
+	if (process.platform === 'win32') {
+		// Windows: Docker Desktop uses named pipe
+		return '//./pipe/docker_engine';
+	} else {
+		// Linux/Mac: Use Unix socket
+		return '/var/run/docker.sock';
+	}
+};
+
+export const docker = new Docker({ socketPath: getDockerSocketPath() });

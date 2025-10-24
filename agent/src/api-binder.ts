@@ -427,6 +427,46 @@ export class ApiBinder extends EventEmitter {
 	}
 	
 	/**
+	 * Compare apps objects, ignoring runtime fields like containerId and status
+	 * These fields change when containers are recreated but don't represent config changes
+	 */
+	private appsChanged(oldApps: any, newApps: any): boolean {
+		// Remove runtime fields from services before comparison
+		const normalizeService = (service: any) => {
+			const { containerId, status, ...configFields } = service;
+			return configFields;
+		};
+		
+		const normalizeApp = (app: any) => {
+			if (!app || !app.services) return app;
+			return {
+				...app,
+				services: app.services.map(normalizeService),
+			};
+		};
+		
+		const normalizedOld: any = {};
+		const normalizedNew: any = {};
+		
+		for (const appId in oldApps) {
+			normalizedOld[appId] = normalizeApp(oldApps[appId]);
+		}
+		
+		for (const appId in newApps) {
+			normalizedNew[appId] = normalizeApp(newApps[appId]);
+		}
+		
+		const oldStr = JSON.stringify(normalizedOld);
+		const newStr = JSON.stringify(normalizedNew);
+		
+		if (oldStr !== newStr) {
+			return true;
+		}
+		
+		return false;
+	}
+	
+	/**
 	 * Calculate diff between two state reports
 	 * 
 	 * Compares only app state and non-metrics fields.
@@ -448,9 +488,9 @@ export class ApiBinder extends EventEmitter {
 				const oldValue = (oldDevice as any)[key];
 				const newValue = (newDevice as any)[key];
 				
-				// Deep comparison for apps object
+				// Deep comparison for apps object (excluding runtime fields)
 				if (key === 'apps') {
-					if (JSON.stringify(oldValue) !== JSON.stringify(newValue)) {
+					if (this.appsChanged(oldValue || {}, newValue || {})) {
 						deviceDiff[key] = newValue;
 					}
 				}

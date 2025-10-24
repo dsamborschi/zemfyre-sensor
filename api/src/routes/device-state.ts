@@ -299,16 +299,30 @@ router.get('/devices/:uuid/target-state', deviceAuth, async (req, res) => {
 /**
  * Set device target state
  * POST /api/v1/devices/:uuid/target-state
+ * 
+ * Accepts apps as either:
+ * - Array: [{ appId: 1, appName: "app1", ... }, ...]
+ * - Object: { 1: { appId: 1, appName: "app1", ... }, ... }
  */
 router.post('/devices/:uuid/target-state', deviceAuth, async (req, res) => {
   try {
     const { uuid } = req.params;
-    const { apps, config } = req.body;
+    let { apps, config } = req.body;
 
     if (!apps || typeof apps !== 'object') {
       return res.status(400).json({
         error: 'Invalid request',
-        message: 'Body must contain apps object'
+        message: 'Body must contain apps (array or object)'
+      });
+    }
+
+    // Normalize apps to Record<number, App> format
+    try {
+      apps = normalizeAppsFormat(apps);
+    } catch (error: any) {
+      return res.status(400).json({
+        error: 'Invalid apps format',
+        message: error.message
       });
     }
 
@@ -363,18 +377,52 @@ router.post('/devices/:uuid/target-state', deviceAuth, async (req, res) => {
 });
 
 /**
+ * Convert apps array to Record<number, App> format
+ * Supports both array input (clean API) and object input (backward compatibility)
+ */
+function normalizeAppsFormat(apps: any): Record<number, any> {
+  // If already an object, return as-is
+  if (!Array.isArray(apps)) {
+    return apps;
+  }
+
+  // Convert array to object keyed by appId
+  return apps.reduce((acc, app) => {
+    if (!app.appId) {
+      throw new Error('Each app in array must have an appId field');
+    }
+    acc[app.appId] = app;
+    return acc;
+  }, {} as Record<number, any>);
+}
+
+/**
  * Update device target state (alias for POST - supports PUT)
  * PUT /api/v1/devices/:uuid/target-state
+ * 
+ * Accepts apps as either:
+ * - Array: [{ appId: 1, appName: "app1", ... }, ...]
+ * - Object: { 1: { appId: 1, appName: "app1", ... }, ... }
  */
 router.put('/devices/:uuid/target-state', deviceAuth, async (req, res) => {
   try {
     const { uuid } = req.params;
-    const { apps, config } = req.body;
+    let { apps, config } = req.body;
 
     if (!apps || typeof apps !== 'object') {
       return res.status(400).json({
         error: 'Invalid request',
-        message: 'Body must contain apps object'
+        message: 'Body must contain apps (array or object)'
+      });
+    }
+
+    // Normalize apps to Record<number, App> format
+    try {
+      apps = normalizeAppsFormat(apps);
+    } catch (error: any) {
+      return res.status(400).json({
+        error: 'Invalid apps format',
+        message: error.message
       });
     }
 
