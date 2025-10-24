@@ -718,11 +718,22 @@ export class ApiBinder extends EventEmitter {
 			});
 			
 			if (!isOnline) {
+				// Strip verbose data before queueing to save storage
+				const strippedReport = this.stripReportForQueue(reportToSend);
+				const originalSize = JSON.stringify(reportToSend).length;
+				const strippedSize = JSON.stringify(strippedReport).length;
+				const savings = originalSize - strippedSize;
+				const savingsPercent = ((savings / originalSize) * 100).toFixed(1);
+				
 				this.logger?.infoSync('Queueing report for later (offline)', {
 					component: 'ApiBinder',
-					operation: 'queue-report'
+					operation: 'queue-report',
+					originalBytes: originalSize,
+					strippedBytes: strippedSize,
+					savings: `${savings} bytes (${savingsPercent}%)`,
 				});
-				await this.reportQueue.enqueue(reportToSend);
+				
+				await this.reportQueue.enqueue(strippedReport);
 				this.logger?.debugSync('Report queued', {
 					component: 'ApiBinder',
 					queueSize: this.reportQueue.size()

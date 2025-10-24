@@ -134,8 +134,11 @@ export default class DeviceSupervisor {
 			},
 			settings: {
 				reconciliationIntervalMs,
+				targetStatePollIntervalMs: configSettings.targetStatePollIntervalMs || parseInt(process.env.POLL_INTERVAL_MS || '60000', 10),
 				deviceReportIntervalMs: configSettings.deviceReportIntervalMs || parseInt(process.env.REPORT_INTERVAL_MS || '60000', 10),
-				metricsIntervalMs: configSettings.metricsIntervalMs || parseInt(process.env.METRICS_INTERVAL_MS || '300000', 10)
+				metricsIntervalMs: configSettings.metricsIntervalMs || parseInt(process.env.METRICS_INTERVAL_MS || '300000', 10),
+				cloudJobsPollingIntervalMs: configSettings.cloudJobsPollingIntervalMs || parseInt(process.env.CLOUD_JOBS_POLLING_INTERVAL || '30000', 10),
+				shadowPublishIntervalMs: configSettings.shadowPublishIntervalMs || (process.env.SHADOW_PUBLISH_INTERVAL ? parseInt(process.env.SHADOW_PUBLISH_INTERVAL, 10) : undefined)
 			},
 			logging: {
 				level: logLevel
@@ -455,9 +458,10 @@ export default class DeviceSupervisor {
 			cloudApiEndpoint: this.CLOUD_API_ENDPOINT
 		});
 		
-		// Get device report interval from config if available
+		// Get intervals from config if available
 		const targetState = this.containerManager.getTargetState();
 		const configSettings = targetState?.config?.settings || {};
+		const targetStatePollIntervalMs = configSettings.targetStatePollIntervalMs || parseInt(process.env.POLL_INTERVAL_MS || '60000', 10);
 		const deviceReportIntervalMs = configSettings.deviceReportIntervalMs || parseInt(process.env.REPORT_INTERVAL_MS || '60000', 10);
 		const metricsIntervalMs = configSettings.metricsIntervalMs || parseInt(process.env.METRICS_INTERVAL_MS || '300000', 10);
 		
@@ -466,7 +470,7 @@ export default class DeviceSupervisor {
 			this.deviceManager,
 			{
 				cloudApiEndpoint: this.CLOUD_API_ENDPOINT,
-				pollInterval: parseInt(process.env.POLL_INTERVAL_MS || '60000', 10), // 60s
+				pollInterval: targetStatePollIntervalMs, // Use config value or default 60s
 				reportInterval: deviceReportIntervalMs, // Use config value or default 60s
 				metricsInterval: metricsIntervalMs, // Use config value or default 5min
 			},
@@ -592,11 +596,11 @@ export default class DeviceSupervisor {
 				return;
 			}
 
-			// Get polling interval (default: 30 seconds)
-			const pollingIntervalMs = parseInt(
-				process.env.CLOUD_JOBS_POLLING_INTERVAL || '30000',
-				10
-			);
+			// Get polling interval from config or environment (default: 30 seconds)
+			const targetState = this.containerManager.getTargetState();
+			const configSettings = targetState?.config?.settings || {};
+			const pollingIntervalMs = configSettings.cloudJobsPollingIntervalMs || 
+				parseInt(process.env.CLOUD_JOBS_POLLING_INTERVAL || '30000', 10);
 
 
 			// Create CloudJobsAdapter
@@ -701,6 +705,15 @@ export default class DeviceSupervisor {
 		console.log('🔮 Initializing Shadow Feature...');
 
 		try {
+			// Get shadow publish interval from config or environment
+			const targetState = this.containerManager.getTargetState();
+			const configSettings = targetState?.config?.settings || {};
+			const shadowPublishIntervalMs = configSettings.shadowPublishIntervalMs !== undefined
+				? configSettings.shadowPublishIntervalMs
+				: (process.env.SHADOW_PUBLISH_INTERVAL 
+					? parseInt(process.env.SHADOW_PUBLISH_INTERVAL, 10) 
+					: undefined);
+			
 			// Parse shadow configuration from environment
 			const shadowConfig: ShadowConfig = {
 				enabled: true,
@@ -709,9 +722,7 @@ export default class DeviceSupervisor {
 				outputFile: process.env.SHADOW_OUTPUT_FILE || `${process.env.DATA_DIR || '/app/data'}/shadow-document.json`,
 				syncOnDelta: process.env.SHADOW_SYNC_ON_DELTA !== 'false',
 				enableFileMonitor: process.env.SHADOW_FILE_MONITOR === 'true',
-				publishInterval: process.env.SHADOW_PUBLISH_INTERVAL 
-					? parseInt(process.env.SHADOW_PUBLISH_INTERVAL, 10) 
-					: undefined,
+				publishInterval: shadowPublishIntervalMs,
 			};
 
 			// Create MQTT adapter using centralized MqttManager
@@ -1089,6 +1100,29 @@ export default class DeviceSupervisor {
 					}
 				}
 				
+				// Update target state poll interval
+				if (settings.targetStatePollIntervalMs !== undefined) {
+					const newInterval = settings.targetStatePollIntervalMs;
+					const currentInterval = this.apiBinder?.['config']?.pollInterval;
+					
+					if (currentInterval && newInterval !== currentInterval) {
+						this.agentLogger?.debug('Updating target state poll interval', {
+							category: 'supervisor',
+							fromMs: currentInterval,
+							toMs: newInterval
+						});
+						
+						// Update the API binder's poll interval
+						if (this.apiBinder) {
+							(this.apiBinder as any).config.pollInterval = newInterval;
+							this.agentLogger?.debug('Target state poll interval updated successfully', {
+								category: 'supervisor',
+								intervalMs: newInterval
+							});
+						}
+					}
+				}
+				
 				// Update metrics interval
 				if (settings.metricsIntervalMs !== undefined) {
 					const newInterval = settings.metricsIntervalMs;
@@ -1109,6 +1143,58 @@ export default class DeviceSupervisor {
 								intervalMs: newInterval
 							});
 						}
+					}
+				}
+				
+				// Update cloud jobs polling interval
+				if (settings.cloudJobsPollingIntervalMs !== undefined && this.cloudJobsAdapter) {
+					const newInterval = settings.cloudJobsPollingIntervalMs;
+					const currentInterval = (this.cloudJobsAdapter as any).config?.pollingIntervalMs;
+					
+					if (currentInterval && newInterval !== currentInterval) {
+						this.agentLogger?.debug('Updating cloud jobs polling interval', {
+							category: 'supervisor',
+							fromMs: currentInterval,
+							toMs: newInterval
+						});
+						
+						// Update the cloud jobs adapter's polling interval
+						(this.cloudJobsAdapter as any).config.pollingIntervalMs = newInterval;
+						
+						// Restart polling with new interval
+						this.cloudJobsAdapter.stop();
+						this.cloudJobsAdapter.start();
+						
+						this.agentLogger?.debug('Cloud jobs polling interval updated successfully', {
+							category: 'supervisor',
+							intervalMs: newInterval
+						});
+					}
+				}
+				
+				// Update shadow publish interval
+				if (settings.shadowPublishIntervalMs !== undefined && this.shadowFeature) {
+					const newInterval = settings.shadowPublishIntervalMs;
+					const currentInterval = (this.shadowFeature as any).config?.publishInterval;
+					
+					if (newInterval !== currentInterval) {
+						this.agentLogger?.debug('Updating shadow publish interval', {
+							category: 'supervisor',
+							fromMs: currentInterval,
+							toMs: newInterval
+						});
+						
+						// Update the shadow feature's publish interval
+						(this.shadowFeature as any).config.publishInterval = newInterval;
+						
+						// Restart shadow to apply new interval
+						await this.shadowFeature.stop();
+						await this.shadowFeature.start();
+						
+						this.agentLogger?.debug('Shadow publish interval updated successfully', {
+							category: 'supervisor',
+							intervalMs: newInterval
+						});
 					}
 				}
 			}
