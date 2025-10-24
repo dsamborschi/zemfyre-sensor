@@ -9,6 +9,8 @@
  * - Logging
  */
 
+import { createOrchestratorDriver } from './orchestrator/driver-factory.js';
+import type { IOrchestratorDriver } from './orchestrator/driver-interface';
 import ContainerManager from './compose/container-manager';
 import { DeviceManager } from './provisioning';
 import type { DeviceInfo } from './provisioning/types';
@@ -35,7 +37,8 @@ import { MqttManager } from './mqtt/mqtt-manager';
 import { TwinStateManager } from './digital-twin/twin-state-manager';
 
 export default class DeviceSupervisor {
-	private containerManager!: ContainerManager;
+	private orchestratorDriver!: IOrchestratorDriver;
+	private containerManager!: ContainerManager;  // Keep for backward compatibility with DeviceAPI
 	private deviceManager!: DeviceManager;
 	private deviceInfo!: DeviceInfo;  // Cache device info after initialization
 	private deviceAPI!: DeviceAPI;
@@ -385,31 +388,58 @@ export default class DeviceSupervisor {
 	}
 
 	private async initializeContainerManager(): Promise<void> {
-		this.agentLogger?.infoSync('Initializing container manager', { component: 'Supervisor' });
-		this.containerManager = new ContainerManager(this.agentLogger);
-		await this.containerManager.init();
+		this.agentLogger?.infoSync('Initializing orchestrator driver', { component: 'Supervisor' });
+		
+		// Get orchestrator type from env var (config can override after initialization via target state)
+		const orchestratorType = (process.env.ORCHESTRATOR_TYPE as 'docker' | 'k3s') || 'docker';
+		
+		this.agentLogger?.infoSync('Creating orchestrator driver', {
+			component: 'Supervisor',
+			type: orchestratorType
+		});
 
-		// Set up log monitor
-		const docker = this.containerManager.getDocker();
-		if (docker) {
-			// Use all configured log backends
-			this.logMonitor = new ContainerLogMonitor(docker, this.logBackends);
-			this.containerManager.setLogMonitor(this.logMonitor);
-			await this.containerManager.attachLogsToAllContainers();
-			this.agentLogger?.infoSync('Log monitor attached to container manager', {
-				component: 'Supervisor',
-				backendCount: this.logBackends.length
-			});
+		// Create and initialize orchestrator driver
+		this.orchestratorDriver = await createOrchestratorDriver({
+			orchestrator: orchestratorType,
+			logger: this.agentLogger
+		});
+
+		// For backward compatibility, keep ContainerManager reference for DeviceAPI
+		// The DockerDriver wraps ContainerManager internally
+		if (orchestratorType === 'docker') {
+			const dockerDriver = this.orchestratorDriver as any;
+			if (dockerDriver.containerManager) {
+				this.containerManager = dockerDriver.containerManager;
+			}
+		}
+
+		// Set up log monitor if using Docker
+		if (this.containerManager) {
+			const docker = this.containerManager.getDocker();
+			if (docker) {
+				// Use all configured log backends
+				this.logMonitor = new ContainerLogMonitor(docker, this.logBackends);
+				this.containerManager.setLogMonitor(this.logMonitor);
+				await this.containerManager.attachLogsToAllContainers();
+				this.agentLogger?.infoSync('Log monitor attached to container manager', {
+					component: 'Supervisor',
+					backendCount: this.logBackends.length
+				});
+			}
 		}
 
 		// Watch for target state changes to dynamically update config
-		this.containerManager.on('target-state-changed', (newState: any) => {
+		this.orchestratorDriver.on('target-state-changed', (newState: any) => {
 			if (newState.config) {
 				this.handleConfigUpdate(newState.config);
 			}
 		});
 
-		this.agentLogger?.infoSync('Container manager initialized', { component: 'Supervisor' });
+		this.agentLogger?.infoSync('Orchestrator driver initialized', {
+			component: 'Supervisor',
+			driver: this.orchestratorDriver.name,
+			version: this.orchestratorDriver.version
+		});
 	}
 
 	private async initializeDeviceAPI(): Promise<void> {
