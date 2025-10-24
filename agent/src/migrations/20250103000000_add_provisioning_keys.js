@@ -15,15 +15,13 @@ export async function up(knex) {
 		// Application ID for fleet management
 		table.integer('applicationId');
 		
-		// MAC address for hardware identification
-		table.string('macAddress');
-		
-		// OS/supervisor versions for compatibility checks
-		table.string('osVersion');
-		table.string('supervisorVersion');
-	});
-
-	console.log('✅ Added two-phase authentication fields to device table');
+	// MAC address for hardware identification
+	table.string('macAddress');
+	
+	// OS/agent versions for compatibility checks
+	table.string('osVersion');
+	table.string('agentVersion');
+});	console.log('✅ Added two-phase authentication fields to device table');
 }
 
 export async function down(knex) {
@@ -33,6 +31,6 @@ export async function down(knex) {
 		table.dropColumn('applicationId');
 		table.dropColumn('macAddress');
 		table.dropColumn('osVersion');
-		table.dropColumn('supervisorVersion');
+		table.dropColumn('agentVersion');
 	});
 }

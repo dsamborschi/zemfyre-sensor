@@ -160,7 +160,7 @@ router.patch('/device/state', deviceAuthFromBody, async (req, res) => {
           ip_address: deviceState.ip_address,
           mac_address: deviceState.mac_address,
           os_version: deviceState.os_version,
-          supervisor_version: deviceState.supervisor_version,
+          agent_version: deviceState.agent_version,
           uptime: deviceState.uptime,
         }
       );
@@ -185,7 +185,7 @@ router.patch('/device/state', deviceAuthFromBody, async (req, res) => {
               ip_address: deviceState.ip_address || deviceState.local_ip,
               mac_address: deviceState.mac_address,
               os_version: deviceState.os_version,
-              supervisor_version: deviceState.supervisor_version,
+              agent_version: deviceState.agent_version,
               uptime: deviceState.uptime,
               cpu_usage: deviceState.cpu_usage,
               memory_usage: deviceState.memory_usage,
@@ -221,7 +221,7 @@ router.patch('/device/state', deviceAuthFromBody, async (req, res) => {
       if (deviceState.local_ip) updateFields.ip_address = deviceState.local_ip; // Agent sends local_ip
       if (deviceState.mac_address) updateFields.mac_address = deviceState.mac_address;
       if (deviceState.os_version) updateFields.os_version = deviceState.os_version;
-      if (deviceState.supervisor_version) updateFields.supervisor_version = deviceState.supervisor_version;
+      if (deviceState.agent_version) updateFields.agent_version = deviceState.agent_version;
       
       if (Object.keys(updateFields).length > 0) {
         await DeviceModel.update(uuid, updateFields);

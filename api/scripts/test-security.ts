@@ -136,7 +136,7 @@ async function testSuccessfulProvisioning() {
         deviceApiKey: testApiKey,
         macAddress: '00:11:22:33:44:55',
         osVersion: 'Test OS 1.0',
-        supervisorVersion: '1.0.0'
+        agentVersion: '1.0.0'
       })
     });
 

@@ -34,7 +34,7 @@ async function testDirectEventPublishing() {
         ip_address: '192.168.1.50',
         mac_address: 'b8:27:eb:aa:bb:cc',
         os_version: 'Raspbian 11',
-        supervisor_version: '1.0.0'
+        agent_version: '1.0.0'
       },
       {
         metadata: {
@@ -112,7 +112,7 @@ async function testDirectEventPublishing() {
           ip_address: '192.168.1.50',
           mac_address: 'b8:27:eb:aa:bb:cc',
           os_version: 'Raspbian 11',
-          supervisor_version: '1.0.0',
+          agent_version: '1.0.0',
           uptime: 7200,
           cpu_usage: 18.5,
           memory_usage: 52.3,

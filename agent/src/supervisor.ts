@@ -113,7 +113,7 @@ export default class DeviceSupervisor {
 			this.startAutoReconciliation();
 
 			console.log('='.repeat(80));
-			console.log('✅ Device Supervisor initialized successfully!');
+			console.log('✅ Device Agent initialized successfully!');
 			console.log('='.repeat(80));
 			console.log(`Device API: http://localhost:${this.DEVICE_API_PORT}`);
 			console.log(`Auto-reconciliation: ${this.RECONCILIATION_INTERVAL}ms`);
@@ -152,15 +152,15 @@ export default class DeviceSupervisor {
 				});
 				
 				await this.deviceManager.provision({
-					provisioningApiKey, // Required for two-phase auth
-					deviceName: process.env.DEVICE_NAME || `device-${deviceInfo.uuid.slice(0, 8)}`,
-					deviceType: process.env.DEVICE_TYPE || 'standalone',
-					apiEndpoint: this.CLOUD_API_ENDPOINT,
-					applicationId: process.env.APPLICATION_ID ? parseInt(process.env.APPLICATION_ID, 10) : undefined,
-					macAddress,
-					osVersion,
-					supervisorVersion: process.env.SUPERVISOR_VERSION || '1.0.0',
-				});
+				provisioningApiKey, // Required for two-phase auth
+				deviceName: process.env.DEVICE_NAME || `device-${deviceInfo.uuid.slice(0, 8)}`,
+				deviceType: process.env.DEVICE_TYPE || 'standalone',
+				apiEndpoint: this.CLOUD_API_ENDPOINT,
+				applicationId: process.env.APPLICATION_ID ? parseInt(process.env.APPLICATION_ID, 10) : undefined,
+				macAddress,
+				osVersion,
+				agentVersion: process.env.AGENT_VERSION || '1.0.0',
+			});
 				deviceInfo = this.deviceManager.getDeviceInfo();
 				console.log('✅ Device auto-provisioned successfully');
 			} catch (error: any) {
@@ -822,7 +822,6 @@ export default class DeviceSupervisor {
 			return;
 		}
 
-		console.log('🤖 Initializing Digital Twin State Manager...');
 
 		try {
 			// Get configuration from environment
@@ -859,7 +858,7 @@ export default class DeviceSupervisor {
 			// Start periodic updates
 			this.twinStateManager.start();
 
-			console.log('✅ Digital Twin State Manager initialized');
+
 			console.log(`   Update interval: ${updateInterval}ms (${updateInterval / 1000}s)`);
 			console.log(`   Features: ${[
 				enableReadings && 'readings',

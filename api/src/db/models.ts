@@ -21,7 +21,7 @@ export interface Device {
   ip_address?: string;
   mac_address?: string;
   os_version?: string;
-  supervisor_version?: string;
+  agent_version?: string;
   memory_usage?: number;
   memory_total?: number;
   storage_usage?: number;
@@ -34,6 +34,7 @@ export interface Device {
   fleet_id?: string;
   provisioned_at?: Date;
   provisioned_by_key_id?: string;
+  mqtt_username?: string;
   created_at: Date;
   modified_at: Date;
 }

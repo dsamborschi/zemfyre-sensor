@@ -24,7 +24,7 @@ export interface DeviceInfo {
 	applicationId?: number;
 	macAddress?: string;
 	osVersion?: string;
-	supervisorVersion?: string;
+	agentVersion?: string;
 	mqttUsername?: string;
 	mqttPassword?: string;
 	mqttBrokerUrl?: string;
@@ -46,7 +46,7 @@ export interface ProvisioningConfig {
 	// Device metadata
 	macAddress?: string;
 	osVersion?: string;
-	supervisorVersion?: string;
+	agentVersion?: string;
 }
 
 export interface ProvisionRequest {
@@ -57,7 +57,7 @@ export interface ProvisionRequest {
 	applicationId?: number;
 	macAddress?: string;
 	osVersion?: string;
-	supervisorVersion?: string;
+	agentVersion?: string;
 }
 
 export interface ProvisionResponse {

@@ -17,7 +17,8 @@ Create a default fully qualified app name.
 {{- $short := .Values.customer.shortId }}
 {{- if $short }}
 {{- /* prepend 'c' to ensure it starts with a letter (DNS-1035 compliance) */ -}}
-{{- printf "c%s-%s" $short $name | trunc 63 | trimSuffix "-" }}
+{{- /* Use printf with %s to force string treatment, preventing scientific notation */ -}}
+{{- printf "c%s-%s" (printf "%s" $short) $name | trunc 63 | trimSuffix "-" }}
 {{- else }}
 {{- if contains $name .Release.Name }}
 {{- .Release.Name | trunc 63 | trimSuffix "-" }}

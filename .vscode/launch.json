@@ -24,7 +24,7 @@
         "ENABLE_SENSOR_PUBLISH": "false",  
         "ENABLE_JOB_ENGINE": "true",
         "ENABLE_SHADOW": "true",
-        "PROVISIONING_API_KEY": "15c336cae47211701519e506cafa5ae52a27e960881ffcf74540a2590237c628",
+        "PROVISIONING_API_KEY": "f8de477437dde1b872f99816ccaaf9af0b60b71b798a5a33a52777d64f01d6e9",
         "SENSOR_PUBLISH_CONFIG": "{\"sensors\":[{\"name\":\"sensor1\",\"enabled\":true,\"addr\":\"../sensor-simulator/sockets/sensor1.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000},{\"name\":\"sensor2\",\"enabled\":true,\"addr\":\"../sensor-simulator/sockets/sensor2.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000},{\"name\":\"sensor3\",\"enabled\":true,\"addr\":\"../sensor-simulator/sockets/sensor3.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000}]}",
         "ENABLE_CLOUD_JOBS": "true",
         "ENABLE_DIGITAL_TWIN": "true",

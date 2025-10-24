@@ -139,7 +139,7 @@ async function testApiEvents() {
           local_ip: '192.168.1.100',
           mac_address: 'b8:27:eb:12:34:56',
           os_version: 'Raspbian GNU/Linux 11 (bullseye)',
-          supervisor_version: '1.0.0',
+          agent_version: '1.0.0',
           uptime: 3600,
           cpu_usage: 25.5,
           memory_usage: 45.2,

@@ -92,22 +92,22 @@ export class DeviceManager {
 			this.deviceInfo = {
 				uuid: rows[0].uuid,
 				deviceId: rows[0].deviceId,
-				deviceName: rows[0].deviceName,
-				deviceType: rows[0].deviceType,
-				deviceApiKey: rows[0].deviceApiKey,
-				provisioningApiKey: rows[0].provisioningApiKey,
-				apiKey: rows[0].apiKey, // Legacy field
-				apiEndpoint: rows[0].apiEndpoint,
-				registeredAt: rows[0].registeredAt,
-				provisioned: rows[0].provisioned === 1,
-				applicationId: rows[0].applicationId,
-				macAddress: rows[0].macAddress,
-				osVersion: rows[0].osVersion,
-				supervisorVersion: rows[0].supervisorVersion,
-				mqttUsername: rows[0].mqttUsername,
-				mqttPassword: rows[0].mqttPassword,
-				mqttBrokerUrl: rows[0].mqttBrokerUrl,
-			};
+			deviceName: rows[0].deviceName,
+			deviceType: rows[0].deviceType,
+			deviceApiKey: rows[0].deviceApiKey,
+			provisioningApiKey: rows[0].provisioningApiKey,
+			apiKey: rows[0].apiKey, // Legacy field
+			apiEndpoint: rows[0].apiEndpoint,
+			registeredAt: rows[0].registeredAt,
+			provisioned: rows[0].provisioned === 1,
+			applicationId: rows[0].applicationId,
+			macAddress: rows[0].macAddress,
+			osVersion: rows[0].osVersion,
+			agentVersion: rows[0].agentVersion,
+			mqttUsername: rows[0].mqttUsername,
+			mqttPassword: rows[0].mqttPassword,
+			mqttBrokerUrl: rows[0].mqttBrokerUrl,
+		};
 		}
 	}
 
@@ -122,27 +122,25 @@ export class DeviceManager {
 		const existing = await db.models('device').select('*').limit(1);
 		
 		const data = {
-			uuid: this.deviceInfo.uuid,
-			deviceId: this.deviceInfo.deviceId || null,
-			deviceName: this.deviceInfo.deviceName || null,
-			deviceType: this.deviceInfo.deviceType || null,
-			deviceApiKey: this.deviceInfo.deviceApiKey || null,
-			provisioningApiKey: this.deviceInfo.provisioningApiKey || null,
-			apiKey: this.deviceInfo.apiKey || null, // Legacy
-			apiEndpoint: this.deviceInfo.apiEndpoint || null,
-			registeredAt: this.deviceInfo.registeredAt || null,
-			provisioned: this.deviceInfo.provisioned ? 1 : 0,
-			applicationId: this.deviceInfo.applicationId || null,
-			macAddress: this.deviceInfo.macAddress || null,
-			osVersion: this.deviceInfo.osVersion || null,
-			supervisorVersion: this.deviceInfo.supervisorVersion || null,
-			mqttUsername: this.deviceInfo.mqttUsername || null,
-			mqttPassword: this.deviceInfo.mqttPassword || null,
-			mqttBrokerUrl: this.deviceInfo.mqttBrokerUrl || null,
-			updatedAt: new Date().toISOString(),
-		};
-
-		if (existing.length > 0) {
+		uuid: this.deviceInfo.uuid,
+		deviceId: this.deviceInfo.deviceId || null,
+		deviceName: this.deviceInfo.deviceName || null,
+		deviceType: this.deviceInfo.deviceType || null,
+		deviceApiKey: this.deviceInfo.deviceApiKey || null,
+		provisioningApiKey: this.deviceInfo.provisioningApiKey || null,
+		apiKey: this.deviceInfo.apiKey || null, // Legacy
+		apiEndpoint: this.deviceInfo.apiEndpoint || null,
+		registeredAt: this.deviceInfo.registeredAt || null,
+		provisioned: this.deviceInfo.provisioned ? 1 : 0,
+		applicationId: this.deviceInfo.applicationId || null,
+		macAddress: this.deviceInfo.macAddress || null,
+		osVersion: this.deviceInfo.osVersion || null,
+		agentVersion: this.deviceInfo.agentVersion || null,
+		mqttUsername: this.deviceInfo.mqttUsername || null,
+		mqttPassword: this.deviceInfo.mqttPassword || null,
+		mqttBrokerUrl: this.deviceInfo.mqttBrokerUrl || null,
+		updatedAt: new Date().toISOString(),
+	};		if (existing.length > 0) {
 			await db.models('device').update(data);
 		} else {
 			await db.models('device').insert({
@@ -196,16 +194,14 @@ export class DeviceManager {
 		}
 
 		// Update device metadata
-		this.deviceInfo.deviceName = config.deviceName || this.deviceInfo.deviceName || `device-${this.deviceInfo.uuid.slice(0, 8)}`;
-		this.deviceInfo.deviceType = config.deviceType || this.deviceInfo.deviceType || 'generic';
-		this.deviceInfo.apiEndpoint = config.apiEndpoint || this.deviceInfo.apiEndpoint;
-		this.deviceInfo.provisioningApiKey = config.provisioningApiKey;
-		this.deviceInfo.applicationId = config.applicationId;
-		this.deviceInfo.macAddress = config.macAddress;
-		this.deviceInfo.osVersion = config.osVersion;
-		this.deviceInfo.supervisorVersion = config.supervisorVersion;
-
-		// If UUID is provided in config, use it (useful for pre-configured devices)
+	this.deviceInfo.deviceName = config.deviceName || this.deviceInfo.deviceName || `device-${this.deviceInfo.uuid.slice(0, 8)}`;
+	this.deviceInfo.deviceType = config.deviceType || this.deviceInfo.deviceType || 'generic';
+	this.deviceInfo.apiEndpoint = config.apiEndpoint || this.deviceInfo.apiEndpoint;
+	this.deviceInfo.provisioningApiKey = config.provisioningApiKey;
+	this.deviceInfo.applicationId = config.applicationId;
+	this.deviceInfo.macAddress = config.macAddress;
+	this.deviceInfo.osVersion = config.osVersion;
+	this.deviceInfo.agentVersion = config.agentVersion;		// If UUID is provided in config, use it (useful for pre-configured devices)
 		if (config.uuid && config.uuid !== this.deviceInfo.uuid) {
 			this.deviceInfo.uuid = config.uuid;
 		}
@@ -216,15 +212,15 @@ export class DeviceManager {
 			const response = await this.registerWithAPI(
 				this.deviceInfo.apiEndpoint || 'http://localhost:3002',
 				{
-					uuid: this.deviceInfo.uuid,
-					deviceName: this.deviceInfo.deviceName,
-					deviceType: this.deviceInfo.deviceType,
-					deviceApiKey: this.deviceInfo.deviceApiKey,
-					applicationId: this.deviceInfo.applicationId,
-					macAddress: this.deviceInfo.macAddress,
-					osVersion: this.deviceInfo.osVersion,
-					supervisorVersion: this.deviceInfo.supervisorVersion,
-				},
+				uuid: this.deviceInfo.uuid,
+				deviceName: this.deviceInfo.deviceName,
+				deviceType: this.deviceInfo.deviceType,
+				deviceApiKey: this.deviceInfo.deviceApiKey,
+				applicationId: this.deviceInfo.applicationId,
+				macAddress: this.deviceInfo.macAddress,
+				osVersion: this.deviceInfo.osVersion,
+				agentVersion: this.deviceInfo.agentVersion,
+			},
 				this.deviceInfo.provisioningApiKey
 			);
 
@@ -289,7 +285,6 @@ export class DeviceManager {
 		console.log('   UUID:', provisionRequest.uuid);
 		console.log('   Device Name:', provisionRequest.deviceName);
 		console.log('   Device Type:', provisionRequest.deviceType);
-		console.log('   Application ID:', provisionRequest.applicationId);
 
 		try {
 			const response = await fetch(url, {
@@ -307,8 +302,6 @@ export class DeviceManager {
 			}
 
 			const result = await response.json() as ProvisionResponse;
-			console.log('✅ Device registered with ID:', result.id);
-			console.log('✅ Device registered with mqtt user name:', result.mqtt.username);
 
 			return result;
 		} catch (error: any) {

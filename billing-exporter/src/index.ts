@@ -1,6 +1,7 @@
 import * as dotenv from 'dotenv';
 import { MetricsCollector } from './metrics-collector';
 import { BillingReporter } from './billing-reporter';
+import { StripeUsageReporter } from './stripe-usage-reporter';
 import { HealthServer } from './health-server';
 import { logger } from './logger';
 
@@ -15,10 +16,12 @@ const INSTANCE_ID = process.env.INSTANCE_ID || 'k8s-cluster-1';
 const NAMESPACE = process.env.NAMESPACE || 'default';
 const COLLECTION_INTERVAL = parseInt(process.env.COLLECTION_INTERVAL || '3600000', 10); // 1 hour
 const HEALTH_CHECK_PORT = parseInt(process.env.HEALTH_CHECK_PORT || '8080', 10);
+const ENABLE_USAGE_REPORTING = process.env.ENABLE_USAGE_REPORTING === 'true'; // Feature flag
 
 class BillingExporter {
   private collector: MetricsCollector;
   private reporter: BillingReporter;
+  private usageReporter: StripeUsageReporter;
   private healthServer: HealthServer;
   private intervalId: NodeJS.Timeout | null = null;
 
@@ -36,6 +39,7 @@ class BillingExporter {
     );
 
     this.reporter = new BillingReporter(BILLING_API_URL, CUSTOMER_ID);
+    this.usageReporter = new StripeUsageReporter(BILLING_API_URL, CUSTOMER_ID);
     this.healthServer = new HealthServer(HEALTH_CHECK_PORT);
   }
 
@@ -51,6 +55,21 @@ class BillingExporter {
 
       // Report to billing API
       await this.reporter.report(metrics);
+
+      // Report usage metrics if enabled
+      if (ENABLE_USAGE_REPORTING) {
+        logger.info('📊 Collecting usage metrics for metered billing...');
+        const usageMetrics = await this.usageReporter.collectUsageMetrics();
+        
+        // Report to billing API (billing API will forward to Stripe)
+        await this.usageReporter.reportToBillingApi(usageMetrics);
+        
+        logger.info('✅ Usage metrics reported', {
+          devices: usageMetrics.deviceCount,
+          mqtt_messages: usageMetrics.mqttMessageCount,
+          storage_gb: usageMetrics.storageUsageGb
+        });
+      }
 
       // Update health status
       this.healthServer.setLastCollectionTime(new Date());

@@ -54,7 +54,7 @@ router.get('/devices', async (req, res) => {
           last_connectivity_event: device.last_connectivity_event,
           ip_address: device.ip_address,
           os_version: device.os_version,
-          supervisor_version: device.supervisor_version,
+          agent_version: device.agent_version,
           cpu_usage: device.cpu_usage,
           cpu_temp: device.cpu_temp,
           memory_usage: device.memory_usage,

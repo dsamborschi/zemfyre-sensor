@@ -309,7 +309,7 @@ interface RegistrationRequest {
   applicationId?: string;
   macAddress?: string;
   osVersion?: string;
-  supervisorVersion?: string;
+  agentVersion?: string;
 }
 
 /**
@@ -320,7 +320,7 @@ async function validateRegistrationRequest(
   ipAddress: string | undefined,
   userAgent: string | undefined
 ): Promise<{ valid: boolean; data?: RegistrationRequest; provisioningApiKey?: string }> {
-  const { uuid, deviceName, deviceType, deviceApiKey, applicationId, macAddress, osVersion, supervisorVersion } = req.body;
+  const { uuid, deviceName, deviceType, deviceApiKey, applicationId, macAddress, osVersion, agentVersion } = req.body;
   const provisioningApiKey = req.headers.authorization?.replace('Bearer ', '');
 
   // Check required fields
@@ -349,7 +349,7 @@ async function validateRegistrationRequest(
 
   return {
     valid: true,
-    data: { uuid, deviceName, deviceType, deviceApiKey, applicationId, macAddress, osVersion, supervisorVersion },
+    data: { uuid, deviceName, deviceType, deviceApiKey, applicationId, macAddress, osVersion, agentVersion },
     provisioningApiKey
   };
 }
@@ -361,7 +361,7 @@ async function createDeviceRecord(
   data: RegistrationRequest,
   provisioningKeyRecord: any
 ): Promise<any> {
-  const { uuid, deviceName, deviceType, deviceApiKey, macAddress, osVersion, supervisorVersion } = data;
+  const { uuid, deviceName, deviceType, deviceApiKey, macAddress, osVersion, agentVersion } = data;
 
   // Hash device API key
   const deviceApiKeyHash = await bcrypt.hash(deviceApiKey, 10);
@@ -379,7 +379,7 @@ async function createDeviceRecord(
     status: 'online',
     mac_address: macAddress,
     os_version: osVersion,
-    supervisor_version: supervisorVersion,
+    agent_version: agentVersion,
     device_api_key_hash: deviceApiKeyHash,
     fleet_id: provisioningKeyRecord.fleet_id,
     provisioned_by_key_id: provisioningKeyRecord.id,
@@ -442,7 +442,7 @@ async function publishProvisioningEvent(
       ip_address: ipAddress,
       mac_address: data.macAddress,
       os_version: data.osVersion,
-      supervisor_version: data.supervisorVersion,
+      agent_version: data.agentVersion,
       mqttUsername
     },
     {
@@ -583,20 +583,50 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
     const existingDevice = await DeviceModel.getByUuid(uuid);
     
     if (existingDevice) {
-      console.log('⚠️  Device already registered');
+      // Check if device is FULLY provisioned
+      // A device is considered fully provisioned if it has:
+      // 1. provisioned_at timestamp set
+      // 2. mqtt_username assigned
+      // 3. provisioning_state is 'registered'
+      const isFullyProvisioned = existingDevice.provisioned_at && 
+                                 existingDevice.mqtt_username &&
+                                 existingDevice.provisioning_state === 'registered';
+      
+      if (isFullyProvisioned) {
+        // Device is complete - reject as duplicate
+        console.log('⚠️  Device already registered and fully provisioned');
+        await logAuditEvent({
+          eventType: AuditEventType.PROVISIONING_FAILED,
+          deviceUuid: uuid,
+          ipAddress,
+          severity: AuditSeverity.WARNING,
+          details: { 
+            reason: 'Device already registered', 
+            existingDeviceId: existingDevice.id,
+            provisionedAt: existingDevice.provisioned_at
+          }
+        });
+        
+        await logProvisioningAttempt(ipAddress!, uuid, provisioningKeyRecord.id, false, 'Device already registered', userAgent);
+        
+        return res.status(409).json({
+          error: 'Device registration failed',
+          message: 'This device is already registered and fully provisioned'
+        });
+      }
+      
       await logAuditEvent({
-        eventType: AuditEventType.PROVISIONING_FAILED,
+        eventType: AuditEventType.PROVISIONING_FAILED, // Will be updated to success after completion
         deviceUuid: uuid,
         ipAddress,
-        severity: AuditSeverity.WARNING,
-        details: { reason: 'Device already registered', existingDeviceId: existingDevice.id }
-      });
-      
-      await logProvisioningAttempt(ipAddress!, uuid, provisioningKeyRecord.id, false, 'Device already registered', userAgent);
-      
-      return res.status(409).json({
-        error: 'Device registration failed',
-        message: 'This device is already registered'
+        severity: AuditSeverity.INFO,
+        details: { 
+          reason: 'Incomplete provisioning detected - allowing retry',
+          existingDeviceId: existingDevice.id,
+          hasProvisionedAt: !!existingDevice.provisioned_at,
+          hasMqttUsername: !!existingDevice.mqtt_username,
+          provisioningState: existingDevice.provisioning_state
+        }
       });
     }
 
@@ -605,6 +635,12 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
 
     // Step 7: Create MQTT credentials
     const mqttCredentials = await createMqttCredentials(uuid);
+
+    // Step 7b: Update device with MQTT username (marks provisioning as complete)
+    await DeviceModel.update(uuid, {
+      mqtt_username: mqttCredentials.username
+    });
+    console.log(`✅ Device record updated with MQTT username: ${mqttCredentials.username}`);
 
     // Step 8: Increment provisioning key usage
     await incrementProvisioningKeyUsage(provisioningKeyRecord.id);

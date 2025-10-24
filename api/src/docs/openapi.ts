@@ -206,10 +206,10 @@ Get a token via POST /api/v1/auth/login or /api/v1/auth/register.
             nullable: true,
             description: 'Operating system version'
           },
-          supervisor_version: {
+          agent_version: {
             type: 'string',
             nullable: true,
-            description: 'Device agent/supervisor version'
+            description: 'Device agent version'
           },
           cpu_usage: {
             type: 'number',

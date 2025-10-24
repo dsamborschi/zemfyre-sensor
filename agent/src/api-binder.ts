@@ -25,15 +25,15 @@ interface DeviceStateReport {
 		apps: { [appId: string]: any };
 		cpu_usage?: number;
 		memory_usage?: number;
-		memory_total?: number;
-		storage_usage?: number;
-		storage_total?: number;
-		temperature?: number;
-		is_online?: boolean;
-		local_ip?: string;
-		os_version?: string;
-		supervisor_version?: string;
-		uptime?: number;
+	memory_total?: number;
+	storage_usage?: number;
+	storage_total?: number;
+	temperature?: number;
+	is_online?: boolean;
+	local_ip?: string;
+	os_version?: string;
+	agent_version?: string;
+	uptime?: number;
 		top_processes?: Array<{
 			pid: number;
 			name: string;
@@ -339,16 +339,14 @@ export class ApiBinder extends EventEmitter {
 		// Get metrics if interval elapsed
 		const includeMetrics = timeSinceLastMetrics >= this.config.metricsInterval;
 		
-		const stateReport: DeviceStateReport = {
-			[deviceInfo.uuid]: {
-				apps: currentState.apps,
-				is_online: true,
-				os_version: deviceInfo.osVersion,
-				supervisor_version: deviceInfo.supervisorVersion,
-			},
-		};
-		
-		// Add metrics if needed
+	const stateReport: DeviceStateReport = {
+		[deviceInfo.uuid]: {
+			apps: currentState.apps,
+			is_online: true,
+			os_version: deviceInfo.osVersion,
+			agent_version: deviceInfo.agentVersion,
+		},
+	};		// Add metrics if needed
 		if (includeMetrics) {
 			try {
 				const metrics = await systemMetrics.getSystemMetrics();
@@ -373,17 +371,15 @@ export class ApiBinder extends EventEmitter {
 			}
 		}
 		
-		// Build state-only report for diff comparison (without metrics)
-		const stateOnlyReport: DeviceStateReport = {
-			[deviceInfo.uuid]: {
-				apps: currentState.apps,
-				is_online: true,
-				os_version: deviceInfo.osVersion,
-				supervisor_version: deviceInfo.supervisorVersion,
-			},
-		};
-		
-		// Calculate diff - only compare app state (no metrics)
+	// Build state-only report for diff comparison (without metrics)
+	const stateOnlyReport: DeviceStateReport = {
+		[deviceInfo.uuid]: {
+			apps: currentState.apps,
+			is_online: true,
+			os_version: deviceInfo.osVersion,
+			agent_version: deviceInfo.agentVersion,
+		},
+	};		// Calculate diff - only compare app state (no metrics)
 		const diff = this.calculateStateDiff(this.lastReport, stateOnlyReport);
 		
 		// If there are changes OR we need to send metrics, send the full report (with metrics if applicable)

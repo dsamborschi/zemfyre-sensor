@@ -104,7 +104,7 @@ describe('DeviceManager - Two-Phase Provisioning', () => {
       applicationId: 123,
       macAddress: '00:11:22:33:44:55',
       osVersion: 'RaspberryPi OS 11',
-      supervisorVersion: '1.0.0'
+      agentVersion: '1.0.0'
     };
     
     (global.fetch as jest.Mock).mockClear();
