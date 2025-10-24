@@ -26,6 +26,11 @@ import type {
 } from './types';
 import type { AgentLogger } from '../logging/agent-logger';
 
+// K8s types - imported dynamically to handle CommonJS/ESM compatibility
+type KubeConfig = any;
+type CoreV1Api = any;
+type AppsV1Api = any;
+
 /**
  * K3s driver implementation
  * 
@@ -41,9 +46,11 @@ export class K3sDriver extends BaseOrchestratorDriver {
 	private inCluster: boolean;
 	
 	// K8s client instances (will be initialized in init())
-	private k8sApi: any; // KubeConfig from @kubernetes/client-node
-	private coreV1Api: any;
-	private appsV1Api: any;
+	private k8sApi: KubeConfig;
+	private coreV1Api: CoreV1Api;
+	private appsV1Api: AppsV1Api;
+	
+	// Target state for reconciliation (inherited from base class)
 
 	constructor(logger?: AgentLogger, config?: {
 		kubeconfigPath?: string;
@@ -65,10 +72,9 @@ export class K3sDriver extends BaseOrchestratorDriver {
 		});
 
 		try {
-			// Load Kubernetes client library
-			// NOTE: This requires @kubernetes/client-node to be installed
-			const k8s = await this.loadK8sClient();
-
+			// Dynamic import to handle CommonJS/ESM compatibility
+			const k8s = await import('@kubernetes/client-node');
+			
 			// Initialize kubeconfig
 			this.k8sApi = new k8s.KubeConfig();
 			
@@ -93,20 +99,6 @@ export class K3sDriver extends BaseOrchestratorDriver {
 		} catch (error) {
 			this.log('error', 'Failed to initialize K3s driver', { error });
 			throw error;
-		}
-	}
-
-	private async loadK8sClient(): Promise<any> {
-		try {
-			// Dynamic import to avoid errors when k8s client not installed
-			// @ts-ignore - Module may not be installed (K3s is optional)
-			const k8s = await import('@kubernetes/client-node');
-			return k8s;
-		} catch (error) {
-			throw new Error(
-				'@kubernetes/client-node not installed. ' +
-				'Run: npm install @kubernetes/client-node'
-			);
 		}
 	}
 
@@ -228,14 +220,161 @@ export class K3sDriver extends BaseOrchestratorDriver {
 	}
 
 	async reconcile(): Promise<ReconciliationResult> {
-		this.log('info', 'Starting K3s reconciliation');
+		this.log('info', 'Reconciling K3s state');
 		
-		// TODO: Implement full reconciliation logic
-		// 1. Get current state from K3s
-		// 2. Compare with target state
-		// 3. Create/update/delete deployments as needed
+		const errors: Array<{ serviceName: string; error: string }> = [];
+		let servicesCreated = 0;
+		let servicesUpdated = 0;
+		let servicesRemoved = 0;
+
+		try {
+			// Get target state from supervisor (should be set beforehand)
+			if (!this.targetState) {
+				this.log('warn', 'No target state set, skipping reconciliation');
+				return {
+					success: true,
+					servicesCreated: 0,
+					servicesUpdated: 0,
+					servicesRemoved: 0,
+					errors: [],
+					timestamp: new Date()
+				};
+			}
+
+			// Get current state from K3s
+			const currentState = await this.getCurrentState();
+			
+			// Build maps for comparison
+			const currentServices = new Map<string, ServiceConfig>();
+			const targetServices = new Map<string, ServiceConfig>();
+			
+			// Index current services by serviceId
+			for (const app of Object.values(currentState.apps)) {
+				for (const service of app.services) {
+					currentServices.set(String(service.serviceId), service);
+				}
+			}
+			
+			// Index target services by serviceId
+			const targetApps = this.targetState.local?.apps || {};
+			for (const app of Object.values(targetApps)) {
+				for (const service of app.services) {
+					targetServices.set(String(service.serviceId), service);
+				}
+			}
+			
+			// Find services to add or update
+			for (const [serviceId, targetService] of targetServices) {
+				try {
+					const currentService = currentServices.get(serviceId);
+					
+					if (!currentService) {
+						// Service doesn't exist - create it
+						this.log('debug', 'Adding new service', { serviceName: targetService.serviceName });
+						await this.createService(targetService);
+						servicesCreated++;
+					} else if (this.needsUpdate(currentService, targetService)) {
+						// Service exists but needs update
+						this.log('debug', 'Updating service', { serviceName: targetService.serviceName });
+						await this.updateService(targetService);
+						servicesUpdated++;
+					}
+				} catch (error) {
+					this.log('error', 'Failed to reconcile service', { 
+						serviceId, 
+						serviceName: targetService.serviceName, 
+						error 
+					});
+					errors.push({
+						serviceName: targetService.serviceName,
+						error: error instanceof Error ? error.message : String(error)
+					});
+				}
+			}
+			
+			// Find services to remove
+			for (const [serviceId, currentService] of currentServices) {
+				if (!targetServices.has(serviceId)) {
+					try {
+						this.log('debug', 'Removing service', { serviceName: currentService.serviceName });
+						await this.removeService(currentService.serviceName);
+						servicesRemoved++;
+					} catch (error) {
+						this.log('error', 'Failed to remove service', { 
+							serviceId, 
+							serviceName: currentService.serviceName, 
+							error 
+						});
+						errors.push({
+							serviceName: currentService.serviceName,
+							error: error instanceof Error ? error.message : String(error)
+						});
+					}
+				}
+			}
+			
+			const result: ReconciliationResult = {
+				success: errors.length === 0,
+				servicesCreated,
+				servicesUpdated,
+				servicesRemoved,
+				errors,
+				timestamp: new Date()
+			};
+
+			this.log('info', 'Reconciliation complete', result);
+			this.emit('reconciliation-complete', result);
+			
+			return result;
+			
+		} catch (error) {
+			this.log('error', 'Reconciliation failed', { error });
+			throw error;
+		}
+	}
+
+	private needsUpdate(current: ServiceConfig, target: ServiceConfig): boolean {
+		// Check if image changed
+		if (current.config.image !== target.config.image) {
+			return true;
+		}
 		
-		throw new Error('K3s reconciliation not yet implemented');
+		// Check if environment variables changed
+		const currentEnv = JSON.stringify(current.config.environment || {});
+		const targetEnv = JSON.stringify(target.config.environment || {});
+		if (currentEnv !== targetEnv) {
+			return true;
+		}
+		
+		// Check if ports changed
+		const currentPorts = JSON.stringify(current.config.ports || []);
+		const targetPorts = JSON.stringify(target.config.ports || []);
+		if (currentPorts !== targetPorts) {
+			return true;
+		}
+		
+		return false;
+	}
+
+	private async updateService(service: ServiceConfig): Promise<void> {
+		this.log('debug', 'Updating K3s deployment', { serviceName: service.serviceName });
+		
+		try {
+			// Convert to deployment manifest
+			const deployment = this.serviceToDeployment(service);
+			
+			// Update the deployment
+			await this.appsV1Api.replaceNamespacedDeployment(
+				service.serviceName,
+				this.namespace,
+				deployment
+			);
+			
+			this.log('info', 'Service updated successfully', { serviceName: service.serviceName });
+		} catch (error) {
+			this.log('error', 'Failed to update service', { serviceName: service.serviceName, error });
+			throw error;
+		}
 	}
 
 	async createService(service: ServiceConfig): Promise<string> {
@@ -368,27 +507,162 @@ export class K3sDriver extends BaseOrchestratorDriver {
 	// Stub implementations for remaining methods
 	
 	async stopService(serviceId: string, timeout?: number): Promise<void> {
-		throw new Error('K3s stopService not yet implemented');
+		this.log('info', 'Stopping service', { serviceId });
+		// Scale deployment to 0 replicas
+		try {
+			const deployment = await this.appsV1Api.readNamespacedDeployment(serviceId, this.namespace);
+			deployment.spec.replicas = 0;
+			await this.appsV1Api.replaceNamespacedDeployment(serviceId, this.namespace, deployment);
+			this.log('info', 'Service stopped', { serviceId });
+		} catch (error) {
+			this.log('error', 'Failed to stop service', { serviceId, error });
+			throw error;
+		}
 	}
 
-	async removeService(serviceId: string, force?: boolean): Promise<void> {
-		throw new Error('K3s removeService not yet implemented');
+	async removeService(serviceName: string, force?: boolean): Promise<void> {
+		this.log('info', 'Removing service', { serviceName });
+		
+		try {
+			// Delete the deployment
+			await this.appsV1Api.deleteNamespacedDeployment(
+				serviceName,
+				this.namespace
+			);
+			
+			this.log('info', 'Service removed successfully', { serviceName });
+		} catch (error) {
+			this.log('error', 'Failed to remove service', { serviceName, error });
+			if (!force) {
+				throw error;
+			}
+		}
 	}
 
 	async restartService(serviceId: string, timeout?: number): Promise<void> {
-		throw new Error('K3s restartService not yet implemented');
+		this.log('info', 'Restarting service', { serviceId });
+		
+		try {
+			// Get deployment
+			const deployment = await this.appsV1Api.readNamespacedDeployment(serviceId, this.namespace);
+			
+			// Add restart annotation to trigger rolling update
+			if (!deployment.spec.template.metadata) {
+				deployment.spec.template.metadata = {};
+			}
+			if (!deployment.spec.template.metadata.annotations) {
+				deployment.spec.template.metadata.annotations = {};
+			}
+			deployment.spec.template.metadata.annotations['iotistic.com/restartedAt'] = new Date().toISOString();
+			
+			// Update deployment
+			await this.appsV1Api.replaceNamespacedDeployment(serviceId, this.namespace, deployment);
+			
+			this.log('info', 'Service restarted', { serviceId });
+		} catch (error) {
+			this.log('error', 'Failed to restart service', { serviceId, error });
+			throw error;
+		}
 	}
 
 	async getServiceStatus(serviceId: string): Promise<ServiceStatus> {
-		throw new Error('K3s getServiceStatus not yet implemented');
+		this.log('debug', 'Getting service status', { serviceId });
+		
+		try {
+			const deployment = await this.appsV1Api.readNamespacedDeployment(serviceId, this.namespace);
+			
+			const replicas = deployment.status?.replicas || 0;
+			const availableReplicas = deployment.status?.availableReplicas || 0;
+			const readyReplicas = deployment.status?.readyReplicas || 0;
+			
+			let state: 'running' | 'stopped' | 'creating' | 'error' | 'unknown' = 'unknown';
+			
+			if (availableReplicas === replicas && replicas > 0) {
+				state = 'running';
+			} else if (replicas === 0) {
+				state = 'stopped';
+			} else if (readyReplicas < replicas) {
+				state = 'creating';
+			} else if (deployment.status?.conditions?.some((c: any) => c.type === 'Progressing' && c.status === 'False')) {
+				state = 'error';
+			}
+			
+			return {
+				state,
+				health: availableReplicas === replicas ? 'healthy' : 'unhealthy'
+			};
+		} catch (error) {
+			this.log('error', 'Failed to get service status', { serviceId, error });
+			return {
+				state: 'unknown',
+				health: 'unknown'
+			};
+		}
 	}
 
 	async listServices(): Promise<ServiceConfig[]> {
-		throw new Error('K3s listServices not yet implemented');
+		this.log('debug', 'Listing services');
+		
+		try {
+			const deploymentsResponse = await this.appsV1Api.listNamespacedDeployment(this.namespace);
+			
+			const services: ServiceConfig[] = [];
+			for (const deployment of deploymentsResponse.items) {
+				const service = await this.deploymentToService(deployment);
+				services.push(service);
+			}
+			
+			return services;
+		} catch (error) {
+			this.log('error', 'Failed to list services', { error });
+			throw error;
+		}
 	}
 
 	async getServiceLogs(serviceId: string, options?: LogStreamOptions): Promise<Readable> {
-		throw new Error('K3s getServiceLogs not yet implemented');
+		this.log('debug', 'Getting service logs', { serviceId, options });
+		
+		try {
+			// Get pods for this deployment
+			const podsResponse = await this.coreV1Api.listNamespacedPod(
+				this.namespace,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				`service=${serviceId}`
+			);
+			
+			if (podsResponse.items.length === 0) {
+				throw new Error(`No pods found for service ${serviceId}`);
+			}
+			
+			// Get logs from first pod
+			const pod = podsResponse.items[0];
+			const logStream = await this.coreV1Api.readNamespacedPodLog(
+				pod.metadata!.name!,
+				this.namespace,
+				undefined, // container (use default)
+				options?.follow || false,
+				undefined,
+				undefined,
+				undefined,
+				undefined,
+				options?.tail,
+				undefined
+			);
+			
+			// Convert response to Readable stream
+			const { Readable } = await import('stream');
+			const stream = new Readable();
+			stream.push(logStream as any);
+			stream.push(null);
+			
+			return stream;
+		} catch (error) {
+			this.log('error', 'Failed to get service logs', { serviceId, error });
+			throw error;
+		}
 	}
 
 	async executeHealthCheck(serviceId: string): Promise<{ healthy: boolean; message?: string }> {
