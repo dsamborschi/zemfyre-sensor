@@ -83,7 +83,7 @@ Implemented Kubernetes-style health checks for automatic container health monito
 
 ### Service Configuration
 ```typescript
-interface SimpleService {
+interface ContainerService {
   config: {
     // ... existing fields ...
     

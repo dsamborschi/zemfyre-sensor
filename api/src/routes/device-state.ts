@@ -63,7 +63,7 @@ router.get('/device/:uuid/state', deviceAuth, async (req, res) => {
     if (!targetState) {
       // No target state yet - return empty state
       console.log('   No target state found - returning empty');
-      const emptyState = { [uuid]: { apps: {} } };
+      const emptyState = { [uuid]: { apps: {}, config: {} } };
       const etag = Buffer.from(JSON.stringify(emptyState))
         .toString('base64')
         .substring(0, 32);
@@ -86,12 +86,15 @@ router.get('/device/:uuid/state', deviceAuth, async (req, res) => {
     
     console.log('   🎯 ETags differ - sending new state');
 
-    // Return target state
+    // Return target state (including config if present)
     const response = {
       [uuid]: {
         apps: typeof targetState.apps === 'string' 
           ? JSON.parse(targetState.apps as any) 
-          : targetState.apps
+          : targetState.apps,
+        config: typeof targetState.config === 'string'
+          ? JSON.parse(targetState.config as any)
+          : targetState.config || {}
       }
     };
 

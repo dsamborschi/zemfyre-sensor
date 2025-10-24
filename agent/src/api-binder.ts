@@ -23,6 +23,7 @@ import * as systemMetrics from './system-metrics';
 interface DeviceStateReport {
 	[deviceUuid: string]: {
 		apps: { [appId: string]: any };
+		config?: { [key: string]: any };
 		cpu_usage?: number;
 		memory_usage?: number;
 	memory_total?: number;
@@ -55,6 +56,7 @@ interface ApiBinderConfig {
 interface TargetStateResponse {
 	[deviceUuid: string]: {
 		apps: { [appId: string]: any };
+		config?: { [key: string]: any };
 	};
 }
 
@@ -250,21 +252,24 @@ export class ApiBinder extends EventEmitter {
 			}
 			
 			
-			// Check if target state changed
-			const newTargetState: SimpleState = { apps: deviceState.apps || {} };
+		
+		// Check if target state changed
+		const newTargetState: SimpleState = { 
+			apps: deviceState.apps || {},
+			config: deviceState.config || {}
+		};
+		
+		// Debug: Log the actual comparison strings
+		const currentStateStr = JSON.stringify(this.targetState);
+		const newStateStr = JSON.stringify(newTargetState);
+		
+		if (currentStateStr !== newStateStr) {
+			console.log('🎯 New target state received from cloud');
+			console.log(`   Apps: ${Object.keys(newTargetState.apps).length}`);
+			console.log(`   Config keys: ${Object.keys(newTargetState.config || {}).length}`);
+			console.log('🔍 Difference detected - applying new state');
 			
-			// Debug: Log the actual comparison strings
-			const currentStateStr = JSON.stringify(this.targetState);
-			const newStateStr = JSON.stringify(newTargetState);
-			
-			if (currentStateStr !== newStateStr) {
-				console.log('🎯 New target state received from cloud');
-				console.log(`   Apps: ${Object.keys(newTargetState.apps).length}`);
-				console.log('🔍 Difference detected - applying new state');
-				
-				this.targetState = newTargetState;
-				
-				// Apply target state to container manager
+			this.targetState = newTargetState;				// Apply target state to container manager
 				await this.containerManager.setTarget(this.targetState);
 				
 				// Trigger reconciliation
@@ -342,6 +347,7 @@ export class ApiBinder extends EventEmitter {
 	const stateReport: DeviceStateReport = {
 		[deviceInfo.uuid]: {
 			apps: currentState.apps,
+			config: currentState.config,
 			is_online: true,
 			os_version: deviceInfo.osVersion,
 			agent_version: deviceInfo.agentVersion,
@@ -375,6 +381,7 @@ export class ApiBinder extends EventEmitter {
 	const stateOnlyReport: DeviceStateReport = {
 		[deviceInfo.uuid]: {
 			apps: currentState.apps,
+			config: currentState.config,
 			is_online: true,
 			os_version: deviceInfo.osVersion,
 			agent_version: deviceInfo.agentVersion,

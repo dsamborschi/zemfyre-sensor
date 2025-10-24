@@ -50,11 +50,6 @@ export default class DeviceSupervisor {
 	private sensorConfigHandler?: SensorConfigHandler;
 	private twinStateManager?: TwinStateManager;
 	
-	private readonly ENABLE_JOB_ENGINE = process.env.ENABLE_JOB_ENGINE === 'true';
-	private readonly ENABLE_CLOUD_JOBS = process.env.ENABLE_CLOUD_JOBS === 'true';
-	private readonly ENABLE_SENSOR_PUBLISH = process.env.ENABLE_SENSOR_PUBLISH === 'true';
-	private readonly ENABLE_SHADOW = process.env.ENABLE_SHADOW === 'true';
-	private readonly ENABLE_DIGITAL_TWIN = process.env.ENABLE_DIGITAL_TWIN !== 'false'; // Default: enabled
 	private readonly DEVICE_API_PORT = parseInt(process.env.DEVICE_API_PORT || '48484', 10);
 	private readonly RECONCILIATION_INTERVAL = parseInt(
 		process.env.RECONCILIATION_INTERVAL_MS || '30000',
@@ -88,28 +83,53 @@ export default class DeviceSupervisor {
 			// 7. Initialize API Binder (if cloud endpoint configured)
 			await this.initializeApiBinder();
 
-			// 8. Initialize SSH Reverse Tunnel (if remote access enabled)
-			await this.initializeRemoteAccess();
+			// 8. Check config from target state BEFORE initializing features
+			//    Config-driven feature management (no env var fallbacks)
+			const targetState = this.containerManager.getTargetState();
+			const configFeatures = targetState?.config?.features || {};
+			
+			// Get feature flags from config (default to false if not specified)
+			const enableJobEngine = configFeatures.enableJobEngine === true;
+			const enableCloudJobs = configFeatures.enableCloudJobs === true;
+			const enableSensorPublish = configFeatures.enableSensorPublish === true;
+			const enableShadow = configFeatures.enableShadow === true;
 
-			// 9. Initialize Job Engine (if enabled)
-			await this.initializeJobEngine();
+			console.log('⚙️  Loading feature configuration from target state:');
+			console.log(`   Job Engine: ${enableJobEngine ? '✅ enabled' : '❌ disabled'}`);
+			console.log(`   Cloud Jobs: ${enableCloudJobs ? '✅ enabled' : '❌ disabled'}`);
+			console.log(`   Sensor Publish: ${enableSensorPublish ? '✅ enabled' : '❌ disabled'}`);
+			console.log(`   Shadow Feature: ${enableShadow ? '✅ enabled' : '❌ disabled'}`);
 
-			// 10. Initialize Cloud Jobs Adapter (if enabled)
-			await this.initializeCloudJobsAdapter();
+		    // 9. Initialize SSH Reverse Tunnel (if remote access enabled)
+		    await this.initializeRemoteAccess();			
+			
+			// 10. Initialize Job Engine (if enabled by config)
+			if (enableJobEngine) {
+				await this.initializeJobEngine();
+			}
 
-			// 11. Initialize Sensor Publish Feature (if enabled)
-			await this.initializeSensorPublish();
+			// 11. Initialize Cloud Jobs Adapter (if enabled by config)
+			if (enableCloudJobs) {
+				await this.initializeCloudJobsAdapter();
+			}
 
-			// 12. Initialize Shadow Feature (if enabled)
-			await this.initializeShadowFeature();
+			// 12. Initialize Sensor Publish Feature (if enabled by config)
+			if (enableSensorPublish) {
+				await this.initializeSensorPublish();
+			}
 
-			// 13. Initialize Sensor Config Handler (if both Shadow and Sensor Publish enabled)
+			// 13. Initialize Shadow Feature (if enabled by config)
+			if (enableShadow) {
+				await this.initializeShadowFeature();
+			}
+
+			// 14. Initialize Sensor Config Handler (if both Shadow and Sensor Publish enabled)
 			await this.initializeSensorConfigHandler();
 
-			// 14. Initialize Digital Twin State Manager (if Shadow enabled)
+			// 15. Initialize Digital Twin State Manager (if Shadow enabled)
 			await this.initializeDigitalTwin();
 
-			// 15. Start auto-reconciliation
+			// 16. Start auto-reconciliation
 			this.startAutoReconciliation();
 
 			console.log('='.repeat(80));
@@ -372,6 +392,14 @@ export default class DeviceSupervisor {
 			}
 		);
 
+		// Listen for target state changes to handle config updates
+		this.containerManager.on('target-state-changed', async (targetState) => {
+			if (targetState.config) {
+				console.log('⚙️  Processing config from target state update...');
+				await this.handleConfigUpdate(targetState.config);
+			}
+		});
+
 		// Start polling for target state
 		await this.apiBinder.startPoll();
 
@@ -417,11 +445,6 @@ export default class DeviceSupervisor {
 	}
 
 	private async initializeJobEngine(): Promise<void> {
-		if (!this.ENABLE_JOB_ENGINE) {
-			console.log('⚠️  Job Engine disabled (set ENABLE_JOB_ENGINE=true to enable)');
-			return;
-		}
-
 		console.log('⚙️  Initializing Enhanced Job Engine...');
 
 		try {
@@ -460,15 +483,10 @@ export default class DeviceSupervisor {
 	}
 
 	private async initializeCloudJobsAdapter(): Promise<void> {
-		if (!this.ENABLE_CLOUD_JOBS) {
-			console.log('⚠️  Cloud Jobs disabled (set ENABLE_CLOUD_JOBS=true to enable)');
-			return;
-		}
-
 		// Cloud jobs requires job engine
 		if (!this.jobEngine) {
 			console.error('❌ Cloud Jobs requires Job Engine to be enabled');
-			console.log('   Set ENABLE_JOB_ENGINE=true to enable Cloud Jobs');
+			console.log('   Enable Job Engine in config: { features: { enableJobEngine: true } }');
 			return;
 		}
 
@@ -489,13 +507,6 @@ export default class DeviceSupervisor {
 				10
 			);
 
-			// Debug: Check device info
-			console.log('🔍 Device Info for Cloud Jobs:', {
-				uuid: this.deviceInfo.uuid,
-				hasApiKey: !!this.deviceInfo.apiKey,
-				apiKeyLength: this.deviceInfo.apiKey?.length || 0,
-				apiKeyPreview: this.deviceInfo.apiKey ? `${this.deviceInfo.apiKey.substring(0, 8)}...` : 'MISSING'
-			});
 
 			// Create CloudJobsAdapter
 			this.cloudJobsAdapter = new CloudJobsAdapter(
@@ -526,11 +537,6 @@ export default class DeviceSupervisor {
 	}
 
 	private async initializeSensorPublish(): Promise<void> {
-		if (!this.ENABLE_SENSOR_PUBLISH) {
-			console.log('⚠️  Sensor Publish disabled (set ENABLE_SENSOR_PUBLISH=true to enable)');
-			return;
-		}
-
 		console.log('📡 Initializing Sensor Publish Feature...');
 
 		try {
@@ -601,11 +607,6 @@ export default class DeviceSupervisor {
 	}
 
 	private async initializeShadowFeature(): Promise<void> {
-		if (!this.ENABLE_SHADOW) {
-			console.log('⏭️  Shadow Feature disabled (set ENABLE_SHADOW=true to enable)');
-			return;
-		}
-
 		console.log('🔮 Initializing Shadow Feature...');
 
 		try {
@@ -740,9 +741,6 @@ export default class DeviceSupervisor {
 	private async initializeSensorConfigHandler(): Promise<void> {
 		// Only initialize if both Shadow and Sensor Publish are enabled
 		if (!this.shadowFeature || !this.sensorPublish) {
-			if (this.ENABLE_SHADOW && this.ENABLE_SENSOR_PUBLISH) {
-				console.log('⏭️  Sensor Config Handler disabled (requires both Shadow and Sensor Publish features)');
-			}
 			return;
 		}
 
@@ -807,21 +805,10 @@ export default class DeviceSupervisor {
 	}
 
 	private async initializeDigitalTwin(): Promise<void> {
-		if (!this.ENABLE_DIGITAL_TWIN) {
-			console.log('⚠️  Digital Twin disabled (set ENABLE_DIGITAL_TWIN=true to enable)');
-			return;
-		}
-
-		if (!this.ENABLE_SHADOW) {
-			console.log('⚠️  Digital Twin requires Shadow Feature to be enabled');
-			return;
-		}
-
 		if (!this.shadowFeature) {
 			console.log('⚠️  Shadow Feature not available, cannot initialize Digital Twin');
 			return;
 		}
-
 
 		try {
 			// Get configuration from environment
@@ -876,6 +863,133 @@ export default class DeviceSupervisor {
 	private startAutoReconciliation(): void {
 		this.containerManager.startAutoReconciliation(this.RECONCILIATION_INTERVAL);
 		console.log(`✅ Auto-reconciliation started (${this.RECONCILIATION_INTERVAL}ms)`);
+	}
+
+	/**
+	 * Load initial configuration from target state at startup
+	 */
+	private async loadInitialConfig(): Promise<void> {
+		try {
+			console.log('⚙️  Loading initial configuration from target state...');
+			
+			// Get current target state from container manager
+			const targetState = this.containerManager.getTargetState();
+			
+			if (targetState && targetState.config && Object.keys(targetState.config).length > 0) {
+				console.log(`   Found config with ${Object.keys(targetState.config).length} section(s)`);
+				await this.handleConfigUpdate(targetState.config);
+			} else {
+				console.log('   No config found in target state');
+			}
+		} catch (error) {
+			console.error('⚠️  Failed to load initial config:', error);
+			console.log('   Continuing with default configuration');
+		}
+	}
+
+	/**
+	 * Handle configuration updates from target state
+	 * This is called whenever config changes in device_target_state
+	 */
+	private async handleConfigUpdate(config: Record<string, any>): Promise<void> {
+		console.log('📝 Processing configuration update...');
+		console.log(`   Config keys: ${Object.keys(config).length}`);
+
+		try {
+			// Features Config - Enable/disable features dynamically
+			if (config.features) {
+				console.log('   → Features configuration detected');
+				const features = config.features;
+				
+				// Enable/disable Cloud Jobs dynamically
+				if (features.enableCloudJobs !== undefined) {
+					const isCurrentlyEnabled = !!this.cloudJobsAdapter;
+					const shouldBeEnabled = features.enableCloudJobs;
+					
+					if (shouldBeEnabled === isCurrentlyEnabled) {
+						console.log(`      Cloud Jobs: Already ${shouldBeEnabled ? 'enabled' : 'disabled'}`);
+					} else if (shouldBeEnabled && !isCurrentlyEnabled && this.jobEngine) {
+						console.log('      ⚙️  Enabling Cloud Jobs Adapter...');
+						await this.initializeCloudJobsAdapter();
+					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
+						console.log('      🛑 Disabling Cloud Jobs Adapter...');
+						this.cloudJobsAdapter!.stop();
+						this.cloudJobsAdapter = undefined;
+						console.log('      ✅ Cloud Jobs Adapter disabled');
+					}
+				}
+
+				// Enable/disable Job Engine dynamically
+				if (features.enableJobEngine !== undefined) {
+					const isCurrentlyEnabled = !!this.jobEngine;
+					const shouldBeEnabled = features.enableJobEngine;
+					
+					if (shouldBeEnabled === isCurrentlyEnabled) {
+						console.log(`      Job Engine: Already ${shouldBeEnabled ? 'enabled' : 'disabled'}`);
+					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
+						console.log('      ⚙️  Enabling Job Engine...');
+						await this.initializeJobEngine();
+					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
+						console.log('      🛑 Disabling Job Engine...');
+						// Stop dependent features first
+						if (this.cloudJobsAdapter) {
+							this.cloudJobsAdapter.stop();
+							this.cloudJobsAdapter = undefined;
+						}
+						this.jobEngine = undefined;
+						console.log('      ✅ Job Engine disabled');
+					}
+				}
+
+				// Enable/disable Sensor Publish dynamically
+				if (features.enableSensorPublish !== undefined) {
+					const isCurrentlyEnabled = !!this.sensorPublish;
+					const shouldBeEnabled = features.enableSensorPublish;
+					
+					if (shouldBeEnabled === isCurrentlyEnabled) {
+						console.log(`      Sensor Publish: Already ${shouldBeEnabled ? 'enabled' : 'disabled'}`);
+					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
+						console.log('      ⚙️  Enabling Sensor Publish...');
+						await this.initializeSensorPublish();
+					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
+						console.log('      🛑 Disabling Sensor Publish...');
+						await this.sensorPublish!.stop();
+						this.sensorPublish = undefined;
+						console.log('      ✅ Sensor Publish disabled');
+					}
+				}
+
+				// Enable/disable Shadow Feature dynamically
+				if (features.enableShadow !== undefined) {
+					const isCurrentlyEnabled = !!this.shadowFeature;
+					const shouldBeEnabled = features.enableShadow;
+					
+					if (shouldBeEnabled === isCurrentlyEnabled) {
+						console.log(`      Shadow Feature: Already ${shouldBeEnabled ? 'enabled' : 'disabled'}`);
+					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
+						console.log('      ⚙️  Enabling Shadow Feature...');
+						await this.initializeShadowFeature();
+					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
+						console.log('      🛑 Disabling Shadow Feature...');
+						await this.shadowFeature!.stop();
+						this.shadowFeature = undefined;
+						console.log('      ✅ Shadow Feature disabled');
+					}
+				}
+
+				// Log other feature flags for future implementation
+				if (features.pollingIntervalMs !== undefined) {
+					console.log(`      Polling interval: ${features.pollingIntervalMs}ms (requires restart)`);
+				}
+				if (features.enableHealthChecks !== undefined) {
+					console.log(`      Health checks: ${features.enableHealthChecks ? 'Enabled' : 'Disabled'} (requires restart)`);
+				}
+			}
+
+			console.log('✅ Configuration update processed');
+		} catch (error) {
+			console.error('❌ Failed to process config update:', error);
+		}
 	}
 
 	public async stop(): Promise<void> {

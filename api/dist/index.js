@@ -97,6 +97,13 @@ app.get('/', (req, res) => {
         documentation: '/api/docs'
     });
 });
+app.get('/health', (req, res) => {
+    res.status(200).json({
+        status: 'healthy',
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    });
+});
 const docs_1 = require("./docs");
 (0, docs_1.setupApiDocs)(app, API_BASE);
 app.use(`${API_BASE}/auth`, auth_1.default);
@@ -146,6 +153,8 @@ async function startServer() {
         }
         await db.initializeSchema();
         console.log('✅ PostgreSQL database initialized successfully\n');
+        const { initializeMqttAdmin } = await Promise.resolve().then(() => __importStar(require('./services/mqtt-bootstrap')));
+        await initializeMqttAdmin();
     }
     catch (error) {
         console.error('❌ Database initialization error:', error);
@@ -164,7 +173,7 @@ async function startServer() {
         heartbeatMonitor.default.start();
     }
     catch (error) {
-        console.error('⚠️  Failed to start heartbeat monitor:', error);
+        console.error(' Failed to start heartbeat monitor:', error);
     }
     try {
         const rolloutMonitor = (0, rollout_monitor_1.getRolloutMonitor)(connection_1.default.pool);

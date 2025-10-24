@@ -153,6 +153,7 @@ export interface SimpleApp {
 
 export interface SimpleState {
 	apps: Record<number, SimpleApp>; // Keyed by appId
+	config?: Record<string, any>; // Optional config from target state
 }
 
 export type SimpleStep =
@@ -285,11 +286,9 @@ export class ContainerManager extends EventEmitter {
 			
 			// Skip if state hasn't changed (compare hashes)
 			if (stateHash === this.lastSavedTargetStateHash) {
-				console.log('  Target state unchanged, skipping DB write');
 				return;
 			}
 			
-			console.log('  Target state changed, saving to DB');
 			this.lastSavedTargetStateHash = stateHash;
 			
 			const stateJson = JSON.stringify(this.targetState);
@@ -304,7 +303,6 @@ export class ContainerManager extends EventEmitter {
 				state: stateJson,
 				stateHash: stateHash,
 			});
-			console.log('✅ Saved target state to database');
 		} catch (error) {
 			console.error('Failed to save target state to DB:', error);
 		}
@@ -384,13 +382,17 @@ export class ContainerManager extends EventEmitter {
 
 	/**
 	 * Get what containers ARE running (current state)
+	 * Includes config from target state
 	 */
 	public async getCurrentState(): Promise<SimpleState> {
 		if (this.useRealDocker) {
 			// Query Docker for actual state
 			await this.syncCurrentStateFromDocker();
 		}
-		return _.cloneDeep(this.currentState);
+		// Include config from target state in current state
+		const state = _.cloneDeep(this.currentState);
+		state.config = this.targetState.config;
+		return state;
 	}
 
 	/**
