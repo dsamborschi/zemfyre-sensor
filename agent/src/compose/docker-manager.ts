@@ -8,6 +8,7 @@
 
 import Docker from 'dockerode';
 import { ContainerService } from './container-manager';
+import { AgentLogger } from '../logging/agent-logger';
 
 export interface DockerContainerInfo {
 	id: string;
@@ -21,24 +22,41 @@ export interface DockerContainerInfo {
 
 export class DockerManager {
 	private docker: Docker;
+	private logger?: AgentLogger;
 
-	constructor(dockerOptions?: Docker.DockerOptions) {
+	constructor(dockerOptions?: Docker.DockerOptions, logger?: AgentLogger) {
+		this.logger = logger;
 		// Default: connect to local Docker daemon
 		// Detect platform and use appropriate socket
-		console.log(`[DockerManager] Platform detected: ${process.platform}`);
+		this.logger?.infoSync('Initializing Docker Manager', {
+			component: 'DockerManager',
+			operation: 'constructor',
+			platform: process.platform
+		});
 		
 		if (dockerOptions) {
-			console.log('[DockerManager] Using custom Docker options');
+			this.logger?.debugSync('Using custom Docker options', {
+				component: 'DockerManager',
+				operation: 'constructor'
+			});
 			this.docker = new Docker(dockerOptions);
 		} else if (process.platform === 'win32') {
 			// Windows: Explicitly use named pipe for Docker Desktop
-			console.log('[DockerManager] Connecting to Docker Desktop on Windows via named pipe');
+			this.logger?.infoSync('Connecting to Docker Desktop on Windows', {
+				component: 'DockerManager',
+				operation: 'constructor',
+				socketPath: '//./pipe/docker_engine'
+			});
 			this.docker = new Docker({
 				socketPath: '//./pipe/docker_engine'
 			});
 		} else {
 			// Linux/Mac: Use Unix socket
-			console.log('[DockerManager] Using Unix socket: /var/run/docker.sock');
+			this.logger?.infoSync('Using Unix socket', {
+				component: 'DockerManager',
+				operation: 'constructor',
+				socketPath: '/var/run/docker.sock'
+			});
 			this.docker = new Docker({ socketPath: '/var/run/docker.sock' });
 		}
 	}
@@ -51,12 +69,20 @@ export class DockerManager {
 	 * Pull an image from registry
 	 */
 	async pullImage(imageName: string): Promise<void> {
-		console.log(`    Pulling image: ${imageName}`);
+		this.logger?.infoSync('Pulling Docker image', {
+			component: 'DockerManager',
+			operation: 'pullImage',
+			imageName
+		});
 
 		return new Promise((resolve, reject) => {
 			this.docker.pull(imageName, (err: any, stream: NodeJS.ReadableStream) => {
 				if (err) {
-					console.error(`Failed to pull ${imageName}:`, err.message);
+					this.logger?.errorSync('Failed to pull image', err, {
+						component: 'DockerManager',
+						operation: 'pullImage',
+						imageName
+					});
 					return reject(err);
 				}
 
@@ -65,10 +91,18 @@ export class DockerManager {
 					stream,
 					(err: any, output: any) => {
 						if (err) {
-							console.error(`Pull failed:`, err.message);
+							this.logger?.errorSync('Image pull failed during progress', err, {
+								component: 'DockerManager',
+								operation: 'pullImage',
+								imageName
+							});
 							return reject(err);
 						}
-						console.log(`    Successfully pulled ${imageName}`);
+						this.logger?.infoSync('Successfully pulled image', {
+							component: 'DockerManager',
+							operation: 'pullImage',
+							imageName
+						});
 						resolve();
 					},
 					(event: any) => {
@@ -110,13 +144,22 @@ export class DockerManager {
 	 * Create and start a container from a service definition
 	 */
 	async startContainer(service: ContainerService): Promise<string> {
-		console.log(`    Starting container: ${service.serviceName}`);
+		this.logger?.infoSync('Starting container', {
+			component: 'DockerManager',
+			operation: 'startContainer',
+			serviceName: service.serviceName,
+			imageName: service.imageName
+		});
 
 		try {
 			// 1. Ensure image exists (pull if needed)
 			const hasImage = await this.hasImage(service.imageName);
 			if (!hasImage) {
-				console.log(`    Image not found locally, pulling...`);
+				this.logger?.infoSync('Image not found locally, pulling...', {
+					component: 'DockerManager',
+					operation: 'startContainer',
+					imageName: service.imageName
+				});
 				await this.pullImage(service.imageName);
 			}
 
@@ -130,14 +173,24 @@ export class DockerManager {
 					const portStr = typeof portMapping === 'string' ? portMapping : String(portMapping);
 					
 					if (!portStr || typeof portStr.split !== 'function') {
-						console.error(`Invalid port mapping format: ${JSON.stringify(portMapping)}`);
+						this.logger?.errorSync('Invalid port mapping format', new Error('Invalid port mapping'), {
+							component: 'DockerManager',
+							operation: 'startContainer',
+							serviceName: service.serviceName,
+							portMapping: JSON.stringify(portMapping)
+						});
 						continue;
 					}
 					
 					const [hostPort, containerPort] = portStr.split(':');
 					
 					if (!hostPort || !containerPort) {
-						console.error(`Invalid port mapping (missing host or container port): ${portStr}`);
+						this.logger?.errorSync('Invalid port mapping (missing host or container port)', new Error('Invalid port mapping'), {
+							component: 'DockerManager',
+							operation: 'startContainer',
+							serviceName: service.serviceName,
+							portStr
+						});
 						continue;
 					}
 					
@@ -211,18 +264,38 @@ export class DockerManager {
 						await network.connect({
 							Container: containerId,
 						});
-						console.log(`    Connected to network: ${dockerNetworkName}`);
+						this.logger?.debugSync('Connected container to network', {
+							component: 'DockerManager',
+							operation: 'startContainer',
+							containerId: containerId.substring(0, 12),
+							dockerNetworkName
+						});
 					} catch (error: any) {
-						console.error(`    Warning: Failed to connect to network ${networkName}:`, error.message);
+						this.logger?.warnSync('Failed to connect container to network', {
+							component: 'DockerManager',
+							operation: 'startContainer',
+							containerId: containerId.substring(0, 12),
+							networkName,
+							error: error.message
+						});
 						// Don't fail the whole operation if network connection fails
 					}
 				}
 			}
 
-			console.log(`    Container started: ${containerId.substring(0, 12)}`);
+			this.logger?.infoSync('Container started successfully', {
+				component: 'DockerManager',
+				operation: 'startContainer',
+				serviceName: service.serviceName,
+				containerId: containerId.substring(0, 12)
+			});
 			return containerId;
 		} catch (error: any) {
-			console.error(`    Failed to start container:`, error.message);
+			this.logger?.errorSync('Failed to start container', error, {
+				component: 'DockerManager',
+				operation: 'startContainer',
+				serviceName: service.serviceName
+			});
 			throw error;
 		}
 	}
@@ -231,18 +304,35 @@ export class DockerManager {
 	 * Stop a running container
 	 */
 	async stopContainer(containerId: string, timeout: number = 10): Promise<void> {
-		console.log(`    Stopping container: ${containerId.substring(0, 12)}`);
+		this.logger?.infoSync('Stopping container', {
+			component: 'DockerManager',
+			operation: 'stopContainer',
+			containerId: containerId.substring(0, 12),
+			timeout
+		});
 
 		try {
 			const container = this.docker.getContainer(containerId);
 			await container.stop({ t: timeout });
-			console.log(`    Container stopped`);
+			this.logger?.infoSync('Container stopped', {
+				component: 'DockerManager',
+				operation: 'stopContainer',
+				containerId: containerId.substring(0, 12)
+			});
 		} catch (error: any) {
 			// Container might already be stopped
 			if (error.statusCode === 304) {
-				console.log(`    Container already stopped`);
+				this.logger?.debugSync('Container already stopped', {
+					component: 'DockerManager',
+					operation: 'stopContainer',
+					containerId: containerId.substring(0, 12)
+				});
 			} else {
-				console.error(`    Failed to stop container:`, error.message);
+				this.logger?.errorSync('Failed to stop container', error, {
+					component: 'DockerManager',
+					operation: 'stopContainer',
+					containerId: containerId.substring(0, 12)
+				});
 				throw error;
 			}
 		}
@@ -252,18 +342,35 @@ export class DockerManager {
 	 * Remove a container
 	 */
 	async removeContainer(containerId: string, force: boolean = false): Promise<void> {
-		console.log(`    Removing container: ${containerId.substring(0, 12)}`);
+		this.logger?.infoSync('Removing container', {
+			component: 'DockerManager',
+			operation: 'removeContainer',
+			containerId: containerId.substring(0, 12),
+			force
+		});
 
 		try {
 			const container = this.docker.getContainer(containerId);
 			await container.remove({ force });
-			console.log(`    Container removed`);
+			this.logger?.infoSync('Container removed', {
+				component: 'DockerManager',
+				operation: 'removeContainer',
+				containerId: containerId.substring(0, 12)
+			});
 		} catch (error: any) {
 			// Container might already be removed
 			if (error.statusCode === 404) {
-				console.log(`    Container already removed`);
+				this.logger?.debugSync('Container already removed', {
+					component: 'DockerManager',
+					operation: 'removeContainer',
+					containerId: containerId.substring(0, 12)
+				});
 			} else {
-				console.error(`    Failed to remove container:`, error.message);
+				this.logger?.errorSync('Failed to remove container', error, {
+					component: 'DockerManager',
+					operation: 'removeContainer',
+					containerId: containerId.substring(0, 12)
+				});
 				throw error;
 			}
 		}
@@ -331,7 +438,11 @@ export class DockerManager {
 	 * Create a Docker network
 	 */
 	async createNetwork(name: string): Promise<Docker.Network> {
-		console.log(`    Creating network: ${name}`);
+		this.logger?.infoSync('Creating Docker network', {
+			component: 'DockerManager',
+			operation: 'createNetwork',
+			networkName: name
+		});
 		const network = await this.docker.createNetwork({
 			Name: name,
 			Driver: 'bridge',
@@ -339,7 +450,11 @@ export class DockerManager {
 				'iotistic.managed': 'true',
 			},
 		});
-		console.log(`    Network created`);
+		this.logger?.infoSync('Network created successfully', {
+			component: 'DockerManager',
+			operation: 'createNetwork',
+			networkName: name
+		});
 		return network;
 	}
 
@@ -354,10 +469,18 @@ export class DockerManager {
 	 * Remove a network
 	 */
 	async removeNetwork(networkId: string): Promise<void> {
-		console.log(`    Removing network: ${networkId}`);
+		this.logger?.infoSync('Removing Docker network', {
+			component: 'DockerManager',
+			operation: 'removeNetwork',
+			networkId
+		});
 		const network = this.docker.getNetwork(networkId);
 		await network.remove();
-		console.log(`    Network removed`);
+		this.logger?.infoSync('Network removed successfully', {
+			component: 'DockerManager',
+			operation: 'removeNetwork',
+			networkId
+		});
 	}
 
 	// ========================================================================
@@ -368,14 +491,22 @@ export class DockerManager {
 	 * Create a Docker volume
 	 */
 	async createVolume(name: string): Promise<Docker.VolumeCreateResponse> {
-		console.log(`    Creating volume: ${name}`);
+		this.logger?.infoSync('Creating Docker volume', {
+			component: 'DockerManager',
+			operation: 'createVolume',
+			volumeName: name
+		});
 		const volume = await this.docker.createVolume({
 			Name: name,
 			Labels: {
 				'iotistic.managed': 'true',
 			},
 		});
-		console.log(`    Volume created`);
+		this.logger?.infoSync('Volume created successfully', {
+			component: 'DockerManager',
+			operation: 'createVolume',
+			volumeName: name
+		});
 		return volume;
 	}
 
@@ -391,10 +522,19 @@ export class DockerManager {
 	 * Remove a volume
 	 */
 	async removeVolume(volumeName: string, force: boolean = false): Promise<void> {
-		console.log(`    Removing volume: ${volumeName}`);
+		this.logger?.infoSync('Removing Docker volume', {
+			component: 'DockerManager',
+			operation: 'removeVolume',
+			volumeName,
+			force
+		});
 		const volume = this.docker.getVolume(volumeName);
 		await volume.remove({ force });
-		console.log(`    Volume removed`);
+		this.logger?.infoSync('Volume removed successfully', {
+			component: 'DockerManager',
+			operation: 'removeVolume',
+			volumeName
+		});
 	}
 
 	// ========================================================================
@@ -424,7 +564,13 @@ export class DockerManager {
 			const cpuLimit = this.parseCpuLimit(service.config.resources.limits.cpu);
 			if (cpuLimit > 0) {
 				hostConfig.NanoCpus = cpuLimit;
-				console.log(`    Setting CPU limit: ${service.config.resources.limits.cpu} (${cpuLimit} nanocpus)`);
+				this.logger?.debugSync('Setting CPU limit', {
+					component: 'DockerManager',
+					operation: 'parseResourceLimits',
+					serviceName: service.serviceName,
+					cpuLimit: service.config.resources.limits.cpu,
+					nanocpus: cpuLimit
+				});
 			}
 		}
 
@@ -433,7 +579,13 @@ export class DockerManager {
 			const memoryLimit = this.parseMemoryLimit(service.config.resources.limits.memory);
 			if (memoryLimit > 0) {
 				hostConfig.Memory = memoryLimit;
-				console.log(`    Setting memory limit: ${service.config.resources.limits.memory} (${memoryLimit} bytes)`);
+				this.logger?.debugSync('Setting memory limit', {
+					component: 'DockerManager',
+					operation: 'parseResourceLimits',
+					serviceName: service.serviceName,
+					memoryLimit: service.config.resources.limits.memory,
+					bytes: memoryLimit
+				});
 			}
 		}
 
@@ -445,7 +597,13 @@ export class DockerManager {
 			const cpuShares = Math.round((cpuRequest / 1000000000) * 1024);
 			if (cpuShares > 0) {
 				hostConfig.CpuShares = cpuShares;
-				console.log(`    Setting CPU request: ${service.config.resources.requests.cpu} (${cpuShares} shares)`);
+				this.logger?.debugSync('Setting CPU request', {
+					component: 'DockerManager',
+					operation: 'parseResourceLimits',
+					serviceName: service.serviceName,
+					cpuRequest: service.config.resources.requests.cpu,
+					cpuShares
+				});
 			}
 		}
 
@@ -454,7 +612,13 @@ export class DockerManager {
 			const memoryRequest = this.parseMemoryLimit(service.config.resources.requests.memory);
 			if (memoryRequest > 0) {
 				hostConfig.MemoryReservation = memoryRequest;
-				console.log(`    Setting memory request: ${service.config.resources.requests.memory} (${memoryRequest} bytes)`);
+				this.logger?.debugSync('Setting memory request', {
+					component: 'DockerManager',
+					operation: 'parseResourceLimits',
+					serviceName: service.serviceName,
+					memoryRequest: service.config.resources.requests.memory,
+					bytes: memoryRequest
+				});
 			}
 		}
 

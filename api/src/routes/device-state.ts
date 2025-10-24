@@ -31,6 +31,7 @@ import {
 import { EventPublisher, objectsAreEqual } from '../services/event-sourcing';
 import EventSourcingConfig from '../config/event-sourcing';
 import deviceAuth, { deviceAuthFromBody } from '../middleware/device-auth';
+import { resolveAppsImages } from '../services/docker-registry';
 
 export const router = express.Router();
 
@@ -329,6 +330,18 @@ router.post('/devices/:uuid/target-state', deviceAuth, async (req, res) => {
       });
     }
 
+    // 🎯 RESOLVE IMAGE DIGESTS
+    // Convert all :latest and floating tags to @sha256:... digests
+    // This enables automatic updates when new images are pushed
+    console.log(`🔍 Resolving image digests for device ${uuid.substring(0, 8)}...`);
+    try {
+      apps = await resolveAppsImages(apps);
+    } catch (error: any) {
+      console.warn(`⚠️  Digest resolution failed: ${error.message}`);
+      console.warn(`   Continuing with tag-based references`);
+      // Continue with original apps - digest resolution is best-effort
+    }
+
     // Get old state for diff
     const oldTargetState = await DeviceTargetStateModel.get(uuid);
 
@@ -427,6 +440,16 @@ router.put('/devices/:uuid/target-state', deviceAuth, async (req, res) => {
         error: 'Invalid apps format',
         message: error.message
       });
+    }
+
+    // 🎯 RESOLVE IMAGE DIGESTS
+    // Convert all :latest and floating tags to @sha256:... digests
+    console.log(`🔍 Resolving image digests for device ${uuid.substring(0, 8)}...`);
+    try {
+      apps = await resolveAppsImages(apps);
+    } catch (error: any) {
+      console.warn(`⚠️  Digest resolution failed: ${error.message}`);
+      console.warn(`   Continuing with tag-based references`);
     }
 
     // Get old state for diff

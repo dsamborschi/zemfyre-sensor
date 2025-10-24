@@ -22,6 +22,7 @@ import { LocalLogBackend } from './logging/local-backend';
 import { MqttLogBackend } from './logging/mqtt-backend';
 import { CloudLogBackend } from './logging/cloud-backend';
 import { ContainerLogMonitor } from './logging/monitor';
+import { AgentLogger } from './logging/agent-logger';
 import type { LogBackend } from './logging/types';
 import { SSHTunnelManager } from './remote-access/ssh-tunnel';
 import { EnhancedJobEngine } from './jobs/src/enhanced-job-engine';
@@ -42,6 +43,7 @@ export default class DeviceSupervisor {
 	private logBackend!: LocalLogBackend;
 	private logBackends: LogBackend[] = [];
 	private logMonitor?: ContainerLogMonitor;
+	private agentLogger!: AgentLogger;  // Structured logging for agent-level events
 	private sshTunnel?: SSHTunnelManager;
 	private jobEngine?: EnhancedJobEngine;
 	private cloudJobsAdapter?: CloudJobsAdapter;
@@ -50,6 +52,9 @@ export default class DeviceSupervisor {
 	private sensorConfigHandler?: SensorConfigHandler;
 	private twinStateManager?: TwinStateManager;
 	
+	// System settings (config-driven with env var defaults)
+	private reconciliationIntervalMs: number;
+	
 	private readonly DEVICE_API_PORT = parseInt(process.env.DEVICE_API_PORT || '48484', 10);
 	private readonly RECONCILIATION_INTERVAL = parseInt(
 		process.env.RECONCILIATION_INTERVAL_MS || '30000',
@@ -57,7 +62,13 @@ export default class DeviceSupervisor {
 	);
 	private readonly CLOUD_API_ENDPOINT = process.env.CLOUD_API_ENDPOINT || 'https://90bd9cd2-1a3d-44d4-8625-ec5fb7411bfb.mock.pstmn.io';
 
+	constructor() {
+		// Initialize with default from env var
+		this.reconciliationIntervalMs = this.RECONCILIATION_INTERVAL;
+	}
+
 	public async init(): Promise<void> {
+		// Note: Can't use agentLogger yet - it's initialized in initializeLogging()
 		console.log('🚀 Initializing Device Agent...');
 		console.log('='.repeat(80));
 
@@ -83,25 +94,58 @@ export default class DeviceSupervisor {
 			// 7. Initialize API Binder (if cloud endpoint configured)
 			await this.initializeApiBinder();
 
-			// 8. Check config from target state BEFORE initializing features
-			//    Config-driven feature management (no env var fallbacks)
-			const targetState = this.containerManager.getTargetState();
-			const configFeatures = targetState?.config?.features || {};
-			
-			// Get feature flags from config (default to false if not specified)
-			const enableJobEngine = configFeatures.enableJobEngine === true;
-			const enableCloudJobs = configFeatures.enableCloudJobs === true;
-			const enableSensorPublish = configFeatures.enableSensorPublish === true;
-			const enableShadow = configFeatures.enableShadow === true;
+		// 8. Check config from target state BEFORE initializing features
+		//    Config-driven feature management (no env var fallbacks)
+		const targetState = this.containerManager.getTargetState();
+		const configFeatures = targetState?.config?.features || {};
+		const configSettings = targetState?.config?.settings || {};
+		const configLogging = targetState?.config?.logging || {};
+		
+		// Get feature flags from config (default to false if not specified)
+		const enableRemoteAccess = configFeatures.enableRemoteAccess === true;
+		const enableJobEngine = configFeatures.enableJobEngine === true;
+		const enableCloudJobs = configFeatures.enableCloudJobs === true;
+		const enableSensorPublish = configFeatures.enableSensorPublish === true;
+		const enableShadow = configFeatures.enableShadow === true;
+		
+		// Get system settings from config (with defaults)
+		const reconciliationIntervalMs = configSettings.reconciliationIntervalMs || this.RECONCILIATION_INTERVAL;
+		
+		// Get logging settings from config
+		const logLevel = configLogging.level || 'info';
+		
+		// Apply log level if configured
+		if (this.agentLogger && ['debug', 'info', 'warn', 'error'].includes(logLevel)) {
+			this.agentLogger.setLogLevel(logLevel as 'debug' | 'info' | 'warn' | 'error');
+		}
+		
+		// Update instance variable with config value
+		this.reconciliationIntervalMs = reconciliationIntervalMs;
 
-			console.log('⚙️  Loading feature configuration from target state:');
-			console.log(`   Job Engine: ${enableJobEngine ? '✅ enabled' : '❌ disabled'}`);
-			console.log(`   Cloud Jobs: ${enableCloudJobs ? '✅ enabled' : '❌ disabled'}`);
-			console.log(`   Sensor Publish: ${enableSensorPublish ? '✅ enabled' : '❌ disabled'}`);
-			console.log(`   Shadow Feature: ${enableShadow ? '✅ enabled' : '❌ disabled'}`);
-
-		    // 9. Initialize SSH Reverse Tunnel (if remote access enabled)
-		    await this.initializeRemoteAccess();			
+		// Note: agentLogger is now available after initializeLogging()
+		this.agentLogger?.infoSync('Loading configuration from target state', {
+			component: 'Supervisor',
+			features: {
+				remoteAccess: enableRemoteAccess,
+				jobEngine: enableJobEngine,
+				cloudJobs: enableCloudJobs,
+				sensorPublish: enableSensorPublish,
+				shadow: enableShadow
+			},
+			settings: {
+				reconciliationIntervalMs,
+				deviceReportIntervalMs: configSettings.deviceReportIntervalMs || parseInt(process.env.REPORT_INTERVAL_MS || '60000', 10),
+				metricsIntervalMs: configSettings.metricsIntervalMs || parseInt(process.env.METRICS_INTERVAL_MS || '300000', 10)
+			},
+			logging: {
+				level: logLevel
+			}
+		});
+		
+	    // 9. Initialize SSH Reverse Tunnel (if enabled by config)
+		    if (enableRemoteAccess) {
+				await this.initializeRemoteAccess();
+			}			
 			
 			// 10. Initialize Job Engine (if enabled by config)
 			if (enableJobEngine) {
@@ -132,21 +176,24 @@ export default class DeviceSupervisor {
 			// 16. Start auto-reconciliation
 			this.startAutoReconciliation();
 
-			console.log('='.repeat(80));
-			console.log('✅ Device Agent initialized successfully!');
-			console.log('='.repeat(80));
-			console.log(`Device API: http://localhost:${this.DEVICE_API_PORT}`);
-			console.log(`Auto-reconciliation: ${this.RECONCILIATION_INTERVAL}ms`);
-			console.log(`Cloud API: ${this.CLOUD_API_ENDPOINT || 'Not configured'}`);
-			console.log('='.repeat(80));
+			this.agentLogger?.infoSync('Device Agent initialized successfully', {
+				component: 'Supervisor',
+				deviceApiPort: this.DEVICE_API_PORT,
+				reconciliationInterval: this.RECONCILIATION_INTERVAL,
+				cloudApiEndpoint: this.CLOUD_API_ENDPOINT || 'Not configured'
+			});
+	
 		} catch (error) {
-			console.error('❌ Failed to initialize Device Supervisor:', error);
+			this.agentLogger?.errorSync('Failed to initialize Device Supervisor', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Supervisor'
+			});
 			throw error;
 		}
 	}
 
 	private async initializeDatabase(): Promise<void> {
 		await db.initialized();
+		// Note: agentLogger not available yet - initialized later
 		console.log('✅ Database initialized');
 	}
 
@@ -159,6 +206,7 @@ export default class DeviceSupervisor {
 		// Auto-provision if not yet provisioned, cloud endpoint is set, AND provisioning key is available
 		const provisioningApiKey = process.env.PROVISIONING_API_KEY;
 		if (!deviceInfo.provisioned && provisioningApiKey && this.CLOUD_API_ENDPOINT) {
+			// Note: agentLogger not available yet - initialized later
 			console.log('⚙️  Auto-provisioning device with two-phase authentication...');
 			try {
 				// Auto-detect system information if not provided via env vars
@@ -323,11 +371,19 @@ export default class DeviceSupervisor {
 
 		// Log summary
 		//console.log(`✅ Logging initialized with ${this.logBackends.length} backend(s)`);
+		
+		// Create AgentLogger for structured agent-level logging
+		this.agentLogger = new AgentLogger(this.logBackends);
+		this.agentLogger.setDeviceId(this.deviceInfo.uuid);
+		this.agentLogger.infoSync('Agent logger initialized', {
+			component: 'Supervisor',
+			backendCount: this.logBackends.length
+		});
 	}
 
 	private async initializeContainerManager(): Promise<void> {
-		console.log('🐳 Initializing container manager...');
-		this.containerManager = new ContainerManager();
+		this.agentLogger?.infoSync('Initializing container manager', { component: 'Supervisor' });
+		this.containerManager = new ContainerManager(this.agentLogger);
 		await this.containerManager.init();
 
 		// Set up log monitor
@@ -337,14 +393,24 @@ export default class DeviceSupervisor {
 			this.logMonitor = new ContainerLogMonitor(docker, this.logBackends);
 			this.containerManager.setLogMonitor(this.logMonitor);
 			await this.containerManager.attachLogsToAllContainers();
-			console.log(`✅ Log monitor attached to container manager (${this.logBackends.length} backend(s))`);
+			this.agentLogger?.infoSync('Log monitor attached to container manager', {
+				component: 'Supervisor',
+				backendCount: this.logBackends.length
+			});
 		}
 
-		console.log('✅ Container manager initialized');
+		// Watch for target state changes to dynamically update config
+		this.containerManager.on('target-state-changed', (newState: any) => {
+			if (newState.config) {
+				this.handleConfigUpdate(newState.config);
+			}
+		});
+
+		this.agentLogger?.infoSync('Container manager initialized', { component: 'Supervisor' });
 	}
 
 	private async initializeDeviceAPI(): Promise<void> {
-		console.log('🌐 Initializing device API...');
+		this.agentLogger?.infoSync('Initializing device API', { component: 'Supervisor' });
 
 		// Initialize device actions with managers
 		deviceActions.initialize(this.containerManager, this.deviceManager);
@@ -369,17 +435,31 @@ export default class DeviceSupervisor {
 
 		// Start listening
 		await this.deviceAPI.listen(this.DEVICE_API_PORT);
-		console.log(`✅ Device API started on port ${this.DEVICE_API_PORT}`);
+		this.agentLogger?.infoSync('Device API started', {
+			component: 'Supervisor',
+			port: this.DEVICE_API_PORT
+		});
 	}
 
 	private async initializeApiBinder(): Promise<void> {
 		if (!this.CLOUD_API_ENDPOINT) {
-			console.log('⚠️  Cloud API endpoint not configured (set CLOUD_API_ENDPOINT env var)');
-			console.log('   Device will run in standalone mode');
+			this.agentLogger?.warnSync('Cloud API endpoint not configured - running in standalone mode', {
+				component: 'Supervisor',
+				note: 'Set CLOUD_API_ENDPOINT env var to enable cloud features'
+			});
 			return;
 		}
 
-		console.log('☁️  Initializing API Binder...');
+		this.agentLogger?.infoSync('Initializing API Binder', {
+			component: 'Supervisor',
+			cloudApiEndpoint: this.CLOUD_API_ENDPOINT
+		});
+		
+		// Get device report interval from config if available
+		const targetState = this.containerManager.getTargetState();
+		const configSettings = targetState?.config?.settings || {};
+		const deviceReportIntervalMs = configSettings.deviceReportIntervalMs || parseInt(process.env.REPORT_INTERVAL_MS || '60000', 10);
+		const metricsIntervalMs = configSettings.metricsIntervalMs || parseInt(process.env.METRICS_INTERVAL_MS || '300000', 10);
 		
 		this.apiBinder = new ApiBinder(
 			this.containerManager,
@@ -387,15 +467,21 @@ export default class DeviceSupervisor {
 			{
 				cloudApiEndpoint: this.CLOUD_API_ENDPOINT,
 				pollInterval: parseInt(process.env.POLL_INTERVAL_MS || '60000', 10), // 60s
-				reportInterval: parseInt(process.env.REPORT_INTERVAL_MS || '10000', 10), // 10s
-				metricsInterval: parseInt(process.env.METRICS_INTERVAL_MS || '300000', 10), // 5min
-			}
+				reportInterval: deviceReportIntervalMs, // Use config value or default 60s
+				metricsInterval: metricsIntervalMs, // Use config value or default 5min
+			},
+			this.agentLogger  // Pass the agent logger
 		);
+		
+		// Reinitialize device actions with apiBinder for connection health endpoint
+		deviceActions.initialize(this.containerManager, this.deviceManager, this.apiBinder);
 
 		// Listen for target state changes to handle config updates
 		this.containerManager.on('target-state-changed', async (targetState) => {
 			if (targetState.config) {
-				console.log('⚙️  Processing config from target state update...');
+				this.agentLogger?.infoSync('Processing config from target state update', {
+					component: 'Supervisor'
+				});
 				await this.handleConfigUpdate(targetState.config);
 			}
 		});
@@ -406,22 +492,23 @@ export default class DeviceSupervisor {
 		// Start reporting current state
 		await this.apiBinder.startReporting();
 
-		console.log('✅ API Binder initialized');
 	}
 
 	private async initializeRemoteAccess(): Promise<void> {
-		if (process.env.ENABLE_REMOTE_ACCESS !== 'true') {
-			console.log('⚠️  Remote access disabled (set ENABLE_REMOTE_ACCESS=true to enable)');
-			return;
-		}
-
 		const cloudHost = process.env.CLOUD_HOST;
 		if (!cloudHost) {
-			console.error('❌ CLOUD_HOST environment variable required for remote access');
+			this.agentLogger?.errorSync('CLOUD_HOST environment variable required for remote access', undefined, {
+				component: 'Supervisor',
+				feature: 'RemoteAccess'
+			});
 			return;
 		}
 
-		console.log('🔌 Initializing SSH reverse tunnel...');
+		this.agentLogger?.infoSync('Initializing SSH reverse tunnel', {
+			component: 'Supervisor',
+			cloudHost,
+			localPort: this.DEVICE_API_PORT
+		});
 
 		try {
 			this.sshTunnel = new SSHTunnelManager({
@@ -435,11 +522,15 @@ export default class DeviceSupervisor {
 			});
 
 			await this.sshTunnel.connect();
-			console.log('✅ Remote access enabled via SSH tunnel');
-			console.log(`   Device API accessible at: ${cloudHost}:${this.DEVICE_API_PORT}`);
+			this.agentLogger?.infoSync('Remote access enabled via SSH tunnel', {
+				component: 'Supervisor',
+				accessEndpoint: `${cloudHost}:${this.DEVICE_API_PORT}`
+			});
 		} catch (error) {
-			console.error('❌ Failed to initialize SSH tunnel:', error);
-			console.log('   Continuing without remote access');
+			this.agentLogger?.errorSync('Failed to initialize SSH tunnel', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Supervisor',
+				note: 'Continuing without remote access'
+			});
 			this.sshTunnel = undefined;
 		}
 	}
@@ -861,8 +952,11 @@ export default class DeviceSupervisor {
 	}
 
 	private startAutoReconciliation(): void {
-		this.containerManager.startAutoReconciliation(this.RECONCILIATION_INTERVAL);
-		console.log(`✅ Auto-reconciliation started (${this.RECONCILIATION_INTERVAL}ms)`);
+		this.containerManager.startAutoReconciliation(this.reconciliationIntervalMs);
+		this.agentLogger?.infoSync('Auto-reconciliation started', {
+			component: 'Supervisor',
+			intervalMs: this.reconciliationIntervalMs
+		});
 	}
 
 	/**
@@ -892,14 +986,158 @@ export default class DeviceSupervisor {
 	 * This is called whenever config changes in device_target_state
 	 */
 	private async handleConfigUpdate(config: Record<string, any>): Promise<void> {
-		console.log('📝 Processing configuration update...');
-		console.log(`   Config keys: ${Object.keys(config).length}`);
+		this.agentLogger?.debug('Processing configuration update', {
+			category: 'supervisor',
+			configKeys: Object.keys(config).length,
+			keys: Object.keys(config)
+		});
 
 		try {
+			// Logging Config - Update log level dynamically
+			if (config.logging) {
+				this.agentLogger?.debug('Logging configuration detected', { category: 'supervisor' });
+				const logging = config.logging;
+				
+				// Update log level
+				if (logging.level !== undefined) {
+					const validLevels = ['debug', 'info', 'warn', 'error'];
+					const newLevel = logging.level;
+					
+					if (validLevels.includes(newLevel)) {
+						const currentLevel = this.agentLogger?.getLogLevel();
+						
+						if (newLevel !== currentLevel) {
+							this.agentLogger?.debug('Updating log level', {
+								category: 'supervisor',
+								from: currentLevel,
+								to: newLevel
+							});
+							this.agentLogger?.setLogLevel(newLevel as 'debug' | 'info' | 'warn' | 'error');
+							this.agentLogger?.debug('Log level updated successfully', {
+								category: 'supervisor',
+								newLevel
+							});
+						} else {
+							this.agentLogger?.debug('Log level already set', {
+								category: 'supervisor',
+								level: currentLevel
+							});
+						}
+					} else {
+						this.agentLogger?.warn('Invalid log level', {
+							category: 'supervisor',
+							invalidLevel: newLevel,
+							validLevels
+						});
+					}
+				}
+			}
+			
+			// Settings Config - Update system settings dynamically
+			if (config.settings) {
+				this.agentLogger?.debug('Settings configuration detected', { category: 'supervisor' });
+				const settings = config.settings;
+				
+				// Update reconciliation interval
+				if (settings.reconciliationIntervalMs !== undefined) {
+					const newInterval = settings.reconciliationIntervalMs;
+					const currentInterval = this.reconciliationIntervalMs;
+					
+					if (newInterval !== currentInterval) {
+						this.agentLogger?.debug('Updating reconciliation interval', {
+							category: 'supervisor',
+							fromMs: currentInterval,
+							toMs: newInterval
+						});
+						this.reconciliationIntervalMs = newInterval;
+						
+						// Restart auto-reconciliation with new interval
+						this.containerManager.stopAutoReconciliation();
+						this.containerManager.startAutoReconciliation(newInterval);
+						this.agentLogger?.debug('Reconciliation interval updated successfully', {
+							category: 'supervisor',
+							intervalMs: newInterval
+						});
+					} else {
+						this.agentLogger?.debug('Reconciliation interval already set', {
+							category: 'supervisor',
+							intervalMs: currentInterval
+						});
+					}
+				}
+				
+				// Update device report interval
+				if (settings.deviceReportIntervalMs !== undefined) {
+					const newInterval = settings.deviceReportIntervalMs;
+					const currentInterval = this.apiBinder?.['config']?.reportInterval;
+					
+					if (currentInterval && newInterval !== currentInterval) {
+						this.agentLogger?.debug('Updating device report interval', {
+							category: 'supervisor',
+							fromMs: currentInterval,
+							toMs: newInterval
+						});
+						
+						// Update the API binder's report interval
+						if (this.apiBinder) {
+							(this.apiBinder as any).config.reportInterval = newInterval;
+							this.agentLogger?.debug('Device report interval updated successfully', {
+								category: 'supervisor',
+								intervalMs: newInterval
+							});
+						}
+					}
+				}
+				
+				// Update metrics interval
+				if (settings.metricsIntervalMs !== undefined) {
+					const newInterval = settings.metricsIntervalMs;
+					const currentInterval = this.apiBinder?.['config']?.metricsInterval;
+					
+					if (currentInterval && newInterval !== currentInterval) {
+						this.agentLogger?.debug('Updating metrics interval', {
+							category: 'supervisor',
+							fromMs: currentInterval,
+							toMs: newInterval
+						});
+						
+						// Update the API binder's metrics interval
+						if (this.apiBinder) {
+							(this.apiBinder as any).config.metricsInterval = newInterval;
+							this.agentLogger?.debug('Metrics interval updated successfully', {
+								category: 'supervisor',
+								intervalMs: newInterval
+							});
+						}
+					}
+				}
+			}
+			
 			// Features Config - Enable/disable features dynamically
 			if (config.features) {
-				console.log('   → Features configuration detected');
+				this.agentLogger?.debug('Features configuration detected', { category: 'supervisor' });
 				const features = config.features;
+				
+				// Enable/disable Remote Access dynamically
+				if (features.enableRemoteAccess !== undefined) {
+					const isCurrentlyEnabled = !!this.sshTunnel;
+					const shouldBeEnabled = features.enableRemoteAccess;
+					
+					if (shouldBeEnabled === isCurrentlyEnabled) {
+						this.agentLogger?.debug('Remote Access already in desired state', {
+							category: 'supervisor',
+							enabled: shouldBeEnabled
+						});
+					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
+						this.agentLogger?.debug('Enabling Remote Access', { category: 'supervisor' });
+						await this.initializeRemoteAccess();
+					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
+						this.agentLogger?.debug('Disabling Remote Access', { category: 'supervisor' });
+						await this.sshTunnel!.disconnect();
+						this.sshTunnel = undefined;
+						this.agentLogger?.debug('Remote Access disabled successfully', { category: 'supervisor' });
+					}
+				}
 				
 				// Enable/disable Cloud Jobs dynamically
 				if (features.enableCloudJobs !== undefined) {
@@ -907,15 +1145,18 @@ export default class DeviceSupervisor {
 					const shouldBeEnabled = features.enableCloudJobs;
 					
 					if (shouldBeEnabled === isCurrentlyEnabled) {
-						console.log(`      Cloud Jobs: Already ${shouldBeEnabled ? 'enabled' : 'disabled'}`);
+						this.agentLogger?.debug('Cloud Jobs already in desired state', {
+							category: 'supervisor',
+							enabled: shouldBeEnabled
+						});
 					} else if (shouldBeEnabled && !isCurrentlyEnabled && this.jobEngine) {
-						console.log('      ⚙️  Enabling Cloud Jobs Adapter...');
+						this.agentLogger?.debug('Enabling Cloud Jobs Adapter', { category: 'supervisor' });
 						await this.initializeCloudJobsAdapter();
 					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
-						console.log('      🛑 Disabling Cloud Jobs Adapter...');
+						this.agentLogger?.debug('Disabling Cloud Jobs Adapter', { category: 'supervisor' });
 						this.cloudJobsAdapter!.stop();
 						this.cloudJobsAdapter = undefined;
-						console.log('      ✅ Cloud Jobs Adapter disabled');
+						this.agentLogger?.debug('Cloud Jobs Adapter disabled successfully', { category: 'supervisor' });
 					}
 				}
 
@@ -925,19 +1166,22 @@ export default class DeviceSupervisor {
 					const shouldBeEnabled = features.enableJobEngine;
 					
 					if (shouldBeEnabled === isCurrentlyEnabled) {
-						console.log(`      Job Engine: Already ${shouldBeEnabled ? 'enabled' : 'disabled'}`);
+						this.agentLogger?.debug('Job Engine already in desired state', {
+							category: 'supervisor',
+							enabled: shouldBeEnabled
+						});
 					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
-						console.log('      ⚙️  Enabling Job Engine...');
+						this.agentLogger?.debug('Enabling Job Engine', { category: 'supervisor' });
 						await this.initializeJobEngine();
 					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
-						console.log('      🛑 Disabling Job Engine...');
+						this.agentLogger?.debug('Disabling Job Engine', { category: 'supervisor' });
 						// Stop dependent features first
 						if (this.cloudJobsAdapter) {
 							this.cloudJobsAdapter.stop();
 							this.cloudJobsAdapter = undefined;
 						}
 						this.jobEngine = undefined;
-						console.log('      ✅ Job Engine disabled');
+						this.agentLogger?.debug('Job Engine disabled successfully', { category: 'supervisor' });
 					}
 				}
 
@@ -979,10 +1223,10 @@ export default class DeviceSupervisor {
 
 				// Log other feature flags for future implementation
 				if (features.pollingIntervalMs !== undefined) {
-					console.log(`      Polling interval: ${features.pollingIntervalMs}ms (requires restart)`);
+					console.log(`      Polling interval: ${features.pollingIntervalMs}ms`);
 				}
 				if (features.enableHealthChecks !== undefined) {
-					console.log(`      Health checks: ${features.enableHealthChecks ? 'Enabled' : 'Disabled'} (requires restart)`);
+					console.log(`      Health checks: ${features.enableHealthChecks ? 'Enabled' : 'Disabled'}`);
 				}
 			}
 

@@ -74,8 +74,15 @@ const API_BASE = `/api/${API_VERSION}`;
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3002;
 app.use((0, cors_1.default)());
-app.use(express_1.default.json({ limit: '10mb' }));
-app.use(express_1.default.urlencoded({ limit: '10mb', extended: true }));
+app.use(express_1.default.json({
+    limit: '10mb',
+    inflate: true
+}));
+app.use(express_1.default.urlencoded({
+    limit: '10mb',
+    extended: true,
+    inflate: true
+}));
 app.use((req, res, next) => {
     const startTime = Date.now();
     const timestamp = new Date().toISOString();

@@ -51,8 +51,17 @@ const PORT = process.env.PORT || 3002;
 
 // Middleware
 app.use(cors());
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ limit: '10mb', extended: true }));
+
+// Support compressed (gzip) request bodies
+app.use(express.json({ 
+  limit: '10mb',
+  inflate: true  // Automatically decompress gzip/deflate
+}));
+app.use(express.urlencoded({ 
+  limit: '10mb', 
+  extended: true,
+  inflate: true  // Automatically decompress gzip/deflate
+}));
 
 // Request logging
 app.use((req, res, next) => {

@@ -5,13 +5,16 @@
 
 import type ContainerManager from '../compose/container-manager';
 import type { DeviceManager } from '../provisioning';
+import type { ApiBinder } from '../api-binder';
 
 let containerManager: ContainerManager;
 let deviceManager: DeviceManager;
+let apiBinder: ApiBinder | undefined;
 
-export function initialize(cm: ContainerManager, dm: DeviceManager) {
+export function initialize(cm: ContainerManager, dm: DeviceManager, ab?: ApiBinder) {
 	containerManager = cm;
 	deviceManager = dm;
+	apiBinder = ab;
 }
 
 /**
@@ -192,6 +195,21 @@ export const purgeApp = async (appId: number, force: boolean = false) => {
 	// Restore app to target state
 	targetState.apps[appId] = app;
 	await containerManager.setTarget(targetState);
-
+	
 	console.log(`Purge complete for app ${appId}`);
+};
+
+/**
+ * Get connection health status
+ * Used by: GET /v2/connection/health
+ */
+export const getConnectionHealth = async () => {
+	if (!apiBinder) {
+		return {
+			status: 'offline',
+			message: 'API binder not initialized',
+		};
+	}
+	
+	return apiBinder.getConnectionHealth();
 };

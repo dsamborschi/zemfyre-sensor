@@ -10,15 +10,24 @@
  * - ETag caching to avoid unnecessary downloads
  * - Diff-based reporting (only send what changed)
  * - Rate limiting (10s for state, 5min for metrics)
- * - Exponential backoff on errors
+ * - Exponential backoff with jitter on errors
  * - State caching to survive restarts
+ * - Connection monitoring (online/offline tracking)
+ * - Offline queue for failed reports
  */
 
 import { EventEmitter } from 'events';
+import { gzip } from 'zlib';
+import { promisify } from 'util';
 import type ContainerManager from './compose/container-manager';
 import type { DeviceManager } from './provisioning';
 import type { SimpleState } from './compose/container-manager';
 import * as systemMetrics from './system-metrics';
+import { ConnectionMonitor } from './connection-monitor';
+import { OfflineQueue } from './offline-queue';
+import type { AgentLogger } from './logging/agent-logger';
+
+const gzipAsync = promisify(gzip);
 
 interface DeviceStateReport {
 	[deviceUuid: string]: {
@@ -71,6 +80,11 @@ export class ApiBinder extends EventEmitter {
 	private lastReportTime: number = -Infinity;
 	private lastMetricsTime: number = -Infinity;
 	
+	// Static field tracking (only send when changed)
+	private lastOsVersion?: string;
+	private lastAgentVersion?: string;
+	private lastLocalIp?: string;
+	
 	// ETag caching for target state
 	private targetStateETag?: string;
 	
@@ -80,18 +94,25 @@ export class ApiBinder extends EventEmitter {
 	private isPolling: boolean = false;
 	private isReporting: boolean = false;
 	
-	// Error tracking
+	// Error tracking (kept for compatibility)
 	private pollErrors: number = 0;
 	private reportErrors: number = 0;
+	
+	// Connection monitoring & offline queue
+	private connectionMonitor: ConnectionMonitor;
+	private reportQueue: OfflineQueue<DeviceStateReport>;
+	private logger?: AgentLogger;
 	
 	constructor(
 		containerManager: ContainerManager,
 		deviceManager: DeviceManager,
 		config: ApiBinderConfig,
+		logger?: AgentLogger,
 	) {
 		super();
 		this.containerManager = containerManager;
 		this.deviceManager = deviceManager;
+		this.logger = logger;
 		
 		// Set defaults
 		this.config = {
@@ -101,6 +122,50 @@ export class ApiBinder extends EventEmitter {
 			metricsInterval: config.metricsInterval || 300000, // 5min
 			apiTimeout: config.apiTimeout || 30000, // 30s
 		};
+		
+		// Initialize connection monitor (with logger)
+		this.connectionMonitor = new ConnectionMonitor(logger);
+		
+		// Initialize offline queue for reports
+		this.reportQueue = new OfflineQueue<DeviceStateReport>('state-reports', 1000);
+		
+		// Listen to connection events
+		this.setupConnectionEventListeners();
+	}
+	
+	/**
+	 * Setup connection event listeners
+	 */
+	private setupConnectionEventListeners(): void {
+		this.connectionMonitor.on('online', () => {
+			this.logger?.infoSync('Connection restored - flushing offline queue', { 
+				component: 'ApiBinder',
+				queueSize: this.reportQueue.size()
+			});
+			this.flushOfflineQueue().catch(error => {
+				this.logger?.errorSync('Failed to flush offline queue', error instanceof Error ? error : new Error(String(error)), {
+					component: 'ApiBinder'
+				});
+			});
+		});
+		
+		this.connectionMonitor.on('offline', () => {
+			const health = this.connectionMonitor.getHealth();
+			this.logger?.errorSync('Connection lost', undefined, {
+				component: 'ApiBinder',
+				offlineDurationSeconds: Math.floor(health.offlineDuration / 1000),
+				status: health.status,
+				pollSuccessRate: health.pollSuccessRate,
+				reportSuccessRate: health.reportSuccessRate,
+				note: 'Reports will be queued until connection is restored'
+			});
+		});
+		
+		this.connectionMonitor.on('degraded', () => {
+			this.logger?.warnSync('Connection degraded (experiencing failures)', {
+				component: 'ApiBinder'
+			});
+		});
 	}
 	
 	/**
@@ -108,14 +173,19 @@ export class ApiBinder extends EventEmitter {
 	 */
 	public async startPoll(): Promise<void> {
 		if (this.isPolling) {
-			console.log('⚠️  API Binder already polling');
+			this.logger?.warnSync('API Binder already polling', { component: 'ApiBinder' });
 			return;
 		}
 		
+		// Initialize offline queue
+		await this.reportQueue.init();
+		
 		this.isPolling = true;
-		console.log('📡 Starting target state polling...');
-		console.log(`   Endpoint: ${this.config.cloudApiEndpoint}`);
-		console.log(`   Interval: ${this.config.pollInterval}ms`);
+		this.logger?.infoSync('Starting target state polling', {
+			component: 'ApiBinder',
+			endpoint: this.config.cloudApiEndpoint,
+			intervalMs: this.config.pollInterval
+		});
 		
 		// Start polling loop
 		await this.pollLoop();
@@ -126,14 +196,16 @@ export class ApiBinder extends EventEmitter {
 	 */
 	public async startReporting(): Promise<void> {
 		if (this.isReporting) {
-			console.log('⚠️  API Binder already reporting');
+			this.logger?.warnSync('API Binder already reporting', { component: 'ApiBinder' });
 			return;
 		}
 		
 		this.isReporting = true;
-		console.log('📡 Starting state reporting...');
-		console.log(`   Endpoint: ${this.config.cloudApiEndpoint}`);
-		console.log(`   Interval: ${this.config.reportInterval}ms`);
+		this.logger?.infoSync('Starting state reporting', {
+			component: 'ApiBinder',
+			endpoint: this.config.cloudApiEndpoint,
+			intervalMs: this.config.reportInterval
+		});
 		
 		// Listen for state changes
 		this.containerManager.on('current-state-changed', () => {
@@ -148,7 +220,7 @@ export class ApiBinder extends EventEmitter {
 	 * Stop polling and reporting
 	 */
 	public async stop(): Promise<void> {
-		console.log('🛑 Stopping API Binder...');
+		this.logger?.infoSync('Stopping API Binder', { component: 'ApiBinder' });
 		
 		this.isPolling = false;
 		this.isReporting = false;
@@ -170,6 +242,20 @@ export class ApiBinder extends EventEmitter {
 		return this.targetState;
 	}
 	
+	/**
+	 * Get connection health
+	 */
+	public getConnectionHealth() {
+		return this.connectionMonitor.getHealth();
+	}
+	
+	/**
+	 * Check if currently online
+	 */
+	public isOnline(): boolean {
+		return this.connectionMonitor.isOnline();
+	}
+	
 	// ============================================================================
 	// POLLING LOGIC
 	// ============================================================================
@@ -182,15 +268,36 @@ export class ApiBinder extends EventEmitter {
 		try {
 			await this.pollTargetState();
 			this.pollErrors = 0; // Reset on success
+			this.connectionMonitor.markSuccess('poll'); // Track success
 		} catch (error) {
 			this.pollErrors++;
-			console.error('❌ Failed to poll target state:', error);
+			this.connectionMonitor.markFailure('poll', error as Error); // Track failure
+			this.logger?.errorSync('Failed to poll target state', error instanceof Error ? error : new Error(String(error)), {
+				component: 'ApiBinder',
+				operation: 'poll',
+				errorCount: this.pollErrors
+			});
 		}
 		
-		// Calculate next poll interval (exponential backoff on errors)
-		const interval = this.pollErrors > 0
-			? Math.min(this.config.pollInterval, 15000 * Math.pow(2, this.pollErrors - 1))
-			: this.config.pollInterval;
+		// Calculate next poll interval (exponential backoff with jitter on errors)
+		let interval: number;
+		if (this.pollErrors > 0) {
+			const baseBackoff = 15000 * Math.pow(2, this.pollErrors - 1);
+			const maxBackoff = 15 * 60 * 1000; // 15 minutes max
+			const backoffWithoutJitter = Math.min(baseBackoff, maxBackoff);
+			
+			// Add random jitter (±30%) to prevent thundering herd
+			const jitter = Math.random() * 0.6 - 0.3; // Random between -0.3 and +0.3
+			interval = Math.floor(backoffWithoutJitter * (1 + jitter));
+			
+			this.logger?.debugSync('Poll backing off due to errors', {
+				component: 'ApiBinder',
+				backoffSeconds: Math.floor(interval / 1000),
+				attempt: this.pollErrors
+			});
+		} else {
+			interval = this.config.pollInterval;
+		}
 		
 		// Schedule next poll
 		this.pollTimer = setTimeout(() => this.pollLoop(), interval);
@@ -200,7 +307,10 @@ export class ApiBinder extends EventEmitter {
 		const deviceInfo = this.deviceManager.getDeviceInfo();
 		
 		if (!deviceInfo.provisioned) {
-			console.log('⚠️  Device not provisioned, skipping target state poll');
+			this.logger?.debugSync('Device not provisioned, skipping target state poll', {
+				component: 'ApiBinder',
+				operation: 'poll'
+			});
 			return;
 		}
 		
@@ -208,9 +318,12 @@ export class ApiBinder extends EventEmitter {
 		const endpoint = `${this.config.cloudApiEndpoint}/api/${apiVersion}/device/${deviceInfo.uuid}/state`;
 		
 		try {
-			console.log('📡 Polling target state...');
-			console.log(`   Endpoint: ${endpoint}`);
-			console.log(`   Current ETag: ${this.targetStateETag || 'none'}`);
+			this.logger?.debugSync('Polling target state', {
+				component: 'ApiBinder',
+				operation: 'poll',
+				endpoint,
+				currentETag: this.targetStateETag || 'none'
+			});
 			
 			const response = await fetch(endpoint, {
 				method: 'GET',
@@ -219,39 +332,49 @@ export class ApiBinder extends EventEmitter {
 					'X-Device-API-Key': deviceInfo.apiKey || '',
 					...(this.targetStateETag && { 'if-none-match': this.targetStateETag }),
 				},
-				signal: AbortSignal.timeout(this.config.apiTimeout),
+			signal: AbortSignal.timeout(this.config.apiTimeout),
+		});
+		
+		this.logger?.debugSync('Poll response received', {
+			component: 'ApiBinder',
+			operation: 'poll',
+			status: response.status
+		});
+		
+		// 304 Not Modified - target state unchanged
+		if (response.status === 304) {
+			return;
+		}
+		
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+		}
+		
+		// Get ETag for next request
+		const etag = response.headers.get('etag');
+		this.logger?.debugSync('ETag received from server', {
+			component: 'ApiBinder',
+			operation: 'poll',
+			etag: etag || 'none'
+		});
+		if (etag) {
+			this.targetStateETag = etag;
+		}
+		
+		// Parse response
+		const targetStateResponse = await response.json() as TargetStateResponse;
+
+		const deviceState = targetStateResponse[deviceInfo.uuid];
+		
+		if (!deviceState) {
+			this.logger?.warnSync('No target state for this device in response', {
+				component: 'ApiBinder',
+				operation: 'poll',
+				deviceUuid: deviceInfo.uuid,
+				availableUUIDs: Object.keys(targetStateResponse)
 			});
-			
-			console.log(`   Response Status: ${response.status}`);
-			
-			// 304 Not Modified - target state unchanged
-			if (response.status === 304) {
-				return;
-			}
-			
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-			}
-			
-			// Get ETag for next request
-			const etag = response.headers.get('etag');
-			console.log(`   New ETag from server: ${etag || 'none'}`);
-			if (etag) {
-				this.targetStateETag = etag;
-			}
-			
-			// Parse response
-			const targetStateResponse = await response.json() as TargetStateResponse;
-	
-			const deviceState = targetStateResponse[deviceInfo.uuid];
-			
-			if (!deviceState) {
-				console.warn('⚠️  No target state for this device in response');
-				console.warn('   Available UUIDs:', Object.keys(targetStateResponse));
-				return;
-			}
-			
-			
+			return;
+		}			
 		
 		// Check if target state changed
 		const newTargetState: SimpleState = { 
@@ -264,23 +387,30 @@ export class ApiBinder extends EventEmitter {
 		const newStateStr = JSON.stringify(newTargetState);
 		
 		if (currentStateStr !== newStateStr) {
-			console.log('🎯 New target state received from cloud');
-			console.log(`   Apps: ${Object.keys(newTargetState.apps).length}`);
-			console.log(`   Config keys: ${Object.keys(newTargetState.config || {}).length}`);
-			console.log('🔍 Difference detected - applying new state');
+			this.logger?.infoSync('New target state received from cloud', {
+				component: 'ApiBinder',
+				operation: 'poll',
+				appCount: Object.keys(newTargetState.apps).length,
+				configKeyCount: Object.keys(newTargetState.config || {}).length,
+				hasChanges: true
+			});
 			
 			this.targetState = newTargetState;				// Apply target state to container manager
-				await this.containerManager.setTarget(this.targetState);
-				
-				// Trigger reconciliation
-				this.emit('target-state-changed', this.targetState);
-				
-				console.log('✅ Target state applied');
-			} else {
-				console.log('📡 Target state fetched (no changes)');
-			}
+			await this.containerManager.setTarget(this.targetState);
 			
-		} catch (error) {
+			// Trigger reconciliation
+			this.emit('target-state-changed', this.targetState);
+			
+			this.logger?.infoSync('Target state applied', {
+				component: 'ApiBinder',
+				operation: 'apply-state'
+			});
+		} else {
+			this.logger?.debugSync('Target state fetched (no changes)', {
+				component: 'ApiBinder',
+				operation: 'poll'
+			});
+		}		} catch (error) {
 			if ((error as Error).name === 'AbortError') {
 				throw new Error('Target state poll timeout');
 			}
@@ -300,15 +430,41 @@ export class ApiBinder extends EventEmitter {
 		try {
 			await this.reportCurrentState();
 			this.reportErrors = 0; // Reset on success
+			this.connectionMonitor.markSuccess('report'); // Track success
+			
+			// Try to flush offline queue after successful report
+			if (!this.reportQueue.isEmpty()) {
+				await this.flushOfflineQueue();
+			}
 		} catch (error) {
 			this.reportErrors++;
-			console.error('❌ Failed to report current state:', error);
+			this.connectionMonitor.markFailure('report', error as Error); // Track failure
+			this.logger?.errorSync('Failed to report current state', error instanceof Error ? error : new Error(String(error)), {
+				component: 'ApiBinder',
+				operation: 'report',
+				errorCount: this.reportErrors
+			});
 		}
 		
-		// Calculate next report interval (exponential backoff on errors)
-		const interval = this.reportErrors > 0
-			? Math.min(this.config.reportInterval, 15000 * Math.pow(2, this.reportErrors - 1))
-			: this.config.reportInterval;
+		// Calculate next report interval (exponential backoff with jitter on errors)
+		let interval: number;
+		if (this.reportErrors > 0) {
+			const baseBackoff = 15000 * Math.pow(2, this.reportErrors - 1);
+			const maxBackoff = 15 * 60 * 1000; // 15 minutes max
+			const backoffWithoutJitter = Math.min(baseBackoff, maxBackoff);
+			
+			// Add random jitter (±30%) to prevent thundering herd
+			const jitter = Math.random() * 0.6 - 0.3; // Random between -0.3 and +0.3
+			interval = Math.floor(backoffWithoutJitter * (1 + jitter));
+			
+			this.logger?.debugSync('Report backing off due to errors', {
+				component: 'ApiBinder',
+				backoffSeconds: Math.floor(interval / 1000),
+				attempt: this.reportErrors
+			});
+		} else {
+			interval = this.config.reportInterval;
+		}
 		
 		// Schedule next report
 		this.reportTimer = setTimeout(() => this.reportLoop(), interval);
@@ -319,11 +475,107 @@ export class ApiBinder extends EventEmitter {
 		this.emit('report-scheduled', reason);
 	}
 	
+	/**
+	 * Strip unnecessary data from report before queueing for offline storage
+	 * Removes verbose environment variables, labels, and duplicate metrics
+	 * to reduce storage footprint and bandwidth when queue is flushed.
+	 */
+	private stripReportForQueue(report: DeviceStateReport): DeviceStateReport {
+		const stripped: DeviceStateReport = {};
+		
+		for (const [uuid, deviceState] of Object.entries(report)) {
+			stripped[uuid] = {
+				apps: {},
+				is_online: deviceState.is_online,
+			};
+			
+			// Copy config (already minimal)
+			if (deviceState.config) {
+				stripped[uuid].config = deviceState.config;
+			}
+			
+			// Copy static fields if present
+			if (deviceState.os_version !== undefined) {
+				stripped[uuid].os_version = deviceState.os_version;
+			}
+			if (deviceState.agent_version !== undefined) {
+				stripped[uuid].agent_version = deviceState.agent_version;
+			}
+			if (deviceState.local_ip !== undefined) {
+				stripped[uuid].local_ip = deviceState.local_ip;
+			}
+			
+			// Strip verbose data from apps/services
+			if (deviceState.apps) {
+				for (const [appId, app] of Object.entries(deviceState.apps)) {
+					stripped[uuid].apps[appId] = {
+						appId: app.appId,
+						appName: app.appName,
+						services: app.services.map((svc: any) => ({
+							appId: svc.appId,
+							appName: svc.appName,
+							serviceId: svc.serviceId,
+							serviceName: svc.serviceName,
+							status: svc.status,
+							containerId: svc.containerId,
+							imageName: svc.imageName,
+							// Strip config.environment (verbose, rarely changes)
+							// Strip config.labels (redundant metadata)
+							config: {
+								image: svc.config.image,
+								restart: svc.config.restart,
+								networkMode: svc.config.networkMode,
+								ports: svc.config.ports,
+								volumes: svc.config.volumes,
+								networks: svc.config.networks,
+								// environment: STRIPPED (50-100 lines per service)
+								// labels: STRIPPED (redundant)
+							}
+						}))
+					};
+				}
+			}
+			
+			// Include metrics only if present (but strip top_processes if queue gets large)
+			if (deviceState.cpu_usage !== undefined) {
+				stripped[uuid].cpu_usage = deviceState.cpu_usage;
+			}
+			if (deviceState.memory_usage !== undefined) {
+				stripped[uuid].memory_usage = deviceState.memory_usage;
+			}
+			if (deviceState.memory_total !== undefined) {
+				stripped[uuid].memory_total = deviceState.memory_total;
+			}
+			if (deviceState.storage_usage !== undefined) {
+				stripped[uuid].storage_usage = deviceState.storage_usage;
+			}
+			if (deviceState.storage_total !== undefined) {
+				stripped[uuid].storage_total = deviceState.storage_total;
+			}
+			if (deviceState.temperature !== undefined) {
+				stripped[uuid].temperature = deviceState.temperature;
+			}
+			if (deviceState.uptime !== undefined) {
+				stripped[uuid].uptime = deviceState.uptime;
+			}
+			
+			// Strip top_processes (most verbose: 10 processes × 4 fields = 40 fields per report)
+			// When queue has multiple reports, this becomes huge waste
+			// The API doesn't need historical top_processes - only latest matters
+			// Savings: ~2-5 KB per report depending on process names
+		}
+		
+		return stripped;
+	}
+	
 	private async reportCurrentState(): Promise<void> {
 		const deviceInfo = this.deviceManager.getDeviceInfo();
 		
 		if (!deviceInfo.provisioned) {
-			console.log('⚠️  Device not provisioned, skipping state report');
+			this.logger?.debugSync('Device not provisioned, skipping state report', {
+				component: 'ApiBinder',
+				operation: 'report'
+			});
 			return;
 		}
 		
@@ -344,15 +596,30 @@ export class ApiBinder extends EventEmitter {
 		// Get metrics if interval elapsed
 		const includeMetrics = timeSinceLastMetrics >= this.config.metricsInterval;
 		
-	const stateReport: DeviceStateReport = {
-		[deviceInfo.uuid]: {
-			apps: currentState.apps,
-			config: currentState.config,
-			is_online: true,
-			os_version: deviceInfo.osVersion,
-			agent_version: deviceInfo.agentVersion,
-		},
-	};		// Add metrics if needed
+		// Detect changes in static fields (bandwidth optimization)
+		const osVersionChanged = deviceInfo.osVersion !== this.lastOsVersion;
+		const agentVersionChanged = deviceInfo.agentVersion !== this.lastAgentVersion;
+		
+		// Build base state report (always include)
+		const stateReport: DeviceStateReport = {
+			[deviceInfo.uuid]: {
+				apps: currentState.apps,
+				config: currentState.config,
+				is_online: this.connectionMonitor.isOnline(),
+			},
+		};
+		
+		// Only include static fields if changed (bandwidth optimization)
+		if (osVersionChanged || this.lastOsVersion === undefined) {
+			stateReport[deviceInfo.uuid].os_version = deviceInfo.osVersion;
+			this.lastOsVersion = deviceInfo.osVersion;
+		}
+		if (agentVersionChanged || this.lastAgentVersion === undefined) {
+			stateReport[deviceInfo.uuid].agent_version = deviceInfo.agentVersion;
+			this.lastAgentVersion = deviceInfo.agentVersion;
+		}
+		
+		// Add metrics if needed
 		if (includeMetrics) {
 			try {
 				const metrics = await systemMetrics.getSystemMetrics();
@@ -365,28 +632,39 @@ export class ApiBinder extends EventEmitter {
 				stateReport[deviceInfo.uuid].uptime = metrics.uptime;
 				stateReport[deviceInfo.uuid].top_processes = metrics.top_processes ?? [];
 				
-				// Get IP address from network interfaces
+				// Get IP address from network interfaces (only include if changed)
 				const primaryInterface = metrics.network_interfaces.find(i => i.default);
-				if (primaryInterface?.ip4) {
-					stateReport[deviceInfo.uuid].local_ip = primaryInterface.ip4;
+				const currentIp = primaryInterface?.ip4;
+				if (currentIp && (currentIp !== this.lastLocalIp || this.lastLocalIp === undefined)) {
+					stateReport[deviceInfo.uuid].local_ip = currentIp;
+					this.lastLocalIp = currentIp;
 				}
 				
-				this.lastMetricsTime = now;
-			} catch (error) {
-				console.warn('⚠️  Failed to collect metrics:', error);
-			}
+			
+			this.lastMetricsTime = now;
+		} catch (error) {
+			this.logger?.warnSync('Failed to collect metrics', {
+				component: 'ApiBinder',
+				operation: 'collect-metrics',
+				error: error instanceof Error ? error.message : String(error)
+			});
 		}
-		
-	// Build state-only report for diff comparison (without metrics)
+	}	// Build state-only report for diff comparison (without metrics)
 	const stateOnlyReport: DeviceStateReport = {
 		[deviceInfo.uuid]: {
 			apps: currentState.apps,
 			config: currentState.config,
-			is_online: true,
-			os_version: deviceInfo.osVersion,
-			agent_version: deviceInfo.agentVersion,
+			is_online: this.connectionMonitor.isOnline(),
 		},
-	};		// Calculate diff - only compare app state (no metrics)
+	};
+	
+	// Include static fields in diff comparison if they were included in the report
+	if (stateReport[deviceInfo.uuid].os_version !== undefined) {
+		stateOnlyReport[deviceInfo.uuid].os_version = stateReport[deviceInfo.uuid].os_version;
+	}
+	if (stateReport[deviceInfo.uuid].agent_version !== undefined) {
+		stateOnlyReport[deviceInfo.uuid].agent_version = stateReport[deviceInfo.uuid].agent_version;
+	}		// Calculate diff - only compare app state (no metrics)
 		const diff = this.calculateStateDiff(this.lastReport, stateOnlyReport);
 		
 		// If there are changes OR we need to send metrics, send the full report (with metrics if applicable)
@@ -401,35 +679,130 @@ export class ApiBinder extends EventEmitter {
 		const reportToSend = includeMetrics ? stateReport : stateOnlyReport;
 		
 		// Send report to cloud
-		const apiVersion = process.env.API_VERSION || 'v1';
-		const endpoint = `${this.config.cloudApiEndpoint}/api/${apiVersion}/device/state`;
-		
 		try {
-			const response = await fetch(endpoint, {
-				method: 'PATCH',
-				headers: {
-					'Content-Type': 'application/json',
-					'X-Device-API-Key': deviceInfo.apiKey || '',
-				},
-				body: JSON.stringify(reportToSend),
-				signal: AbortSignal.timeout(this.config.apiTimeout),
-			});
-			
-			if (!response.ok) {
-				throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-			}
+			await this.sendReport(reportToSend);
 			
 			// Update last report (state only, no metrics)
 			this.lastReport = stateOnlyReport;
 			this.lastReportTime = now;
 			
-			console.log(`📤 Reported current state to cloud ${includeMetrics ? '(with metrics)' : ''}`);
+			// Log with bandwidth optimization details
+			const optimizationDetails: any = {
+				component: 'ApiBinder',
+				operation: 'report',
+				includeMetrics
+			};
+			
+			// Track which static fields were included (for debugging)
+			if (osVersionChanged || agentVersionChanged || 
+			    (includeMetrics && stateReport[deviceInfo.uuid].local_ip !== undefined)) {
+				optimizationDetails.staticFieldsIncluded = {
+					osVersion: osVersionChanged,
+					agentVersion: agentVersionChanged,
+					localIp: includeMetrics && stateReport[deviceInfo.uuid].local_ip !== undefined
+				};
+			} else {
+				optimizationDetails.staticFieldsOptimized = true; // Saved bandwidth!
+			}
+			
+			this.logger?.infoSync('Reported current state to cloud', optimizationDetails);
 			
 		} catch (error) {
-			if ((error as Error).name === 'AbortError') {
-				throw new Error('State report timeout');
+			// Failed to send - queue for later if offline
+			const isOnline = this.connectionMonitor.isOnline();
+			this.logger?.debugSync('Report failed, checking connection status', {
+				component: 'ApiBinder',
+				operation: 'report',
+				isOnline,
+				queueSize: this.reportQueue.size()
+			});
+			
+			if (!isOnline) {
+				this.logger?.infoSync('Queueing report for later (offline)', {
+					component: 'ApiBinder',
+					operation: 'queue-report'
+				});
+				await this.reportQueue.enqueue(reportToSend);
+				this.logger?.debugSync('Report queued', {
+					component: 'ApiBinder',
+					queueSize: this.reportQueue.size()
+				});
 			}
 			throw error;
+		}
+	}
+	
+	/**
+	 * Send report to cloud API
+	 */
+	private async sendReport(report: DeviceStateReport): Promise<void> {
+		const deviceInfo = this.deviceManager.getDeviceInfo();
+		const apiVersion = process.env.API_VERSION || 'v1';
+		const endpoint = `${this.config.cloudApiEndpoint}/api/${apiVersion}/device/state`;
+		
+		// Convert to JSON
+		const jsonPayload = JSON.stringify(report);
+		const uncompressedSize = Buffer.byteLength(jsonPayload, 'utf8');
+		
+		// Compress with gzip
+		const compressedPayload = await gzipAsync(jsonPayload);
+		const compressedSize = compressedPayload.length;
+		
+		// Calculate compression ratio for logging
+		const compressionRatio = ((1 - compressedSize / uncompressedSize) * 100).toFixed(1);
+		
+		this.logger?.debugSync('Sending compressed state report', {
+			component: 'ApiBinder',
+			operation: 'compress',
+			uncompressedBytes: uncompressedSize,
+			compressedBytes: compressedSize,
+			compressionRatio: `${compressionRatio}%`,
+			savings: `${uncompressedSize - compressedSize} bytes`
+		});
+		
+		const response = await fetch(endpoint, {
+			method: 'PATCH',
+			headers: {
+				'Content-Type': 'application/json',
+				'Content-Encoding': 'gzip',
+				'X-Device-API-Key': deviceInfo.apiKey || '',
+			},
+			body: compressedPayload,
+			signal: AbortSignal.timeout(this.config.apiTimeout),
+		});
+		
+		if (!response.ok) {
+			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+		}
+	}
+	
+	/**
+	 * Flush offline queue (send all queued reports)
+	 */
+	private async flushOfflineQueue(): Promise<void> {
+		if (this.reportQueue.isEmpty()) {
+			return;
+		}
+		
+		const queueSize = this.reportQueue.size();
+		this.logger?.infoSync('Flushing offline queue', {
+			component: 'ApiBinder',
+			operation: 'flush-queue',
+			queueSize
+		});
+		
+		const sentCount = await this.reportQueue.flush(
+			async (report) => await this.sendReport(report),
+			{ maxRetries: 3, continueOnError: false }
+		);
+		
+		if (sentCount > 0) {
+			this.logger?.infoSync('Successfully flushed queued reports', {
+				component: 'ApiBinder',
+				operation: 'flush-queue',
+				sentCount,
+				totalCount: queueSize
+			});
 		}
 	}
 	

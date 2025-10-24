@@ -180,6 +180,19 @@ router.get('/v2/device/name', async (req: Request, res: Response, next: NextFunc
 });
 
 /**
+ * GET /v2/connection/health
+ * Get connection health status
+ */
+router.get('/v2/connection/health', async (req: Request, res: Response, next: NextFunction) => {
+	try {
+		const health = await actions.getConnectionHealth();
+		return res.status(200).json(health);
+	} catch (error) {
+		next(error);
+	}
+});
+
+/**
  * GET /v2/version
  * Get API version info
  */

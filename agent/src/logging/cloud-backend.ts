@@ -208,7 +208,6 @@ export class CloudLogBackend implements LogBackend {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 		}
 		
-		console.log(`📤 Sent ${logs.length} log(s) to cloud`);
 	}
 	
 	private async compress(data: string): Promise<Buffer> {

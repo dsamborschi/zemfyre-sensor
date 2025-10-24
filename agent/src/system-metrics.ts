@@ -106,18 +106,16 @@ export async function getNetworkInterfaces(): Promise<NetworkInterfaceInfo[]> {
 				(base as any).signalLevel = iface.signalLevel;
 			}
 
-			return base;
-		});
+		return base;
+	});
 
-		console.log(`[Metrics] Network interfaces: ${formatted.length} found`);
-		return formatted;
-	} catch (error) {
-		console.error('[Metrics] Failed to get network interfaces:', error);
-		return [];
-	}
+	// Debug logging removed - metrics collected successfully
+	return formatted;
+} catch (error) {
+	// Silently return empty array - caller will handle missing data
+	return [];
 }
-
-// ============================================================================
+}// ============================================================================
 // CPU METRICS
 // ============================================================================
 
@@ -130,7 +128,7 @@ export async function getCpuUsage(): Promise<number> {
 		const totalLoad = cpuData.cpus.reduce((sum, cpu) => sum + cpu.load, 0);
 		return Math.round(totalLoad / cpuData.cpus.length);
 	} catch (error) {
-		console.error('Failed to get CPU usage:', error);
+		// Silently return 0 - caller will handle
 		return 0;
 	}
 }
@@ -177,20 +175,18 @@ export async function getMemoryInfo(): Promise<{
 		// Exclude cached and buffers from used memory (like balena does)
 		const usedMb = bytesToMb(mem.used - mem.cached - mem.buffers);
 		const totalMb = bytesToMb(mem.total);
-		const percent = Math.round((usedMb / totalMb) * 100);
-		
-		return {
-			used: usedMb,
-			total: totalMb,
-			percent,
-		};
-	} catch (error) {
-		console.error('Failed to get memory info:', error);
-		return { used: 0, total: 0, percent: 0 };
-	}
+	const percent = Math.round((usedMb / totalMb) * 100);
+	
+	return {
+		used: usedMb,
+		total: totalMb,
+		percent,
+	};
+} catch (error) {
+	// Silently return zero values - caller will handle
+	return { used: 0, total: 0, percent: 0 };
 }
-
-// ============================================================================
+}// ============================================================================
 // STORAGE METRICS
 // ============================================================================
 
@@ -216,20 +212,18 @@ export async function getStorageInfo(): Promise<{
 		
 		if (!targetPartition) {
 			return { used: null, total: null, percent: null };
-		}
-		
-		return {
-			used: bytesToMb(targetPartition.used),
-			total: bytesToMb(targetPartition.size),
-			percent: Math.round(targetPartition.use),
-		};
-	} catch (error) {
-		console.error('Failed to get storage info:', error);
-		return { used: null, total: null, percent: null };
 	}
+	
+	return {
+		used: bytesToMb(targetPartition.used),
+		total: bytesToMb(targetPartition.size),
+		percent: Math.round(targetPartition.use),
+	};
+} catch (error) {
+	// Silently return null values - caller will handle
+	return { used: null, total: null, percent: null };
 }
-
-// ============================================================================
+}// ============================================================================
 // SYSTEM INFO
 // ============================================================================
 
@@ -267,7 +261,7 @@ export async function getMacAddress(): Promise<string | undefined> {
 		const primaryInterface = interfaces.find(i => i.iface === defaultIface);
 		return primaryInterface?.mac || undefined;
 	} catch (error) {
-		console.error('[Metrics] Failed to get MAC address:', error);
+		// Silently return undefined - caller will handle
 		return undefined;
 	}
 }
@@ -281,7 +275,7 @@ export async function getOsVersion(): Promise<string | undefined> {
 		// Format: "Debian GNU/Linux 12 (bookworm)" or similar
 		return `${osInfo.distro} ${osInfo.release}${osInfo.codename ? ` (${osInfo.codename})` : ''}`;
 	} catch (error) {
-		console.error('[Metrics] Failed to get OS version:', error);
+		// Silently return undefined - caller will handle
 		return undefined;
 	}
 }
@@ -325,49 +319,44 @@ export async function getTopProcesses(): Promise<ProcessInfo[]> {
 		// Second call gets the actual CPU usage
 		const processes = await systeminformation.processes();
 		
-		// If systeminformation returns empty, try fallback method
-		if (processes.list.length === 0) {
-			console.log('[Metrics] No processes from systeminformation, using fallback');
-			return await getTopProcessesFallback();
-		}
-		
-		// Filter out kernel threads (names starting with [])
-		// Keep all user processes including those with low CPU/memory
-		const userProcesses = processes.list.filter(proc => 
-			!proc.name.startsWith('[') && proc.name !== ''
-		);
-		
-		// Sort by combined CPU and memory score (weighted)
-		// CPU gets 60% weight, memory gets 40% weight
-		const sortedProcesses = userProcesses.sort((a, b) => {
-			const scoreA = (a.cpu * 0.6) + (a.mem * 0.4);
-			const scoreB = (b.cpu * 0.6) + (b.mem * 0.4);
-			return scoreB - scoreA;
-		});
-		
-		// Take top 10
-		const topProcs = sortedProcesses.slice(0, 10);
-		
-		// Format for our interface
-		const formattedProcs = topProcs.map(proc => ({
-			pid: proc.pid,
-			name: proc.name,
-			cpu: Math.round(proc.cpu * 10) / 10, // Round to 1 decimal
-			mem: Math.round(proc.mem * 10) / 10, // Round to 1 decimal
-		}));
-		
-		console.log(`[Metrics] Top processes: ${formattedProcs.length} collected`);
-		console.log(`[Metrics] Sample process data - ${formattedProcs[0]?.name}: CPU=${formattedProcs[0]?.cpu}%, MEM=${formattedProcs[0]?.mem}%`);
-		return formattedProcs;
-	} catch (error) {
-		console.error('[Metrics] Failed to get top processes:', error);
-		// Try fallback method
-		console.log('[Metrics] Attempting fallback method...');
+	// If systeminformation returns empty, try fallback method
+	if (processes.list.length === 0) {
+		// Silently fallback - debug logging removed
 		return await getTopProcessesFallback();
 	}
+	
+	// Filter out kernel threads (names starting with [])
+	// Keep all user processes including those with low CPU/memory
+	const userProcesses = processes.list.filter(proc => 
+		!proc.name.startsWith('[') && proc.name !== ''
+	);
+	
+	// Sort by combined CPU and memory score (weighted)
+	// CPU gets 60% weight, memory gets 40% weight
+	const sortedProcesses = userProcesses.sort((a, b) => {
+		const scoreA = (a.cpu * 0.6) + (a.mem * 0.4);
+		const scoreB = (b.cpu * 0.6) + (b.mem * 0.4);
+		return scoreB - scoreA;
+	});
+	
+	// Take top 10
+	const topProcs = sortedProcesses.slice(0, 10);
+	
+	// Format for our interface
+	const formattedProcs = topProcs.map(proc => ({
+		pid: proc.pid,
+		name: proc.name,
+		cpu: Math.round(proc.cpu * 10) / 10, // Round to 1 decimal
+		mem: Math.round(proc.mem * 10) / 10, // Round to 1 decimal
+	}));
+	
+	// Debug logging removed - processes collected successfully
+	return formattedProcs;
+} catch (error) {
+	// Silently try fallback method - debug logging removed
+	return await getTopProcessesFallback();
 }
-
-/**
+}/**
  * Fallback method using ps command directly
  * Used when systeminformation fails to get process list
  */
@@ -393,23 +382,21 @@ async function getTopProcessesFallback(): Promise<ProcessInfo[]> {
 				
 				processes.push({
 					pid,
-					name,
-					cpu: Math.round(cpu * 10) / 10,
-					mem: Math.round(mem * 10) / 10,
-					command,
-				});
-			}
+				name,
+				cpu: Math.round(cpu * 10) / 10,
+				mem: Math.round(mem * 10) / 10,
+				command,
+			});
 		}
-		
-		console.log(`[Metrics] Fallback: ${processes.length} processes found`);
-		return processes;
-	} catch (error) {
-		console.error('[Metrics] Fallback method also failed:', error);
-		return [];
 	}
+	
+	// Debug logging removed - processes collected successfully
+	return processes;
+} catch (error) {
+	// Silently return empty array - caller will handle
+	return [];
 }
-
-// ============================================================================
+}// ============================================================================
 // MAIN METRICS FUNCTION
 // ============================================================================
 
