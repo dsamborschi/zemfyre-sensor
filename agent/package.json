@@ -42,6 +42,7 @@
   "author": "",
   "license": "Apache-2.0",
   "dependencies": {
+    "@kubernetes/client-node": "^1.4.0",
     "@types/mqtt": "^0.0.34",
     "@types/node-cron": "^3.0.11",
     "@types/uuid": "^10.0.0",

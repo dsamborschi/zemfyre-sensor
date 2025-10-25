@@ -239,6 +239,51 @@ const mqttUrl = 'mqtt://localhost:1883';
 - Internal: Standard (1883, 3000, 8086, etc.)
 - External: 5xxxx range for custom mappings (`GRAFANA_PORT_EXT=53000`)
 
+### Container State Control (Agent)
+
+**State Field**: Add `state` field to service config for declarative container control
+
+**Values**:
+- `"running"` (default) - Container should be running
+- `"stopped"` - Container gracefully stopped (SIGTERM), config preserved
+- `"paused"` - Container processes frozen (SIGSTOP), instant suspend/resume
+
+**Example** (target state JSON):
+```json
+{
+  "1001": {
+    "appId": "1001",
+    "appName": "test-app",
+    "services": [
+      {
+        "serviceId": "2",
+        "serviceName": "nodered",
+        "imageName": "nodered/node-red:latest",
+        "state": "paused",  // Optional: defaults to "running" if omitted
+        "config": {
+          "ports": ["1880:1880"],
+          "volumes": ["nodered-data:/data"]
+        }
+      }
+    ]
+  }
+}
+```
+
+**Implementation Details**:
+- `agent/src/orchestrator/types.ts`: `ServiceConfig.state` field definition
+- `agent/src/compose/container-manager.ts`: Reconciliation logic (lines 1138-1270)
+- `agent/src/compose/docker-manager.ts`: Docker pause/unpause methods (lines 364-406)
+- State synced from Docker: `syncCurrentStateFromDocker()` maps container.state → service.state
+- Works with both Docker Compose and K3s orchestrators
+
+**When to Use**:
+- **Pause**: Temporary suspension (preserves container ID, instant resume, RAM preserved). Use this for quick suspend/resume cycles without losing container identity.
+- **Stop**: Long-term shutdown (frees RAM, graceful SIGTERM, container recreated on restart). Note: Manually stopping in Docker Desktop also triggers this behavior.
+- **Running**: Normal operation (default if state omitted)
+
+**Critical Docker Behavior**: When a container is stopped (either via `state: "stopped"` or manual Docker Desktop stop), it enters "exited" state. Docker cannot restart exited containers - they must be removed and recreated. This causes container ID changes. If you need to preserve container IDs, always use `state: "paused"` instead of stopping.
+
 ### MQTT Topic Structure
 
 **Pattern**: `<category>/<metric>`
@@ -276,10 +321,31 @@ alerts/environmental    # Threshold alerts
 - `billing-exporter/src/collectors/` - Usage metrics
 
 ### Edge Device Stack
-- `agent/src/container-manager.ts` - Docker orchestration
+- `agent/src/compose/container-manager.ts` - Docker orchestration with state management
+- `agent/src/compose/docker-driver.ts` - Docker Compose driver implementation
+- `agent/src/k3s/k3s-driver.ts` - K3s Kubernetes driver implementation (577 lines)
 - `agent/src/device-api/` - REST API (port 48484)
 - `bin/install.sh` - Installation script (CI + hardware detection)
 - `ansible/roles/` - Deployment automation
+
+**Container State Management** (agent/):
+- **State Field**: `state?: "running" | "stopped" | "paused"` (optional, defaults to "running")
+- **Docker Native**: Uses `docker pause/unpause/stop` commands (NOT replicas field)
+- **State Transitions**: All 6 transitions supported (running↔paused, running↔stopped, paused↔stopped)
+- **Container Preservation**: pause/unpause preserves container ID; stop/start recreates container (Docker limitation)
+- **Orchestrator Abstraction**: Works with both Docker Compose and K3s drivers
+
+**State Transition Behaviors**:
+| Transition | Command | Container ID | Speed | RAM | Trigger |
+|------------|---------|--------------|-------|-----|---------|
+| running → paused | `docker pause` | Preserved ✅ | Instant | Preserved | Set `state: "paused"` |
+| paused → running | `docker unpause` | Preserved ✅ | Instant | Preserved | Set `state: "running"` |
+| running → stopped | `docker stop` | Preserved but exited | ~10s | Freed | Set `state: "stopped"` OR manual stop in Docker Desktop |
+| stopped → running | Remove + recreate | Changes ❌ | ~10-30s | Allocated | Set `state: "running"` after stopped |
+
+**Best Practice**: Use `state: "paused"` for temporary suspension to avoid container recreation and preserve IDs.
+
+**Important**: If you manually stop a container in Docker Desktop (or via `docker stop`), the system will **recreate** it when target state is `"running"`. This is a Docker limitation - exited containers cannot be restarted, only removed and recreated. To preserve container IDs, use `state: "paused"` instead of stopping.
 
 ### Shared Services
 - `api/src/routes/` - REST endpoints (both contexts)

@@ -59,6 +59,8 @@ Thumbs.db
 .cache/
 balena/
 
+# AWS IoT
+/aws-iot-device-client
 
-
-/aws-iot-device-clientagent/data/database.sqlite
+# Agent database (local development data)
+agent/data/database.sqlite
