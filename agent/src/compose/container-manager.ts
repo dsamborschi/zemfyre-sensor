@@ -45,11 +45,12 @@ export interface ContainerService {
 	appId: number;
 	appName: string;
 	
-	// Desired replica count (K8s-style)
-	// 0 = service should be stopped but config preserved
-	// 1+ = number of instances to run (Docker driver supports max 1)
-	// undefined = defaults to 1
-	replicas?: number;
+	// Desired container state (Docker-native approach)
+	// "running" = container should be running (default)
+	// "stopped" = container exists but stopped (docker stop)
+	// "paused" = container frozen/suspended (docker pause)
+	// undefined = defaults to "running"
+	state?: 'running' | 'stopped' | 'paused';
 
 	// Configuration
 	config: {
@@ -169,6 +170,24 @@ export type SimpleStep =
 	| { action: 'createNetwork'; appId: number; networkName: string }
 	| {
 			action: 'stopContainer';
+			appId: number;
+			serviceId: number;
+			containerId: string;
+	  }
+	| {
+			action: 'pauseContainer';
+			appId: number;
+			serviceId: number;
+			containerId: string;
+	  }
+	| {
+			action: 'unpauseContainer';
+			appId: number;
+			serviceId: number;
+			containerId: string;
+	  }
+	| {
+			action: 'startStoppedContainer';
 			appId: number;
 			serviceId: number;
 			containerId: string;
@@ -572,33 +591,45 @@ export class ContainerManager extends EventEmitter {
 					});
 				}
 
-				// Add service
-				const service: ContainerService = {
-					serviceId,
-					serviceName,
-					imageName: container.image,
-					appId,
-					appName,
-					containerId: container.id,
-					// Normalize status to lowercase for consistent comparison
-					status: container.state.toLowerCase(),
-					config: {
-						image: container.image,
-						ports: container.ports && container.ports.length > 0
-						? Array.from(new Set(container.ports
-							.filter(p => p.PublicPort && p.PrivatePort)
-							.map(p => `${p.PublicPort}:${p.PrivatePort}`)))
-						: [],  // Use empty array instead of undefined
-						volumes: volumes.length > 0 ? volumes : [],  // Include volumes
-						networks: networks.length > 0 ? networks : [],  // Include networks
-						environment,  // Extract actual environment variables
-						restart,  // Include restart policy
-						labels: Object.keys(labels).length > 0 ? labels : undefined,  // Include labels if any
-						networkMode,  // Include network mode
-					},
-				};
-				
-				this.currentState.apps[appId].services.push(service);
+			// Map Docker state to our state field
+			// Docker states: "running", "paused", "exited", "restarting", "removing", "dead", "created"
+			let state: "running" | "stopped" | "paused" | undefined;
+			const dockerState = container.state.toLowerCase();
+			if (dockerState === 'running') {
+				state = 'running';
+			} else if (dockerState === 'paused') {
+				state = 'paused';
+			} else if (dockerState === 'exited') {
+				state = 'stopped';
+			}
+			// For other states (restarting, removing, dead, created), leave state undefined
+			
+			// Add service
+			const service: ContainerService = {
+				serviceId,
+				serviceName,
+				imageName: container.image,
+				appId,
+				appName,
+				containerId: container.id,
+				// Normalize status to lowercase for consistent comparison
+				status: container.state.toLowerCase(),
+				state,  // Add the mapped state field
+				config: {
+					image: container.image,
+					ports: container.ports && container.ports.length > 0
+					? Array.from(new Set(container.ports
+						.filter(p => p.PublicPort && p.PrivatePort)
+						.map(p => `${p.PublicPort}:${p.PrivatePort}`)))
+					: [],  // Use empty array instead of undefined
+					volumes: volumes.length > 0 ? volumes : [],  // Include volumes
+					networks: networks.length > 0 ? networks : [],  // Include networks
+					environment,  // Extract actual environment variables
+					restart,  // Include restart policy
+					labels: Object.keys(labels).length > 0 ? labels : undefined,  // Include labels if any
+					networkMode,  // Include network mode
+				},
+			};				this.currentState.apps[appId].services.push(service);
 			}
 
 			// Save the synced current state to database
@@ -993,15 +1024,16 @@ export class ContainerManager extends EventEmitter {
 
 		// Download images and start all services
 		for (const service of app.services) {
-			// Check replicas (defaults to 1 if not specified)
-			const replicas = service.replicas !== undefined ? service.replicas : 1;
+			// Check desired state (defaults to "running")
+			const desiredState = service.state || 'running';
 			
-			// Skip services with 0 replicas (stopped state)
-			if (replicas === 0) {
-				this.logger?.debugSync('Skipping service with 0 replicas (stopped)', {
+			// Skip services that shouldn't be running
+			if (desiredState !== 'running') {
+				this.logger?.debugSync('Skipping service - not in running state', {
 					component: 'ContainerManager',
 					operation: 'stepsToAddApp',
 					serviceName: service.serviceName,
+					desiredState,
 					appId: app.appId
 				});
 				continue;
@@ -1066,15 +1098,16 @@ export class ContainerManager extends EventEmitter {
 
 			// Service added
 			if (!currentSvc && targetSvc) {
-				// Check replicas (defaults to 1 if not specified)
-				const replicas = targetSvc.replicas !== undefined ? targetSvc.replicas : 1;
+				// Check desired state (defaults to "running")
+				const desiredState = targetSvc.state || 'running';
 				
-				// Skip services with 0 replicas (stopped state)
-				if (replicas === 0) {
-					this.logger?.debugSync('Skipping new service with 0 replicas (stopped)', {
+				// Skip services that shouldn't be running
+				if (desiredState !== 'running') {
+					this.logger?.debugSync('Skipping new service - not in running state', {
 						component: 'ContainerManager',
 						operation: 'stepsToUpdateApp',
 						serviceName: targetSvc.serviceName,
+						desiredState,
 						appId: target.appId
 					});
 					continue;
@@ -1113,59 +1146,139 @@ export class ContainerManager extends EventEmitter {
 				});
 			}
 
-			// Service updated (image or config changed) OR container is not running OR replicas changed
+			// Service updated (image or config changed) OR container state changed
 			if (currentSvc && targetSvc) {
-				// Check replicas change
-				const currentReplicas = currentSvc.replicas !== undefined ? currentSvc.replicas : 1;
-				const targetReplicas = targetSvc.replicas !== undefined ? targetSvc.replicas : 1;
-				const replicasChanged = currentReplicas !== targetReplicas;
+				// Check state change
+				const currentState = currentSvc.state || 'running';
+				const targetState = targetSvc.state || 'running';
+				const stateChanged = currentState !== targetState;
 				
-				// Special case: replicas changed to 0 (stop service)
-				if (targetReplicas === 0 && currentSvc.containerId) {
-					this.logger?.infoSync('Service replicas set to 0 - stopping', {
-						component: 'ContainerManager',
-						operation: 'stepsToUpdateApp',
-						serviceName: currentSvc.serviceName,
-						currentReplicas,
-						targetReplicas
-					});
+				// Handle state transitions
+				if (stateChanged && currentSvc.containerId) {
+					// Transition: running → stopped
+					if (currentState === 'running' && targetState === 'stopped') {
+						this.logger?.infoSync('Service state changed to stopped', {
+							component: 'ContainerManager',
+							operation: 'stepsToUpdateApp',
+							serviceName: currentSvc.serviceName,
+							from: currentState,
+							to: targetState
+						});
+						
+						steps.push({
+							action: 'stopContainer',
+							appId: current.appId,
+							serviceId: serviceId,
+							containerId: currentSvc.containerId,
+						});
+						continue; // Don't check other changes
+					}
 					
-					steps.push({
-						action: 'stopContainer',
-						appId: current.appId,
-						serviceId: serviceId,
-						containerId: currentSvc.containerId,
-					});
-					steps.push({
-						action: 'removeContainer',
-						appId: current.appId,
-						serviceId: serviceId,
-						containerId: currentSvc.containerId,
-					});
-					continue; // Don't check other changes
-				}
-				
-				// Special case: replicas changed from 0 to 1+ (start service)
-				if (currentReplicas === 0 && targetReplicas > 0) {
-					this.logger?.infoSync('Service replicas changed from 0 - starting', {
-						component: 'ContainerManager',
-						operation: 'stepsToUpdateApp',
-						serviceName: targetSvc.serviceName,
-						currentReplicas,
-						targetReplicas
-					});
+					// Transition: running → paused
+					if (currentState === 'running' && targetState === 'paused') {
+						this.logger?.infoSync('Service state changed to paused', {
+							component: 'ContainerManager',
+							operation: 'stepsToUpdateApp',
+							serviceName: currentSvc.serviceName,
+							from: currentState,
+							to: targetState
+						});
+						
+						steps.push({
+							action: 'pauseContainer',
+							appId: current.appId,
+							serviceId: serviceId,
+							containerId: currentSvc.containerId,
+						});
+						continue; // Don't check other changes
+					}
 					
-					steps.push({
-						action: 'downloadImage',
-						appId: target.appId,
-						imageName: targetSvc.imageName,
-					});
-					steps.push({
-						action: 'startContainer',
-						appId: target.appId,
-						service: targetSvc,
-					});
-					continue; // Don't check other changes
+					// Transition: stopped → running
+					if (currentState === 'stopped' && targetState === 'running') {
+						this.logger?.infoSync('Service state changed to running (restarting stopped container)', {
+							component: 'ContainerManager',
+							operation: 'stepsToUpdateApp',
+							serviceName: currentSvc.serviceName,
+							from: currentState,
+							to: targetState
+						});
+						
+						steps.push({
+							action: 'startStoppedContainer',
+							appId: current.appId,
+							serviceId: serviceId,
+							containerId: currentSvc.containerId,
+						});
+						continue; // Don't check other changes
+					}
+					
+					// Transition: paused → running
+					if (currentState === 'paused' && targetState === 'running') {
+						this.logger?.infoSync('Service state changed from paused to running', {
+							component: 'ContainerManager',
+							operation: 'stepsToUpdateApp',
+							serviceName: currentSvc.serviceName,
+							from: currentState,
+							to: targetState
+						});
+						
+						steps.push({
+							action: 'unpauseContainer',
+							appId: current.appId,
+							serviceId: serviceId,
+							containerId: currentSvc.containerId,
+						});
+						continue; // Don't check other changes
+					}
+					
+					// Transition: paused → stopped
+					if (currentState === 'paused' && targetState === 'stopped') {
+						this.logger?.infoSync('Service state changed from paused to stopped', {
+							component: 'ContainerManager',
+							operation: 'stepsToUpdateApp',
+							serviceName: currentSvc.serviceName,
+							from: currentState,
+							to: targetState
+						});
+						
+						// Unpause first, then stop
+						steps.push({
+							action: 'unpauseContainer',
+							appId: current.appId,
+							serviceId: serviceId,
+							containerId: currentSvc.containerId,
+						});
+						steps.push({
+							action: 'stopContainer',
+							appId: current.appId,
+							serviceId: serviceId,
+							containerId: currentSvc.containerId,
+						});
+						continue; // Don't check other changes
+					}
+					
+					// Transition: stopped → paused (not allowed - need to start first)
+					if (currentState === 'stopped' && targetState === 'paused') {
+						this.logger?.warnSync('Cannot pause stopped container - will start first', {
+							component: 'ContainerManager',
+							operation: 'stepsToUpdateApp',
+							serviceName: currentSvc.serviceName
+						});
+						
+						steps.push({
+							action: 'startStoppedContainer',
+							appId: current.appId,
+							serviceId: serviceId,
+							containerId: currentSvc.containerId,
+						});
+						steps.push({
+							action: 'pauseContainer',
+							appId: current.appId,
+							serviceId: serviceId,
+							containerId: currentSvc.containerId,
+						});
+						continue; // Don't check other changes
+					}
 				}
 				
 				// Check if image changed (this requires container recreation)
@@ -1331,18 +1444,113 @@ export class ContainerManager extends EventEmitter {
 
 			case 'stopContainer':
 				await this.stopContainer(step.containerId);
+				// Update current state to reflect stopped status
+				this.updateServiceState(step.appId, step.serviceId, 'stopped');
 				// Stop health monitoring when container is stopped
 				this.healthCheckManager.stopMonitoring(step.containerId);
 				break;
 
-			case 'removeContainer':
-				await this.removeContainer(step.containerId);
-				// Update current state
-				this.removeServiceFromCurrentState(step.appId, step.serviceId);
-				// Stop health monitoring when container is removed
-				this.healthCheckManager.stopMonitoring(step.containerId);
+			case 'pauseContainer':
+				await this.pauseContainer(step.containerId);
+				// Update current state to reflect paused status
+				this.updateServiceState(step.appId, step.serviceId, 'paused');
+				this.logger?.infoSync('Container paused', {
+					component: 'ContainerManager',
+					operation: 'executeStep',
+					containerId: step.containerId,
+					appId: step.appId,
+					serviceId: step.serviceId
+				});
 				break;
 
+
+		case 'unpauseContainer':
+			await this.unpauseContainer(step.containerId);
+			// Update current state to reflect running status
+			this.updateServiceState(step.appId, step.serviceId, 'running');
+			this.logger?.infoSync('Container unpaused', {
+				component: 'ContainerManager',
+				operation: 'executeStep',
+				containerId: step.containerId,
+				appId: step.appId,
+				serviceId: step.serviceId
+			});
+			break;
+
+		case 'startStoppedContainer': {
+			// For stopped containers, we need to remove and recreate them
+			// Docker doesn't support restarting exited containers directly
+			this.logger?.infoSync('Restarting stopped container (remove + recreate)', {
+				component: 'ContainerManager',
+				operation: 'executeStep',
+				containerId: step.containerId,
+				appId: step.appId,
+				serviceId: step.serviceId
+			});
+			
+			try {
+				// Get the service config from current state before removing
+				const app = this.currentState.apps[step.appId];
+				const service = app?.services.find(s => s.serviceId === step.serviceId);
+				
+				if (!service) {
+					throw new Error(`Service ${step.serviceId} not found in current state`);
+				}
+				
+				// Stop health monitoring
+				this.healthCheckManager.stopMonitoring(step.containerId);
+				
+				// Remove the stopped container
+				await this.removeContainer(step.containerId);
+				this.removeServiceFromCurrentState(step.appId, step.serviceId);
+				
+				// Recreate and start the container with the same config
+				const newContainerId = await this.startContainer(service);
+				
+				// Update current state with new container
+				this.addServiceToCurrentState(step.appId, service, newContainerId);
+				this.markServiceAsRunning(step.appId, step.serviceId);
+				
+				// Attach logs and start health monitoring
+				await this.attachLogsToContainer(newContainerId, service);
+				this.startHealthMonitoring(newContainerId, service);
+				
+				this.logger?.infoSync('Stopped container restarted successfully', {
+					component: 'ContainerManager',
+					operation: 'executeStep',
+					oldContainerId: step.containerId.substring(0, 12),
+					newContainerId: newContainerId.substring(0, 12),
+					serviceId: step.serviceId
+				});
+			} catch (error: any) {
+				this.logger?.errorSync(
+					'Failed to restart stopped container',
+					error instanceof Error ? error : new Error(String(error)),
+					{
+						component: 'ContainerManager',
+						operation: 'executeStep',
+						containerId: step.containerId,
+						serviceId: step.serviceId
+					}
+				);
+				this.markServiceAsError(
+					step.appId,
+					step.serviceId,
+					'StartFailure',
+					error.message
+				);
+				throw error;
+			}
+			break;
+		}
+
+		case 'removeContainer':
+			await this.removeContainer(step.containerId);
+			// Update current state
+			this.removeServiceFromCurrentState(step.appId, step.serviceId);
+			// Stop health monitoring when container is removed
+			this.healthCheckManager.stopMonitoring(step.containerId);
+			break;
 			case 'startContainer': {
 				try {
 					const containerId = await this.startContainer(step.service);
@@ -1415,6 +1623,28 @@ export class ContainerManager extends EventEmitter {
 		} else {
 			// Simulated for testing
 			console.log(`    [SIMULATED] Stopping container: ${containerId}`);
+			await this.sleep(50);
+		}
+	}
+
+	private async pauseContainer(containerId: string): Promise<void> {
+		if (this.useRealDocker) {
+			// Real Docker pause (freeze processes)
+			await this.dockerManager.pauseContainer(containerId);
+		} else {
+			// Simulated for testing
+			console.log(`    [SIMULATED] Pausing container: ${containerId}`);
+			await this.sleep(50);
+		}
+	}
+
+	private async unpauseContainer(containerId: string): Promise<void> {
+		if (this.useRealDocker) {
+			// Real Docker unpause (resume processes)
+			await this.dockerManager.unpauseContainer(containerId);
+		} else {
+			// Simulated for testing
+			console.log(`    [SIMULATED] Unpausing container: ${containerId}`);
 			await this.sleep(50);
 		}
 	}
@@ -1576,6 +1806,9 @@ export class ContainerManager extends EventEmitter {
 			case 'startContainer':
 				return `service:${step.appId}:${step.service.serviceId}`;
 			case 'stopContainer':
+			case 'pauseContainer':
+			case 'unpauseContainer':
+			case 'startStoppedContainer':
 			case 'removeContainer':
 				return `service:${step.appId}:${step.serviceId}`;
 			case 'createVolume':
@@ -1584,14 +1817,17 @@ export class ContainerManager extends EventEmitter {
 				return `network:${step.appId}:${step.networkName}`;
 			case 'removeNetwork':
 				return `network:${step.appId}:${step.networkName}`;
-			case 'removeVolume':
-				return `volume:${step.appId}:${step.volumeName}`;
-			case 'noop':
-				return 'noop';
+		case 'removeVolume':
+			return `volume:${step.appId}:${step.volumeName}`;
+		case 'noop':
+			return 'noop';
+		default: {
+			// Exhaustiveness check - if we get here, we missed a case
+			const _exhaustiveCheck: never = step;
+			return `unknown:${(_exhaustiveCheck as any).action}`;
 		}
 	}
-
-	/**
+}	/**
 	 * Mark service as having an error (K8s-style)
 	 */
 	private markServiceAsError(
@@ -1705,6 +1941,26 @@ export class ContainerManager extends EventEmitter {
 		};
 
 		this.currentState.apps[appId].services.push(serviceWithContainer);
+	}
+
+	private updateServiceState(
+		appId: number,
+		serviceId: number,
+		state: 'running' | 'stopped' | 'paused',
+	): void {
+		const app = this.currentState.apps[appId];
+		if (app) {
+			const service = app.services.find((s) => s.serviceId === serviceId);
+			if (service) {
+				service.state = state;
+				this.logger?.debugSync('Updated service state in current state', {
+					component: 'ContainerManager',
+					operation: 'updateServiceState',
+					serviceName: service.serviceName,
+					newState: state
+				});
+			}
+		}
 	}
 
 	// ========================================================================

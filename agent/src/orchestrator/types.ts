@@ -23,11 +23,12 @@ export interface ServiceConfig {
 	appId: number;
 	appName: string;
 	
-	// Desired replica count (K8s-style)
-	// 0 = service should be stopped but config preserved
-	// 1+ = number of instances to run
-	// undefined = defaults to 1
-	replicas?: number;
+	// Desired container state (Docker-native approach)
+	// "running" = container should be running (default)
+	// "stopped" = container exists but stopped (docker stop)
+	// "paused" = container frozen/suspended (docker pause)
+	// undefined = defaults to "running"
+	state?: 'running' | 'stopped' | 'paused';
 
 	// Container configuration
 	config: {

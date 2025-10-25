@@ -339,6 +339,62 @@ export class DockerManager {
 	}
 
 	/**
+	 * Pause a container (freeze all processes)
+	 */
+	async pauseContainer(containerId: string): Promise<void> {
+		this.logger?.infoSync('Pausing container', {
+			component: 'DockerManager',
+			operation: 'pauseContainer',
+			containerId: containerId.substring(0, 12)
+		});
+
+		try {
+			const container = this.docker.getContainer(containerId);
+			await container.pause();
+			this.logger?.infoSync('Container paused', {
+				component: 'DockerManager',
+				operation: 'pauseContainer',
+				containerId: containerId.substring(0, 12)
+			});
+		} catch (error: any) {
+			this.logger?.errorSync('Failed to pause container', error, {
+				component: 'DockerManager',
+				operation: 'pauseContainer',
+				containerId: containerId.substring(0, 12)
+			});
+			throw error;
+		}
+	}
+
+	/**
+	 * Unpause a container (resume all processes)
+	 */
+	async unpauseContainer(containerId: string): Promise<void> {
+		this.logger?.infoSync('Unpausing container', {
+			component: 'DockerManager',
+			operation: 'unpauseContainer',
+			containerId: containerId.substring(0, 12)
+		});
+
+		try {
+			const container = this.docker.getContainer(containerId);
+			await container.unpause();
+			this.logger?.infoSync('Container unpaused', {
+				component: 'DockerManager',
+				operation: 'unpauseContainer',
+				containerId: containerId.substring(0, 12)
+			});
+		} catch (error: any) {
+			this.logger?.errorSync('Failed to unpause container', error, {
+				component: 'DockerManager',
+				operation: 'unpauseContainer',
+				containerId: containerId.substring(0, 12)
+			});
+			throw error;
+		}
+	}
+
+	/**
 	 * Remove a container
 	 */
 	async removeContainer(containerId: string, force: boolean = false): Promise<void> {
