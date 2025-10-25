@@ -61,4 +61,4 @@ balena/
 
 
 
-/aws-iot-device-client
+/aws-iot-device-clientagent/data/database.sqlite
