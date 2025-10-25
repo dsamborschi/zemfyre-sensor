@@ -1,5 +1,5 @@
 /**
- * Device Supervisor
+ * Device Agent
  * 
  * Orchestrates all device-side operations:
  * - Container management
@@ -10,33 +10,33 @@
  */
 
 import { createOrchestratorDriver } from './orchestrator/driver-factory.js';
-import type { IOrchestratorDriver } from './orchestrator/driver-interface';
-import ContainerManager from './compose/container-manager';
-import { DeviceManager } from './provisioning';
-import type { DeviceInfo } from './provisioning/types';
-import { DeviceAPI } from './device-api';
-import { router as v1Router } from './device-api/v1';
-import { router as v2Router } from './device-api/v2';
-import * as deviceActions from './device-api/actions';
-import { ApiBinder } from './api-binder';
-import * as db from './db';
-import { LocalLogBackend } from './logging/local-backend';
-import { MqttLogBackend } from './logging/mqtt-backend';
-import { CloudLogBackend } from './logging/cloud-backend';
-import { ContainerLogMonitor } from './logging/monitor';
-import { AgentLogger } from './logging/agent-logger';
-import type { LogBackend } from './logging/types';
-import { SSHTunnelManager } from './remote-access/ssh-tunnel';
-import { EnhancedJobEngine } from './jobs/src/enhanced-job-engine';
-import { CloudJobsAdapter } from './jobs/cloud-jobs-adapter';
-import { SensorPublishFeature } from './sensor-publish';
-import { SensorConfigHandler } from './sensor-publish/config-handler';
-import { ShadowFeature, ShadowConfig } from './shadow';
-import { MqttShadowAdapter } from './shadow/mqtt-shadow-adapter';
-import { MqttManager } from './mqtt/mqtt-manager';
-import { TwinStateManager } from './digital-twin/twin-state-manager';
+import type { IOrchestratorDriver } from './orchestrator/driver-interface.js';
+import ContainerManager from './compose/container-manager.js';
+import { DeviceManager } from './provisioning/index.js';
+import type { DeviceInfo } from './provisioning/types.js';
+import { DeviceAPI } from './device-api/index.js';
+import { router as v1Router } from './device-api/v1.js';
+import { router as v2Router } from './device-api/v2.js';
+import * as deviceActions from './device-api/actions.js';
+import { ApiBinder } from './api-binder.js';
+import * as db from './db.js';
+import { LocalLogBackend } from './logging/local-backend.js';
+import { MqttLogBackend } from './logging/mqtt-backend.js';
+import { CloudLogBackend } from './logging/cloud-backend.js';
+import { ContainerLogMonitor } from './logging/monitor.js';
+import { AgentLogger } from './logging/agent-logger.js';
+import type { LogBackend } from './logging/types.js';
+import { SSHTunnelManager } from './remote-access/ssh-tunnel.js';
+import { EnhancedJobEngine } from './jobs/src/enhanced-job-engine.js';
+import { CloudJobsAdapter } from './jobs/cloud-jobs-adapter.js';
+import { SensorPublishFeature } from './sensor-publish/index.js';
+import { SensorConfigHandler } from './sensor-publish/config-handler.js';
+import { ShadowFeature, ShadowConfig } from './shadow/index.js';
+import { MqttShadowAdapter } from './shadow/mqtt-shadow-adapter.js';
+import { MqttManager } from './mqtt/mqtt-manager.js';
+import { TwinStateManager } from './digital-twin/twin-state-manager.js';
 
-export default class DeviceSupervisor {
+export default class DeviceAgent {
 	private orchestratorDriver!: IOrchestratorDriver;
 	private containerManager!: ContainerManager;  // Keep for backward compatibility with DeviceAPI
 	private deviceManager!: DeviceManager;
@@ -71,22 +71,21 @@ export default class DeviceSupervisor {
 	}
 
 	public async init(): Promise<void> {
-		// Note: Can't use agentLogger yet - it's initialized in initializeLogging()
-		console.log('🚀 Initializing Device Agent...');
-		console.log('='.repeat(80));
 
 		try {
-			// 1. Initialize database
+			// 1. Initialize logging FIRST (so all other components can use agentLogger)
+			await this.initializeLogging();
+
+			this.agentLogger.infoSync('Initializing Device Agent', { component: 'Agent' });
+
+			// 2. Initialize database
 			await this.initializeDatabase();
 
-			// 2. Initialize device provisioning
+			// 3. Initialize device provisioning
 			await this.initializeDeviceManager();
 
-			// 3. Initialize MQTT Manager (before any features that use MQTT)
+			// 4. Initialize MQTT Manager (before any features that use MQTT)
 			await this.initializeMqttManager();
-
-			// 4. Initialize logging
-			await this.initializeLogging();
 
 			// 5. Initialize container manager
 			await this.initializeContainerManager();
@@ -125,9 +124,8 @@ export default class DeviceSupervisor {
 		// Update instance variable with config value
 		this.reconciliationIntervalMs = reconciliationIntervalMs;
 
-		// Note: agentLogger is now available after initializeLogging()
-		this.agentLogger?.infoSync('Loading configuration from target state', {
-			component: 'Supervisor',
+		this.agentLogger.infoSync('Loading configuration from target state', {
+			component: 'Agent',
 			features: {
 				remoteAccess: enableRemoteAccess,
 				jobEngine: enableJobEngine,
@@ -177,30 +175,56 @@ export default class DeviceSupervisor {
 			await this.initializeSensorConfigHandler();
 
 			// 15. Initialize Digital Twin State Manager (if Shadow enabled)
-			await this.initializeDigitalTwin();
+			if (enableShadow) {
+	     		await this.initializeDigitalTwin();
+			}
 
 			// 16. Start auto-reconciliation
 			this.startAutoReconciliation();
 
-			this.agentLogger?.infoSync('Device Agent initialized successfully', {
-				component: 'Supervisor',
+			this.agentLogger.infoSync('Device Agent initialized successfully', {
+				component: 'Agent',
 				deviceApiPort: this.DEVICE_API_PORT,
-				reconciliationInterval: this.RECONCILIATION_INTERVAL,
+				reconciliationInterval: this.reconciliationIntervalMs,
 				cloudApiEndpoint: this.CLOUD_API_ENDPOINT || 'Not configured'
 			});
 	
 		} catch (error) {
-			this.agentLogger?.errorSync('Failed to initialize Device Supervisor', error instanceof Error ? error : new Error(String(error)), {
-				component: 'Supervisor'
+			this.agentLogger?.errorSync('Failed to initialize Device Agent', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Agent'
 			});
 			throw error;
 		}
 	}
 
+	private async initializeLogging(): Promise<void> {
+
+		// Local backend (always enabled)
+		const enableFilePersistence = process.env.ENABLE_FILE_LOGGING !== 'false';
+		this.logBackend = new LocalLogBackend({
+			maxLogs: parseInt(process.env.MAX_LOGS || '1000', 10),
+			maxAge: parseInt(process.env.LOG_MAX_AGE || '3600000', 10), // 1 hour
+			enableFilePersistence,
+			logDir: process.env.LOG_DIR || './data/logs',
+			maxFileSize: parseInt(process.env.MAX_LOG_FILE_SIZE || '5242880', 10), // 5MB
+		});
+		await this.logBackend.initialize();
+		this.logBackends.push(this.logBackend);
+	
+		// Create AgentLogger for structured agent-level logging
+		// Note: We create this BEFORE other backends so all initialization can use it
+		this.agentLogger = new AgentLogger(this.logBackends);
+		
+		// We'll set device ID after device manager initialization
+		this.agentLogger.infoSync('Agent logger initialized', {
+			component: 'Agent',
+			backendCount: this.logBackends.length
+		});
+	}
+
 	private async initializeDatabase(): Promise<void> {
 		await db.initialized();
-		// Note: agentLogger not available yet - initialized later
-		console.log('✅ Database initialized');
+		this.agentLogger.infoSync('Database initialized', { component: 'Agent' });
 	}
 
 	private async initializeDeviceManager(): Promise<void> {
@@ -212,49 +236,59 @@ export default class DeviceSupervisor {
 		// Auto-provision if not yet provisioned, cloud endpoint is set, AND provisioning key is available
 		const provisioningApiKey = process.env.PROVISIONING_API_KEY;
 		if (!deviceInfo.provisioned && provisioningApiKey && this.CLOUD_API_ENDPOINT) {
-			// Note: agentLogger not available yet - initialized later
-			console.log('⚙️  Auto-provisioning device with two-phase authentication...');
+			this.agentLogger.infoSync('Auto-provisioning device with two-phase authentication', { 
+				component: 'Agent' 
+			});
 			try {
 				// Auto-detect system information if not provided via env vars
 				const { getMacAddress, getOsVersion } = await import('./system-metrics.js');
 				const macAddress = process.env.MAC_ADDRESS || await getMacAddress();
 				const osVersion = process.env.OS_VERSION || await getOsVersion();
 				
-				console.log('📊 System information detected:', {
+				this.agentLogger.infoSync('System information detected', {
+					component: 'Agent',
 					macAddress: macAddress ? `${macAddress.substring(0, 8)}...` : 'unknown',
-					osVersion: osVersion || 'unknown',
+					osVersion: osVersion || 'unknown'
 				});
 				
 				await this.deviceManager.provision({
-				provisioningApiKey, // Required for two-phase auth
-				deviceName: process.env.DEVICE_NAME || `device-${deviceInfo.uuid.slice(0, 8)}`,
-				deviceType: process.env.DEVICE_TYPE || 'standalone',
-				apiEndpoint: this.CLOUD_API_ENDPOINT,
-				applicationId: process.env.APPLICATION_ID ? parseInt(process.env.APPLICATION_ID, 10) : undefined,
-				macAddress,
-				osVersion,
-				agentVersion: process.env.AGENT_VERSION || '1.0.0',
-			});
+					provisioningApiKey, // Required for two-phase auth
+					deviceName: process.env.DEVICE_NAME || `device-${deviceInfo.uuid.slice(0, 8)}`,
+					deviceType: process.env.DEVICE_TYPE || 'standalone',
+					apiEndpoint: this.CLOUD_API_ENDPOINT,
+					applicationId: process.env.APPLICATION_ID ? parseInt(process.env.APPLICATION_ID, 10) : undefined,
+					macAddress,
+					osVersion,
+					agentVersion: process.env.AGENT_VERSION || '1.0.0',
+				});
 				deviceInfo = this.deviceManager.getDeviceInfo();
-				console.log('✅ Device auto-provisioned successfully');
+				this.agentLogger.infoSync('Device auto-provisioned successfully', { component: 'Agent' });
 			} catch (error: any) {
-				console.error('❌ Auto-provisioning failed:', error.message);
-				console.error('   Device will remain unprovisioned. Set PROVISIONING_API_KEY to retry.');
+				this.agentLogger.errorSync('Auto-provisioning failed', error instanceof Error ? error : new Error(error.message), {
+					component: 'Agent',
+					note: 'Device will remain unprovisioned. Set PROVISIONING_API_KEY to retry.'
+				});
 			}
 		} else if (!deviceInfo.provisioned && this.CLOUD_API_ENDPOINT && !provisioningApiKey) {
-			console.warn('⚠️  Device not provisioned. Set PROVISIONING_API_KEY environment variable to enable auto-provisioning.');
+			this.agentLogger.warnSync('Device not provisioned', {
+				component: 'Agent',
+				note: 'Set PROVISIONING_API_KEY environment variable to enable auto-provisioning'
+			});
 		}
 		
 		// Cache device info for reuse across all methods
 		this.deviceInfo = deviceInfo;
 		
-		console.log(`✅ Device manager initialized`);
-		console.log(`   UUID: ${this.deviceInfo.uuid}`);
-		console.log(`   Name: ${this.deviceInfo.deviceName || 'Not set'}`);
-		console.log(`   Provisioned: ${this.deviceInfo.provisioned ? 'Yes' : 'No'}`);
-		if (this.deviceInfo.deviceApiKey) {
-			console.log(`   Device API Key: ${this.deviceInfo.deviceApiKey.substring(0, 16)}...`);
-		}
+		// Now set the device ID on the logger
+		this.agentLogger.setDeviceId(this.deviceInfo.uuid);
+		
+		this.agentLogger.infoSync('Device manager initialized', {
+			component: 'Agent',
+			uuid: this.deviceInfo.uuid,
+			name: this.deviceInfo.deviceName || 'Not set',
+			provisioned: this.deviceInfo.provisioned,
+			hasApiKey: !!this.deviceInfo.deviceApiKey
+		});
 	}
 
 	/**
@@ -267,7 +301,7 @@ export default class DeviceSupervisor {
 	 * Falls back to environment variables (MQTT_BROKER, MQTT_USERNAME, MQTT_PASSWORD) if not provisioned.
 	 */
 	private async initializeMqttManager(): Promise<void> {
-		console.log('🔌 Initializing MQTT Manager...');
+		this.agentLogger.infoSync('Initializing MQTT Manager', { component: 'Agent' });
 		
 		try {
 			// Use MQTT credentials from provisioning if available, otherwise fall back to env vars
@@ -276,8 +310,10 @@ export default class DeviceSupervisor {
 			const mqttPassword = this.deviceInfo.mqttPassword || process.env.MQTT_PASSWORD;
 			
 			if (!mqttBrokerUrl) {
-				console.log('⏭️  MQTT disabled - no broker URL provided');
-				console.log('   Provision device or set MQTT_BROKER env var to enable');
+				this.agentLogger.infoSync('MQTT disabled - no broker URL provided', {
+					component: 'Agent',
+					note: 'Provision device or set MQTT_BROKER env var to enable'
+				});
 				return;
 			}
 			
@@ -295,106 +331,91 @@ export default class DeviceSupervisor {
 			// Enable debug mode if requested
 			if (process.env.MQTT_DEBUG === 'true') {
 				mqttManager.setDebug(true);
-				console.log('   Debug mode: enabled');
 			}
 			
-			console.log(`✅ MQTT Manager connected: ${mqttBrokerUrl}`);
-			console.log(`   Client ID: device_${this.deviceInfo.uuid}`);
-			console.log(`   Username: ${mqttUsername || '(none)'}`);
-			console.log(`   Credentials: ${this.deviceInfo.mqttUsername ? 'From provisioning' : 'From environment'}`);
-			console.log(`   All features will share this connection`);
-		} catch (error) {
-			console.error('❌ Failed to initialize MQTT Manager:', error);
-			console.warn('   MQTT features will be unavailable');
-			// Don't throw - allow supervisor to continue without MQTT
-		}
-	}
-
-	private async initializeLogging(): Promise<void> {
-		console.log('📝 Initializing logging...');
-
-		// Local backend (always enabled)
-		const enableFilePersistence = process.env.ENABLE_FILE_LOGGING !== 'false';
-		this.logBackend = new LocalLogBackend({
-			maxLogs: parseInt(process.env.MAX_LOGS || '1000', 10),
-			maxAge: parseInt(process.env.LOG_MAX_AGE || '3600000', 10), // 1 hour
-			enableFilePersistence,
-			logDir: process.env.LOG_DIR || './data/logs',
-			maxFileSize: parseInt(process.env.MAX_LOG_FILE_SIZE || '5242880', 10), // 5MB
-		});
-		await this.logBackend.initialize();
-		this.logBackends.push(this.logBackend);
-		console.log(`✅ Local log backend initialized (file logging: ${enableFilePersistence})`);
-
-		// Cloud log streaming backend (optional - if CLOUD_API_ENDPOINT is set and ENABLE_CLOUD_LOGGING is true)
-		const enableCloudLogging = process.env.ENABLE_CLOUD_LOGGING !== 'false';
-		if (this.CLOUD_API_ENDPOINT && enableCloudLogging) {
-			try {
-				const cloudLogBackend = new CloudLogBackend({
-					cloudEndpoint: this.CLOUD_API_ENDPOINT,
-					deviceUuid: this.deviceInfo.uuid,
-					deviceApiKey: this.deviceInfo.apiKey,
-					compression: process.env.LOG_COMPRESSION !== 'false', // Default: true
-				});
-				await cloudLogBackend.initialize();
-				this.logBackends.push(cloudLogBackend);
-				console.log(`✅ Cloud log backend initialized: ${this.CLOUD_API_ENDPOINT}`);
-			} catch (error) {
-				console.error('⚠️  Failed to initialize cloud log backend:', error);
-				console.log('   Continuing without cloud logging');
+			// Add MQTT backend to logging
+			const enableCloudLogging = process.env.ENABLE_CLOUD_LOGGING !== 'false';
+			if (enableCloudLogging) {
+				try {
+					const mqttLogBackend = new MqttLogBackend({
+						brokerUrl: mqttBrokerUrl,
+						baseTopic: `$iot/device/${this.deviceInfo.uuid}/logs`,
+						qos: 1,
+						enableBatching: true,
+						debug: process.env.MQTT_DEBUG === 'true'
+					});
+					await mqttLogBackend.connect();
+					this.logBackends.push(mqttLogBackend);
+					
+					// Update agentLogger with new backend
+					(this.agentLogger as any).logBackends = this.logBackends;
+					
+					this.agentLogger.infoSync('MQTT log backend initialized', {
+						component: 'Agent'
+					});
+				} catch (error) {
+					this.agentLogger.warnSync('Failed to initialize MQTT log backend', {
+						component: 'Agent',
+						error: error instanceof Error ? error.message : String(error),
+						note: 'Continuing without MQTT logging'
+					});
+				}
 			}
-		} else if (this.CLOUD_API_ENDPOINT && !enableCloudLogging) {
-			console.log('⚠️  Cloud logging disabled (set ENABLE_CLOUD_LOGGING=true to enable)');
+			
+			// Add Cloud backend if configured
+			if (this.CLOUD_API_ENDPOINT && enableCloudLogging) {
+				try {
+					const cloudLogBackend = new CloudLogBackend({
+						cloudEndpoint: this.CLOUD_API_ENDPOINT,
+						deviceUuid: this.deviceInfo.uuid,
+						deviceApiKey: this.deviceInfo.apiKey,
+						compression: process.env.LOG_COMPRESSION !== 'false',
+					});
+					await cloudLogBackend.initialize();
+					this.logBackends.push(cloudLogBackend);
+					
+					// Update agentLogger with new backend
+					(this.agentLogger as any).logBackends = this.logBackends;
+					
+					this.agentLogger.infoSync('Cloud log backend initialized', {
+						component: 'Agent',
+						cloudEndpoint: this.CLOUD_API_ENDPOINT
+					});
+				} catch (error) {
+					this.agentLogger.warnSync('Failed to initialize cloud log backend', {
+						component: 'Agent',
+						error: error instanceof Error ? error.message : String(error),
+						note: 'Continuing without cloud logging'
+					});
+				}
+			}
+			
+			this.agentLogger.infoSync('MQTT Manager connected', {
+				component: 'Agent',
+				brokerUrl: mqttBrokerUrl,
+				clientId: `device_${this.deviceInfo.uuid}`,
+				username: mqttUsername || '(none)',
+				credentialsSource: this.deviceInfo.mqttUsername ? 'provisioning' : 'environment',
+				debugMode: process.env.MQTT_DEBUG === 'true',
+				totalLogBackends: this.logBackends.length
+			});
+		} catch (error) {
+			this.agentLogger.errorSync('Failed to initialize MQTT Manager', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Agent',
+				note: 'MQTT features will be unavailable'
+			});
+			// Don't throw - allow agent to continue without MQTT
 		}
-
-		// MQTT backend (optional)
-
-		// try {
-		// 	// Note: MqttLogBackend uses centralized MqttManager
-		// 	// Connection is already established in initializeMqttManager()
-		// 	const mqttBackend = new MqttLogBackend({
-		// 			brokerUrl: process.env.MQTT_BROKER,
-		// 			clientOptions: {
-		// 				// clientId is already set in initializeMqttManager() as device_${uuid}
-		// 				// No need to pass it again - these options are ignored
-		// 			},
-		// 			baseTopic: process.env.MQTT_TOPIC || 'device/logs',
-		// 			qos: (process.env.MQTT_QOS ? parseInt(process.env.MQTT_QOS) : 1) as 0 | 1 | 2,
-		// 			enableBatching: process.env.MQTT_BATCH !== 'false',
-		// 			batchInterval: parseInt(process.env.MQTT_BATCH_INTERVAL || '1000'),
-		// 			maxBatchSize: parseInt(process.env.MQTT_BATCH_SIZE || '50'),
-		// 			debug: process.env.MQTT_DEBUG === 'true',
-		// 		});
-		// 		await mqttBackend.connect();
-		// 		this.logBackends.push(mqttBackend);
-		// 		const deviceInfo = this.deviceManager.getDeviceInfo();
-		// 		console.log(`✅ MQTT log backend connected: ${process.env.MQTT_BROKER} (client: device_${deviceInfo.uuid})`);
-		// } catch (error) {
-		// 	console.error('⚠️  Failed to connect to MQTT broker:', error);
-		// 	console.log('   Continuing without cloud logging');
-		// }
-		
-
-		// Log summary
-		//console.log(`✅ Logging initialized with ${this.logBackends.length} backend(s)`);
-		
-		// Create AgentLogger for structured agent-level logging
-		this.agentLogger = new AgentLogger(this.logBackends);
-		this.agentLogger.setDeviceId(this.deviceInfo.uuid);
-		this.agentLogger.infoSync('Agent logger initialized', {
-			component: 'Supervisor',
-			backendCount: this.logBackends.length
-		});
 	}
 
 	private async initializeContainerManager(): Promise<void> {
-		this.agentLogger?.infoSync('Initializing orchestrator driver', { component: 'Supervisor' });
+		this.agentLogger?.infoSync('Initializing orchestrator driver', { component: 'Agent' });
 		
 		// Get orchestrator type from env var (config can override after initialization via target state)
 		const orchestratorType = (process.env.ORCHESTRATOR_TYPE as 'docker' | 'k3s') || 'docker';
 		
 		this.agentLogger?.infoSync('Creating orchestrator driver', {
-			component: 'Supervisor',
+			component: 'Agent',
 			type: orchestratorType
 		});
 
@@ -422,7 +443,7 @@ export default class DeviceSupervisor {
 				this.containerManager.setLogMonitor(this.logMonitor);
 				await this.containerManager.attachLogsToAllContainers();
 				this.agentLogger?.infoSync('Log monitor attached to container manager', {
-					component: 'Supervisor',
+					component: 'Agent',
 					backendCount: this.logBackends.length
 				});
 			}
@@ -436,14 +457,14 @@ export default class DeviceSupervisor {
 		});
 
 		this.agentLogger?.infoSync('Orchestrator driver initialized', {
-			component: 'Supervisor',
+			component: 'Agent',
 			driver: this.orchestratorDriver.name,
 			version: this.orchestratorDriver.version
 		});
 	}
 
 	private async initializeDeviceAPI(): Promise<void> {
-		this.agentLogger?.infoSync('Initializing device API', { component: 'Supervisor' });
+		this.agentLogger?.infoSync('Initializing device API', { component: 'Agent' });
 
 		// Initialize device actions with managers
 		deviceActions.initialize(this.containerManager, this.deviceManager);
@@ -469,7 +490,7 @@ export default class DeviceSupervisor {
 		// Start listening
 		await this.deviceAPI.listen(this.DEVICE_API_PORT);
 		this.agentLogger?.infoSync('Device API started', {
-			component: 'Supervisor',
+			component: 'Agent',
 			port: this.DEVICE_API_PORT
 		});
 	}
@@ -477,14 +498,14 @@ export default class DeviceSupervisor {
 	private async initializeApiBinder(): Promise<void> {
 		if (!this.CLOUD_API_ENDPOINT) {
 			this.agentLogger?.warnSync('Cloud API endpoint not configured - running in standalone mode', {
-				component: 'Supervisor',
+				component: 'Agent',
 				note: 'Set CLOUD_API_ENDPOINT env var to enable cloud features'
 			});
 			return;
 		}
 
 		this.agentLogger?.infoSync('Initializing API Binder', {
-			component: 'Supervisor',
+			component: 'Agent',
 			cloudApiEndpoint: this.CLOUD_API_ENDPOINT
 		});
 		
@@ -514,7 +535,7 @@ export default class DeviceSupervisor {
 		this.containerManager.on('target-state-changed', async (targetState) => {
 			if (targetState.config) {
 				this.agentLogger?.infoSync('Processing config from target state update', {
-					component: 'Supervisor'
+					component: 'Agent'
 				});
 				await this.handleConfigUpdate(targetState.config);
 			}
@@ -532,14 +553,14 @@ export default class DeviceSupervisor {
 		const cloudHost = process.env.CLOUD_HOST;
 		if (!cloudHost) {
 			this.agentLogger?.errorSync('CLOUD_HOST environment variable required for remote access', undefined, {
-				component: 'Supervisor',
+				component: 'Agent',
 				feature: 'RemoteAccess'
 			});
 			return;
 		}
 
 		this.agentLogger?.infoSync('Initializing SSH reverse tunnel', {
-			component: 'Supervisor',
+			component: 'Agent',
 			cloudHost,
 			localPort: this.DEVICE_API_PORT
 		});
@@ -557,12 +578,12 @@ export default class DeviceSupervisor {
 
 			await this.sshTunnel.connect();
 			this.agentLogger?.infoSync('Remote access enabled via SSH tunnel', {
-				component: 'Supervisor',
+				component: 'Agent',
 				accessEndpoint: `${cloudHost}:${this.DEVICE_API_PORT}`
 			});
 		} catch (error) {
 			this.agentLogger?.errorSync('Failed to initialize SSH tunnel', error instanceof Error ? error : new Error(String(error)), {
-				component: 'Supervisor',
+				component: 'Agent',
 				note: 'Continuing without remote access'
 			});
 			this.sshTunnel = undefined;
@@ -570,17 +591,17 @@ export default class DeviceSupervisor {
 	}
 
 	private async initializeJobEngine(): Promise<void> {
-		console.log('⚙️  Initializing Enhanced Job Engine...');
+		this.agentLogger?.infoSync('Initializing Enhanced Job Engine', { component: 'Agent' });
 
 		try {
-			// Create a simple logger that wraps console
+			// Create a simple logger that wraps agentLogger
 			const jobLogger = {
-				info: (message: string) => console.log(`[JobEngine] ${message}`),
-				warn: (message: string) => console.warn(`[JobEngine] ${message}`),
-				error: (message: string) => console.error(`[JobEngine] ${message}`),
+				info: (message: string) => this.agentLogger?.infoSync(message, { component: 'JobEngine' }),
+				warn: (message: string) => this.agentLogger?.warnSync(message, { component: 'JobEngine' }),
+				error: (message: string) => this.agentLogger?.errorSync(message, new Error(message), { component: 'JobEngine' }),
 				debug: (message: string) => {
 					if (process.env.JOB_ENGINE_DEBUG === 'true') {
-						console.log(`[JobEngine][DEBUG] ${message}`);
+						this.agentLogger?.debugSync(message, { component: 'JobEngine' });
 					}
 				},
 			};
@@ -588,21 +609,25 @@ export default class DeviceSupervisor {
 			this.jobEngine = new EnhancedJobEngine(jobLogger);
 
 			// Log job engine capabilities
-			console.log('✅ Enhanced Job Engine initialized');
-			console.log('   Supports: ONE_TIME, RECURRING, CONTINUOUS job types');
-			console.log('   Execution Types: Sequential, Parallel');
-			console.log('   Job Handler Directory: ./data/job-handlers (default)');
+			this.agentLogger?.infoSync('Enhanced Job Engine initialized', {
+				component: 'Agent',
+				supportedTypes: 'ONE_TIME, RECURRING, CONTINUOUS',
+				executionTypes: 'Sequential, Parallel',
+				handlerDirectory: './data/job-handlers (default)'
+			});
 			
 			// Example: Register a simple test job (optional - can be removed)
 			if (process.env.JOB_ENGINE_TEST === 'true') {
-				console.log('🧪 Testing Job Engine with sample job...');
+				this.agentLogger?.infoSync('Testing Job Engine with sample job', { component: 'Agent' });
 				const testJobId = 'test-job-' + Date.now();
-				jobLogger.info(`Test job ID generated: ${testJobId}`);
-				jobLogger.info('Job Engine is ready to process jobs!');
+				this.agentLogger?.debugSync(`Test job ID generated: ${testJobId}`, { component: 'Agent' });
+				this.agentLogger?.infoSync('Job Engine is ready to process jobs', { component: 'Agent' });
 			}
 		} catch (error) {
-			console.error('❌ Failed to initialize Job Engine:', error);
-			console.log('   Continuing without Job Engine');
+			this.agentLogger?.errorSync('Failed to initialize Job Engine', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Agent',
+				note: 'Continuing without Job Engine'
+			});
 			this.jobEngine = undefined;
 		}
 	}
@@ -610,19 +635,23 @@ export default class DeviceSupervisor {
 	private async initializeCloudJobsAdapter(): Promise<void> {
 		// Cloud jobs requires job engine
 		if (!this.jobEngine) {
-			console.error('❌ Cloud Jobs requires Job Engine to be enabled');
-			console.log('   Enable Job Engine in config: { features: { enableJobEngine: true } }');
+			this.agentLogger?.errorSync('Cloud Jobs requires Job Engine to be enabled', undefined, {
+				component: 'Agent',
+				note: 'Enable Job Engine in config: { features: { enableJobEngine: true } }'
+			});
 			return;
 		}
 
-		console.log('☁️  Initializing Cloud Jobs Adapter...');
+		this.agentLogger?.infoSync('Initializing Cloud Jobs Adapter', { component: 'Agent' });
 
 		try {
 			// Get cloud API URL from environment
 			const cloudApiUrl = process.env.CLOUD_API_URL || this.CLOUD_API_ENDPOINT;
 			if (!cloudApiUrl) {
-				console.error('❌ CLOUD_API_URL not configured');
-				console.log('   Set CLOUD_API_URL environment variable (e.g., http://your-cloud-server:4002/api/v1)');
+				this.agentLogger?.errorSync('CLOUD_API_URL not configured', undefined, {
+					component: 'Agent',
+					note: 'Set CLOUD_API_URL environment variable (e.g., http://your-cloud-server:4002/api/v1)'
+				});
 				return;
 			}
 
@@ -649,27 +678,34 @@ export default class DeviceSupervisor {
 			// Start polling for jobs
 			this.cloudJobsAdapter.start();
 
-			console.log('✅ Cloud Jobs Adapter initialized');
-			console.log(`   Cloud API: ${cloudApiUrl}`);
-			console.log(`   Device UUID: ${this.deviceInfo.uuid}`);
-			console.log(`   Polling interval: ${pollingIntervalMs}ms (${pollingIntervalMs / 1000}s)`);
-			console.log('   Status: Polling for jobs...');
+			this.agentLogger?.infoSync('Cloud Jobs Adapter initialized', {
+				component: 'Agent',
+				cloudApiUrl,
+				deviceUuid: this.deviceInfo.uuid,
+				pollingIntervalMs,
+				pollingIntervalSec: pollingIntervalMs / 1000,
+				status: 'Polling for jobs'
+			});
 		} catch (error) {
-			console.error('❌ Failed to initialize Cloud Jobs Adapter:', error);
-			console.log('   Continuing without Cloud Jobs');
+			this.agentLogger?.errorSync('Failed to initialize Cloud Jobs Adapter', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Agent',
+				note: 'Continuing without Cloud Jobs'
+			});
 			this.cloudJobsAdapter = undefined;
 		}
 	}
 
 	private async initializeSensorPublish(): Promise<void> {
-		console.log('📡 Initializing Sensor Publish Feature...');
+		this.agentLogger?.infoSync('Initializing Sensor Publish Feature', { component: 'Agent' });
 
 		try {
 			// Parse sensor configuration from environment
 			const sensorConfigStr = process.env.SENSOR_PUBLISH_CONFIG;
 			if (!sensorConfigStr) {
-				console.warn('⚠️  No SENSOR_PUBLISH_CONFIG environment variable found');
-				console.log('   Set SENSOR_PUBLISH_CONFIG with JSON configuration');
+				this.agentLogger?.warnSync('No SENSOR_PUBLISH_CONFIG environment variable found', {
+					component: 'Agent',
+					note: 'Set SENSOR_PUBLISH_CONFIG with JSON configuration'
+				});
 				return;
 			}
 
@@ -677,7 +713,9 @@ export default class DeviceSupervisor {
 			try {
 				sensorConfig = JSON.parse(sensorConfigStr);
 			} catch (error) {
-				console.error('❌ Failed to parse SENSOR_PUBLISH_CONFIG:', error);
+				this.agentLogger?.errorSync('Failed to parse SENSOR_PUBLISH_CONFIG', error instanceof Error ? error : new Error(String(error)), {
+					component: 'Agent'
+				});
 				return;
 			}
 
@@ -691,7 +729,9 @@ export default class DeviceSupervisor {
 							await mqttBackend.publish(topic, payload.toString(), qos);
 						}
 					} else {
-						console.warn('⚠️  MQTT backend not available, sensor data not published');
+						this.agentLogger?.warnSync('MQTT backend not available, sensor data not published', {
+							component: 'SensorPublish'
+						});
 					}
 				},
 				isConnected: () => {
@@ -702,12 +742,12 @@ export default class DeviceSupervisor {
 
 			// Create simple logger
 			const sensorLogger = {
-				info: (message: string) => console.log(`[SensorPublish] ${message}`),
-				warn: (message: string) => console.warn(`[SensorPublish] ${message}`),
-				error: (message: string) => console.error(`[SensorPublish] ${message}`),
+				info: (message: string) => this.agentLogger?.infoSync(message, { component: 'SensorPublish' }),
+				warn: (message: string) => this.agentLogger?.warnSync(message, { component: 'SensorPublish' }),
+				error: (message: string) => this.agentLogger?.errorSync(message, new Error(message), { component: 'SensorPublish' }),
 				debug: (message: string) => {
 					if (process.env.SENSOR_PUBLISH_DEBUG === 'true') {
-						console.log(`[SensorPublish][DEBUG] ${message}`);
+						this.agentLogger?.debugSync(message, { component: 'SensorPublish' });
 					}
 				}
 			};
@@ -721,18 +761,22 @@ export default class DeviceSupervisor {
 
 			await this.sensorPublish.start();
 
-			console.log('✅ Sensor Publish Feature initialized');
-			console.log(`   Sensors configured: ${sensorConfig.sensors?.length || 0}`);
-			console.log('   MQTT Topic pattern: $iot/device/{deviceUuid}/sensor/{topic}');
+			this.agentLogger?.infoSync('Sensor Publish Feature initialized', {
+				component: 'Agent',
+				sensorsConfigured: sensorConfig.sensors?.length || 0,
+				mqttTopicPattern: '$iot/device/{deviceUuid}/sensor/{topic}'
+			});
 		} catch (error) {
-			console.error('❌ Failed to initialize Sensor Publish:', error);
-			console.log('   Continuing without Sensor Publish');
+			this.agentLogger?.errorSync('Failed to initialize Sensor Publish', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Agent',
+				note: 'Continuing without Sensor Publish'
+			});
 			this.sensorPublish = undefined;
 		}
 	}
 
 	private async initializeShadowFeature(): Promise<void> {
-		console.log('🔮 Initializing Shadow Feature...');
+		this.agentLogger?.infoSync('Initializing Shadow Feature', { component: 'Agent' });
 
 		try {
 			// Get shadow publish interval from config or environment
@@ -767,7 +811,9 @@ export default class DeviceSupervisor {
 				// Check if MqttManager is connected before creating adapter
 				const mqttManager = MqttManager.getInstance();
 				if (!mqttManager.isConnected()) {
-					console.warn('⚠️  MQTT Manager not connected yet, waiting...');
+					this.agentLogger?.warnSync('MQTT Manager not connected yet, waiting...', {
+						component: 'Agent'
+					});
 					// Wait up to 5 seconds for connection
 					const maxWait = 5000;
 					const checkInterval = 100;
@@ -779,7 +825,9 @@ export default class DeviceSupervisor {
 					if (!mqttManager.isConnected()) {
 						throw new Error('MQTT Manager connection timeout - Shadow feature requires MQTT');
 					}
-					console.log('✅ MQTT Manager connected after waiting');
+					this.agentLogger?.infoSync('MQTT Manager connected after waiting', {
+						component: 'Agent'
+					});
 				}
 				
 				mqttConnection = new MqttShadowAdapter(
@@ -789,10 +837,15 @@ export default class DeviceSupervisor {
 						// If this was called before initializeMqttManager(), these would be used
 					}
 				);
-				console.log(`   Using centralized MQTT Manager for shadow operations (${mqttBrokerUrl})`);
+				this.agentLogger?.infoSync('Using centralized MQTT Manager for shadow operations', {
+					component: 'Agent',
+					mqttBrokerUrl
+				});
 			} else {
-				console.warn('⚠️  MQTT broker URL not available (device not provisioned and MQTT_BROKER not set)');
-				console.log('   Shadow feature will not publish updates');
+				this.agentLogger?.warnSync('MQTT broker URL not available', {
+					component: 'Agent',
+					note: 'Device not provisioned and MQTT_BROKER not set. Shadow feature will not publish updates'
+				});
 				// Create a no-op connection
 				mqttConnection = {
 					publish: async () => {},
@@ -804,12 +857,12 @@ export default class DeviceSupervisor {
 
 			// Create simple logger
 			const shadowLogger = {
-				info: (message: string) => console.log(`[Shadow] ${message}`),
-				warn: (message: string) => console.warn(`[Shadow] ${message}`),
-				error: (message: string) => console.error(`[Shadow] ${message}`),
+				info: (message: string) => this.agentLogger?.infoSync(message, { component: 'Shadow' }),
+				warn: (message: string) => this.agentLogger?.warnSync(message, { component: 'Shadow' }),
+				error: (message: string) => this.agentLogger?.errorSync(message, new Error(message), { component: 'Shadow' }),
 				debug: (message: string) => {
 					if (process.env.SHADOW_DEBUG === 'true') {
-						console.log(`[Shadow][DEBUG] ${message}`);
+						this.agentLogger?.debugSync(message, { component: 'Shadow' });
 					}
 				}
 			};
@@ -823,49 +876,58 @@ export default class DeviceSupervisor {
 
 			// Set up event handlers
 			this.shadowFeature.on('started', () => {
-				console.log('✅ Shadow Feature started');
+				this.agentLogger?.infoSync('Shadow Feature started', { component: 'Agent' });
 			});
 
 			this.shadowFeature.on('update-accepted', (response) => {
 				if (process.env.SHADOW_DEBUG === 'true') {
-					console.log(`[Shadow] Update accepted (version: ${response.version})`);
+					this.agentLogger?.debugSync(`Update accepted (version: ${response.version})`, { component: 'Shadow' });
 				}
 			});
 
 			this.shadowFeature.on('update-rejected', (error) => {
-				console.error(`[Shadow] Update rejected: ${error.message} (code: ${error.code})`);
+				this.agentLogger?.errorSync(`Update rejected: ${error.message} (code: ${error.code})`, new Error(error.message), {
+					component: 'Shadow',
+					errorCode: error.code
+				});
 			});
 
 			this.shadowFeature.on('delta-updated', (event) => {
-				console.log(`[Shadow] Delta received (version: ${event.version})`);
+				this.agentLogger?.infoSync(`Delta received (version: ${event.version})`, {
+					component: 'Shadow',
+					version: event.version
+				});
 				if (process.env.SHADOW_DEBUG === 'true') {
-					console.log(`[Shadow] Delta state:`, event.state);
+					this.agentLogger?.debugSync('Delta state', {
+						component: 'Shadow',
+						state: event.state
+					});
 				}
 			});
 
 			this.shadowFeature.on('error', (error) => {
-				console.error(`[Shadow] Error: ${error.message}`);
+				this.agentLogger?.errorSync(`Shadow error: ${error.message}`, error instanceof Error ? error : new Error(String(error)), {
+					component: 'Shadow'
+				});
 			});
 
 			await this.shadowFeature.start();
 
-			console.log('✅ Shadow Feature initialized');
-			console.log(`   Shadow name: ${shadowConfig.shadowName}`);
-			console.log(`   Device id: ${this.deviceInfo.uuid}`);
-			console.log(`   Auto-sync on delta: ${shadowConfig.syncOnDelta}`);
-			console.log(`   File monitor: ${shadowConfig.enableFileMonitor ? 'Enabled' : 'Disabled'}`);
-			if (shadowConfig.inputFile) {
-				console.log(`   Input file: ${shadowConfig.inputFile}`);
-			}
-			if (shadowConfig.outputFile) {
-				console.log(`   Output file: ${shadowConfig.outputFile}`);
-			}
-			if (shadowConfig.publishInterval) {
-				console.log(`   Publish interval: ${shadowConfig.publishInterval}ms`);
-			}
+			this.agentLogger?.infoSync('Shadow Feature initialized', {
+				component: 'Agent',
+				shadowName: shadowConfig.shadowName,
+				deviceId: this.deviceInfo.uuid,
+				autoSyncOnDelta: shadowConfig.syncOnDelta,
+				fileMonitor: shadowConfig.enableFileMonitor ? 'Enabled' : 'Disabled',
+				inputFile: shadowConfig.inputFile || 'None',
+				outputFile: shadowConfig.outputFile || 'None',
+				publishInterval: shadowConfig.publishInterval ? `${shadowConfig.publishInterval}ms` : 'None'
+			});
 		} catch (error) {
-			console.error('❌ Failed to initialize Shadow Feature:', error);
-			console.log('   Continuing without Shadow Feature');
+			this.agentLogger?.errorSync('Failed to initialize Shadow Feature', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Agent',
+				note: 'Continuing without Shadow Feature'
+			});
 			this.shadowFeature = undefined;
 		}
 	}
@@ -876,17 +938,17 @@ export default class DeviceSupervisor {
 			return;
 		}
 
-		console.log('🔧 Initializing Sensor Config Handler...');
+		this.agentLogger?.infoSync('Initializing Sensor Config Handler', { component: 'Agent' });
 
 		try {
 			// Create simple logger
 			const configLogger = {
-				info: (message: string) => console.log(`[SensorConfig] ${message}`),
-				warn: (message: string) => console.warn(`[SensorConfig] ${message}`),
-				error: (message: string, error?: any) => console.error(`[SensorConfig] ${message}`, error || ''),
+				info: (message: string) => this.agentLogger?.infoSync(message, { component: 'SensorConfig' }),
+				warn: (message: string) => this.agentLogger?.warnSync(message, { component: 'SensorConfig' }),
+				error: (message: string, error?: any) => this.agentLogger?.errorSync(message, error instanceof Error ? error : new Error(String(error)), { component: 'SensorConfig' }),
 				debug: (message: string, ...args: any[]) => {
 					if (process.env.SENSOR_CONFIG_DEBUG === 'true') {
-						console.log(`[SensorConfig][DEBUG] ${message}`, ...args);
+						this.agentLogger?.debugSync(message, { component: 'SensorConfig', args });
 					}
 				}
 			};
@@ -920,25 +982,36 @@ export default class DeviceSupervisor {
 				};
 
 				await this.shadowFeature.updateShadow(initialState, true);
-				configLogger.info(`Reported initial state for ${sensors.length} sensor(s) to shadow`);
+				this.agentLogger?.infoSync('Reported initial sensor state to shadow', {
+					component: 'SensorConfig',
+					sensorCount: sensors.length
+				});
 			} catch (error) {
-				configLogger.error('Failed to report initial sensor state to shadow', error);
+				this.agentLogger?.errorSync('Failed to report initial sensor state to shadow', error instanceof Error ? error : new Error(String(error)), {
+					component: 'SensorConfig'
+				});
 				// Don't fail initialization if this fails
 			}
 
-			console.log('✅ Sensor Config Handler initialized');
-			console.log('   Remote sensor configuration: Enabled');
-			console.log('   Shadow name: ' + process.env.SHADOW_NAME || 'device-config');
+			this.agentLogger?.infoSync('Sensor Config Handler initialized', {
+				component: 'Agent',
+				remoteConfiguration: 'Enabled',
+				shadowName: process.env.SHADOW_NAME || 'device-config'
+			});
 		} catch (error) {
-			console.error('❌ Failed to initialize Sensor Config Handler:', error);
-			console.log('   Continuing without remote sensor configuration');
+			this.agentLogger?.errorSync('Failed to initialize Sensor Config Handler', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Agent',
+				note: 'Continuing without remote sensor configuration'
+			});
 			this.sensorConfigHandler = undefined;
 		}
 	}
 
 	private async initializeDigitalTwin(): Promise<void> {
 		if (!this.shadowFeature) {
-			console.log('⚠️  Shadow Feature not available, cannot initialize Digital Twin');
+			this.agentLogger?.warnSync('Shadow Feature not available, cannot initialize Digital Twin', {
+				component: 'Agent'
+			});
 			return;
 		}
 
@@ -977,17 +1050,24 @@ export default class DeviceSupervisor {
 			// Start periodic updates
 			this.twinStateManager.start();
 
-
-			console.log(`   Update interval: ${updateInterval}ms (${updateInterval / 1000}s)`);
-			console.log(`   Features: ${[
+			const enabledFeatures = [
 				enableReadings && 'readings',
 				enableHealth && 'health',
 				enableSystem && 'system',
 				enableConnectivity && 'connectivity'
-			].filter(Boolean).join(', ')}`);
+			].filter(Boolean).join(', ');
+
+			this.agentLogger?.infoSync('Digital Twin State Manager initialized', {
+				component: 'Agent',
+				updateIntervalMs: updateInterval,
+				updateIntervalSec: updateInterval / 1000,
+				features: enabledFeatures
+			});
 		} catch (error) {
-			console.error('❌ Failed to initialize Digital Twin:', error);
-			console.log('   Continuing without Digital Twin state updates');
+			this.agentLogger?.errorSync('Failed to initialize Digital Twin', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Agent',
+				note: 'Continuing without Digital Twin state updates'
+			});
 			this.twinStateManager = undefined;
 		}
 	}
@@ -995,7 +1075,7 @@ export default class DeviceSupervisor {
 	private startAutoReconciliation(): void {
 		this.containerManager.startAutoReconciliation(this.reconciliationIntervalMs);
 		this.agentLogger?.infoSync('Auto-reconciliation started', {
-			component: 'Supervisor',
+			component: 'Agent',
 			intervalMs: this.reconciliationIntervalMs
 		});
 	}
@@ -1005,20 +1085,30 @@ export default class DeviceSupervisor {
 	 */
 	private async loadInitialConfig(): Promise<void> {
 		try {
-			console.log('⚙️  Loading initial configuration from target state...');
+			this.agentLogger?.infoSync('Loading initial configuration from target state', {
+				component: 'Agent'
+			});
 			
 			// Get current target state from container manager
 			const targetState = this.containerManager.getTargetState();
 			
 			if (targetState && targetState.config && Object.keys(targetState.config).length > 0) {
-				console.log(`   Found config with ${Object.keys(targetState.config).length} section(s)`);
+				this.agentLogger?.infoSync('Found config in target state', {
+					component: 'Agent',
+					sectionCount: Object.keys(targetState.config).length
+				});
 				await this.handleConfigUpdate(targetState.config);
 			} else {
-				console.log('   No config found in target state');
+				this.agentLogger?.infoSync('No config found in target state', {
+					component: 'Agent'
+				});
 			}
 		} catch (error) {
-			console.error('⚠️  Failed to load initial config:', error);
-			console.log('   Continuing with default configuration');
+			this.agentLogger?.warnSync('Failed to load initial config', {
+				component: 'Agent',
+				error: error instanceof Error ? error.message : String(error),
+				note: 'Continuing with default configuration'
+			});
 		}
 	}
 
@@ -1028,7 +1118,7 @@ export default class DeviceSupervisor {
 	 */
 	private async handleConfigUpdate(config: Record<string, any>): Promise<void> {
 		this.agentLogger?.debug('Processing configuration update', {
-			category: 'supervisor',
+			category: 'Agent',
 			configKeys: Object.keys(config).length,
 			keys: Object.keys(config)
 		});
@@ -1036,7 +1126,7 @@ export default class DeviceSupervisor {
 		try {
 			// Logging Config - Update log level dynamically
 			if (config.logging) {
-				this.agentLogger?.debug('Logging configuration detected', { category: 'supervisor' });
+				this.agentLogger?.debug('Logging configuration detected', { category: 'Agent' });
 				const logging = config.logging;
 				
 				// Update log level
@@ -1049,24 +1139,24 @@ export default class DeviceSupervisor {
 						
 						if (newLevel !== currentLevel) {
 							this.agentLogger?.debug('Updating log level', {
-								category: 'supervisor',
+								category: 'Agent',
 								from: currentLevel,
 								to: newLevel
 							});
 							this.agentLogger?.setLogLevel(newLevel as 'debug' | 'info' | 'warn' | 'error');
 							this.agentLogger?.debug('Log level updated successfully', {
-								category: 'supervisor',
+								category: 'Agent',
 								newLevel
 							});
 						} else {
 							this.agentLogger?.debug('Log level already set', {
-								category: 'supervisor',
+								category: 'Agent',
 								level: currentLevel
 							});
 						}
 					} else {
 						this.agentLogger?.warn('Invalid log level', {
-							category: 'supervisor',
+							category: 'Agent',
 							invalidLevel: newLevel,
 							validLevels
 						});
@@ -1076,7 +1166,7 @@ export default class DeviceSupervisor {
 			
 			// Settings Config - Update system settings dynamically
 			if (config.settings) {
-				this.agentLogger?.debug('Settings configuration detected', { category: 'supervisor' });
+				this.agentLogger?.debug('Settings configuration detected', { category: 'Agent' });
 				const settings = config.settings;
 				
 				// Update reconciliation interval
@@ -1086,7 +1176,7 @@ export default class DeviceSupervisor {
 					
 					if (newInterval !== currentInterval) {
 						this.agentLogger?.debug('Updating reconciliation interval', {
-							category: 'supervisor',
+							category: 'Agent',
 							fromMs: currentInterval,
 							toMs: newInterval
 						});
@@ -1096,12 +1186,12 @@ export default class DeviceSupervisor {
 						this.containerManager.stopAutoReconciliation();
 						this.containerManager.startAutoReconciliation(newInterval);
 						this.agentLogger?.debug('Reconciliation interval updated successfully', {
-							category: 'supervisor',
+							category: 'Agent',
 							intervalMs: newInterval
 						});
 					} else {
 						this.agentLogger?.debug('Reconciliation interval already set', {
-							category: 'supervisor',
+							category: 'Agent',
 							intervalMs: currentInterval
 						});
 					}
@@ -1114,7 +1204,7 @@ export default class DeviceSupervisor {
 					
 					if (currentInterval && newInterval !== currentInterval) {
 						this.agentLogger?.debug('Updating device report interval', {
-							category: 'supervisor',
+							category: 'Agent',
 							fromMs: currentInterval,
 							toMs: newInterval
 						});
@@ -1123,7 +1213,7 @@ export default class DeviceSupervisor {
 						if (this.apiBinder) {
 							(this.apiBinder as any).config.reportInterval = newInterval;
 							this.agentLogger?.debug('Device report interval updated successfully', {
-								category: 'supervisor',
+								category: 'Agent',
 								intervalMs: newInterval
 							});
 						}
@@ -1137,7 +1227,7 @@ export default class DeviceSupervisor {
 					
 					if (currentInterval && newInterval !== currentInterval) {
 						this.agentLogger?.debug('Updating target state poll interval', {
-							category: 'supervisor',
+							category: 'Agent',
 							fromMs: currentInterval,
 							toMs: newInterval
 						});
@@ -1146,7 +1236,7 @@ export default class DeviceSupervisor {
 						if (this.apiBinder) {
 							(this.apiBinder as any).config.pollInterval = newInterval;
 							this.agentLogger?.debug('Target state poll interval updated successfully', {
-								category: 'supervisor',
+								category: 'Agent',
 								intervalMs: newInterval
 							});
 						}
@@ -1160,7 +1250,7 @@ export default class DeviceSupervisor {
 					
 					if (currentInterval && newInterval !== currentInterval) {
 						this.agentLogger?.debug('Updating metrics interval', {
-							category: 'supervisor',
+							category: 'Agent',
 							fromMs: currentInterval,
 							toMs: newInterval
 						});
@@ -1169,7 +1259,7 @@ export default class DeviceSupervisor {
 						if (this.apiBinder) {
 							(this.apiBinder as any).config.metricsInterval = newInterval;
 							this.agentLogger?.debug('Metrics interval updated successfully', {
-								category: 'supervisor',
+								category: 'Agent',
 								intervalMs: newInterval
 							});
 						}
@@ -1183,7 +1273,7 @@ export default class DeviceSupervisor {
 					
 					if (currentInterval && newInterval !== currentInterval) {
 						this.agentLogger?.debug('Updating cloud jobs polling interval', {
-							category: 'supervisor',
+							category: 'Agent',
 							fromMs: currentInterval,
 							toMs: newInterval
 						});
@@ -1196,7 +1286,7 @@ export default class DeviceSupervisor {
 						this.cloudJobsAdapter.start();
 						
 						this.agentLogger?.debug('Cloud jobs polling interval updated successfully', {
-							category: 'supervisor',
+							category: 'Agent',
 							intervalMs: newInterval
 						});
 					}
@@ -1209,7 +1299,7 @@ export default class DeviceSupervisor {
 					
 					if (newInterval !== currentInterval) {
 						this.agentLogger?.debug('Updating shadow publish interval', {
-							category: 'supervisor',
+							category: 'Agent',
 							fromMs: currentInterval,
 							toMs: newInterval
 						});
@@ -1222,7 +1312,7 @@ export default class DeviceSupervisor {
 						await this.shadowFeature.start();
 						
 						this.agentLogger?.debug('Shadow publish interval updated successfully', {
-							category: 'supervisor',
+							category: 'Agent',
 							intervalMs: newInterval
 						});
 					}
@@ -1231,7 +1321,7 @@ export default class DeviceSupervisor {
 			
 			// Features Config - Enable/disable features dynamically
 			if (config.features) {
-				this.agentLogger?.debug('Features configuration detected', { category: 'supervisor' });
+				this.agentLogger?.debug('Features configuration detected', { category: 'Agent' });
 				const features = config.features;
 				
 				// Enable/disable Remote Access dynamically
@@ -1241,17 +1331,17 @@ export default class DeviceSupervisor {
 					
 					if (shouldBeEnabled === isCurrentlyEnabled) {
 						this.agentLogger?.debug('Remote Access already in desired state', {
-							category: 'supervisor',
+							category: 'Agent',
 							enabled: shouldBeEnabled
 						});
 					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
-						this.agentLogger?.debug('Enabling Remote Access', { category: 'supervisor' });
+						this.agentLogger?.debug('Enabling Remote Access', { category: 'Agent' });
 						await this.initializeRemoteAccess();
 					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
-						this.agentLogger?.debug('Disabling Remote Access', { category: 'supervisor' });
+						this.agentLogger?.debug('Disabling Remote Access', { category: 'Agent' });
 						await this.sshTunnel!.disconnect();
 						this.sshTunnel = undefined;
-						this.agentLogger?.debug('Remote Access disabled successfully', { category: 'supervisor' });
+						this.agentLogger?.debug('Remote Access disabled successfully', { category: 'Agent' });
 					}
 				}
 				
@@ -1262,17 +1352,17 @@ export default class DeviceSupervisor {
 					
 					if (shouldBeEnabled === isCurrentlyEnabled) {
 						this.agentLogger?.debug('Cloud Jobs already in desired state', {
-							category: 'supervisor',
+							category: 'Agent',
 							enabled: shouldBeEnabled
 						});
 					} else if (shouldBeEnabled && !isCurrentlyEnabled && this.jobEngine) {
-						this.agentLogger?.debug('Enabling Cloud Jobs Adapter', { category: 'supervisor' });
+						this.agentLogger?.debug('Enabling Cloud Jobs Adapter', { category: 'Agent' });
 						await this.initializeCloudJobsAdapter();
 					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
-						this.agentLogger?.debug('Disabling Cloud Jobs Adapter', { category: 'supervisor' });
+						this.agentLogger?.debug('Disabling Cloud Jobs Adapter', { category: 'Agent' });
 						this.cloudJobsAdapter!.stop();
 						this.cloudJobsAdapter = undefined;
-						this.agentLogger?.debug('Cloud Jobs Adapter disabled successfully', { category: 'supervisor' });
+						this.agentLogger?.debug('Cloud Jobs Adapter disabled successfully', { category: 'Agent' });
 					}
 				}
 
@@ -1283,21 +1373,21 @@ export default class DeviceSupervisor {
 					
 					if (shouldBeEnabled === isCurrentlyEnabled) {
 						this.agentLogger?.debug('Job Engine already in desired state', {
-							category: 'supervisor',
+							category: 'Agent',
 							enabled: shouldBeEnabled
 						});
 					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
-						this.agentLogger?.debug('Enabling Job Engine', { category: 'supervisor' });
+						this.agentLogger?.debug('Enabling Job Engine', { category: 'Agent' });
 						await this.initializeJobEngine();
 					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
-						this.agentLogger?.debug('Disabling Job Engine', { category: 'supervisor' });
+						this.agentLogger?.debug('Disabling Job Engine', { category: 'Agent' });
 						// Stop dependent features first
 						if (this.cloudJobsAdapter) {
 							this.cloudJobsAdapter.stop();
 							this.cloudJobsAdapter = undefined;
 						}
 						this.jobEngine = undefined;
-						this.agentLogger?.debug('Job Engine disabled successfully', { category: 'supervisor' });
+						this.agentLogger?.debug('Job Engine disabled successfully', { category: 'Agent' });
 					}
 				}
 
@@ -1307,15 +1397,18 @@ export default class DeviceSupervisor {
 					const shouldBeEnabled = features.enableSensorPublish;
 					
 					if (shouldBeEnabled === isCurrentlyEnabled) {
-						console.log(`      Sensor Publish: Already ${shouldBeEnabled ? 'enabled' : 'disabled'}`);
+						this.agentLogger?.debugSync('Sensor Publish already in desired state', {
+							category: 'Agent',
+							enabled: shouldBeEnabled
+						});
 					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
-						console.log('      ⚙️  Enabling Sensor Publish...');
+						this.agentLogger?.infoSync('Enabling Sensor Publish', { category: 'Agent' });
 						await this.initializeSensorPublish();
 					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
-						console.log('      🛑 Disabling Sensor Publish...');
+						this.agentLogger?.infoSync('Disabling Sensor Publish', { category: 'Agent' });
 						await this.sensorPublish!.stop();
 						this.sensorPublish = undefined;
-						console.log('      ✅ Sensor Publish disabled');
+						this.agentLogger?.infoSync('Sensor Publish disabled successfully', { category: 'Agent' });
 					}
 				}
 
@@ -1325,87 +1418,100 @@ export default class DeviceSupervisor {
 					const shouldBeEnabled = features.enableShadow;
 					
 					if (shouldBeEnabled === isCurrentlyEnabled) {
-						console.log(`      Shadow Feature: Already ${shouldBeEnabled ? 'enabled' : 'disabled'}`);
+						this.agentLogger?.debugSync('Shadow Feature already in desired state', {
+							category: 'Agent',
+							enabled: shouldBeEnabled
+						});
 					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
-						console.log('      ⚙️  Enabling Shadow Feature...');
+						this.agentLogger?.infoSync('Enabling Shadow Feature', { category: 'Agent' });
 						await this.initializeShadowFeature();
 					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
-						console.log('      🛑 Disabling Shadow Feature...');
+						this.agentLogger?.infoSync('Disabling Shadow Feature', { category: 'Agent' });
 						await this.shadowFeature!.stop();
 						this.shadowFeature = undefined;
-						console.log('      ✅ Shadow Feature disabled');
+						this.agentLogger?.infoSync('Shadow Feature disabled successfully', { category: 'Agent' });
 					}
 				}
 
 				// Log other feature flags for future implementation
 				if (features.pollingIntervalMs !== undefined) {
-					console.log(`      Polling interval: ${features.pollingIntervalMs}ms`);
+					this.agentLogger?.debugSync('Polling interval configured', {
+						category: 'Agent',
+						pollingIntervalMs: features.pollingIntervalMs
+					});
 				}
 				if (features.enableHealthChecks !== undefined) {
-					console.log(`      Health checks: ${features.enableHealthChecks ? 'Enabled' : 'Disabled'}`);
+					this.agentLogger?.debugSync('Health checks configured', {
+						category: 'Agent',
+						enabled: features.enableHealthChecks
+					});
 				}
 			}
 
-			console.log('✅ Configuration update processed');
+			this.agentLogger?.infoSync('Configuration update processed successfully', {
+				category: 'Agent'
+			});
 		} catch (error) {
-			console.error('❌ Failed to process config update:', error);
+			this.agentLogger?.errorSync('Failed to process config update', error instanceof Error ? error : new Error(String(error)), {
+				category: 'Agent'
+			});
 		}
 	}
 
 	public async stop(): Promise<void> {
-		console.log('🛑 Stopping Device Supervisor...');
+		this.agentLogger?.infoSync('Stopping Device Agent', { component: 'Agent' });
 
 		try {
 			// Stop Digital Twin State Manager
 			if (this.twinStateManager) {
 				this.twinStateManager.stop();
-				console.log('✅ Digital Twin State Manager stopped');
+				this.agentLogger?.infoSync('Digital Twin State Manager stopped', { component: 'Agent' });
 			}
 
 			// Stop Shadow Feature
 			if (this.shadowFeature) {
 				await this.shadowFeature.stop();
-				console.log('✅ Shadow Feature stopped');
+				this.agentLogger?.infoSync('Shadow Feature stopped', { component: 'Agent' });
 			}
 
 			// Stop Sensor Publish
 			if (this.sensorPublish) {
 				await this.sensorPublish.stop();
-				console.log('✅ Sensor Publish stopped');
+				this.agentLogger?.infoSync('Sensor Publish stopped', { component: 'Agent' });
 			}
 
 			// Stop Sensor Config Handler
 			if (this.sensorConfigHandler) {
 				// No explicit stop method, just clear reference
-				console.log('✅ Sensor Config Handler cleanup');
+				this.agentLogger?.infoSync('Sensor Config Handler cleanup', { component: 'Agent' });
 			}
 
 			// Stop Job Engine
 			if (this.jobEngine) {
 				// Clean up any scheduled or running jobs
-				console.log('✅ Job Engine cleanup');
+				this.agentLogger?.infoSync('Job Engine cleanup', { component: 'Agent' });
 			}
 
 			// Stop Cloud Jobs Adapter
 			if (this.cloudJobsAdapter) {
 				this.cloudJobsAdapter.stop();
-				console.log('✅ Cloud Jobs Adapter stopped');
+				this.agentLogger?.infoSync('Cloud Jobs Adapter stopped', { component: 'Agent' });
 			}
 
 			// Stop SSH tunnel
 			if (this.sshTunnel) {
 				await this.sshTunnel.disconnect();
-				console.log('✅ SSH tunnel stopped');
+				this.agentLogger?.infoSync('SSH tunnel stopped', { component: 'Agent' });
 			}
 
 			// Stop API binder
 			if (this.apiBinder) {
 				await this.apiBinder.stop();
-				console.log('✅ API Binder stopped');
+				this.agentLogger?.infoSync('API Binder stopped', { component: 'Agent' });
 			}
 
 			// Stop log backends (flush buffers, clear timers)
-			console.log('🔄 Stopping log backends...');
+			this.agentLogger?.infoSync('Stopping log backends', { component: 'Agent' });
 			for (const backend of this.logBackends) {
 				try {
 					if ('disconnect' in backend && typeof backend.disconnect === 'function') {
@@ -1414,33 +1520,38 @@ export default class DeviceSupervisor {
 						await (backend as any).stop();
 					}
 				} catch (error) {
-					console.warn(`⚠️  Error stopping log backend: ${error}`);
+					this.agentLogger?.warnSync('Error stopping log backend', {
+						component: 'Agent',
+						error: error instanceof Error ? error.message : String(error)
+					});
 				}
 			}
-			console.log('✅ Log backends stopped');
+			this.agentLogger?.infoSync('Log backends stopped', { component: 'Agent' });
 
 			// Stop MQTT Manager (shared singleton - do this after all MQTT-dependent features)
 			const mqttManager = MqttManager.getInstance();
 			if (mqttManager.isConnected()) {
 				await mqttManager.disconnect();
-				console.log('✅ MQTT Manager disconnected');
+				this.agentLogger?.infoSync('MQTT Manager disconnected', { component: 'Agent' });
 			}
 
 			// Stop device API
 			if (this.deviceAPI) {
 				await this.deviceAPI.stop();
-				console.log('✅ Device API stopped');
+				this.agentLogger?.infoSync('Device API stopped', { component: 'Agent' });
 			}
 
 			// Stop container manager
 			if (this.containerManager) {
 				this.containerManager.stopAutoReconciliation();
-				console.log('✅ Container manager stopped');
+				this.agentLogger?.infoSync('Container manager stopped', { component: 'Agent' });
 			}
 
-			console.log('✅ Device Supervisor stopped');
+			this.agentLogger?.infoSync('Device Agent stopped successfully', { component: 'Agent' });
 		} catch (error) {
-			console.error('❌ Error stopping Device Supervisor:', error);
+			this.agentLogger?.errorSync('Error stopping Device Agent', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Agent'
+			});
 			throw error;
 		}
 	}

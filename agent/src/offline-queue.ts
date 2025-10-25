@@ -13,6 +13,7 @@
  */
 
 import * as db from './db';
+import type { AgentLogger } from './logging/agent-logger';
 
 export interface QueueItem<T> {
 	id?: number;
@@ -27,10 +28,12 @@ export class OfflineQueue<T> {
 	private maxSize: number;
 	private inMemoryQueue: T[] = [];
 	private isInitialized = false;
+	private logger?: AgentLogger;
 	
-	constructor(queueName: string, maxSize: number = 1000) {
+	constructor(queueName: string, maxSize: number = 1000, logger?: AgentLogger) {
 		this.queueName = queueName;
 		this.maxSize = maxSize;
+		this.logger = logger;
 	}
 	
 	/**
@@ -55,16 +58,25 @@ export class OfflineQueue<T> {
 					table.integer('attempts').defaultTo(0);
 					table.index(['queueName', 'createdAt']);
 				});
-				console.log(`✅ Created offline_queue table`);
+				this.logger?.infoSync('Created offline_queue table', {
+					component: 'OfflineQueue'
+				});
 			}
 			
 			// Load existing items from disk
 			await this.loadFromDisk();
 			
 			this.isInitialized = true;
-			console.log(`✅ OfflineQueue '${this.queueName}' initialized (${this.inMemoryQueue.length} items)`);
+			this.logger?.infoSync('OfflineQueue initialized', {
+				component: 'OfflineQueue',
+				queueName: this.queueName,
+				itemCount: this.inMemoryQueue.length
+			});
 		} catch (error) {
-			console.error(`❌ Failed to initialize OfflineQueue '${this.queueName}':`, error);
+			this.logger?.errorSync('Failed to initialize OfflineQueue', error instanceof Error ? error : new Error(String(error)), {
+				component: 'OfflineQueue',
+				queueName: this.queueName
+			});
 			throw error;
 		}
 	}
@@ -84,7 +96,11 @@ export class OfflineQueue<T> {
 			// Enforce size limit (drop oldest)
 			if (this.inMemoryQueue.length > this.maxSize) {
 				const dropped = this.inMemoryQueue.shift();
-				console.log(`⚠️  Queue '${this.queueName}' full, dropped oldest item`);
+				this.logger?.warnSync('Queue full, dropped oldest item', {
+					component: 'OfflineQueue',
+					queueName: this.queueName,
+					maxSize: this.maxSize
+				});
 				
 				// Remove from disk too
 				const oldestInDb = await db.models('offline_queue')
@@ -108,7 +124,10 @@ export class OfflineQueue<T> {
 			});
 			
 		} catch (error) {
-			console.error(`❌ Failed to enqueue item to '${this.queueName}':`, error);
+			this.logger?.errorSync('Failed to enqueue item', error instanceof Error ? error : new Error(String(error)), {
+				component: 'OfflineQueue',
+				queueName: this.queueName
+			});
 			throw error;
 		}
 	}
@@ -132,7 +151,11 @@ export class OfflineQueue<T> {
 			return 0;
 		}
 		
-		console.log(`🔄 Flushing queue '${this.queueName}' (${this.inMemoryQueue.length} items)...`);
+		this.logger?.infoSync('Flushing queue', {
+			component: 'OfflineQueue',
+			queueName: this.queueName,
+			itemCount: this.inMemoryQueue.length
+		});
 		
 		let successCount = 0;
 		const itemsToProcess = [...this.inMemoryQueue]; // Copy to avoid modification during iteration
@@ -151,20 +174,34 @@ export class OfflineQueue<T> {
 				
 				successCount++;
 			} catch (error: any) {
-				console.error(`❌ Failed to flush item ${i + 1}/${itemsToProcess.length}:`, error.message);
+				this.logger?.errorSync('Failed to flush item', error instanceof Error ? error : new Error(error.message), {
+					component: 'OfflineQueue',
+					queueName: this.queueName,
+					itemNumber: i + 1,
+					totalItems: itemsToProcess.length
+				});
 				
 				// Update attempts counter
 				await this.incrementAttempts(i);
 				
 				if (!continueOnError) {
-					console.log(`   Stopping flush (${successCount} items sent successfully)`);
+					this.logger?.infoSync('Stopping flush', {
+						component: 'OfflineQueue',
+						queueName: this.queueName,
+						successCount
+					});
 					break;
 				}
 				
 				// Check if max retries exceeded
 				const attempts = await this.getAttempts(i);
 				if (attempts >= maxRetries) {
-					console.log(`   ⚠️  Max retries (${maxRetries}) exceeded, dropping item`);
+					this.logger?.warnSync('Max retries exceeded, dropping item', {
+						component: 'OfflineQueue',
+						queueName: this.queueName,
+						maxRetries,
+						attempts
+					});
 					this.inMemoryQueue.shift();
 					await this.removeOldestFromDisk();
 				} else {
@@ -175,7 +212,12 @@ export class OfflineQueue<T> {
 		}
 		
 		if (successCount > 0) {
-			console.log(`✅ Flushed ${successCount}/${itemsToProcess.length} items from queue '${this.queueName}'`);
+			this.logger?.infoSync('Queue flush completed', {
+				component: 'OfflineQueue',
+				queueName: this.queueName,
+				successCount,
+				totalItems: itemsToProcess.length
+			});
 		}
 		
 		return successCount;
@@ -209,7 +251,10 @@ export class OfflineQueue<T> {
 			.where({ queueName: this.queueName })
 			.delete();
 		
-		console.log(`🗑️  Cleared queue '${this.queueName}'`);
+		this.logger?.infoSync('Queue cleared', {
+			component: 'OfflineQueue',
+			queueName: this.queueName
+		});
 	}
 	
 	/**
@@ -224,7 +269,10 @@ export class OfflineQueue<T> {
 			
 			this.inMemoryQueue = items.map((item: any) => JSON.parse(item.payload) as T);
 		} catch (error) {
-			console.error(`❌ Failed to load queue '${this.queueName}' from disk:`, error);
+			this.logger?.errorSync('Failed to load queue from disk', error instanceof Error ? error : new Error(String(error)), {
+				component: 'OfflineQueue',
+				queueName: this.queueName
+			});
 			this.inMemoryQueue = [];
 		}
 	}

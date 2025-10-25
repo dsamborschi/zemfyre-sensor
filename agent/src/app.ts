@@ -10,7 +10,7 @@
  */
 
 import process from 'process';
-import DeviceSupervisor from './supervisor';
+import DeviceAgent from './agent';
 
 // Register signal handlers for graceful shutdown
 process.on('SIGTERM', () => {
@@ -30,7 +30,7 @@ process.on('unhandledRejection', (reason, promise) => {
 });
 
 // Start the device agent
-const supervisor = new DeviceSupervisor();
+const supervisor = new DeviceAgent();
 
 supervisor.init().catch((error) => {
 	console.error('Failed to initialize device agent:', error);
