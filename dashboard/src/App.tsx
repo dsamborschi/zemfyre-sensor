@@ -762,17 +762,52 @@ export default function App() {
     setSidebarOpen(false); // Close sidebar on mobile after selection
   };
 
-  const handleAddApplication = (app: Omit<Application, "id">) => {
-    const newApp: Application = {
-      ...app,
-      id: `app-${Date.now()}`,
-      // Ensure services array exists
-      services: app.services || [],
-    };
-    setApplications(prev => ({
-      ...prev,
-      [selectedDeviceId]: [...(prev[selectedDeviceId] || []), newApp],
-    }));
+  const handleAddApplication = async (app: Omit<Application, "id">) => {
+    try {
+      const selectedDevice = devices.find(d => d.id === selectedDeviceId);
+      if (!selectedDevice?.deviceUuid) {
+        toast.error('No device selected');
+        return;
+      }
+
+      // Create application with services via API
+      const response = await fetch(
+        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/apps/${app.appId}`),
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            services: app.services.map(service => ({
+              serviceName: service.serviceName,
+              image: service.imageName,
+              ports: service.config?.ports || [],
+              environment: service.config?.environment || {},
+              volumes: service.config?.volumes || [],
+            }))
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to deploy application');
+      }
+
+      const result = await response.json();
+      toast.success(`Application "${app.appName}" deployed successfully!`);
+      
+      // Refresh applications to show the newly deployed app
+      setTimeout(() => {
+        // Trigger re-fetch by updating devices array reference
+        setDevices(prev => [...prev]);
+      }, 1000);
+
+    } catch (error: any) {
+      console.error('Error deploying application:', error);
+      toast.error(`Failed to deploy application: ${error.message}`);
+    }
   };
 
   const handleUpdateApplication = (updatedApp: Application) => {
