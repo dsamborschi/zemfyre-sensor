@@ -113,19 +113,6 @@ const mockDevices: Device[] = [
   },
 ];
 
-// Helper function to generate random variation
-const randomVariation = (base: number, range: number = 5) => {
-  const variation = (Math.random() - 0.5) * range * 2;
-  return Math.max(0, Math.min(100, base + variation));
-};
-
-// Helper function to generate time labels
-const generateTimeLabel = (offset: number) => {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - offset * 5);
-  return now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
-};
-
 // Mock network interfaces for each device
 const mockNetworkInterfaces: Record<string, any[]> = {
   "1": [
@@ -898,33 +885,8 @@ export default function App() {
     }));
   };
 
-    // Initialize history data when device is selected
-  useEffect(() => {
-    if (!selectedDevice) return;
-
-    const initialCpuHistory = Array.from({ length: 10 }, (_, i) => ({
-      time: generateTimeLabel(9 - i),
-      value: randomVariation(selectedDevice.cpu, 5),
-    }));
-    setCpuHistory(initialCpuHistory);
-
-    const initialMemoryHistory = Array.from({ length: 10 }, (_, i) => {
-      const used = randomVariation(selectedDevice.memory * 0.16, 1);
-      return {
-        time: generateTimeLabel(9 - i),
-        used,
-        available: 16 - used,
-      };
-    });
-    setMemoryHistory(initialMemoryHistory);
-
-    const initialNetworkHistory = Array.from({ length: 10 }, (_, i) => ({
-      time: generateTimeLabel(9 - i),
-      download: Math.random() * 30 + 10,
-      upload: Math.random() * 15 + 3,
-    }));
-    setNetworkHistory(initialNetworkHistory);
-  }, [selectedDeviceId]); // Removed selectedDevice to prevent infinite loop on device updates
+  // No history initialization - charts will populate only with real data from API updates
+  // History arrays start empty and fill as new data arrives from device metrics
 
   // Disabled mock simulation - using real data from API only
   // Real device metrics are fetched every 30 seconds from /api/v1/devices
