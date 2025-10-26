@@ -4,8 +4,8 @@
   },
   "features": {
     "enableShadow": false,
-    "enableCloudJobs": true,
-    "enableJobEngine": true,
+    "enableCloudJobs": false,
+    "enableJobEngine": false,
     "enableRemoteAccess": false,
     "enableSensorPublish": false
   },

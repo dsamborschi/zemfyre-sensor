@@ -268,15 +268,36 @@ mosquitto:
   metrics:
     enabled: ${hasDedicatedPrometheus}  # Only enable if dedicated Prometheus is deployed`;
     
-    // Determine MQTT service type based on base domain
+    // Determine service types based on base domain
     // Use NodePort for Docker Desktop (localhost), ClusterIP for production
     const isDockerDesktop = this.baseDomain === 'localhost';
-    const mqttServiceSection = isDockerDesktop ? `
+    
+    // Generate unique NodePort numbers based on customer short ID
+    // NodePort range: 30000-32767 (K8s default)
+    // Strategy: Use hash of customer ID to generate deterministic port offsets
+    let serviceTypeSection = '';
+    if (isDockerDesktop) {
+      // Hash the customer ID to get a number between 0-2000
+      const hashCode = shortId.split('').reduce((acc, char) => {
+        return ((acc << 5) - acc) + char.charCodeAt(0);
+      }, 0);
+      const portOffset = Math.abs(hashCode % 2000); // 0-2000 range for up to 2000 customers
+      
+      const mqttPort = 31000 + portOffset;          // e.g., 31567
+      const websocketPort = 31000 + portOffset + 1; // e.g., 31568
+      
+      serviceTypeSection = `
 mosquitto:
   serviceType: NodePort
   nodePorts:
-    mqtt: 31883
-    websocket: 31901` : '';
+    mqtt: ${mqttPort}
+    websocket: ${websocketPort}`;
+      
+      logger.info('NodePort allocation for Docker Desktop', {
+        customerId: shortId,
+        ports: { mqtt: mqttPort, websocket: websocketPort }
+      });
+    }
     
     const valuesContent = `
 customer:
@@ -293,7 +314,7 @@ domain:
   base: ${this.baseDomain}
 ingress:
   host: ${shortId}.${this.baseDomain}${monitoringSection}
-${mosquittoMetricsSection}${mqttServiceSection}
+${mosquittoMetricsSection}${serviceTypeSection}
 `;
     
     await fs.writeFile(tempValuesFile, valuesContent, 'utf8');

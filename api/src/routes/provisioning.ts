@@ -19,6 +19,7 @@ import rateLimit from 'express-rate-limit';
 import { query } from '../db/connection';
 import {
   DeviceModel,
+  DeviceTargetStateModel,
 } from '../db/models';
 import {
   validateProvisioningKey,
@@ -40,6 +41,8 @@ import {
   buildBrokerUrl,
   formatBrokerConfigForClient
 } from '../utils/mqtt-broker-config';
+import { SystemConfigModel } from '../db/system-config-model';
+import { generateDefaultTargetState } from '../services/default-target-state-generator';
 
 export const router = express.Router();
 
@@ -641,6 +644,40 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
       mqtt_username: mqttCredentials.username
     });
     console.log(`✅ Device record updated with MQTT username: ${mqttCredentials.username}`);
+
+    // Step 7c: Create default target state based on license
+    try {
+      // Get license data from system_config
+      const licenseData = await SystemConfigModel.get('license_data');
+      console.log(`📋 Creating default target state for device ${uuid.substring(0, 8)}...`);
+      
+      // Generate default config based on license features
+      const { apps, config } = generateDefaultTargetState(licenseData);
+      
+      // Set target state (will create or update)
+      await DeviceTargetStateModel.set(uuid, apps, config);
+      
+      console.log(`✅ Default target state created:`, {
+        plan: licenseData?.plan || 'unknown',
+        metricsInterval: config.settings.metricsIntervalMs,
+        loggingLevel: config.logging.level,
+        cloudJobsEnabled: config.features.enableCloudJobs,
+        metricsExportEnabled: config.features.enableMetricsExport
+      });
+    } catch (error) {
+      console.error('⚠️  Failed to create default target state:', error);
+      // Don't fail provisioning if target state creation fails
+      await logAuditEvent({
+        eventType: AuditEventType.PROVISIONING_FAILED,
+        deviceUuid: uuid,
+        ipAddress,
+        severity: AuditSeverity.WARNING,
+        details: { 
+          reason: 'Failed to create default target state',
+          error: error instanceof Error ? error.message : String(error)
+        }
+      });
+    }
 
     // Step 8: Increment provisioning key usage
     await incrementProvisioningKeyUsage(provisioningKeyRecord.id);

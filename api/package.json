@@ -13,7 +13,8 @@
     "migrate:status": "ts-node scripts/migrate.ts status",
     "migrate:create": "ts-node scripts/migrate.ts create",
     "migrate:mark-applied": "ts-node scripts/mark-migrations-applied.ts",
-    "migrate:unmark": "ts-node scripts/unmark-migrations.ts"
+    "migrate:unmark": "ts-node scripts/unmark-migrations.ts",
+    "apply-default-target-state": "ts-node src/scripts/apply-default-target-state.ts"
   },
   "keywords": [
     "iot",
