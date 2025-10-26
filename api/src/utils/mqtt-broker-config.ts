@@ -57,11 +57,44 @@ export async function getBrokerConfigForDevice(deviceUuid: string): Promise<Mqtt
 
 /**
  * Get the default broker configuration
+ * Priority: Environment variables > Database > null
+ * 
+ * This allows:
+ * - K8s deployments to inject namespace URLs via env vars
+ * - Customers to configure external brokers via UI (database)
+ * - Flexible override for cloud brokers (HiveMQ, AWS IoT, etc.)
  * 
  * @returns Default broker configuration or null if not found
  */
 export async function getDefaultBrokerConfig(): Promise<MqttBrokerConfig | null> {
   try {
+    // Priority 1: Check environment variable override
+    const envHost = process.env.MQTT_BROKER_HOST;
+    const envPort = process.env.MQTT_BROKER_PORT;
+    
+    if (envHost && envPort) {
+      console.log(`[MQTT Config] Using environment override: ${envHost}:${envPort}`);
+      return {
+        id: 0, // Virtual config, not from DB
+        name: 'Environment Override',
+        protocol: process.env.MQTT_BROKER_PROTOCOL || 'mqtt',
+        host: envHost,
+        port: parseInt(envPort, 10),
+        username: process.env.MQTT_BROKER_USERNAME || null,
+        use_tls: process.env.MQTT_BROKER_USE_TLS === 'true',
+        ca_cert: process.env.MQTT_BROKER_CA_CERT || null,
+        client_cert: process.env.MQTT_BROKER_CLIENT_CERT || null,
+        verify_certificate: process.env.MQTT_BROKER_VERIFY_CERT !== 'false', // Default true
+        client_id_prefix: process.env.MQTT_CLIENT_ID_PREFIX || 'Iotistic',
+        keep_alive: parseInt(process.env.MQTT_KEEP_ALIVE || '60', 10),
+        clean_session: process.env.MQTT_CLEAN_SESSION !== 'false', // Default true
+        reconnect_period: parseInt(process.env.MQTT_RECONNECT_PERIOD || '1000', 10),
+        connect_timeout: parseInt(process.env.MQTT_CONNECT_TIMEOUT || '30000', 10),
+        broker_type: process.env.MQTT_BROKER_TYPE || 'cloud'
+      };
+    }
+    
+    // Priority 2: Fallback to database configuration
     const result = await query(
       `SELECT 
         id, name, protocol, host, port, username, 
@@ -73,7 +106,13 @@ export async function getDefaultBrokerConfig(): Promise<MqttBrokerConfig | null>
       LIMIT 1`
     );
     
-    return result.rows.length > 0 ? result.rows[0] : null;
+    if (result.rows.length > 0) {
+      console.log(`[MQTT Config] Using database default: ${result.rows[0].host}:${result.rows[0].port}`);
+      return result.rows[0];
+    }
+    
+    console.warn('[MQTT Config] No default broker configuration found');
+    return null;
   } catch (error) {
     console.error('Error fetching default broker config:', error);
     return null;

@@ -61,7 +61,7 @@ spec:
             secretKeyRef:
               name: {{ include "customer-instance.fullname" . }}-secrets
               key: POSTGRES_DB
-        # MQTT connection
+        # MQTT connection (internal API use)
         - name: MQTT_BROKER_URL
           value: mqtt://{{ include "customer-instance.fullname" . }}-mosquitto:{{ .Values.mosquitto.ports.mqtt }}
         - name: MQTT_USERNAME
@@ -74,6 +74,16 @@ spec:
             secretKeyRef:
               name: {{ include "customer-instance.fullname" . }}-secrets
               key: MQTT_PASSWORD
+        # MQTT broker configuration (for device provisioning responses)
+        # These env vars override database defaults - allows external brokers
+        - name: MQTT_BROKER_HOST
+          value: {{ .Values.mqtt.broker.host | default .Values.ingress.host | quote }}
+        - name: MQTT_BROKER_PORT
+          value: {{ .Values.mqtt.broker.port | default .Values.mosquitto.ports.mqtt | quote }}
+        - name: MQTT_BROKER_PROTOCOL
+          value: {{ .Values.mqtt.broker.protocol | default "mqtt" | quote }}
+        - name: MQTT_BROKER_USE_TLS
+          value: {{ .Values.mqtt.broker.useTls | default "false" | quote }}
         # Customer info
         - name: CUSTOMER_ID
           valueFrom:

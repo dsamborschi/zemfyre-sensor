@@ -315,7 +315,11 @@ export class ApiBinder extends EventEmitter {
 		}
 		
 		const apiVersion = process.env.API_VERSION || 'v1';
-		const endpoint = `${this.config.cloudApiEndpoint}/api/${apiVersion}/device/${deviceInfo.uuid}/state`;
+		// Normalize API endpoint - avoid double /api if endpoint already includes it
+		const normalizedEndpoint = this.config.cloudApiEndpoint.endsWith('/api')
+			? this.config.cloudApiEndpoint
+			: `${this.config.cloudApiEndpoint}/api`;
+		const endpoint = `${normalizedEndpoint}/${apiVersion}/device/${deviceInfo.uuid}/state`;
 		
 		try {
 			this.logger?.debugSync('Polling target state', {
@@ -749,7 +753,11 @@ export class ApiBinder extends EventEmitter {
 	private async sendReport(report: DeviceStateReport): Promise<void> {
 		const deviceInfo = this.deviceManager.getDeviceInfo();
 		const apiVersion = process.env.API_VERSION || 'v1';
-		const endpoint = `${this.config.cloudApiEndpoint}/api/${apiVersion}/device/state`;
+		// Normalize API endpoint - avoid double /api if endpoint already includes it
+		const normalizedEndpoint = this.config.cloudApiEndpoint.endsWith('/api')
+			? this.config.cloudApiEndpoint
+			: `${this.config.cloudApiEndpoint}/api`;
+		const endpoint = `${normalizedEndpoint}/${apiVersion}/device/state`;
 		
 		// Convert to JSON
 		const jsonPayload = JSON.stringify(report);

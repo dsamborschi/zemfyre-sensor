@@ -279,7 +279,11 @@ export class DeviceManager {
 		}
 
 		const apiVersion = process.env.API_VERSION || 'v1';
-		const url = `${apiEndpoint}/api/${apiVersion}/device/register`;
+		// Normalize API endpoint - avoid double /api if endpoint already includes it
+		const normalizedEndpoint = apiEndpoint.endsWith('/api') 
+			? apiEndpoint 
+			: `${apiEndpoint}/api`;
+		const url = `${normalizedEndpoint}/${apiVersion}/device/register`;
 		
 		console.log('📡 Registering device with API:', url);
 		console.log('   UUID:', provisionRequest.uuid);
@@ -316,7 +320,11 @@ export class DeviceManager {
 	 */
 	async exchangeKeys(apiEndpoint: string, uuid: string, deviceApiKey: string): Promise<void> {
 		const apiVersion = process.env.API_VERSION || 'v1';
-		const url = `${apiEndpoint}/api/${apiVersion}/device/${uuid}/key-exchange`;
+		// Normalize API endpoint - avoid double /api if endpoint already includes it
+		const normalizedEndpoint = apiEndpoint.endsWith('/api') 
+			? apiEndpoint 
+			: `${apiEndpoint}/api`;
+		const url = `${normalizedEndpoint}/${apiVersion}/device/${uuid}/key-exchange`;
 		
 		console.log('🔑 Exchanging keys for device:', uuid);
 

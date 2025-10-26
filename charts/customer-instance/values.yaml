@@ -87,6 +87,15 @@ mosquitto:
           cpu: 100m
           memory: 128Mi
 
+# MQTT broker configuration for device provisioning
+# Override these to use external MQTT brokers (HiveMQ, AWS IoT, etc.)
+mqtt:
+  broker:
+    # host: ""  # If not set, defaults to ingress.host for K8s deployments
+    # port: 1883
+    # protocol: "mqtt"  # mqtt, mqtts, ws, wss
+    # useTls: false
+
 # API service
 api:
   enabled: true
