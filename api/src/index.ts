@@ -206,14 +206,14 @@ async function startServer() {
   }
 
   // Start image monitor for Docker Hub polling
-  try {
-    const { imageMonitor } = await import('./services/image-monitor');
-    imageMonitor.start();
-    console.log('✅ Image Monitor started');
-  } catch (error) {
-    console.error('⚠️  Failed to start image monitor:', error);
-    // Don't exit - this is not critical for API operation
-  }
+  // try {
+  //   const { imageMonitor } = await import('./services/image-monitor');
+  //   imageMonitor.start();
+  //   console.log('✅ Image Monitor started');
+  // } catch (error) {
+  //   console.error('⚠️  Failed to start image monitor:', error);
+  //   // Don't exit - this is not critical for API operation
+  // }
 
   // Start job scheduler for scheduled/recurring jobs
   try {

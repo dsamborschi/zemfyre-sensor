@@ -270,8 +270,8 @@ mosquitto:
     
     const valuesContent = `
 customer:
-  id: ${sanitizedCustomerId}
-  shortId: "${shortId}"
+  id: ${shortId}
+  fullId: ${sanitizedCustomerId}
   originalId: ${options.customerId}
   email: ${options.email}
   companyName: "${options.companyName}"

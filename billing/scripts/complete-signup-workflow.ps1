@@ -526,3 +526,182 @@ Write-Host ""
 
 Write-Success "All systems operational! Customer is ready to use the platform."
 Write-Host ""
+
+# ============================================================
+# STEP 7: Update Hosts File for Local Access
+# ============================================================
+
+Write-Step "Configuring Local DNS (Hosts File)" -Step 7
+
+# Extract short customer ID (8 characters)
+$shortId = $customerId.Substring(5, 8)
+$hostname = "$shortId.localhost"
+
+Write-Info "Customer subdomain: $hostname"
+
+# Function to update hosts file with elevation
+function Update-HostsFile {
+    param(
+        [string]$Hostname,
+        [string]$ShortId
+    )
+    
+    $hostsPath = "C:\Windows\System32\drivers\etc\hosts"
+    $entry = "127.0.0.1    $Hostname    # Iotistic - $ShortId"
+    
+    # Check if running as administrator
+    $isAdmin = ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+    
+    if (-not $isAdmin) {
+        Write-Warning-Message "Not running as Administrator"
+        Write-Info "Attempting to elevate privileges..."
+        
+        # Create a script to update hosts file
+        $updateScript = @"
+`$hostsPath = '$hostsPath'
+`$entry = '$entry'
+
+# Backup hosts file
+`$timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+try {
+    Copy-Item `$hostsPath "`$hostsPath.backup-`$timestamp" -ErrorAction Stop
+} catch {
+    Write-Host "Warning: Could not create backup: `$_" -ForegroundColor Yellow
+}
+
+# Read current content
+`$hostsContent = Get-Content `$hostsPath -ErrorAction Stop
+
+# Remove old Iotistic entries
+`$hostsContent = `$hostsContent | Where-Object { `$_ -notmatch '# Iotistic' }
+
+# Add new entry
+`$hostsContent += ''
+`$hostsContent += `$entry
+
+# Write back
+`$hostsContent | Set-Content `$hostsPath -Force -ErrorAction Stop
+
+Write-Host "✓ Hosts file updated successfully!" -ForegroundColor Green
+Write-Host "  Added entry: `$entry" -ForegroundColor Gray
+"@
+        
+        # Save script to temp file
+        $tempScript = "$env:TEMP\update-hosts-$(Get-Random).ps1"
+        $updateScript | Out-File -FilePath $tempScript -Encoding UTF8
+        
+        try {
+            # Run elevated
+            $psi = New-Object System.Diagnostics.ProcessStartInfo
+            $psi.FileName = "powershell.exe"
+            $psi.Arguments = "-ExecutionPolicy Bypass -File `"$tempScript`""
+            $psi.Verb = "runas"
+            $psi.WindowStyle = "Hidden"
+            $psi.UseShellExecute = $true
+            
+            $process = [System.Diagnostics.Process]::Start($psi)
+            $process.WaitForExit()
+            
+            if ($process.ExitCode -eq 0) {
+                Write-Success "Hosts file updated successfully!"
+                Write-Info "Entry added: $entry"
+                return $true
+            }
+            else {
+                Write-Error-Message "Failed to update hosts file (Exit code: $($process.ExitCode))"
+                return $false
+            }
+        }
+        catch {
+            Write-Error-Message "Failed to elevate: $($_.Exception.Message)"
+            return $false
+        }
+        finally {
+            # Clean up temp script
+            if (Test-Path $tempScript) {
+                Remove-Item $tempScript -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+    else {
+        # Already running as admin, update directly
+        try {
+            # Backup
+            $timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+            Copy-Item $hostsPath "$hostsPath.backup-$timestamp" -ErrorAction Stop
+            
+            # Read, filter, and add
+            $hostsContent = Get-Content $hostsPath
+            $hostsContent = $hostsContent | Where-Object { $_ -notmatch '# Iotistic' }
+            $hostsContent += ""
+            $hostsContent += $entry
+            
+            # Write back
+            $hostsContent | Set-Content $hostsPath -Force
+            
+            Write-Success "Hosts file updated successfully!"
+            Write-Info "Entry added: $entry"
+            return $true
+        }
+        catch {
+            Write-Error-Message "Failed to update hosts file: $($_.Exception.Message)"
+            return $false
+        }
+    }
+}
+
+# Attempt to update hosts file
+$hostsUpdated = Update-HostsFile -Hostname $hostname -ShortId $shortId
+
+if (-not $hostsUpdated) {
+    Write-Host ""
+    Write-Warning-Message "Automatic hosts file update failed"
+    Write-Host ""
+    Write-Host "📝 Manual Setup Required:" -ForegroundColor Yellow
+    Write-Host ""
+    Write-Host "  1. Open Notepad as Administrator" -ForegroundColor White
+    Write-Host "  2. Open file: C:\Windows\System32\drivers\etc\hosts" -ForegroundColor White
+    Write-Host "  3. Add this line at the bottom:" -ForegroundColor White
+    Write-Host ""
+    Write-Host "     127.0.0.1    $hostname    # Iotistic" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "  4. Save and close" -ForegroundColor White
+    Write-Host ""
+}
+else {
+    Write-Host ""
+    Write-Success "Local DNS configured! You can now access:"
+    Write-Host ""
+    Write-Host "  🌐 http://$hostname" -ForegroundColor Cyan -BackgroundColor DarkBlue
+    Write-Host ""
+    
+    # Try to get actual K8s ingress
+    try {
+        Write-Info "Verifying Kubernetes ingress..."
+        $ingresses = kubectl get ingress --all-namespaces -o json | ConvertFrom-Json
+        $customerIngress = $ingresses.items | Where-Object { $_.metadata.namespace -eq "customer-$shortId" }
+        
+        if ($customerIngress) {
+            Write-Success "Ingress found and configured!"
+            Write-Info "Namespace: $($customerIngress.metadata.namespace)"
+            Write-Info "Host: $($customerIngress.spec.rules[0].host)"
+            
+            if ($customerIngress.spec.rules[0].host -eq $hostname) {
+                Write-Success "Hostname matches! All configured correctly."
+            }
+            else {
+                Write-Warning-Message "Ingress hostname mismatch:"
+                Write-Info "  Expected: $hostname"
+                Write-Info "  Actual: $($customerIngress.spec.rules[0].host)"
+            }
+        }
+        else {
+            Write-Info "Ingress not yet created (deployment may still be in progress)"
+        }
+    }
+    catch {
+        Write-Info "Could not verify ingress (kubectl may not be available)"
+    }
+}
+
+Write-Host ""

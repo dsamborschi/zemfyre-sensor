@@ -16,7 +16,7 @@ license:
 
 # Domain configuration
 domain:
-  base: "iotistic.ca"
+  base: "iotistic.local"  # Use .local for local dev, change to iotistic.ca for production
   # Instance will be accessible at: {customer.id}.{domain.base}
 
 # PostgreSQL database
@@ -35,8 +35,8 @@ postgres:
     limits:
       cpu: 500m
       memory: 512Mi
-  database: Iotistic
-  username: Iotistic
+  database: iotistic
+  username: iotistic
   # Password will be auto-generated if not provided
   password: ""
   # Prometheus metrics exporter
@@ -145,10 +145,10 @@ ingress:
   enabled: true
   className: nginx
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    # cert-manager.io/cluster-issuer: letsencrypt-prod  # Disabled for local dev
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"  # Disabled for local dev
   tls:
-    enabled: true
+    enabled: false  # Disabled for local dev
 
 # Resource quotas for namespace
 resourceQuota:
@@ -200,7 +200,7 @@ monitoring:
 # Cost monitoring with OpenCost
 opencost:
   # Enable cost monitoring (enabled for all tiers)
-  enabled: true
+  enabled: false
   
   # Docker image
   image:
