@@ -621,6 +621,79 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
+  // Fetch applications for selected device
+  useEffect(() => {
+    const fetchApplications = async () => {
+      if (!selectedDeviceId) return;
+      
+      const selectedDevice = devices.find(d => d.id === selectedDeviceId);
+      if (!selectedDevice?.deviceUuid) return;
+
+      try {
+        const response = await fetch(buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}`));
+        
+        if (!response.ok) {
+          console.error('Failed to fetch device state:', response.statusText);
+          return;
+        }
+
+        const data = await response.json();
+        
+        // Transform current_state.apps to Application format
+        if (data.current_state?.apps) {
+          const apps = data.current_state.apps;
+          const transformedApps: Application[] = [];
+
+          // Apps is an object where keys are appIds
+          Object.entries(apps).forEach(([appId, appData]: [string, any]) => {
+            const services = appData.services || [];
+            
+            // Transform services array
+            const transformedServices = services.map((service: any) => ({
+              id: service.serviceId?.toString() || service.serviceName || `service-${Date.now()}`,
+              name: service.serviceName || 'Unknown Service',
+              image: service.imageName || 'unknown:latest',
+              status: service.status || 'unknown',
+              state: service.state || 'running',
+              health: service.status === 'Running' ? 'healthy' : 
+                      service.status === 'Exited' ? 'stopped' : 'unhealthy',
+            }));
+
+            transformedApps.push({
+              id: appId,
+              appId: parseInt(appId) || 0,
+              appName: appData.appName || `App ${appId}`,
+              name: appData.appName || `App ${appId}`,
+              image: transformedServices.length > 0 ? transformedServices[0].image : 'unknown:latest',
+              status: transformedServices.some(s => s.status === 'Running') ? 'running' : 'stopped',
+              syncStatus: 'synced',
+              services: transformedServices,
+            });
+          });
+
+          setApplications(prev => ({
+            ...prev,
+            [selectedDeviceId]: transformedApps,
+          }));
+        } else {
+          // No apps, set empty array
+          setApplications(prev => ({
+            ...prev,
+            [selectedDeviceId]: [],
+          }));
+        }
+      } catch (error) {
+        console.error('Error fetching applications:', error);
+      }
+    };
+
+    fetchApplications();
+    
+    // Refresh applications every 10 seconds
+    const interval = setInterval(fetchApplications, 10000);
+    return () => clearInterval(interval);
+  }, [selectedDeviceId, devices]);
+
   // Helper function to format last seen time
   const formatLastSeen = (timestamp: string | null): string => {
     if (!timestamp) return 'Never';
