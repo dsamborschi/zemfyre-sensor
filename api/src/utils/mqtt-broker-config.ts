@@ -33,6 +33,16 @@ export interface MqttBrokerConfig {
  */
 export async function getBrokerConfigForDevice(deviceUuid: string): Promise<MqttBrokerConfig | null> {
   try {
+    // First check if environment variables are set (K8s override)
+    const envHost = process.env.MQTT_BROKER_HOST;
+    const envPort = process.env.MQTT_BROKER_PORT;
+    
+    if (envHost && envPort) {
+      // Use getDefaultBrokerConfig() which handles env var priority
+      return await getDefaultBrokerConfig();
+    }
+    
+    // Otherwise query database for device-specific or default broker
     const result = await query(
       `SELECT 
         id, name, protocol, host, port, username, 

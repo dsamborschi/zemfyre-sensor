@@ -309,6 +309,13 @@ export default class DeviceAgent {
 			const mqttUsername = this.deviceInfo.mqttUsername || process.env.MQTT_USERNAME;
 			const mqttPassword = this.deviceInfo.mqttPassword || process.env.MQTT_PASSWORD;
 			
+			// Debug: Log broker URL being used
+			this.agentLogger.infoSync(`🔍 MQTT Broker URL: ${mqttBrokerUrl}`, {
+				component: 'Agent',
+				source: this.deviceInfo.mqttBrokerUrl ? 'provisioning' : 'environment',
+				hasUsername: !!mqttUsername
+			});
+			
 			if (!mqttBrokerUrl) {
 				this.agentLogger.infoSync('MQTT disabled - no broker URL provided', {
 					component: 'Agent',

@@ -50,6 +50,12 @@ mosquitto:
   image:
     repository: iegomez/mosquitto-go-auth
     tag: "latest"
+  # Service type: ClusterIP (default, production) or NodePort (Docker Desktop local dev)
+  serviceType: ClusterIP
+  # Optional NodePort values (only used if serviceType=NodePort)
+  nodePorts:
+    mqtt: 31883  # Expose on localhost:31883 in Docker Desktop
+    websocket: 31901  # Expose on localhost:31901 in Docker Desktop
   ports:
     mqtt: 1883
     websocket: 9001
@@ -91,10 +97,10 @@ mosquitto:
 # Override these to use external MQTT brokers (HiveMQ, AWS IoT, etc.)
 mqtt:
   broker:
-    # host: ""  # If not set, defaults to ingress.host for K8s deployments
-    # port: 1883
-    # protocol: "mqtt"  # mqtt, mqtts, ws, wss
-    # useTls: false
+    host: ""  # If not set, defaults to ingress.host for K8s deployments
+    port: ""  # If not set, defaults to mosquitto.ports.mqtt
+    protocol: ""  # If not set, defaults to "mqtt"
+    useTls: ""  # If not set, defaults to false
 
 # API service
 api:

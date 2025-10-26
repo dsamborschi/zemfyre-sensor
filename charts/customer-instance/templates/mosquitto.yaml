@@ -194,14 +194,20 @@ metadata:
     {{- include "customer-instance.labels" . | nindent 4 }}
     app.kubernetes.io/component: mqtt
 spec:
-  type: ClusterIP
+  type: {{ .Values.mosquitto.serviceType }}
   ports:
   - name: mqtt
     port: {{ .Values.mosquitto.ports.mqtt }}
     targetPort: mqtt
+    {{- if eq .Values.mosquitto.serviceType "NodePort" }}
+    nodePort: {{ .Values.mosquitto.nodePorts.mqtt }}
+    {{- end }}
   - name: websocket
     port: {{ .Values.mosquitto.ports.websocket }}
     targetPort: websocket
+    {{- if eq .Values.mosquitto.serviceType "NodePort" }}
+    nodePort: {{ .Values.mosquitto.nodePorts.websocket }}
+    {{- end }}
   selector:
     {{- include "customer-instance.selectorLabels" . | nindent 4 }}
     app.kubernetes.io/component: mqtt

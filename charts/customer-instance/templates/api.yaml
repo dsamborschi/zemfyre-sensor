@@ -76,14 +76,24 @@ spec:
               key: MQTT_PASSWORD
         # MQTT broker configuration (for device provisioning responses)
         # These env vars override database defaults - allows external brokers
+        # For NodePort (Docker Desktop): use localhost:nodePort
+        # For ClusterIP (production): use ingress.host:1883
         - name: MQTT_BROKER_HOST
-          value: {{ .Values.mqtt.broker.host | default .Values.ingress.host | quote }}
+          {{- if eq .Values.mosquitto.serviceType "NodePort" }}
+          value: "localhost"
+          {{- else }}
+          value: {{ if .Values.mqtt.broker.host }}{{ .Values.mqtt.broker.host | quote }}{{ else }}{{ .Values.ingress.host | quote }}{{ end }}
+          {{- end }}
         - name: MQTT_BROKER_PORT
-          value: {{ .Values.mqtt.broker.port | default .Values.mosquitto.ports.mqtt | quote }}
+          {{- if eq .Values.mosquitto.serviceType "NodePort" }}
+          value: {{ .Values.mosquitto.nodePorts.mqtt | quote }}
+          {{- else }}
+          value: {{ if .Values.mqtt.broker.port }}{{ .Values.mqtt.broker.port | quote }}{{ else }}{{ .Values.mosquitto.ports.mqtt | quote }}{{ end }}
+          {{- end }}
         - name: MQTT_BROKER_PROTOCOL
-          value: {{ .Values.mqtt.broker.protocol | default "mqtt" | quote }}
+          value: {{ if .Values.mqtt.broker.protocol }}{{ .Values.mqtt.broker.protocol | quote }}{{ else }}"mqtt"{{ end }}
         - name: MQTT_BROKER_USE_TLS
-          value: {{ .Values.mqtt.broker.useTls | default "false" | quote }}
+          value: {{ if .Values.mqtt.broker.useTls }}{{ .Values.mqtt.broker.useTls | quote }}{{ else }}"false"{{ end }}
         # Customer info
         - name: CUSTOMER_ID
           valueFrom:

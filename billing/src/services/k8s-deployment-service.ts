@@ -268,6 +268,16 @@ mosquitto:
   metrics:
     enabled: ${hasDedicatedPrometheus}  # Only enable if dedicated Prometheus is deployed`;
     
+    // Determine MQTT service type based on base domain
+    // Use NodePort for Docker Desktop (localhost), ClusterIP for production
+    const isDockerDesktop = this.baseDomain === 'localhost';
+    const mqttServiceSection = isDockerDesktop ? `
+mosquitto:
+  serviceType: NodePort
+  nodePorts:
+    mqtt: 31883
+    websocket: 31901` : '';
+    
     const valuesContent = `
 customer:
   id: ${shortId}
@@ -280,8 +290,10 @@ license:
   publicKey: |
 ${this.licensePublicKey.split('\n').map(line => '    ' + line).join('\n')}
 domain:
-  base: ${this.baseDomain}${monitoringSection}
-${mosquittoMetricsSection}
+  base: ${this.baseDomain}
+ingress:
+  host: ${shortId}.${this.baseDomain}${monitoringSection}
+${mosquittoMetricsSection}${mqttServiceSection}
 `;
     
     await fs.writeFile(tempValuesFile, valuesContent, 'utf8');
