@@ -865,7 +865,7 @@ export class MQTTMonitorService extends EventEmitter {
    * Sync current state to database
    */
   private async syncToDatabase(): Promise<void> {
-    if (!this.dbService || this.pendingTopicUpdates.size === 0) return;
+    if (!this.dbService ) return;
 
     try {
       // Get topics that need updating
