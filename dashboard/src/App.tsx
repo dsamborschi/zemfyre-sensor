@@ -814,7 +814,7 @@ export default function App() {
       upload: Math.random() * 15 + 3,
     }));
     setNetworkHistory(initialNetworkHistory);
-  }, [selectedDeviceId, selectedDevice]);
+  }, [selectedDeviceId]); // Removed selectedDevice to prevent infinite loop on device updates
 
   // Simulate real-time data updates
   useEffect(() => {
