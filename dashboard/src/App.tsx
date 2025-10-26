@@ -577,6 +577,9 @@ export default function App() {
 
         const data = await response.json();
         
+        console.log('API Response:', data);
+        console.log('Device count:', data.devices?.length);
+        
         // Transform API response to match Device interface
         const transformedDevices: Device[] = data.devices.map((apiDevice: any, index: number) => ({
           id: String(index + 1),
@@ -595,6 +598,8 @@ export default function App() {
             : 0,
         }));
 
+        console.log('Transformed devices:', transformedDevices);
+        
         setDevices(transformedDevices);
         
         // Select first device if none selected
