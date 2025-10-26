@@ -566,8 +566,6 @@ export default function App() {
 
   // Fetch devices from API
   useEffect(() => {
-    if (!isAuthenticated) return;
-
     const fetchDevices = async () => {
       try {
         setIsLoadingDevices(true);
@@ -617,7 +615,7 @@ export default function App() {
     // Refresh devices every 30 seconds
     const interval = setInterval(fetchDevices, 30000);
     return () => clearInterval(interval);
-  }, [isAuthenticated]);
+  }, []);
 
   // Helper function to format last seen time
   const formatLastSeen = (timestamp: string | null): string => {
