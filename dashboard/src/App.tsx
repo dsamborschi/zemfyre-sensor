@@ -9,6 +9,7 @@ import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
 import { Menu } from "lucide-react";
 import { LoginPage } from "./components/LoginPage";
+import { buildApiUrl } from "./config/api";
 
 import { toast } from "sonner";
 import { Header } from "./components/Header";
@@ -550,8 +551,9 @@ export default function App() {
    const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
-  const [selectedDeviceId, setSelectedDeviceId] = useState(mockDevices[0].id);
-  const [devices, setDevices] = useState(mockDevices);
+  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+  const [devices, setDevices] = useState<Device[]>([]);
+  const [isLoadingDevices, setIsLoadingDevices] = useState(true);
   const [cpuHistory, setCpuHistory] = useState<Array<{ time: string; value: number }>>([]);
   const [memoryHistory, setMemoryHistory] = useState<Array<{ time: string; used: number; available: number }>>([]);
   const [networkHistory, setNetworkHistory] = useState<Array<{ time: string; download: number; upload: number }>>([]);
@@ -561,6 +563,78 @@ export default function App() {
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const selectedDevice = devices.find((d) => d.id === selectedDeviceId) || devices[0];
   const deviceApplications = applications[selectedDeviceId] || [];
+
+  // Fetch devices from API
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const fetchDevices = async () => {
+      try {
+        setIsLoadingDevices(true);
+        const response = await fetch(buildApiUrl('/api/v1/devices'));
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch devices: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        // Transform API response to match Device interface
+        const transformedDevices: Device[] = data.devices.map((apiDevice: any, index: number) => ({
+          id: String(index + 1),
+          deviceUuid: apiDevice.uuid,
+          name: apiDevice.device_name || 'Unnamed Device',
+          type: apiDevice.device_type || 'gateway',
+          status: apiDevice.is_online ? 'online' : 'offline',
+          ipAddress: apiDevice.ip_address || 'N/A',
+          lastSeen: apiDevice.is_online ? 'Just now' : formatLastSeen(apiDevice.last_connectivity_event),
+          cpu: apiDevice.cpu_usage || 0,
+          memory: apiDevice.memory_usage ? (apiDevice.memory_usage / apiDevice.memory_total * 100) : 0,
+          disk: apiDevice.storage_usage ? (apiDevice.storage_usage / apiDevice.storage_total * 100) : 0,
+        }));
+
+        setDevices(transformedDevices);
+        
+        // Select first device if none selected
+        if (!selectedDeviceId && transformedDevices.length > 0) {
+          setSelectedDeviceId(transformedDevices[0].id);
+        }
+      } catch (error) {
+        console.error('Error fetching devices:', error);
+        toast.error('Failed to load devices');
+        // Fallback to mock data on error
+        setDevices(mockDevices);
+        if (!selectedDeviceId) {
+          setSelectedDeviceId(mockDevices[0].id);
+        }
+      } finally {
+        setIsLoadingDevices(false);
+      }
+    };
+
+    fetchDevices();
+    
+    // Refresh devices every 30 seconds
+    const interval = setInterval(fetchDevices, 30000);
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  // Helper function to format last seen time
+  const formatLastSeen = (timestamp: string | null): string => {
+    if (!timestamp) return 'Never';
+    
+    const date = new Date(timestamp);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+    
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins} min${diffMins > 1 ? 's' : ''} ago`;
+    if (diffHours < 24) return `${diffHours} hour${diffHours > 1 ? 's' : ''} ago`;
+    return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
+  };
 
 
     const handleAddDevice = () => {
@@ -837,6 +911,27 @@ export default function App() {
         </div>
         {/* Main Content Area */}
         <div className="flex-1 flex flex-col overflow-hidden">
+          {isLoadingDevices ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600">Loading devices...</p>
+              </div>
+            </div>
+          ) : devices.length === 0 ? (
+            <div className="flex items-center justify-center h-full">
+              <div className="text-center max-w-md px-4">
+                <p className="text-xl font-semibold text-gray-900 mb-2">No Devices Found</p>
+                <p className="text-gray-600 mb-4">Get started by provisioning your first device.</p>
+                <Button onClick={handleAddDevice}>Add Device</Button>
+              </div>
+            </div>
+          ) : !selectedDevice ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-gray-600">Select a device from the sidebar</p>
+            </div>
+          ) : (
+            <>
           {/* Mobile Header with Menu Button - Sticky at top */}
           <div className="lg:hidden bg-white border-b border-gray-200 p-4 flex items-center gap-3 sticky top-0 z-10">
             <Button
@@ -880,6 +975,8 @@ export default function App() {
           onToggleServiceStatus={handleToggleServiceStatus}
           networkInterfaces={mockNetworkInterfaces[selectedDeviceId] || []}
         />
+            </>
+          )}
       </div>
 
 

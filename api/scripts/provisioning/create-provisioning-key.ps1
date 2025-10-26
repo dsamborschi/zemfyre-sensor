@@ -9,7 +9,7 @@
 #   DESCRIPTION - Key description
 
 param(
-    [string]$ApiUrl = $env:API_URL ?? "http://a18ada74.localhost/api",
+    [string]$ApiUrl = $env:API_URL ?? "http://7f05d0d2.localhost/api",
     [string]$FleetId = $env:FLEET_ID ?? "default-fleet",
     [int]$MaxDevices = [int]($env:MAX_DEVICES ?? 100),
     [int]$ExpiresInDays = [int]($env:EXPIRES_IN_DAYS ?? 365),

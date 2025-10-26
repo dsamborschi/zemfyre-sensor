@@ -50,12 +50,12 @@
         "!**/node_modules/**"
       ],
       "env": {
-        "CLOUD_API_ENDPOINT": "http://a18ada74.localhost/api",
+        "CLOUD_API_ENDPOINT": "http://7f05d0d2.localhost/api",
         "LOG_COMPRESSION": "true",
         "ENABLE_SENSOR_PUBLISH": "false",  
         "ENABLE_JOB_ENGINE": "true",
         "ENABLE_SHADOW": "true",
-        "PROVISIONING_API_KEY": "bafbd9aef9e3aa294bd4564d170f075e5bedd5005c01629b96cb6c3cc3af16a3",
+        "PROVISIONING_API_KEY": "92ab6f76ca53cb18326abb439323cdb423217fad59f5a7bd202c288d045bd2e3",
         "SENSOR_PUBLISH_CONFIG": "{\"sensors\":[{\"name\":\"sensor1\",\"enabled\":true,\"addr\":\"../sensor-simulator/sockets/sensor1.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000},{\"name\":\"sensor2\",\"enabled\":true,\"addr\":\"../sensor-simulator/sockets/sensor2.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000},{\"name\":\"sensor3\",\"enabled\":true,\"addr\":\"../sensor-simulator/sockets/sensor3.sock\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"sensor/data\",\"bufferSize\":100,\"bufferTimeMs\":1000}]}",
         "ENABLE_CLOUD_JOBS": "true",
         "ENABLE_DIGITAL_TWIN": "true",

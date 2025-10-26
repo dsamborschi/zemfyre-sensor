@@ -276,6 +276,7 @@ mosquitto:
     // NodePort range: 30000-32767 (K8s default)
     // Strategy: Use hash of customer ID to generate deterministic port offsets
     let serviceTypeSection = '';
+    let mqttBrokerSection = '';
     if (isDockerDesktop) {
       // Hash the customer ID to get a number between 0-2000
       const hashCode = shortId.split('').reduce((acc, char) => {
@@ -292,6 +293,14 @@ mosquitto:
   nodePorts:
     mqtt: ${mqttPort}
     websocket: ${websocketPort}`;
+      
+      mqttBrokerSection = `
+mqtt:
+  broker:
+    host: localhost
+    port: ${mqttPort}
+    protocol: mqtt
+    useTls: false`;
       
       logger.info('NodePort allocation for Docker Desktop', {
         customerId: shortId,
@@ -314,7 +323,7 @@ domain:
   base: ${this.baseDomain}
 ingress:
   host: ${shortId}.${this.baseDomain}${monitoringSection}
-${mosquittoMetricsSection}${serviceTypeSection}
+${mosquittoMetricsSection}${serviceTypeSection}${mqttBrokerSection}
 `;
     
     await fs.writeFile(tempValuesFile, valuesContent, 'utf8');
