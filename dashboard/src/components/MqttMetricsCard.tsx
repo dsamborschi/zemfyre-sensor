@@ -13,6 +13,7 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
+import { buildApiUrl } from "@/config/api";
 
 interface BrokerStats {
   connectedClients: number;
@@ -47,7 +48,7 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
   useEffect(() => {
     const fetchBrokerStats = async () => {
       try {
-        const response = await fetch('http://localhost:4002/api/v1/mqtt-monitor/stats');
+        const response = await fetch(buildApiUrl('/api/v1/mqtt-monitor/stats'));
         if (response.ok) {
           const data = await response.json();
           if (data.stats) {

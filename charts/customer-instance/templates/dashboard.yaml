@@ -6,6 +6,10 @@ metadata:
   labels:
     {{- include "customer-instance.labels" . | nindent 4 }}
     app.kubernetes.io/component: dashboard
+  annotations:
+    # API URL is injected at build time via Dockerfile ARG
+    # Dashboard uses relative path "/api" since it shares ingress with API
+    dashboard.iotistic.io/api-url: {{ .Values.dashboard.apiUrl | default "" | quote }}
 spec:
   replicas: {{ .Values.dashboard.replicas }}
   selector:
@@ -24,11 +28,6 @@ spec:
         ports:
         - name: http
           containerPort: {{ .Values.dashboard.port }}
-        env:
-        - name: API_URL
-          value: http://{{ include "customer-instance.fullname" . }}-api:{{ .Values.api.port }}
-        - name: MQTT_URL
-          value: ws://{{ include "customer-instance.fullname" . }}-mosquitto:{{ .Values.mosquitto.ports.websocket }}
         resources:
           {{- toYaml .Values.dashboard.resources | nindent 10 }}
         livenessProbe:

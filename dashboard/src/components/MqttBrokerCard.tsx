@@ -3,6 +3,7 @@ import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { ChevronRight, ChevronDown, Activity, Circle, Copy, Check } from "lucide-react";
 import { cn } from "./ui/utils";
+import { buildApiUrl } from "@/config/api";
 
 interface MqttTopic {
   name: string;
@@ -166,8 +167,8 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
         
         // Fetch topics with time window filter
         const url = timeWindow === 'all' 
-          ? 'http://localhost:4002/api/v1/mqtt-monitor/topics'
-          : `http://localhost:4002/api/v1/mqtt-monitor/topics?timeWindow=${timeWindow}`;
+          ? buildApiUrl('/api/v1/mqtt-monitor/topics')
+          : buildApiUrl(`/api/v1/mqtt-monitor/topics?timeWindow=${timeWindow}`);
         const topicsResponse = await fetch(url);
         
         if (topicsResponse.ok) {

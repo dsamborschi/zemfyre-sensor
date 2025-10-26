@@ -31,6 +31,7 @@ import { MqttBrokerCard } from "./MqttBrokerCard";
 import { TimelineCard } from "./TimelineCard";
 import { MqttMetricsCard } from "./MqttMetricsCard";
 import { DeviceTimelineCard } from "./DeviceTimelineCard";
+import { buildApiUrl } from "@/config/api";
 
 interface SystemMetricsProps {
   device: Device;
@@ -305,7 +306,7 @@ export function SystemMetrics({
       if (!device.deviceUuid) return;
       
       try {
-        const response = await fetch(`http://localhost:4002/api/v1/devices/${device.deviceUuid}/processes`);
+        const response = await fetch(buildApiUrl(`/api/v1/devices/${device.deviceUuid}/processes`));
         const data = await response.json();
         
         if (data.top_processes && Array.isArray(data.top_processes)) {

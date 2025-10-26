@@ -17,6 +17,7 @@ import {
   ResponsiveContainer,
   Legend,
 } from "recharts";
+import { buildApiUrl } from "@/config/api";
 
 type MetricType = "ram" | "cpu" | "storage" | "temperature" | "network";
 type TimePeriod = "30min" | "6h" | "12h" | "24h";
@@ -112,7 +113,7 @@ export function AnalyticsCard({ deviceName = "Device 1", deviceId, processes = [
         const hours = hoursMap[timePeriod];
         
         const response = await fetch(
-          `http://localhost:4002/api/v1/devices/${deviceId}/processes/history?hours=${hours}&limit=50`
+          buildApiUrl(`/api/v1/devices/${deviceId}/processes/history?hours=${hours}&limit=50`)
         );
         const data = await response.json();
         

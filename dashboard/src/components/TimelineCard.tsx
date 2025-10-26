@@ -17,6 +17,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Button } from "./ui/button";
+import { buildApiUrl } from "@/config/api";
 
 interface TimelineEvent {
   id: string;
@@ -60,7 +61,7 @@ export function TimelineCard({
     try {
       setError(null);
       const response = await fetch(
-        `http://localhost:4002/api/v1/events/device/${deviceId}?limit=${limit}`
+        buildApiUrl(`/api/v1/events/device/${deviceId}?limit=${limit}`)
       );
 
       if (!response.ok) {

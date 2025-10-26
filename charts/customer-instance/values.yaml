@@ -121,6 +121,10 @@ dashboard:
     limits:
       cpu: 200m
       memory: 256Mi
+  # API URL configuration
+  # Leave empty to use default (relative path "/api" for K8s, "http://localhost:4002" for local)
+  # Set explicitly for custom deployments
+  apiUrl: ""  # e.g., "https://api.example.com" or "" for automatic detection
 
 # Prometheus exporter (metrics)
 exporter:

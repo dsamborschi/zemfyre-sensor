@@ -57,4 +57,11 @@
       port: 3000,
       open: true,
     },
+    // Environment variables configuration
+    // See: https://vitejs.dev/guide/env-and-mode.html
+    define: {
+      // Make environment variables available at build time
+      // This allows K8s to inject VITE_API_URL via Dockerfile ARG
+      'import.meta.env.VITE_API_URL': JSON.stringify(process.env.VITE_API_URL),
+    },
   });
