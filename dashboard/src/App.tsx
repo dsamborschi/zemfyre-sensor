@@ -586,12 +586,12 @@ export default function App() {
           status: apiDevice.is_online ? 'online' : 'offline',
           ipAddress: apiDevice.ip_address || 'N/A',
           lastSeen: apiDevice.is_online ? 'Just now' : formatLastSeen(apiDevice.last_connectivity_event),
-          cpu: parseFloat(apiDevice.cpu_usage) || 0,
+          cpu: Math.round(parseFloat(apiDevice.cpu_usage) || 0),
           memory: apiDevice.memory_usage && apiDevice.memory_total 
-            ? (parseFloat(apiDevice.memory_usage) / parseFloat(apiDevice.memory_total) * 100) 
+            ? Math.round((parseFloat(apiDevice.memory_usage) / parseFloat(apiDevice.memory_total) * 100)) 
             : 0,
           disk: apiDevice.storage_usage && apiDevice.storage_total 
-            ? (parseFloat(apiDevice.storage_usage) / parseFloat(apiDevice.storage_total) * 100) 
+            ? Math.round((parseFloat(apiDevice.storage_usage) / parseFloat(apiDevice.storage_total) * 100)) 
             : 0,
         }));
 
