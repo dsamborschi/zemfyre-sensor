@@ -25,7 +25,7 @@ export interface Device {
   id: string;
   deviceUuid: string;
   name: string;
-  type: "desktop" | "laptop" | "mobile" | "server" | "gateway" | "edge-device" | "iot-hub" | "plc" | "controller" | "sensor-node";
+  type: "desktop" | "laptop" | "mobile" | "server" | "gateway" | "edge-device" | "iot-hub" | "plc" | "controller" | "sensor-node" | "standalone";
   status: "online" | "offline" | "warning";
   ipAddress: string;
   lastSeen: string;
@@ -53,6 +53,7 @@ const deviceIcons = {
   plc: Monitor,
   controller: Server,
   "sensor-node": Smartphone,
+  standalone: Monitor,
 };
 
 const statusColors = {
@@ -70,7 +71,7 @@ const statusBadgeColors = {
 export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDevice , onSelectDevice }: DeviceSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilters, setStatusFilters] = useState<string[]>(["online", "offline", "warning"]);
-  const [typeFilters, setTypeFilters] = useState<string[]>(["desktop", "laptop", "mobile", "server", "gateway", "edge-device", "iot-hub", "plc", "controller", "sensor-node"]);
+  const [typeFilters, setTypeFilters] = useState<string[]>(["desktop", "laptop", "mobile", "server", "gateway", "edge-device", "iot-hub", "plc", "controller", "sensor-node", "standalone"]);
 
   const toggleStatusFilter = (status: string) => {
     setStatusFilters(prev =>
@@ -97,7 +98,7 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
   const clearFilters = () => {
     setSearchQuery("");
     setStatusFilters(["online", "offline", "warning"]);
-    setTypeFilters(["desktop", "laptop", "mobile", "server", "gateway", "edge-device", "iot-hub", "plc", "controller", "sensor-node"]);
+    setTypeFilters(["desktop", "laptop", "mobile", "server", "gateway", "edge-device", "iot-hub", "plc", "controller", "sensor-node", "standalone"]);
   };
 
   return (
