@@ -772,13 +772,14 @@ export default function App() {
 
       // Create application with services via API
       const response = await fetch(
-        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/apps/${app.appId}`),
+        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/apps`),
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            appId: app.appId,
             services: app.services.map(service => ({
               serviceName: service.serviceName,
               image: service.imageName,
