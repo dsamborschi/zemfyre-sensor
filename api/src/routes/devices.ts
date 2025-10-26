@@ -276,7 +276,7 @@ router.delete('/devices/:uuid', async (req, res) => {
 router.post('/devices/:uuid/apps', async (req, res) => {
   try {
     const { uuid } = req.params;
-    const { appId, services } = req.body;
+    const { appId, appName, services } = req.body;
 
     // Validation
     if (!appId || typeof appId !== 'number') {
@@ -293,20 +293,24 @@ router.post('/devices/:uuid/apps', async (req, res) => {
       });
     }
 
-    // Verify application exists
+    // Try to get app from catalog, but allow ad-hoc apps if appName is provided
+    let appNameToUse = appName;
     const appResult = await query(
       'SELECT * FROM applications WHERE id = $1',
       [appId]
     );
 
-    if (appResult.rows.length === 0) {
-      return res.status(404).json({
-        error: 'Not found',
-        message: `Application ${appId} not found in catalog`
+    if (appResult.rows.length > 0) {
+      // Use catalog app name
+      appNameToUse = appResult.rows[0].app_name;
+    } else if (!appName) {
+      // No catalog entry and no appName provided
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: `Application ${appId} not found in catalog. Please provide appName for ad-hoc deployment.`
       });
     }
-
-    const app = appResult.rows[0];
+    // else: use the provided appName for ad-hoc deployment
 
     // Verify device exists
     const device = await DeviceModel.getByUuid(uuid);
@@ -340,7 +344,7 @@ router.post('/devices/:uuid/apps', async (req, res) => {
             service.serviceName,
             JSON.stringify({ 
               appId, 
-              appName: app.app_name,
+              appName: appNameToUse,
               imageName: service.image 
             }),
             req.headers['x-user-id'] || 'system'
@@ -366,7 +370,7 @@ router.post('/devices/:uuid/apps', async (req, res) => {
       ...currentApps,
       [appId]: {
         appId,
-        appName: app.app_name,
+        appName: appNameToUse,
         services: servicesWithIds
       }
     };
@@ -374,7 +378,7 @@ router.post('/devices/:uuid/apps', async (req, res) => {
     // Update target state
     await DeviceTargetStateModel.set(uuid, newApps, currentTarget?.config || {});
 
-    console.log(`🚀 Deployed app ${appId} (${app.app_name}) to device ${uuid.substring(0, 8)}...`);
+    console.log(`🚀 Deployed app ${appId} (${appNameToUse}) to device ${uuid.substring(0, 8)}...`);
     console.log(`   Services: ${servicesWithIds.map(s => s.serviceName).join(', ')}`);
 
     res.status(201).json({
@@ -382,7 +386,7 @@ router.post('/devices/:uuid/apps', async (req, res) => {
       message: 'Application deployed to device',
       deviceUuid: uuid,
       appId,
-      appName: app.app_name,
+      appName: appNameToUse,
       services: servicesWithIds
     });
 

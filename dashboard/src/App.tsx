@@ -780,6 +780,7 @@ export default function App() {
           },
           body: JSON.stringify({
             appId: app.appId,
+            appName: app.appName,
             services: app.services.map(service => ({
               serviceName: service.serviceName,
               image: service.imageName,
