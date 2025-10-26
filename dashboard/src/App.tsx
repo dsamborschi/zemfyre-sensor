@@ -577,9 +577,6 @@ export default function App() {
 
         const data = await response.json();
         
-        console.log('API Response:', data);
-        console.log('Device count:', data.devices?.length);
-        
         // Transform API response to match Device interface
         const transformedDevices: Device[] = data.devices.map((apiDevice: any, index: number) => ({
           id: String(index + 1),
@@ -598,8 +595,6 @@ export default function App() {
             : 0,
         }));
 
-        console.log('Transformed devices:', transformedDevices);
-        
         setDevices(transformedDevices);
         
         // Select first device if none selected
@@ -825,8 +820,8 @@ export default function App() {
   useEffect(() => {
     const interval = setInterval(() => {
       // Update device metrics
-      setDevices(prevDevices =>
-        prevDevices.map(device => {
+      setDevices(prevDevices => {
+        const updatedDevices = prevDevices.map(device => {
           // Don't update offline devices
           if (device.status === "offline") return device;
 
@@ -846,44 +841,46 @@ export default function App() {
             status: newStatus,
             lastSeen: device.id === selectedDeviceId ? "Just now" : device.lastSeen,
           };
-        })
-      );
-
-      // Update chart history for selected device
-      const currentDevice = devices.find(d => d.id === selectedDeviceId);
-      if (currentDevice && currentDevice.status !== "offline") {
-        // Update CPU history
-        setCpuHistory(prev => {
-          const newValue = randomVariation(currentDevice.cpu, 5);
-          const newEntry = { time: generateTimeLabel(0), value: newValue };
-          return [...prev.slice(1), newEntry];
         });
 
-        // Update memory history
-        setMemoryHistory(prev => {
-          const used = randomVariation(currentDevice.memory * 0.16, 0.5);
-          const newEntry = {
-            time: generateTimeLabel(0),
-            used,
-            available: 16 - used,
-          };
-          return [...prev.slice(1), newEntry];
-        });
+        // Update chart history for selected device using the updated devices
+        const currentDevice = updatedDevices.find(d => d.id === selectedDeviceId);
+        if (currentDevice && currentDevice.status !== "offline") {
+          // Update CPU history
+          setCpuHistory(prev => {
+            const newValue = randomVariation(currentDevice.cpu, 5);
+            const newEntry = { time: generateTimeLabel(0), value: newValue };
+            return [...prev.slice(1), newEntry];
+          });
 
-        // Update network history
-        setNetworkHistory(prev => {
-          const newEntry = {
-            time: generateTimeLabel(0),
-            download: Math.random() * 30 + 10,
-            upload: Math.random() * 15 + 3,
-          };
-          return [...prev.slice(1), newEntry];
-        });
-      }
+          // Update memory history
+          setMemoryHistory(prev => {
+            const used = randomVariation(currentDevice.memory * 0.16, 0.5);
+            const newEntry = {
+              time: generateTimeLabel(0),
+              used,
+              available: 16 - used,
+            };
+            return [...prev.slice(1), newEntry];
+          });
+
+          // Update network history
+          setNetworkHistory(prev => {
+            const newEntry = {
+              time: generateTimeLabel(0),
+              download: Math.random() * 30 + 10,
+              upload: Math.random() * 15 + 3,
+            };
+            return [...prev.slice(1), newEntry];
+          });
+        }
+
+        return updatedDevices;
+      });
     }, 3000); // Update every 3 seconds
 
     return () => clearInterval(interval);
-  }, [selectedDeviceId, devices]);
+  }, [selectedDeviceId]); // Removed devices to prevent interval reset on device updates
 
   // Show login page if not authenticated
   // if (!isAuthenticated) {
