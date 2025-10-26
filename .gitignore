@@ -31,6 +31,9 @@ api/dist/
 agent/dist/
 admin/dist/
 admin/.next/
+dashboard/build/
+billing/dist/
+billing-exporter/dist/
 
 # TypeScript
 *.tsbuildinfo
