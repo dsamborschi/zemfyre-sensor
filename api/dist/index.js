@@ -191,14 +191,6 @@ async function startServer() {
         console.error('⚠️  Failed to start rollout monitor:', error);
     }
     try {
-        const { imageMonitor } = await Promise.resolve().then(() => __importStar(require('./services/image-monitor')));
-        imageMonitor.start();
-        console.log('✅ Image Monitor started');
-    }
-    catch (error) {
-        console.error('⚠️  Failed to start image monitor:', error);
-    }
-    try {
         await job_scheduler_1.jobScheduler.start();
         console.log('✅ Job Scheduler started');
     }
@@ -231,7 +223,7 @@ async function startServer() {
             const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
             const username = process.env.MQTT_USERNAME;
             const password = process.env.MQTT_PASSWORD;
-            const persistToDatabase = process.env.MQTT_PERSIST_TO_DB === 'true';
+            const persistToDatabase = true;
             if (persistToDatabase) {
                 mqttDbService = new mqtt_database_service_1.MQTTDatabaseService(connection_1.default.pool);
                 console.log('✅ MQTT Monitor database persistence enabled');

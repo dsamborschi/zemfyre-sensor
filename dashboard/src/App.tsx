@@ -926,71 +926,8 @@ export default function App() {
     setNetworkHistory(initialNetworkHistory);
   }, [selectedDeviceId]); // Removed selectedDevice to prevent infinite loop on device updates
 
-  // Simulate real-time data updates
-  useEffect(() => {
-    const interval = setInterval(() => {
-      // Update device metrics
-      setDevices(prevDevices => {
-        const updatedDevices = prevDevices.map(device => {
-          // Don't update offline devices
-          if (device.status === "offline") return device;
-
-          const newCpu = randomVariation(device.cpu, 3);
-          const newMemory = randomVariation(device.memory, 2);
-          
-          // Update status based on metrics
-          let newStatus: "online" | "offline" | "warning" = "online";
-          if (newCpu > 85 || newMemory > 90) {
-            newStatus = "warning";
-          }
-
-          return {
-            ...device,
-            cpu: Math.round(newCpu),
-            memory: Math.round(newMemory),
-            status: newStatus,
-            lastSeen: device.id === selectedDeviceId ? "Just now" : device.lastSeen,
-          };
-        });
-
-        // Update chart history for selected device using the updated devices
-        const currentDevice = updatedDevices.find(d => d.id === selectedDeviceId);
-        if (currentDevice && currentDevice.status !== "offline") {
-          // Update CPU history
-          setCpuHistory(prev => {
-            const newValue = randomVariation(currentDevice.cpu, 5);
-            const newEntry = { time: generateTimeLabel(0), value: newValue };
-            return [...prev.slice(1), newEntry];
-          });
-
-          // Update memory history
-          setMemoryHistory(prev => {
-            const used = randomVariation(currentDevice.memory * 0.16, 0.5);
-            const newEntry = {
-              time: generateTimeLabel(0),
-              used,
-              available: 16 - used,
-            };
-            return [...prev.slice(1), newEntry];
-          });
-
-          // Update network history
-          setNetworkHistory(prev => {
-            const newEntry = {
-              time: generateTimeLabel(0),
-              download: Math.random() * 30 + 10,
-              upload: Math.random() * 15 + 3,
-            };
-            return [...prev.slice(1), newEntry];
-          });
-        }
-
-        return updatedDevices;
-      });
-    }, 3000); // Update every 3 seconds
-
-    return () => clearInterval(interval);
-  }, [selectedDeviceId]); // Removed devices to prevent interval reset on device updates
+  // Disabled mock simulation - using real data from API only
+  // Real device metrics are fetched every 30 seconds from /api/v1/devices
 
   // Show login page if not authenticated
   // if (!isAuthenticated) {
