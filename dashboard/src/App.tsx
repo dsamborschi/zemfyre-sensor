@@ -786,11 +786,13 @@ export default function App() {
     }));
   };
 
-  // Initialize history data
+    // Initialize history data when device is selected
   useEffect(() => {
+    if (!selectedDevice) return;
+
     const initialCpuHistory = Array.from({ length: 10 }, (_, i) => ({
       time: generateTimeLabel(9 - i),
-      value: randomVariation(selectedDevice.cpu, 10),
+      value: randomVariation(selectedDevice.cpu, 5),
     }));
     setCpuHistory(initialCpuHistory);
 
@@ -810,7 +812,7 @@ export default function App() {
       upload: Math.random() * 15 + 3,
     }));
     setNetworkHistory(initialNetworkHistory);
-  }, [selectedDeviceId]);
+  }, [selectedDeviceId, selectedDevice]);
 
   // Simulate real-time data updates
   useEffect(() => {
