@@ -405,8 +405,8 @@ export function ApplicationsCard({
               <Button 
                 onClick={onDeploy}
                 size="sm"
-                className="flex-shrink-0 bg-yellow-600 hover:bg-yellow-700"
-                style={{ color: '#000000' }}
+                className="flex-shrink-0 bg-yellow-600 hover:bg-yellow-700 border border-yellow-700 shadow-sm px-4 py-2 rounded-md font-semibold"
+                style={{ color: '#000000', backgroundColor: '#ca8a04', borderColor: '#a16207' }}
               >
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                 Deploy
@@ -485,9 +485,10 @@ export function ApplicationsCard({
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             onClick={() => openEditAppModal(app)}
+                            disabled={app.syncStatus === "syncing" || app.syncStatus === "pending"}
                           >
                             <Pen className="w-4 h-4 mr-2" />
-                            Edit
+                            Edit {(app.syncStatus === "syncing" || app.syncStatus === "pending") && "(locked during sync)"}
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {
@@ -576,8 +577,13 @@ export function ApplicationsCard({
                                   variant="outline"
                                   size="sm"
                                   onClick={() => openServiceModal(app, service)}
-                                  className="h-8 w-8 p-0"
-                                  title="Edit"
+                                  disabled={app.syncStatus === "syncing" || app.syncStatus === "pending"}
+                                  className={`h-8 w-8 p-0 ${
+                                    app.syncStatus === "syncing" || app.syncStatus === "pending"
+                                      ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                                      : ""
+                                  }`}
+                                  title={app.syncStatus === "syncing" || app.syncStatus === "pending" ? "Cannot edit while syncing or pending deployment" : "Edit"}
                                 >
                                   <Pen className="w-4 h-4" />
                                 </Button>
