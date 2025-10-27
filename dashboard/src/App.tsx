@@ -565,12 +565,14 @@ export default function App() {
   const [networkInterfaces, setNetworkInterfaces] = useState<any[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [applications, setApplications] = useState<Record<string, Application[]>>(initialApplications);
-  const [deploymentStatus, setDeploymentStatus] = useState<Record<string, { 
-    needsDeployment: boolean;
-    version: number;
-    lastDeployedAt?: string;
-    deployedBy?: string;
-  }>>({});
+  const [deploymentStatus, setDeploymentStatus] = useState<
+    Record<string, { 
+      needsDeployment: boolean;
+      version: number;
+      lastDeployedAt?: string;
+      deployedBy?: string;
+    }>
+  >({});
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   
