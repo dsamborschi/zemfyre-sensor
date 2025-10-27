@@ -604,55 +604,6 @@ export default function App() {
             : 0,
         }));
 
-        // Update telemetry history for selected device
-        if (selectedDeviceId) {
-          const selectedApiDevice = data.devices.find((d: any) => d.uuid === selectedDeviceId);
-          if (selectedApiDevice) {
-            console.log('Selected device metrics:', {
-              cpu_usage: selectedApiDevice.cpu_usage,
-              memory_usage: selectedApiDevice.memory_usage,
-              memory_total: selectedApiDevice.memory_total,
-              network_rx_bytes: selectedApiDevice.network_rx_bytes,
-              network_tx_bytes: selectedApiDevice.network_tx_bytes
-            });
-            
-            const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
-            
-            // Update CPU history
-            const cpu = Math.round(parseFloat(selectedApiDevice.cpu_usage) || 0);
-            setCpuHistory(prev => {
-              const updated = [...prev, { time: timestamp, value: cpu }];
-              // Keep last 30 data points (15 minutes at 30-second intervals)
-              return updated.slice(-30);
-            });
-            
-            // Update Memory history
-            const memUsed = parseFloat(selectedApiDevice.memory_usage) || 0;
-            const memTotal = parseFloat(selectedApiDevice.memory_total) || 1;
-            const memAvailable = memTotal - memUsed;
-            setMemoryHistory(prev => {
-              const updated = [...prev, { 
-                time: timestamp, 
-                used: Math.round(memUsed / 1024 / 1024), // Convert to MB
-                available: Math.round(memAvailable / 1024 / 1024) 
-              }];
-              return updated.slice(-30);
-            });
-            
-            // Update Network history
-            const netRx = parseFloat(selectedApiDevice.network_rx_bytes) || 0;
-            const netTx = parseFloat(selectedApiDevice.network_tx_bytes) || 0;
-            setNetworkHistory(prev => {
-              const updated = [...prev, { 
-                time: timestamp, 
-                rx: Math.round(netRx / 1024 / 1024), // Convert to MB
-                tx: Math.round(netTx / 1024 / 1024) 
-              }];
-              return updated.slice(-30);
-            });
-          }
-        }
-
         // Only update state if devices actually changed (use callback for React optimization)
         setDevices((prev) => {
           if (JSON.stringify(prev) !== JSON.stringify(transformedDevices)) {
@@ -693,7 +644,7 @@ export default function App() {
     const fetchApplications = async () => {
       if (!selectedDeviceId) return;
       
-      const selectedDevice = devicesRef.current.find(d => d.id === selectedDeviceId);
+      const selectedDevice = devicesRef.current.find((d: any) => d.id === selectedDeviceId);
       if (!selectedDevice?.deviceUuid) return;
 
       try {
@@ -811,6 +762,63 @@ export default function App() {
     const interval = setInterval(fetchApplications, 10000);
     return () => clearInterval(interval);
   }, [selectedDeviceId]); // Only depend on selectedDeviceId, not devices array
+
+  // Fetch historical metrics for telemetry charts
+  useEffect(() => {
+    const fetchMetrics = async () => {
+      if (!selectedDeviceId) return;
+      
+      const selectedDevice = devicesRef.current.find((d: any) => d.id === selectedDeviceId);
+      if (!selectedDevice?.deviceUuid) return;
+
+      try {
+        const response = await fetch(buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/metrics?limit=30`));
+        
+        if (!response.ok) {
+          console.error('Failed to fetch device metrics:', response.statusText);
+          return;
+        }
+
+        const data = await response.json();
+        console.log('Historical metrics:', data);
+        
+        if (data.metrics && data.metrics.length > 0) {
+          // Reverse to get chronological order (oldest first)
+          const metricsData = data.metrics.reverse();
+          
+          // Update CPU history
+          const cpuData = metricsData.map((m: any) => ({
+            time: new Date(m.recorded_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            value: Math.round(parseFloat(m.cpu_usage) || 0)
+          }));
+          setCpuHistory(cpuData);
+          
+          // Update Memory history
+          const memData = metricsData.map((m: any) => ({
+            time: new Date(m.recorded_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            used: Math.round((parseFloat(m.memory_usage) || 0) / 1024 / 1024),
+            available: Math.round(((parseFloat(m.memory_total) || 0) - (parseFloat(m.memory_usage) || 0)) / 1024 / 1024)
+          }));
+          setMemoryHistory(memData);
+          
+          // Network history - for now just use placeholder data since network metrics aren't stored yet
+          setNetworkHistory(metricsData.map((m: any) => ({
+            time: new Date(m.recorded_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+            rx: 0,
+            tx: 0
+          })));
+        }
+      } catch (error) {
+        console.error('Error fetching metrics:', error);
+      }
+    };
+
+    fetchMetrics();
+    
+    // Refresh metrics every 30 seconds
+    const interval = setInterval(fetchMetrics, 30000);
+    return () => clearInterval(interval);
+  }, [selectedDeviceId]);
 
   // Helper function to format last seen time
   const formatLastSeen = (timestamp: string | null): string => {
