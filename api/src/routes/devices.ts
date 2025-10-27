@@ -459,6 +459,7 @@ router.patch('/devices/:uuid/apps/:appId', async (req, res) => {
           serviceId,
           serviceName: service.serviceName,
           imageName: service.image,
+          ...(service.state && { state: service.state }), // Include state field for container control
           config: {
             ...(service.ports && { ports: service.ports }),
             ...(service.environment && { environment: service.environment }),

@@ -1018,59 +1018,87 @@ export default function App() {
     }));
   };
 
-  const handleToggleServiceStatus = (appId: string, serviceId: number, action: "start" | "stop") => {
-    setApplications(prev => ({
-      ...prev,
-      [selectedDeviceId]: (prev[selectedDeviceId] || []).map(app => {
-        if (app.id !== appId) return app;
-        
+  const handleToggleServiceStatus = async (appId: string, serviceId: number, action: "start" | "stop") => {
+    if (!selectedDeviceId) return;
+
+    const selectedDevice = devices.find(d => d.id === selectedDeviceId);
+    if (!selectedDevice) return;
+
+    // Find the app and service
+    const apps = applications[selectedDeviceId] || [];
+    const app = apps.find(a => a.id === appId);
+    if (!app || !app.services) return;
+
+    try {
+      // Prepare services array with updated state field
+      const updatedServices = app.services.map(s => {
+        const serviceState = s.serviceId === serviceId 
+          ? (action === "start" ? "running" : "stopped")
+          : (s.state || "running"); // Preserve existing state or default to running
+
         return {
-          ...app,
-          services: app.services?.map(service => {
-            if (service.serviceId !== serviceId) return service;
-            
-            // Set status to syncing first, then change after a delay
-            if (action === "start") {
-              // Start service
-              setTimeout(() => {
-                setApplications(prevApps => ({
-                  ...prevApps,
-                  [selectedDeviceId]: (prevApps[selectedDeviceId] || []).map(a => {
-                    if (a.id !== appId) return a;
-                    return {
-                      ...a,
-                      services: a.services?.map(s => 
-                        s.serviceId === serviceId ? { ...s, status: "running" } : s
-                      ),
-                    };
-                  }),
-                }));
-              }, 1500); // Simulate 1.5s delay
-              
-              return { ...service, status: "syncing" };
-            } else {
-              // Stop service
-              setTimeout(() => {
-                setApplications(prevApps => ({
-                  ...prevApps,
-                  [selectedDeviceId]: (prevApps[selectedDeviceId] || []).map(a => {
-                    if (a.id !== appId) return a;
-                    return {
-                      ...a,
-                      services: a.services?.map(s => 
-                        s.serviceId === serviceId ? { ...s, status: "stopped" } : s
-                      ),
-                    };
-                  }),
-                }));
-              }, 1500); // Simulate 1.5s delay
-              
-              return { ...service, status: "syncing" };
-            }
-          }),
+          serviceName: s.serviceName,
+          image: s.imageName,
+          ports: s.config?.ports || [],
+          environment: s.config?.environment || {},
+          volumes: s.config?.volumes || [],
+          state: serviceState // Include the state field
         };
-      }),
-    }));
+      });
+
+      // Update target state via API
+      const response = await fetch(
+        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/apps/${appId}`),
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            appName: app.name,
+            services: updatedServices
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || `Failed to ${action} service`);
+      }
+
+      toast.success(`Service will ${action === "start" ? "start" : "stop"} on next deployment`);
+      
+      // Mark as needs deployment
+      setDeploymentStatus((prev: any) => ({
+        ...prev,
+        [selectedDeviceId]: {
+          ...prev[selectedDeviceId],
+          needsDeployment: true,
+        }
+      }));
+
+      // Update local state to reflect the change
+      setApplications((prev: any) => ({
+        ...prev,
+        [selectedDeviceId]: (prev[selectedDeviceId] || []).map((a: any) => {
+          if (a.id !== appId) return a;
+          return {
+            ...a,
+            services: a.services?.map((s: any) => {
+              if (s.serviceId !== serviceId) return s;
+              return {
+                ...s,
+                state: action === "start" ? "running" : "stopped"
+              };
+            }),
+          };
+        }),
+      }));
+
+    } catch (error: any) {
+      console.error(`Error updating service state:`, error);
+      toast.error(`Failed to ${action} service`);
+    }
   };
 
   // No history initialization - charts will populate only with real data from API updates
