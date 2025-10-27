@@ -1304,6 +1304,7 @@ export default function App() {
           onRemoveApplication={handleRemoveApplication}
           onToggleAppStatus={handleToggleAppStatus}
           onToggleServiceStatus={handleToggleServiceStatus}
+          networkInterfaces={mockNetworkInterfaces[selectedDeviceId] || []}
           deploymentStatus={deploymentStatus[selectedDeviceId]}
           onDeploy={handleDeployChanges}
           onCancelDeploy={handleCancelDeploy}
