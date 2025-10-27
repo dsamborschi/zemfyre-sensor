@@ -33,6 +33,7 @@ interface DeviceStateReport {
 	[deviceUuid: string]: {
 		apps: { [appId: string]: any };
 		config?: { [key: string]: any };
+		version?: number; // Which target_state version this device has applied
 		cpu_usage?: number;
 		memory_usage?: number;
 	memory_total?: number;
@@ -66,6 +67,9 @@ interface TargetStateResponse {
 	[deviceUuid: string]: {
 		apps: { [appId: string]: any };
 		config?: { [key: string]: any };
+		version?: number;
+		needs_deployment?: boolean;
+		last_deployed_at?: string;
 	};
 }
 
@@ -76,6 +80,7 @@ export class ApiBinder extends EventEmitter {
 	
 	// State management
 	private targetState: SimpleState = { apps: {} };
+	private currentVersion: number = 0; // Track which version we've applied
 	private lastReport: DeviceStateReport = {};
 	private lastReportTime: number = -Infinity;
 	private lastMetricsTime: number = -Infinity;
@@ -380,6 +385,21 @@ export class ApiBinder extends EventEmitter {
 			return;
 		}			
 		
+		// Extract version from response  
+		const targetVersion = deviceState.version || 1;
+		
+		// Always update currentVersion to match target, even if state unchanged
+		// This ensures version tracking works after agent restarts
+		this.currentVersion = targetVersion;
+		
+		this.logger?.infoSync('Version tracking update', {
+			component: 'ApiBinder',
+			operation: 'poll',
+			targetVersion: targetVersion,
+			currentVersion: this.currentVersion,
+			hasVersion: !!deviceState.version
+		});
+		
 		// Check if target state changed
 		const newTargetState: SimpleState = { 
 			apps: deviceState.apps || {},
@@ -394,12 +414,15 @@ export class ApiBinder extends EventEmitter {
 			this.logger?.infoSync('New target state received from cloud', {
 				component: 'ApiBinder',
 				operation: 'poll',
+				version: targetVersion,
 				appCount: Object.keys(newTargetState.apps).length,
 				configKeyCount: Object.keys(newTargetState.config || {}).length,
 				hasChanges: true
 			});
 			
-			this.targetState = newTargetState;				// Apply target state to container manager
+			this.targetState = newTargetState;
+			
+			// Apply target state to container manager
 			await this.containerManager.setTarget(this.targetState);
 			
 			// Trigger reconciliation
@@ -407,12 +430,14 @@ export class ApiBinder extends EventEmitter {
 			
 			this.logger?.infoSync('Target state applied', {
 				component: 'ApiBinder',
-				operation: 'apply-state'
+				operation: 'apply-state',
+				version: this.currentVersion
 			});
 		} else {
 			this.logger?.debugSync('Target state fetched (no changes)', {
 				component: 'ApiBinder',
-				operation: 'poll'
+				operation: 'poll',
+				version: this.currentVersion
 			});
 		}		} catch (error) {
 			if ((error as Error).name === 'AbortError') {
@@ -610,6 +635,7 @@ export class ApiBinder extends EventEmitter {
 				apps: currentState.apps,
 				config: currentState.config,
 				is_online: this.connectionMonitor.isOnline(),
+				version: this.currentVersion, // Report which version we've applied
 			},
 		};
 		
@@ -659,6 +685,7 @@ export class ApiBinder extends EventEmitter {
 			apps: currentState.apps,
 			config: currentState.config,
 			is_online: this.connectionMonitor.isOnline(),
+			version: this.currentVersion, // Report which version we've applied
 		},
 	};
 	
@@ -694,7 +721,9 @@ export class ApiBinder extends EventEmitter {
 			const optimizationDetails: any = {
 				component: 'ApiBinder',
 				operation: 'report',
-				includeMetrics
+				includeMetrics,
+				version: this.currentVersion, // Show which version we're reporting
+				reportedVersion: stateReport[deviceInfo.uuid].version // Show version in report
 			};
 			
 			// Track which static fields were included (for debugging)

@@ -58,6 +58,7 @@ export interface DeviceCurrentState {
   apps: any;
   config: any;
   system_info: any;
+  version?: number; // Which target_state version the device has applied
   reported_at: Date;
 }
 
@@ -349,21 +350,23 @@ export class DeviceCurrentStateModel {
     deviceUuid: string,
     apps: any,
     config: any = {},
-    systemInfo: any = {}
+    systemInfo: any = {},
+    version?: number
   ): Promise<DeviceCurrentState> {
     // Ensure device exists
     await DeviceModel.getOrCreate(deviceUuid);
 
     const result = await query<DeviceCurrentState>(
-      `INSERT INTO device_current_state (device_uuid, apps, config, system_info, reported_at)
-       VALUES ($1, $2, $3, $4, CURRENT_TIMESTAMP)
+      `INSERT INTO device_current_state (device_uuid, apps, config, system_info, version, reported_at)
+       VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP)
        ON CONFLICT (device_uuid) DO UPDATE SET
          apps = $2,
          config = $3,
          system_info = $4,
+         version = $5,
          reported_at = CURRENT_TIMESTAMP
        RETURNING *`,
-      [deviceUuid, JSON.stringify(apps), JSON.stringify(config), JSON.stringify(systemInfo)]
+      [deviceUuid, JSON.stringify(apps), JSON.stringify(config), JSON.stringify(systemInfo), version || 0]
     );
 
     return result.rows[0];

@@ -161,12 +161,16 @@ router.patch('/device/state', deviceAuthFromBody, async (req, res) => {
     for (const uuid in stateReport) {
       const deviceState = stateReport[uuid];
 
-      console.log(`📥 Received state report from device ${uuid.substring(0, 8)}...`);
+      console.log(`📥 Received state report from device ${uuid.substring(0, 8)}...`, {
+        version: deviceState.version,
+        hasVersion: deviceState.version !== undefined,
+        versionType: typeof deviceState.version
+      });
 
       // Ensure device exists and mark as online
       await DeviceModel.getOrCreate(uuid);
 
-      // Update current state
+      // Update current state (including version from agent report)
       await DeviceCurrentStateModel.update(
         uuid,
         deviceState.apps || {},
@@ -177,7 +181,8 @@ router.patch('/device/state', deviceAuthFromBody, async (req, res) => {
           os_version: deviceState.os_version,
           agent_version: deviceState.agent_version,
           uptime: deviceState.uptime,
-        }
+        },
+        deviceState.version // Pass version from agent report
       );
 
       // 🎉 EVENT SOURCING: Publish current state updated event
