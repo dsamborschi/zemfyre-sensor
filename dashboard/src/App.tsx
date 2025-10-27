@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { DeviceSidebar, Device } from "./components/DeviceSidebar";
 import { AddEditDeviceDialog } from "./components/AddEditDeviceDialog";
 import { SystemMetrics } from "./components/SystemMetrics";
@@ -540,6 +540,7 @@ export default function App() {
   const [userName, setUserName] = useState("");
   const [selectedDeviceId, setSelectedDeviceId] = useState("");
   const [devices, setDevices] = useState<Device[]>([]);
+  const devicesRef = useRef<Device[]>([]); // Ref to access devices without causing re-renders
   const [isLoadingDevices, setIsLoadingDevices] = useState(true);
   const [cpuHistory, setCpuHistory] = useState<Array<{ time: string; value: number }>>([]);
   const [memoryHistory, setMemoryHistory] = useState<Array<{ time: string; used: number; available: number }>>([]);
@@ -583,6 +584,7 @@ export default function App() {
         }));
 
         setDevices(transformedDevices);
+        devicesRef.current = transformedDevices; // Keep ref in sync
         
         // Select first device if none selected
         if (!selectedDeviceId && transformedDevices.length > 0) {
@@ -613,7 +615,7 @@ export default function App() {
     const fetchApplications = async () => {
       if (!selectedDeviceId) return;
       
-      const selectedDevice = devices.find(d => d.id === selectedDeviceId);
+      const selectedDevice = devicesRef.current.find(d => d.id === selectedDeviceId);
       if (!selectedDevice?.deviceUuid) return;
 
       try {
@@ -679,7 +681,7 @@ export default function App() {
     // Refresh applications every 10 seconds
     const interval = setInterval(fetchApplications, 10000);
     return () => clearInterval(interval);
-  }, [selectedDeviceId, devices]);
+  }, [selectedDeviceId]); // Only depend on selectedDeviceId, not devices array
 
   // Helper function to format last seen time
   const formatLastSeen = (timestamp: string | null): string => {
