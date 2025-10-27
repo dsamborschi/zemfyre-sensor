@@ -659,12 +659,28 @@ export default function App() {
           Object.entries(apps).forEach(([appId, appData]: [string, any]) => {
             const services = appData.services || [];
             
-            // Transform services array
+            // Transform services array with full Service interface
             const transformedServices = services.map((service: any) => ({
+              // Properties expected by ApplicationsCard
+              serviceId: service.serviceId || 0,
+              serviceName: service.serviceName || 'Unknown Service',
+              imageName: service.imageName || 'unknown:latest',
+              appId: parseInt(appId) || 0,
+              appName: appData.appName || `App ${appId}`,
+              config: {
+                image: service.imageName || 'unknown:latest',
+                ports: service.config?.ports || [],
+                environment: service.config?.environment || {},
+                volumes: service.config?.volumes || [],
+                labels: service.config?.labels || {},
+              },
+              // Runtime status properties
+              status: 'stopped', // Stopped until manually deployed
+              uptime: '0m',
+              // Legacy properties for backward compatibility
               id: service.serviceId?.toString() || service.serviceName || `service-${Date.now()}`,
               name: service.serviceName || 'Unknown Service',
               image: service.imageName || 'unknown:latest',
-              status: 'stopped', // Stopped until manually deployed
               state: service.state || 'running',
               health: 'unknown', // Unknown until agent reports back
             }));
