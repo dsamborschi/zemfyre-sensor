@@ -559,9 +559,16 @@ export default function App() {
 
   // Fetch devices from API
   useEffect(() => {
+    let isFirstLoad = true;
+    
     const fetchDevices = async () => {
       try {
-        setIsLoadingDevices(true);
+        // Only show loading spinner on first load
+        if (isFirstLoad) {
+          setIsLoadingDevices(true);
+          isFirstLoad = false;
+        }
+        
         const response = await fetch(buildApiUrl('/api/v1/devices'));
         
         if (!response.ok) {
@@ -571,8 +578,9 @@ export default function App() {
         const data = await response.json();
         
         // Transform API response to match Device interface
-        const transformedDevices: Device[] = data.devices.map((apiDevice: any, index: number) => ({
-          id: String(index + 1),
+        // CRITICAL: Use stable UUID as ID instead of index to prevent React remounts
+        const transformedDevices: Device[] = data.devices.map((apiDevice: any) => ({
+          id: apiDevice.uuid, // Use stable UUID instead of index
           deviceUuid: apiDevice.uuid,
           name: apiDevice.device_name || 'Unnamed Device',
           type: apiDevice.device_type || 'gateway',
@@ -588,8 +596,16 @@ export default function App() {
             : 0,
         }));
 
-        setDevices(transformedDevices);
-        devicesRef.current = transformedDevices; // Keep ref in sync
+        // Only update state if devices actually changed (use callback for React optimization)
+        setDevices((prev) => {
+          if (JSON.stringify(prev) !== JSON.stringify(transformedDevices)) {
+            devicesRef.current = transformedDevices; // Keep ref in sync
+            return transformedDevices;
+          }
+          // No changes - return previous state to prevent re-render
+          devicesRef.current = prev; // Ensure ref stays in sync
+          return prev;
+        });
         
         // Select first device if none selected
         if (!selectedDeviceId && transformedDevices.length > 0) {
