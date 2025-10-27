@@ -668,6 +668,26 @@ export default function App() {
           }));
         }
         
+        // Determine actual sync status by comparing target vs current state versions
+        const targetVersion = data.target_state?.version || 1;
+        const currentVersion = data.current_state?.version || 0;
+        const needsDeployment = data.target_state?.needs_deployment || false;
+        
+        let actualSyncStatus: 'pending' | 'syncing' | 'synced' | 'error';
+        if (needsDeployment) {
+          // Changes saved but not deployed yet
+          actualSyncStatus = 'pending';
+        } else if (targetVersion > currentVersion) {
+          // Deployed but device hasn't picked it up yet
+          actualSyncStatus = 'syncing';
+        } else if (targetVersion === currentVersion) {
+          // Device has applied the changes
+          actualSyncStatus = 'synced';
+        } else {
+          // Something wrong - current version is higher than target?
+          actualSyncStatus = 'error';
+        }
+        
         // Transform target_state.apps to Application format (apps need manual deployment)
         // We show what's configured in target_state, not what's running in current_state
         if (data.target_state?.apps) {
@@ -711,7 +731,7 @@ export default function App() {
               name: appData.appName || `App ${appId}`,
               image: transformedServices.length > 0 ? transformedServices[0].image : 'unknown:latest',
               status: 'stopped', // Stopped until manually deployed
-              syncStatus: data.target_state.needs_deployment ? 'pending' : 'synced',
+              syncStatus: actualSyncStatus,
               services: transformedServices,
             });
           });
