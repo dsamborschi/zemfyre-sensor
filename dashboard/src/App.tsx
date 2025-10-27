@@ -841,9 +841,6 @@ export default function App() {
   }, [selectedDeviceId]);
 
   // Fetch network interfaces when device changes
-  // TEMPORARILY DISABLED - causing React error #130
-  // TODO: Re-enable after fixing the component rendering issue
-  /*
   useEffect(() => {
     if (!selectedDeviceId) {
       setNetworkInterfaces([]);
@@ -895,8 +892,7 @@ export default function App() {
     // Refresh network interfaces every 30 seconds
     const interval = setInterval(fetchNetworkInterfaces, 30000);
     return () => clearInterval(interval);
-  }, [selectedDeviceId]); // Only depend on selectedDeviceId, not devices
-  */
+  }, [selectedDeviceId]);
 
   // Helper function to format last seen time
   const formatLastSeen = (timestamp: string | null): string => {
