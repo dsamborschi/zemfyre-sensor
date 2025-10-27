@@ -398,14 +398,14 @@ export function ApplicationsCard({
                 <div>
                   <p className="text-sm font-medium text-yellow-900">Changes Pending Deployment</p>
                   <p className="text-xs text-yellow-700 mt-0.5">
-                    Version {deploymentStatus.version} • Click deploy to push to device
+                    Current version: {deploymentStatus.version} • Changes saved but not deployed yet
                   </p>
                 </div>
               </div>
               <Button 
                 onClick={onDeploy}
                 size="sm"
-                className="flex-shrink-0 bg-yellow-600 hover:bg-yellow-700"
+                className="flex-shrink-0 bg-yellow-600 hover:bg-yellow-700 !text-white"
               >
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                 Deploy
