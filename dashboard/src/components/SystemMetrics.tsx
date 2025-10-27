@@ -44,7 +44,6 @@ interface SystemMetricsProps {
   onRemoveApplication?: (appId: string) => void;
   onToggleAppStatus?: (appId: string) => void;
   onToggleServiceStatus?: (appId: string, serviceId: number, action: "start" | "stop") => void;
-  networkInterfaces?: NetworkInterface[];
   deploymentStatus?: {
     needsDeployment: boolean;
     version: number;
@@ -207,7 +206,6 @@ export function SystemMetrics({
   onRemoveApplication = () => {},
   onToggleAppStatus = () => {},
   onToggleServiceStatus = () => {},
-  networkInterfaces = [],
   deploymentStatus,
   onDeploy = () => {},
   onCancelDeploy = () => {}
@@ -664,9 +662,6 @@ export function SystemMetrics({
               onCancelDeploy={onCancelDeploy}
             />
           </div>
-
-          {/* Network Interfaces */}
-          <NetworkingCard interfaces={networkInterfaces} />
 
           {/* MQTT Broker */}
           <div id="mqtt-section">
