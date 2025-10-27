@@ -1068,31 +1068,14 @@ export default function App() {
 
       toast.success(`Service will ${action === "start" ? "start" : "stop"} on next deployment`);
       
-      // Mark as needs deployment
+      // Mark as needs deployment - don't update service state locally
+      // State will update from device after reconciliation
       setDeploymentStatus((prev: any) => ({
         ...prev,
         [selectedDeviceId]: {
           ...prev[selectedDeviceId],
           needsDeployment: true,
         }
-      }));
-
-      // Update local state to reflect the change
-      setApplications((prev: any) => ({
-        ...prev,
-        [selectedDeviceId]: (prev[selectedDeviceId] || []).map((a: any) => {
-          if (a.id !== appId) return a;
-          return {
-            ...a,
-            services: a.services?.map((s: any) => {
-              if (s.serviceId !== serviceId) return s;
-              return {
-                ...s,
-                state: action === "start" ? "running" : "stopped"
-              };
-            }),
-          };
-        }),
       }));
 
     } catch (error: any) {
