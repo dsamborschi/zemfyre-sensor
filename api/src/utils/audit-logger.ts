@@ -68,6 +68,7 @@ export enum AuditEventType {
   DEVICE_REGISTERED = 'device_registered',
   DEVICE_ONLINE = 'device_online',
   DEVICE_OFFLINE = 'device_offline',
+  DEVICE_CONFIG_UPDATE = 'device_config_update',
   
   // Key management
   API_KEY_CREATED = 'api_key_created',

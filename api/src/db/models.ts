@@ -45,6 +45,9 @@ export interface DeviceTargetState {
   apps: any;
   config: any;
   version: number;
+  needs_deployment?: boolean;
+  last_deployed_at?: Date;
+  deployed_by?: string;
   created_at: Date;
   updated_at: Date;
 }
@@ -244,7 +247,8 @@ export class DeviceTargetStateModel {
   }
 
   /**
-   * Set target state for device
+   * Set target state for device (without deploying)
+   * This marks the state as needing deployment
    */
   static async set(
     deviceUuid: string,
@@ -255,16 +259,43 @@ export class DeviceTargetStateModel {
     await DeviceModel.getOrCreate(deviceUuid);
 
     const result = await query<DeviceTargetState>(
-      `INSERT INTO device_target_state (device_uuid, apps, config, version, updated_at)
-       VALUES ($1, $2, $3, 1, CURRENT_TIMESTAMP)
+      `INSERT INTO device_target_state (device_uuid, apps, config, version, needs_deployment, updated_at)
+       VALUES ($1, $2, $3, 1, true, CURRENT_TIMESTAMP)
        ON CONFLICT (device_uuid) DO UPDATE SET
          apps = $2,
          config = $3,
-         version = device_target_state.version + 1,
+         needs_deployment = true,
          updated_at = CURRENT_TIMESTAMP
        RETURNING *`,
       [deviceUuid, JSON.stringify(apps), JSON.stringify(config)]
     );
+
+    return result.rows[0];
+  }
+
+  /**
+   * Deploy target state to device
+   * This increments version so device will pick up changes
+   */
+  static async deploy(
+    deviceUuid: string,
+    deployedBy: string = 'system'
+  ): Promise<DeviceTargetState> {
+    const result = await query<DeviceTargetState>(
+      `UPDATE device_target_state SET
+         version = version + 1,
+         needs_deployment = false,
+         last_deployed_at = CURRENT_TIMESTAMP,
+         deployed_by = $2,
+         updated_at = CURRENT_TIMESTAMP
+       WHERE device_uuid = $1
+       RETURNING *`,
+      [deviceUuid, deployedBy]
+    );
+
+    if (result.rows.length === 0) {
+      throw new Error(`Device ${deviceUuid} has no target state to deploy`);
+    }
 
     return result.rows[0];
   }

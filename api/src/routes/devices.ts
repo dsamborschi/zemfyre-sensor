@@ -551,6 +551,81 @@ router.delete('/devices/:uuid/apps/:appId', async (req, res) => {
   }
 });
 
+/**
+ * Deploy target state to device
+ * POST /api/v1/devices/:uuid/deploy
+ * 
+ * Increments version so device will pick up changes
+ */
+router.post('/devices/:uuid/deploy', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const deployedBy = req.body.deployedBy || 'dashboard';
+
+    console.log(`🚀 Deploying target state to device ${uuid.substring(0, 8)}... by ${deployedBy}`);
+
+    // Verify device exists
+    const device = await DeviceModel.getByUuid(uuid);
+    if (!device) {
+      return res.status(404).json({
+        error: 'Device not found',
+        message: `Device ${uuid} not found`
+      });
+    }
+
+    // Check if there's anything to deploy
+    const currentTarget = await DeviceTargetStateModel.get(uuid);
+    if (!currentTarget) {
+      return res.status(404).json({
+        error: 'Not found',
+        message: `Device ${uuid} has no target state to deploy`
+      });
+    }
+
+    if (!currentTarget.needs_deployment) {
+      return res.status(400).json({
+        error: 'Nothing to deploy',
+        message: 'Target state is already deployed',
+        version: currentTarget.version
+      });
+    }
+
+    // Deploy target state (increments version)
+    const deployedState = await DeviceTargetStateModel.deploy(uuid, deployedBy);
+
+    await logAuditEvent({
+      eventType: AuditEventType.DEVICE_CONFIG_UPDATE,
+      deviceUuid: uuid,
+      severity: AuditSeverity.INFO,
+      details: {
+        action: 'deploy',
+        version: deployedState.version,
+        deployedBy,
+        appsCount: Object.keys(deployedState.apps || {}).length
+      }
+    });
+
+    console.log(`✅ Deployed version ${deployedState.version} to device ${uuid.substring(0, 8)}...`);
+
+    res.json({
+      status: 'ok',
+      message: 'Target state deployed successfully',
+      deviceUuid: uuid,
+      version: deployedState.version,
+      deployedBy,
+      deployedAt: deployedState.last_deployed_at,
+      appsCount: Object.keys(deployedState.apps || {}).length
+    });
+
+  } catch (error: any) {
+    console.error('Error deploying target state:', error);
+    res.status(500).json({
+      error: 'Failed to deploy target state',
+      message: error.message
+    });
+  }
+});
+
 // ============================================================================
 // Device Broker Management
 // ============================================================================
