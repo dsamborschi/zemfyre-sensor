@@ -849,7 +849,7 @@ export default function App() {
 
     const fetchNetworkInterfaces = async () => {
       try {
-        const selectedDevice = devices.find((d: any) => d.id === selectedDeviceId);
+        const selectedDevice = devicesRef.current.find((d: any) => d.id === selectedDeviceId);
         if (!selectedDevice?.deviceUuid) {
           setNetworkInterfaces([]);
           return;
@@ -892,7 +892,7 @@ export default function App() {
     // Refresh network interfaces every 30 seconds
     const interval = setInterval(fetchNetworkInterfaces, 30000);
     return () => clearInterval(interval);
-  }, [selectedDeviceId, devices]);
+  }, [selectedDeviceId]); // Only depend on selectedDeviceId, not devices
 
   // Helper function to format last seen time
   const formatLastSeen = (timestamp: string | null): string => {
