@@ -107,8 +107,11 @@ router.get('/devices/:uuid', async (req, res) => {
         apps: typeof targetState.apps === 'string' ? JSON.parse(targetState.apps as any) : targetState.apps,
         config: typeof targetState.config === 'string' ? JSON.parse(targetState.config as any) : targetState.config,
         version: targetState.version,
+        needs_deployment: targetState.needs_deployment || false,
+        last_deployed_at: targetState.last_deployed_at || null,
+        deployed_by: targetState.deployed_by || null,
         updated_at: targetState.updated_at,
-      } : { apps: {}, config: {} },
+      } : { apps: {}, config: {}, version: 1, needs_deployment: false },
       current_state: currentState ? {
         apps: typeof currentState.apps === 'string' ? JSON.parse(currentState.apps as any) : currentState.apps,
         config: typeof currentState.config === 'string' ? JSON.parse(currentState.config as any) : currentState.config,
