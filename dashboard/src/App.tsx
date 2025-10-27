@@ -626,9 +626,10 @@ export default function App() {
 
         const data = await response.json();
         
-        // Transform current_state.apps to Application format
-        if (data.current_state?.apps) {
-          const apps = data.current_state.apps;
+        // Transform target_state.apps to Application format (apps need manual deployment)
+        // We show what's configured in target_state, not what's running in current_state
+        if (data.target_state?.apps) {
+          const apps = data.target_state.apps;
           const transformedApps: Application[] = [];
 
           // Apps is an object where keys are appIds
@@ -640,10 +641,9 @@ export default function App() {
               id: service.serviceId?.toString() || service.serviceName || `service-${Date.now()}`,
               name: service.serviceName || 'Unknown Service',
               image: service.imageName || 'unknown:latest',
-              status: service.status || 'unknown',
+              status: 'stopped', // Stopped until manually deployed
               state: service.state || 'running',
-              health: service.status === 'Running' ? 'healthy' : 
-                      service.status === 'Exited' ? 'stopped' : 'unhealthy',
+              health: 'unknown', // Unknown until agent reports back
             }));
 
             transformedApps.push({
@@ -652,8 +652,8 @@ export default function App() {
               appName: appData.appName || `App ${appId}`,
               name: appData.appName || `App ${appId}`,
               image: transformedServices.length > 0 ? transformedServices[0].image : 'unknown:latest',
-              status: transformedServices.some(s => s.status === 'Running') ? 'running' : 'stopped',
-              syncStatus: 'synced',
+              status: 'stopped', // Stopped until manually deployed
+              syncStatus: 'pending',
               services: transformedServices,
             });
           });
