@@ -602,6 +602,47 @@ export default function App() {
             : 0,
         }));
 
+        // Update telemetry history for selected device
+        if (selectedDeviceId) {
+          const selectedApiDevice = data.devices.find((d: any) => d.uuid === selectedDeviceId);
+          if (selectedApiDevice) {
+            const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+            
+            // Update CPU history
+            const cpu = Math.round(parseFloat(selectedApiDevice.cpu_usage) || 0);
+            setCpuHistory(prev => {
+              const updated = [...prev, { time: timestamp, value: cpu }];
+              // Keep last 30 data points (15 minutes at 30-second intervals)
+              return updated.slice(-30);
+            });
+            
+            // Update Memory history
+            const memUsed = parseFloat(selectedApiDevice.memory_usage) || 0;
+            const memTotal = parseFloat(selectedApiDevice.memory_total) || 1;
+            const memAvailable = memTotal - memUsed;
+            setMemoryHistory(prev => {
+              const updated = [...prev, { 
+                time: timestamp, 
+                used: Math.round(memUsed / 1024 / 1024), // Convert to MB
+                available: Math.round(memAvailable / 1024 / 1024) 
+              }];
+              return updated.slice(-30);
+            });
+            
+            // Update Network history
+            const netRx = parseFloat(selectedApiDevice.network_rx_bytes) || 0;
+            const netTx = parseFloat(selectedApiDevice.network_tx_bytes) || 0;
+            setNetworkHistory(prev => {
+              const updated = [...prev, { 
+                time: timestamp, 
+                rx: Math.round(netRx / 1024 / 1024), // Convert to MB
+                tx: Math.round(netTx / 1024 / 1024) 
+              }];
+              return updated.slice(-30);
+            });
+          }
+        }
+
         // Only update state if devices actually changed (use callback for React optimization)
         setDevices((prev) => {
           if (JSON.stringify(prev) !== JSON.stringify(transformedDevices)) {
