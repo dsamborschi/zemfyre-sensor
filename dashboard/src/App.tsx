@@ -823,19 +823,27 @@ export default function App() {
 
   // Fetch network interfaces when device changes
   useEffect(() => {
-    if (!selectedDeviceId) return;
+    if (!selectedDeviceId || devices.length === 0) {
+      setNetworkInterfaces([]);
+      return;
+    }
 
     const fetchNetworkInterfaces = async () => {
       try {
         const selectedDevice = devices.find((d: any) => d.id === selectedDeviceId);
-        if (!selectedDevice?.deviceUuid) return;
+        if (!selectedDevice?.deviceUuid) {
+          setNetworkInterfaces([]);
+          return;
+        }
 
         const response = await fetch(
           buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/network-interfaces`)
         );
 
         if (!response.ok) {
-          throw new Error(`Failed to fetch network interfaces: ${response.statusText}`);
+          console.warn(`Failed to fetch network interfaces: ${response.statusText}`);
+          setNetworkInterfaces([]);
+          return;
         }
 
         const data = await response.json();
@@ -865,7 +873,7 @@ export default function App() {
     // Refresh network interfaces every 30 seconds
     const interval = setInterval(fetchNetworkInterfaces, 30000);
     return () => clearInterval(interval);
-  }, [selectedDeviceId, devices]);
+  }, [selectedDeviceId]);
 
   // Helper function to format last seen time
   const formatLastSeen = (timestamp: string | null): string => {

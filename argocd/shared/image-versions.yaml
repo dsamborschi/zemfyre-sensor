@@ -1,0 +1,31 @@
+# Centralized Image Versions
+# Updated by CI/CD - all customers use these versions unless overridden
+
+api:
+  image:
+    repository: iotistic/api
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+
+dashboard:
+  image:
+    repository: iotistic/dashboard
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+
+billingExporter:
+  image:
+    repository: iotistic/billing-exporter
+    tag: v1.0.0
+    pullPolicy: IfNotPresent
+
+# Database and infrastructure versions
+postgres:
+  image:
+    repository: postgres
+    tag: "15-alpine"
+
+mosquitto:
+  image:
+    repository: eclipse-mosquitto
+    tag: "2.0"
