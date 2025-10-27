@@ -78,6 +78,14 @@ router.get('/device/:uuid/state', deviceAuth, async (req, res) => {
     console.log(`   Generated ETag: ${etag}`);
     console.log(`   Client ETag:    ${ifNoneMatch || 'none'}`);
     console.log(`   Apps in DB: ${JSON.stringify(Object.keys(targetState.apps || {}))}`);
+    console.log(`   Needs Deployment: ${targetState.needs_deployment || false}`);
+
+    // Check if changes are pending deployment
+    // If needs_deployment is true, return 304 to prevent agent from syncing
+    if (targetState.needs_deployment) {
+      console.log('   ⏸️  Changes pending deployment - returning 304 to block sync');
+      return res.status(304).end();
+    }
 
     // Check if client has current version
     if (ifNoneMatch && ifNoneMatch === etag) {
@@ -87,7 +95,7 @@ router.get('/device/:uuid/state', deviceAuth, async (req, res) => {
     
     console.log('   🎯 ETags differ - sending new state');
 
-    // Return target state (including config if present)
+    // Return target state (including config, version, and deployment status)
     const response = {
       [uuid]: {
         apps: typeof targetState.apps === 'string' 
@@ -95,7 +103,10 @@ router.get('/device/:uuid/state', deviceAuth, async (req, res) => {
           : targetState.apps,
         config: typeof targetState.config === 'string'
           ? JSON.parse(targetState.config as any)
-          : targetState.config || {}
+          : targetState.config || {},
+        version: targetState.version,
+        needs_deployment: targetState.needs_deployment || false,
+        last_deployed_at: targetState.last_deployed_at || null
       }
     };
 
