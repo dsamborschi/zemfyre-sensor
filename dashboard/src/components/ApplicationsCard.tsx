@@ -406,7 +406,7 @@ export function ApplicationsCard({
                 onClick={onDeploy}
                 size="sm"
                 className="flex-shrink-0 bg-yellow-600 hover:bg-yellow-700 border border-yellow-700 shadow-sm px-4 py-2 rounded-md font-semibold"
-                style={{ color: '#000000', backgroundColor: '#ca8a04', borderColor: '#a16207' }}
+                style={{ color: '#ffffff', backgroundColor: '#ca8a04', borderColor: '#a16207' }}
               >
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                 Deploy
