@@ -822,13 +822,52 @@ export default function App() {
     }
   };
 
-  const handleUpdateApplication = (updatedApp: Application) => {
-    setApplications(prev => ({
-      ...prev,
-      [selectedDeviceId]: (prev[selectedDeviceId] || []).map(app =>
-        app.id === updatedApp.id ? updatedApp : app
-      ),
-    }));
+  const handleUpdateApplication = async (updatedApp: Application) => {
+    try {
+      const selectedDevice = devices.find(d => d.id === selectedDeviceId);
+      if (!selectedDevice?.deviceUuid) {
+        toast.error('No device selected');
+        return;
+      }
+
+      // Use PATCH to update existing application
+      const response = await fetch(
+        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/apps/${updatedApp.appId}`),
+        {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            services: updatedApp.services.map(service => ({
+              serviceName: service.serviceName,
+              image: service.imageName,
+              ports: service.config?.ports || [],
+              environment: service.config?.environment || {},
+              volumes: service.config?.volumes || [],
+            }))
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update application');
+      }
+
+      toast.success(`Application "${updatedApp.appName}" updated successfully!`);
+      
+      // Update local state
+      setApplications(prev => ({
+        ...prev,
+        [selectedDeviceId]: (prev[selectedDeviceId] || []).map(app =>
+          app.id === updatedApp.id ? updatedApp : app
+        ),
+      }));
+    } catch (error: any) {
+      console.error('Error updating application:', error);
+      toast.error(`Failed to update application: ${error.message}`);
+    }
   };
 
   const handleRemoveApplication = (appId: string) => {
