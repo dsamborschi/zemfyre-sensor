@@ -97,6 +97,13 @@ interface ApplicationsCardProps {
   onRemoveApplication: (appId: string) => void;
   onToggleStatus: (appId: string) => void;
   onToggleServiceStatus?: (appId: string, serviceId: number, action: "start" | "stop") => void;
+  deploymentStatus?: {
+    needsDeployment: boolean;
+    version: number;
+    lastDeployedAt?: string;
+    deployedBy?: string;
+  };
+  onDeploy?: () => void;
 }
 
 const statusColors = {
@@ -127,6 +134,8 @@ export function ApplicationsCard({
   onRemoveApplication,
   onToggleStatus,
   onToggleServiceStatus = () => {},
+  deploymentStatus,
+  onDeploy = () => {},
 }: ApplicationsCardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
@@ -379,6 +388,31 @@ export function ApplicationsCard({
           </div>
           <p className="text-sm text-gray-600">Docker containers and services</p>
         </div>
+
+        {/* Deployment Status Banner */}
+        {deploymentStatus?.needsDeployment && (
+          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <Clock className="w-4 h-4 text-yellow-600" />
+                <div>
+                  <p className="text-sm font-medium text-yellow-900">Changes Pending Deployment</p>
+                  <p className="text-xs text-yellow-700 mt-0.5">
+                    Version {deploymentStatus.version} • Click deploy to push to device
+                  </p>
+                </div>
+              </div>
+              <Button 
+                onClick={onDeploy}
+                size="sm"
+                className="flex-shrink-0 bg-yellow-600 hover:bg-yellow-700"
+              >
+                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                Deploy
+              </Button>
+            </div>
+          </div>
+        )}
 
         {applications.length === 0 ? (
           <div className="text-center py-8 text-gray-500">

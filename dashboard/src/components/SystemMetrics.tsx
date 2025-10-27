@@ -45,6 +45,13 @@ interface SystemMetricsProps {
   onToggleAppStatus?: (appId: string) => void;
   onToggleServiceStatus?: (appId: string, serviceId: number, action: "start" | "stop") => void;
   networkInterfaces?: NetworkInterface[];
+  deploymentStatus?: {
+    needsDeployment: boolean;
+    version: number;
+    lastDeployedAt?: string;
+    deployedBy?: string;
+  };
+  onDeploy?: () => void;
 }
 
 const deviceTimelineEvents = [
@@ -199,7 +206,9 @@ export function SystemMetrics({
   onRemoveApplication = () => {},
   onToggleAppStatus = () => {},
   onToggleServiceStatus = () => {},
-  networkInterfaces = []
+  networkInterfaces = [],
+  deploymentStatus,
+  onDeploy = () => {}
 }: SystemMetricsProps) {
   const [selectedMetric, setSelectedMetric] = useState<'cpu' | 'memory' | 'network'>('cpu');
   const [timePeriod, setTimePeriod] = useState<'30min' | '6h' | '12h' | '24h'>('30min');
@@ -648,6 +657,8 @@ export function SystemMetrics({
               onRemoveApplication={onRemoveApplication}
               onToggleStatus={onToggleAppStatus}
               onToggleServiceStatus={onToggleServiceStatus}
+              deploymentStatus={deploymentStatus}
+              onDeploy={onDeploy}
             />
           </div>
 

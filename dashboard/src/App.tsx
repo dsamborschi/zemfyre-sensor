@@ -547,6 +547,12 @@ export default function App() {
   const [networkHistory, setNetworkHistory] = useState<Array<{ time: string; download: number; upload: number }>>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [applications, setApplications] = useState<Record<string, Application[]>>(initialApplications);
+  const [deploymentStatus, setDeploymentStatus] = useState<Record<string, { 
+    needsDeployment: boolean;
+    version: number;
+    lastDeployedAt?: string;
+    deployedBy?: string;
+  }>>({});
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   
@@ -648,6 +654,19 @@ export default function App() {
         }
 
         const data = await response.json();
+        
+        // Capture deployment status
+        if (data.target_state) {
+          setDeploymentStatus(prev => ({
+            ...prev,
+            [selectedDeviceId]: {
+              needsDeployment: data.target_state.needs_deployment || false,
+              version: data.target_state.version || 1,
+              lastDeployedAt: data.target_state.last_deployed_at,
+              deployedBy: data.target_state.deployed_by,
+            }
+          }));
+        }
         
         // Transform target_state.apps to Application format (apps need manual deployment)
         // We show what's configured in target_state, not what's running in current_state
@@ -871,7 +890,16 @@ export default function App() {
         throw new Error(error.message || 'Failed to update application');
       }
 
-      toast.success(`Application "${updatedApp.appName}" updated successfully!`);
+      toast.success(`Application "${updatedApp.appName}" saved (ready to deploy)`);
+      
+      // Mark as needs deployment
+      setDeploymentStatus(prev => ({
+        ...prev,
+        [selectedDeviceId]: {
+          ...prev[selectedDeviceId],
+          needsDeployment: true,
+        }
+      }));
       
       // Update local state
       setApplications(prev => ({
@@ -883,6 +911,65 @@ export default function App() {
     } catch (error: any) {
       console.error('Error updating application:', error);
       toast.error(`Failed to update application: ${error.message}`);
+    }
+  };
+
+  const handleDeployChanges = async () => {
+    try {
+      if (!selectedDeviceId) {
+        toast.error('No device selected');
+        return;
+      }
+
+      const selectedDevice = devices.find(d => d.id === selectedDeviceId);
+      if (!selectedDevice?.deviceUuid) {
+        toast.error('Device not found');
+        return;
+      }
+
+      const deployStatus = deploymentStatus[selectedDeviceId];
+      if (!deployStatus?.needsDeployment) {
+        toast.info('No changes to deploy');
+        return;
+      }
+
+      toast.loading('Deploying changes...', { id: 'deploy' });
+
+      const response = await fetch(
+        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/deploy`),
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            deployedBy: 'dashboard'
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to deploy changes');
+      }
+
+      const data = await response.json();
+
+      toast.success(`Deployed version ${data.version} successfully!`, { id: 'deploy' });
+      
+      // Update deployment status
+      setDeploymentStatus(prev => ({
+        ...prev,
+        [selectedDeviceId]: {
+          needsDeployment: false,
+          version: data.version,
+          lastDeployedAt: data.deployedAt,
+          deployedBy: data.deployedBy,
+        }
+      }));
+    } catch (error: any) {
+      console.error('Error deploying changes:', error);
+      toast.error(`Failed to deploy: ${error.message}`, { id: 'deploy' });
     }
   };
 
@@ -1067,6 +1154,8 @@ export default function App() {
           onToggleAppStatus={handleToggleAppStatus}
           onToggleServiceStatus={handleToggleServiceStatus}
           networkInterfaces={mockNetworkInterfaces[selectedDeviceId] || []}
+          deploymentStatus={deploymentStatus[selectedDeviceId]}
+          onDeploy={handleDeployChanges}
         />
             </>
           )}
