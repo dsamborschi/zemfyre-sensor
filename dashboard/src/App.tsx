@@ -894,6 +894,7 @@ export default function App() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            appName: updatedApp.appName, // Include app name
             services: updatedApp.services.map(service => ({
               serviceName: service.serviceName,
               image: service.imageName,
