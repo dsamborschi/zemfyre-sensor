@@ -412,7 +412,7 @@ router.post('/devices/:uuid/apps', async (req, res) => {
 router.patch('/devices/:uuid/apps/:appId', async (req, res) => {
   try {
     const { uuid, appId: appIdStr } = req.params;
-    const { services } = req.body;
+    const { appName, services } = req.body;
 
     const appId = parseInt(appIdStr);
     if (isNaN(appId)) {
@@ -471,6 +471,11 @@ router.patch('/devices/:uuid/apps/:appId', async (req, res) => {
 
     // Update app in target state
     currentApps[appId].services = servicesWithIds;
+    
+    // Update app name if provided
+    if (appName) {
+      currentApps[appId].appName = appName;
+    }
 
     // Save updated state
     await DeviceTargetStateModel.set(uuid, currentApps, currentTarget.config || {});
@@ -482,6 +487,7 @@ router.patch('/devices/:uuid/apps/:appId', async (req, res) => {
       message: 'Application updated on device',
       deviceUuid: uuid,
       appId,
+      appName: currentApps[appId].appName,
       services: servicesWithIds
     });
 
