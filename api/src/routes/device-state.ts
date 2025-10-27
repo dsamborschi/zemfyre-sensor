@@ -270,6 +270,14 @@ router.patch('/device/state', deviceAuthFromBody, async (req, res) => {
             [JSON.stringify(deviceState.top_processes), uuid]
           );
         }
+        
+        // Store network interfaces if provided
+        if (deviceState.network_interfaces) {
+          await query(
+            `UPDATE devices SET network_interfaces = $1 WHERE uuid = $2`,
+            [JSON.stringify(deviceState.network_interfaces), uuid]
+          );
+        }
       }
     }
 
@@ -664,13 +672,12 @@ router.get('/devices/:uuid/processes', async (req, res) => {
 /**
  * Get network interfaces for device
  * GET /api/v1/devices/:uuid/network-interfaces
- * Note: Returns mock data for now until agent sends network interface data
  */
 router.get('/devices/:uuid/network-interfaces', async (req, res) => {
   try {
     const { uuid } = req.params;
 
-    // Get device to check if it exists
+    // Get device to check if it exists and get network interfaces
     const device = await DeviceModel.getByUuid(uuid);
     if (!device) {
       return res.status(404).json({
@@ -679,11 +686,34 @@ router.get('/devices/:uuid/network-interfaces', async (req, res) => {
       });
     }
 
-    // For now, return a default interface based on device IP
-    // TODO: Update agent to send network_interfaces in state report
-    const interfaces = [];
+    // Get network interfaces from device (stored as JSONB)
+    let interfaces = [];
     
-    if (device.ip_address) {
+    if (device.network_interfaces) {
+      // Parse if it's a string, otherwise use as-is
+      const networkData = typeof device.network_interfaces === 'string' 
+        ? JSON.parse(device.network_interfaces) 
+        : device.network_interfaces;
+      
+      // Transform to dashboard format
+      interfaces = networkData.map((iface: any) => ({
+        id: iface.name,
+        name: iface.name,
+        type: iface.type || 'ethernet',
+        ipAddress: iface.ip4,
+        ip4: iface.ip4,
+        ip6: iface.ip6,
+        mac: iface.mac,
+        status: iface.operstate === 'up' ? 'connected' : 'disconnected',
+        operstate: iface.operstate,
+        default: iface.default,
+        virtual: iface.virtual,
+        // WiFi specific fields
+        ...(iface.ssid && { ssid: iface.ssid }),
+        ...(iface.signalLevel && { signal: iface.signalLevel }),
+      }));
+    } else if (device.ip_address) {
+      // Fallback: Create a default interface based on device IP
       interfaces.push({
         id: 'eth0',
         name: 'eth0',

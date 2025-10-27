@@ -52,6 +52,18 @@ interface DeviceStateReport {
 			mem: number;
 			command?: string;
 		}>;
+		network_interfaces?: Array<{
+			name: string;
+			ip4: string | null;
+			ip6: string | null;
+			mac: string | null;
+			type: string | null;
+			default: boolean;
+			virtual: boolean;
+			operstate: string | null;
+			ssid?: string;
+			signalLevel?: number;
+		}>;
 	};
 }
 
@@ -661,6 +673,7 @@ export class ApiBinder extends EventEmitter {
 				stateReport[deviceInfo.uuid].temperature = metrics.cpu_temp ?? undefined;
 				stateReport[deviceInfo.uuid].uptime = metrics.uptime;
 				stateReport[deviceInfo.uuid].top_processes = metrics.top_processes ?? [];
+				stateReport[deviceInfo.uuid].network_interfaces = metrics.network_interfaces ?? [];
 				
 				// Get IP address from network interfaces (only include if changed)
 				const primaryInterface = metrics.network_interfaces.find(i => i.default);

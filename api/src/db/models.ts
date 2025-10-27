@@ -29,6 +29,7 @@ export interface Device {
   cpu_usage?: number;
   cpu_temp?: number;
   top_processes?: any; // JSONB - stored as any since it's flexible
+  network_interfaces?: any; // JSONB - network interface data
   // Security fields
   device_api_key_hash?: string;
   fleet_id?: string;
