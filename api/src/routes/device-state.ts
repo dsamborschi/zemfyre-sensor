@@ -662,6 +662,56 @@ router.get('/devices/:uuid/processes', async (req, res) => {
 });
 
 /**
+ * Get network interfaces for device
+ * GET /api/v1/devices/:uuid/network-interfaces
+ * Note: Returns mock data for now until agent sends network interface data
+ */
+router.get('/devices/:uuid/network-interfaces', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+
+    // Get device to check if it exists
+    const device = await DeviceModel.getByUuid(uuid);
+    if (!device) {
+      return res.status(404).json({
+        error: 'Device not found',
+        message: `Device ${uuid} not found`
+      });
+    }
+
+    // For now, return a default interface based on device IP
+    // TODO: Update agent to send network_interfaces in state report
+    const interfaces = [];
+    
+    if (device.ip_address) {
+      interfaces.push({
+        id: 'eth0',
+        name: 'eth0',
+        type: 'ethernet',
+        ipAddress: device.ip_address,
+        ip4: device.ip_address,
+        status: device.is_online ? 'connected' : 'disconnected',
+        default: true,
+        operstate: device.is_online ? 'up' : 'down',
+      });
+    }
+
+    res.json({
+      device_uuid: uuid,
+      interfaces,
+      is_online: device.is_online,
+      last_updated: device.modified_at,
+    });
+  } catch (error: any) {
+    console.error('Error getting network interfaces:', error);
+    res.status(500).json({
+      error: 'Failed to get network interfaces',
+      message: error.message
+    });
+  }
+});
+
+/**
  * Get historical process metrics for device
  * GET /api/v1/devices/:uuid/processes/history
  */

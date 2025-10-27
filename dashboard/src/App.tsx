@@ -545,6 +545,7 @@ export default function App() {
   const [cpuHistory, setCpuHistory] = useState<Array<{ time: string; value: number }>>([]);
   const [memoryHistory, setMemoryHistory] = useState<Array<{ time: string; used: number; available: number }>>([]);
   const [networkHistory, setNetworkHistory] = useState<Array<{ time: string; download: number; upload: number }>>([]);
+  const [networkInterfaces, setNetworkInterfaces] = useState<any[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [applications, setApplications] = useState<Record<string, Application[]>>(initialApplications);
   const [deploymentStatus, setDeploymentStatus] = useState<Record<string, { 
@@ -819,6 +820,52 @@ export default function App() {
     const interval = setInterval(fetchMetrics, 30000);
     return () => clearInterval(interval);
   }, [selectedDeviceId]);
+
+  // Fetch network interfaces when device changes
+  useEffect(() => {
+    if (!selectedDeviceId) return;
+
+    const fetchNetworkInterfaces = async () => {
+      try {
+        const selectedDevice = devices.find((d: any) => d.id === selectedDeviceId);
+        if (!selectedDevice?.deviceUuid) return;
+
+        const response = await fetch(
+          buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/network-interfaces`)
+        );
+
+        if (!response.ok) {
+          throw new Error(`Failed to fetch network interfaces: ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        // Transform API format to dashboard format
+        const interfaces = (data.interfaces || []).map((iface: any) => ({
+          id: iface.name || iface.id,
+          name: iface.name || iface.id,
+          type: iface.type || 'ethernet',
+          ipAddress: iface.ip4 || iface.ipAddress,
+          status: iface.status || (iface.operstate === 'up' ? 'connected' : 'disconnected'),
+          speed: iface.speed,
+          signal: iface.signalLevel,
+          mac: iface.mac,
+          default: iface.default,
+        }));
+
+        setNetworkInterfaces(interfaces);
+      } catch (error) {
+        console.error('Error fetching network interfaces:', error);
+        setNetworkInterfaces([]);
+      }
+    };
+
+    fetchNetworkInterfaces();
+    
+    // Refresh network interfaces every 30 seconds
+    const interval = setInterval(fetchNetworkInterfaces, 30000);
+    return () => clearInterval(interval);
+  }, [selectedDeviceId, devices]);
 
   // Helper function to format last seen time
   const formatLastSeen = (timestamp: string | null): string => {
@@ -1304,7 +1351,7 @@ export default function App() {
           onRemoveApplication={handleRemoveApplication}
           onToggleAppStatus={handleToggleAppStatus}
           onToggleServiceStatus={handleToggleServiceStatus}
-          networkInterfaces={mockNetworkInterfaces[selectedDeviceId] || []}
+          networkInterfaces={networkInterfaces}
           deploymentStatus={deploymentStatus[selectedDeviceId]}
           onDeploy={handleDeployChanges}
           onCancelDeploy={handleCancelDeploy}
