@@ -665,8 +665,8 @@ export function SystemMetrics({
             />
           </div>
 
-          {/* Network Interfaces */}
-          <NetworkingCard interfaces={networkInterfaces} />
+          {/* Network Interfaces - TEMPORARILY DISABLED */}
+          {/* <NetworkingCard interfaces={networkInterfaces} /> */}
 
           {/* MQTT Broker */}
           <div id="mqtt-section">

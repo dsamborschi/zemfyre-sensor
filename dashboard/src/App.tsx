@@ -841,7 +841,62 @@ export default function App() {
   }, [selectedDeviceId]);
 
   // Fetch network interfaces when device changes
+  // TEMPORARILY DISABLED - causing React error #130
+  // TODO: Re-enable after fixing the component rendering issue
+  /*
+  useEffect(() => {
+    if (!selectedDeviceId) {
+      setNetworkInterfaces([]);
+      return;
+    }
 
+    const fetchNetworkInterfaces = async () => {
+      try {
+        const selectedDevice = devicesRef.current.find((d: any) => d.id === selectedDeviceId);
+        if (!selectedDevice?.deviceUuid) {
+          setNetworkInterfaces([]);
+          return;
+        }
+
+        const response = await fetch(
+          buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/network-interfaces`)
+        );
+
+        if (!response.ok) {
+          console.warn(`Failed to fetch network interfaces: ${response.statusText}`);
+          setNetworkInterfaces([]);
+          return;
+        }
+
+        const data = await response.json();
+        
+        // Transform API format to dashboard format
+        const interfaces = (data.interfaces || []).map((iface: any) => ({
+          id: iface.name || iface.id,
+          name: iface.name || iface.id,
+          type: iface.type || 'ethernet',
+          ipAddress: iface.ip4 || iface.ipAddress,
+          status: iface.status || (iface.operstate === 'up' ? 'connected' : 'disconnected'),
+          speed: iface.speed,
+          signal: iface.signalLevel,
+          mac: iface.mac,
+          default: iface.default,
+        }));
+
+        setNetworkInterfaces(interfaces);
+      } catch (error) {
+        console.error('Error fetching network interfaces:', error);
+        setNetworkInterfaces([]);
+      }
+    };
+
+    fetchNetworkInterfaces();
+    
+    // Refresh network interfaces every 30 seconds
+    const interval = setInterval(fetchNetworkInterfaces, 30000);
+    return () => clearInterval(interval);
+  }, [selectedDeviceId]); // Only depend on selectedDeviceId, not devices
+  */
 
   // Helper function to format last seen time
   const formatLastSeen = (timestamp: string | null): string => {
