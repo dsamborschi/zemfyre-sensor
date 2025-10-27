@@ -711,7 +711,7 @@ export default function App() {
               name: appData.appName || `App ${appId}`,
               image: transformedServices.length > 0 ? transformedServices[0].image : 'unknown:latest',
               status: 'stopped', // Stopped until manually deployed
-              syncStatus: 'pending',
+              syncStatus: data.target_state.needs_deployment ? 'pending' : 'synced',
               services: transformedServices,
             });
           });
