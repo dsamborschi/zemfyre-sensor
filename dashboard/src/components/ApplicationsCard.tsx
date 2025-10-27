@@ -405,8 +405,7 @@ export function ApplicationsCard({
               <Button 
                 onClick={onDeploy}
                 size="sm"
-                style={{ color: 'white' }}
-                className="flex-shrink-0 bg-yellow-600 hover:bg-yellow-700"
+                className="flex-shrink-0 bg-yellow-600 hover:bg-yellow-700 text-white"
               >
                 <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
                 Deploy
