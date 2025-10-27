@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { DeviceSidebar, Device } from "./components/DeviceSidebar";
 import { AddEditDeviceDialog } from "./components/AddEditDeviceDialog";
 import { SystemMetrics } from "./components/SystemMetrics";
@@ -549,7 +549,12 @@ export default function App() {
   const [applications, setApplications] = useState<Record<string, Application[]>>(initialApplications);
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const selectedDevice = devices.find((d) => d.id === selectedDeviceId) || devices[0];
+  
+  // Memoize selected device to prevent unnecessary re-renders
+  const selectedDevice = useMemo(() => {
+    return devices.find((d) => d.id === selectedDeviceId) || devices[0];
+  }, [devices, selectedDeviceId]);
+  
   const deviceApplications = applications[selectedDeviceId] || [];
 
   // Fetch devices from API
