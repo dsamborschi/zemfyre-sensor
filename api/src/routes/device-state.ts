@@ -607,8 +607,9 @@ router.get('/devices/:uuid/logs', deviceAuth, async (req, res) => {
 /**
  * Get device metrics
  * GET /api/v1/devices/:uuid/metrics
+ * Note: No auth required - called by dashboard, not device
  */
-router.get('/devices/:uuid/metrics', deviceAuth,async (req, res) => {
+router.get('/devices/:uuid/metrics', async (req, res) => {
   try {
     const { uuid } = req.params;
     const limit = parseInt(req.query.limit as string) || 100;
