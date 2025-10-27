@@ -115,6 +115,7 @@ router.get('/devices/:uuid', async (req, res) => {
       current_state: currentState ? {
         apps: typeof currentState.apps === 'string' ? JSON.parse(currentState.apps as any) : currentState.apps,
         config: typeof currentState.config === 'string' ? JSON.parse(currentState.config as any) : currentState.config,
+        version: currentState.version || 0, // Include version for sync status comparison
         system_info: typeof currentState.system_info === 'string' ? JSON.parse(currentState.system_info as any) : currentState.system_info,
         reported_at: currentState.reported_at,
       } : null,
