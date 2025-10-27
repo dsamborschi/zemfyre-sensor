@@ -688,14 +688,16 @@ export default function App() {
           actualSyncStatus = 'error';
         }
         
-        // Transform target_state.apps to Application format (apps need manual deployment)
-        // We show what's configured in target_state, not what's running in current_state
-        if (data.target_state?.apps) {
-          const apps = data.target_state.apps;
+        // Show target_state when pending/syncing, current_state when synced
+        // This displays what's configured vs what's actually running
+        const showCurrentState = actualSyncStatus === 'synced' && data.current_state?.apps;
+        const appsSource = showCurrentState ? data.current_state.apps : data.target_state?.apps;
+        
+        if (appsSource) {
           const transformedApps: Application[] = [];
 
           // Apps is an object where keys are appIds
-          Object.entries(apps).forEach(([appId, appData]: [string, any]) => {
+          Object.entries(appsSource).forEach(([appId, appData]: [string, any]) => {
             const services = appData.services || [];
             
             // Transform services array with full Service interface
@@ -713,15 +715,15 @@ export default function App() {
                 volumes: service.config?.volumes || [],
                 labels: service.config?.labels || {},
               },
-              // Runtime status properties
-              status: 'stopped', // Stopped until manually deployed
-              uptime: '0m',
+              // Runtime status properties - use actual status when synced, otherwise default
+              status: showCurrentState ? (service.status || 'stopped') : 'stopped',
+              uptime: service.uptime || '0m',
               // Legacy properties for backward compatibility
               id: service.serviceId?.toString() || service.serviceName || `service-${Date.now()}`,
               name: service.serviceName || 'Unknown Service',
               image: service.imageName || 'unknown:latest',
               state: service.state || 'running',
-              health: 'unknown', // Unknown until agent reports back
+              health: showCurrentState ? (service.health || 'unknown') : 'unknown',
             }));
 
             transformedApps.push({
