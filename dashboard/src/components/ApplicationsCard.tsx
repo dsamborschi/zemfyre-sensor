@@ -104,6 +104,7 @@ interface ApplicationsCardProps {
     deployedBy?: string;
   };
   onDeploy?: () => void;
+  onCancelDeploy?: () => void;
 }
 
 const statusColors = {
@@ -136,6 +137,7 @@ export function ApplicationsCard({
   onToggleServiceStatus = () => {},
   deploymentStatus,
   onDeploy = () => {},
+  onCancelDeploy = () => {},
 }: ApplicationsCardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
@@ -402,15 +404,26 @@ export function ApplicationsCard({
                   </p>
                 </div>
               </div>
-              <Button 
-                onClick={onDeploy}
-                size="sm"
-                className="flex-shrink-0 bg-yellow-600 hover:bg-yellow-700 border border-yellow-700 shadow-sm px-4 py-2 rounded-md font-semibold"
-                style={{ color: '#ffffff', backgroundColor: '#ca8a04', borderColor: '#a16207' }}
-              >
-                <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                Deploy
-              </Button>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <Button 
+                  onClick={onCancelDeploy}
+                  size="sm"
+                  variant="outline"
+                  className="border-gray-300 hover:bg-gray-100 text-gray-700"
+                >
+                  <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={onDeploy}
+                  size="sm"
+                  className="flex-shrink-0 bg-yellow-600 hover:bg-yellow-700 border border-yellow-700 shadow-sm px-4 py-2 rounded-md font-semibold"
+                  style={{ color: '#ffffff', backgroundColor: '#ca8a04', borderColor: '#a16207' }}
+                >
+                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                  Deploy
+                </Button>
+              </div>
             </div>
           </div>
         )}

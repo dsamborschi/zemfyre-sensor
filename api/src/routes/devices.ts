@@ -637,6 +637,105 @@ router.post('/devices/:uuid/deploy', async (req, res) => {
   }
 });
 
+/**
+ * Cancel pending deployment
+ * POST /api/v1/devices/:uuid/deploy/cancel
+ * 
+ * Resets needs_deployment flag without changing version
+ * Discards pending changes and reverts to last deployed state
+ */
+router.post('/devices/:uuid/deploy/cancel', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+
+    console.log(`❌ Canceling pending deployment for device ${uuid.substring(0, 8)}...`);
+
+    // Verify device exists
+    const device = await DeviceModel.getByUuid(uuid);
+    if (!device) {
+      return res.status(404).json({
+        error: 'Device not found',
+        message: `Device ${uuid} not found`
+      });
+    }
+
+    // Get current target state
+    const currentTarget = await DeviceTargetStateModel.get(uuid);
+    if (!currentTarget) {
+      return res.status(404).json({
+        error: 'Not found',
+        message: `Device ${uuid} has no target state`
+      });
+    }
+
+    if (!currentTarget.needs_deployment) {
+      return res.status(400).json({
+        error: 'Nothing to cancel',
+        message: 'No pending changes to cancel',
+        version: currentTarget.version
+      });
+    }
+
+    // Get last deployed state from history
+    const history = await query(
+      `SELECT apps, config, version 
+       FROM device_target_state_history 
+       WHERE device_uuid = $1 
+       ORDER BY deployed_at DESC 
+       LIMIT 1`,
+      [uuid]
+    );
+
+    if (history.rows.length === 0) {
+      // No history, just reset the flag
+      await query(
+        `UPDATE device_target_state 
+         SET needs_deployment = false 
+         WHERE device_uuid = $1`,
+        [uuid]
+      );
+    } else {
+      // Restore from history
+      const lastDeployed = history.rows[0];
+      await query(
+        `UPDATE device_target_state 
+         SET apps = $1, 
+             config = $2, 
+             needs_deployment = false 
+         WHERE device_uuid = $3`,
+        [lastDeployed.apps, lastDeployed.config, uuid]
+      );
+    }
+
+    await logAuditEvent({
+      eventType: AuditEventType.DEVICE_CONFIG_UPDATE,
+      deviceUuid: uuid,
+      severity: AuditSeverity.INFO,
+      details: {
+        action: 'cancel_deployment',
+        version: currentTarget.version,
+        restoredFrom: history.rows.length > 0 ? 'history' : 'current'
+      }
+    });
+
+    console.log(`✅ Canceled pending deployment for device ${uuid.substring(0, 8)}...`);
+
+    res.json({
+      status: 'ok',
+      message: 'Pending deployment canceled successfully',
+      deviceUuid: uuid,
+      version: currentTarget.version
+    });
+
+  } catch (error: any) {
+    console.error('Error canceling deployment:', error);
+    res.status(500).json({
+      error: 'Failed to cancel deployment',
+      message: error.message
+    });
+  }
+});
+
 // ============================================================================
 // Device Broker Management
 // ============================================================================

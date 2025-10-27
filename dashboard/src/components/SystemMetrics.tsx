@@ -52,6 +52,7 @@ interface SystemMetricsProps {
     deployedBy?: string;
   };
   onDeploy?: () => void;
+  onCancelDeploy?: () => void;
 }
 
 const deviceTimelineEvents = [
@@ -208,7 +209,8 @@ export function SystemMetrics({
   onToggleServiceStatus = () => {},
   networkInterfaces = [],
   deploymentStatus,
-  onDeploy = () => {}
+  onDeploy = () => {},
+  onCancelDeploy = () => {}
 }: SystemMetricsProps) {
   const [selectedMetric, setSelectedMetric] = useState<'cpu' | 'memory' | 'network'>('cpu');
   const [timePeriod, setTimePeriod] = useState<'30min' | '6h' | '12h' | '24h'>('30min');
@@ -659,6 +661,7 @@ export function SystemMetrics({
               onToggleServiceStatus={onToggleServiceStatus}
               deploymentStatus={deploymentStatus}
               onDeploy={onDeploy}
+              onCancelDeploy={onCancelDeploy}
             />
           </div>
 

@@ -1055,6 +1055,64 @@ export default function App() {
     }
   };
 
+  const handleCancelDeploy = async () => {
+    try {
+      if (!selectedDeviceId) {
+        toast.error('No device selected');
+        return;
+      }
+
+      const selectedDevice = devices.find((d: any) => d.id === selectedDeviceId);
+      if (!selectedDevice?.deviceUuid) {
+        toast.error('Device not found');
+        return;
+      }
+
+      const deployStatus = deploymentStatus[selectedDeviceId];
+      if (!deployStatus?.needsDeployment) {
+        toast.info('No pending changes to cancel');
+        return;
+      }
+
+      toast.loading('Canceling pending changes...', { id: 'cancel' });
+
+      const response = await fetch(
+        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/deploy/cancel`),
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to cancel deployment');
+      }
+
+      toast.success('Pending changes canceled successfully', { id: 'cancel' });
+      
+      // Update deployment status
+      setDeploymentStatus((prev: any) => ({
+        ...prev,
+        [selectedDeviceId]: {
+          ...prev[selectedDeviceId],
+          needsDeployment: false,
+        }
+      }));
+
+      // Refetch applications to show reverted state
+      setTimeout(() => {
+        setDevices((prev: any) => [...prev]);
+      }, 500);
+
+    } catch (error: any) {
+      console.error('Error canceling deployment:', error);
+      toast.error(`Failed to cancel: ${error.message}`, { id: 'cancel' });
+    }
+  };
+
   const handleRemoveApplication = (appId: string) => {
     setApplications(prev => ({
       ...prev,
@@ -1249,6 +1307,7 @@ export default function App() {
           networkInterfaces={mockNetworkInterfaces[selectedDeviceId] || []}
           deploymentStatus={deploymentStatus[selectedDeviceId]}
           onDeploy={handleDeployChanges}
+          onCancelDeploy={handleCancelDeploy}
         />
             </>
           )}
