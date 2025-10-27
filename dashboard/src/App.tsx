@@ -583,6 +583,8 @@ export default function App() {
 
         const data = await response.json();
         
+        console.log('Devices API response:', data);
+        
         // Transform API response to match Device interface
         // CRITICAL: Use stable UUID as ID instead of index to prevent React remounts
         const transformedDevices: Device[] = data.devices.map((apiDevice: any) => ({
@@ -606,6 +608,14 @@ export default function App() {
         if (selectedDeviceId) {
           const selectedApiDevice = data.devices.find((d: any) => d.uuid === selectedDeviceId);
           if (selectedApiDevice) {
+            console.log('Selected device metrics:', {
+              cpu_usage: selectedApiDevice.cpu_usage,
+              memory_usage: selectedApiDevice.memory_usage,
+              memory_total: selectedApiDevice.memory_total,
+              network_rx_bytes: selectedApiDevice.network_rx_bytes,
+              network_tx_bytes: selectedApiDevice.network_tx_bytes
+            });
+            
             const timestamp = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
             
             // Update CPU history
