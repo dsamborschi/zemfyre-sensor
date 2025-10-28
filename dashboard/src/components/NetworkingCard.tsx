@@ -8,7 +8,7 @@ export interface NetworkInterface {
   ipAddress: string;
   status: "connected" | "disconnected";
   signal?: number; // For wifi/mobile
-  speed?: string; // e.g., "1000 Mbps" for ethernet
+  speed?: string; // e.g., "1000 Mbps" for ethernetf
 }
 
 interface NetworkingCardProps {
