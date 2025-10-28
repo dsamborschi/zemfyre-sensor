@@ -1066,11 +1066,33 @@ export default function App() {
         throw new Error(error.message || `Failed to ${action} service`);
       }
 
-      const actionText = action === "start" ? "start" : action === "pause" ? "pause" : "stop";
-      toast.success(`Service will ${actionText} on next deployment`);
+      const actionText = action === "start" ? "started" : action === "pause" ? "paused" : "stopped";
+      const statusMap: Record<string, "running" | "stopped" | "paused"> = {
+        "start": "running",
+        "pause": "paused",
+        "stop": "stopped"
+      };
       
-      // Mark as needs deployment - don't update service state locally
-      // State will update from device after reconciliation
+      toast.success(`Service ${actionText} successfully`);
+      
+      // Update local service status immediately for better UX
+      setApplications(prev => ({
+        ...prev,
+        [selectedDeviceId]: (prev[selectedDeviceId] || []).map(a => 
+          a.id === appId 
+            ? {
+                ...a,
+                services: a.services.map(s => 
+                  s.serviceId === serviceId
+                    ? { ...s, status: statusMap[action], state: stateMap[action] as "running" | "stopped" | "paused" }
+                    : s
+                )
+              }
+            : a
+        )
+      }));
+      
+      // Mark as needs deployment
       setDeploymentStatus((prev: any) => ({
         ...prev,
         [selectedDeviceId]: {

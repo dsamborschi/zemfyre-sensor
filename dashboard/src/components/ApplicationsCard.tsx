@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, CheckCircle2, XCircle, Clock, Play, Pause, Square, MoreVertical, Pen, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, CheckCircle2, XCircle, Clock, Play, Pause, MoreVertical, Pen, RefreshCw, Trash2 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -622,7 +622,7 @@ export function ApplicationsCard({
                                       ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
                                       : "border-green-300 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-400"
                                   }`}
-                                  title="Start"
+                                  title="Start (unpause or start stopped service)"
                                 >
                                   <Play className="w-4 h-4" />
                                 </Button>
@@ -642,23 +642,6 @@ export function ApplicationsCard({
                                   title="Pause"
                                 >
                                   <Pause className="w-4 h-4" />
-                                </Button>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => {
-                                    onToggleServiceStatus(app.id, service.serviceId, "stop");
-                                    toast.info(`Stopping ${service.serviceName}`);
-                                  }}
-                                  disabled={service.status === "stopped" || service.status === "syncing" || !service.status}
-                                  className={`h-8 w-8 p-0 ${
-                                    service.status === "stopped" || service.status === "syncing" || !service.status
-                                      ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
-                                      : "border-red-300 bg-red-50 text-red-700 hover:bg-red-100 hover:border-red-400"
-                                  }`}
-                                  title="Stop"
-                                >
-                                  <Square className="w-4 h-4" />
                                 </Button>
                                 <Button
                                   variant="outline"
