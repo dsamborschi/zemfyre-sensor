@@ -295,19 +295,7 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
                 <label className="block text-sm font-medium text-gray-700">
                   Job Steps ({customSteps.length})
                 </label>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setEditingStepIndex(-1);
-                    resetStepForm();
-                  }}
-                  disabled={saving || editingStepIndex !== null}
-                  className="text-xs"
-                >
-                  + Add Step
-                </Button>
+               
               </div>
 
               {/* Steps List */}
