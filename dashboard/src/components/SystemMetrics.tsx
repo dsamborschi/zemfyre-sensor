@@ -207,144 +207,6 @@ export function SystemMetrics({
           { label: "MAC Address", value: device.macAddress || data.mac_address || "Unknown" },
         ]);
       }
-        {/* Telemetry Chart - Combined CPU, Memory, and Network */}
-        <Card className="p-4 md:p-6">
-          <div className="mb-4 space-y-3">
-            <div>
-              <h3 className="text-lg text-gray-900 font-medium mb-1">Telemetry</h3>
-              <p className="text-sm text-gray-600">System performance metrics</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Select value={timePeriod} onValueChange={(value: any) => setTimePeriod(value)}>
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="30min">30 minutes</SelectItem>
-                  <SelectItem value="6h">6 hours</SelectItem>
-                  <SelectItem value="12h">12 hours</SelectItem>
-                  <SelectItem value="24h">24 hours</SelectItem>
-                </SelectContent>
-              </Select>
-              <Select value={selectedMetric} onValueChange={(value: any) => setSelectedMetric(value)}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cpu">CPU Usage</SelectItem>
-                  <SelectItem value="memory">Memory Usage</SelectItem>
-                  <SelectItem value="network">Network Activity</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {device.status === 'pending' ? (
-            <div className="flex items-center justify-center h-[250px] text-gray-500">
-              No telemetry available: device not provisioned
-            </div>
-          ) : (
-            <>
-              {selectedMetric === 'cpu' && (
-                <ResponsiveContainer width="100%" height={250}>
-                  <AreaChart data={cpuHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                    <defs>
-                      <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                        <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                    <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="value"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      fillOpacity={1}
-                      fill="url(#colorCpu)"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-
-              {selectedMetric === 'memory' && (
-                <>
-                  {memoryHistory.length === 0 ? (
-                    <div className="flex items-center justify-center h-[250px] text-gray-500">
-                      No memory data available
-                    </div>
-                  ) : (
-                    <ResponsiveContainer width="100%" height={250}>
-                      <AreaChart data={memoryHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                        <defs>
-                          <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                          </linearGradient>
-                          <linearGradient id="colorAvailable" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                            <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                        <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                        <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
-                        <Tooltip />
-                        <Area
-                          type="monotone"
-                          dataKey="used"
-                          stackId="1"
-                          stroke="#8b5cf6"
-                          strokeWidth={2}
-                          fillOpacity={1}
-                          fill="url(#colorUsed)"
-                        />
-                        <Area
-                          type="monotone"
-                          dataKey="available"
-                          stackId="1"
-                          stroke="#10b981"
-                          strokeWidth={2}
-                          fillOpacity={1}
-                          fill="url(#colorAvailable)"
-                        />
-                      </AreaChart>
-                    </ResponsiveContainer>
-                  )}
-                </>
-              )}
-
-              {selectedMetric === 'network' && (
-                <ResponsiveContainer width="100%" height={250}>
-                  <LineChart data={networkHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                    <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                    <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
-                    <Tooltip />
-                    <Legend />
-                    <Line
-                      type="monotone"
-                      dataKey="download"
-                      stroke="#3b82f6"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                    <Line
-                      type="monotone"
-                      dataKey="upload"
-                      stroke="#10b981"
-                      strokeWidth={2}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </>
-          )}
-        </Card>
           </div>
           
           {/* Device Actions */}
@@ -472,103 +334,111 @@ export function SystemMetrics({
               </div>
             </div>
 
-            {selectedMetric === 'cpu' && (
-              <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={cpuHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                  <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorCpu)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-
-            {selectedMetric === 'memory' && (
+            {device.status === 'pending' ? (
+              <div className="flex items-center justify-center h-[250px] text-gray-500">
+                No telemetry available: device not provisioned
+              </div>
+            ) : (
               <>
-                {memoryHistory.length === 0 ? (
-                  <div className="flex items-center justify-center h-[250px] text-gray-500">
-                    No memory data available
-                  </div>
-                ) : (
+                {selectedMetric === 'cpu' && (
                   <ResponsiveContainer width="100%" height={250}>
-                    <AreaChart data={memoryHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                    </linearGradient>
-                    <linearGradient id="colorAvailable" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                  <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Legend />
-                  <Area
-                    type="monotone"
-                    dataKey="used"
-                    stackId="1"
-                    stroke="#8b5cf6"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorUsed)"
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="available"
-                    stackId="1"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorAvailable)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+                    <AreaChart data={cpuHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                      <defs>
+                        <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
+                      <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
+                      <Tooltip />
+                      <Area
+                        type="monotone"
+                        dataKey="value"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#colorCpu)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+
+                {selectedMetric === 'memory' && (
+                  <>
+                    {memoryHistory.length === 0 ? (
+                      <div className="flex items-center justify-center h-[250px] text-gray-500">
+                        No memory data available
+                      </div>
+                    ) : (
+                      <ResponsiveContainer width="100%" height={250}>
+                        <AreaChart data={memoryHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                          <defs>
+                            <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
+                            </linearGradient>
+                            <linearGradient id="colorAvailable" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
+                              <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                          <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
+                          <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
+                          <Tooltip />
+                          <Legend />
+                          <Area
+                            type="monotone"
+                            dataKey="used"
+                            stackId="1"
+                            stroke="#8b5cf6"
+                            strokeWidth={2}
+                            fillOpacity={1}
+                            fill="url(#colorUsed)"
+                          />
+                          <Area
+                            type="monotone"
+                            dataKey="available"
+                            stackId="1"
+                            stroke="#10b981"
+                            strokeWidth={2}
+                            fillOpacity={1}
+                            fill="url(#colorAvailable)"
+                          />
+                        </AreaChart>
+                      </ResponsiveContainer>
+                    )}
+                  </>
+                )}
+
+                {selectedMetric === 'network' && (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <LineChart data={networkHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
+                      <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
+                      <Tooltip />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="download"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="upload"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
                 )}
               </>
-            )}
-
-            {selectedMetric === 'network' && (
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={networkHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                  <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="download"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="upload"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
             )}
           </Card>
 
@@ -660,35 +530,16 @@ export function SystemMetrics({
                           <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[120px]">
                             <div
                               className="bg-blue-600 h-2 rounded-full transition-all"
-                              {/* Charts */}
-                              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
-                                {/* Telemetry Chart - Combined CPU, Memory, and Network */}
-                                <Card className="p-4 md:p-6">
-                                  <div className="mb-4 space-y-3">
-                                    <div>
-                                      <h3 className="text-lg text-gray-900 font-medium mb-1">Telemetry</h3>
-                                      <p className="text-sm text-gray-600">System performance metrics</p>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                      <Select value={timePeriod} onValueChange={(value: any) => setTimePeriod(value)}>
-                                        <SelectTrigger className="w-[120px]">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="30min">30 minutes</SelectItem>
-                                          <SelectItem value="6h">6 hours</SelectItem>
-                                          <SelectItem value="12h">12 hours</SelectItem>
-                                          <SelectItem value="24h">24 hours</SelectItem>
-                                        </SelectContent>
-                                      </Select>
-                                      <Select value={selectedMetric} onValueChange={(value: any) => setSelectedMetric(value)}>
-                                        <SelectTrigger className="w-[140px]">
-                                          <SelectValue />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                          <SelectItem value="cpu">CPU Usage</SelectItem>
-                                          <SelectItem value="memory">Memory Usage</SelectItem>
-                                          <SelectItem value="network">Network Activity</SelectItem>
+                              style={{ width: `${process.cpu}%` }}
+                            />
+                          </div>
+                        </div>
+                      </td>
+                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
                                         </SelectContent>
                                       </Select>
                                     </div>
