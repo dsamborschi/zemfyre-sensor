@@ -70,6 +70,18 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose,
     }
   };
 
+  // Format JSON with syntax highlighting
+  const formatJsonWithSyntaxHighlight = (obj: any) => {
+    const formatted = JSON.stringify(obj, null, 2);
+    
+    return formatted
+      .replace(/(".*?"):/g, '<span class="text-blue-400 font-medium">$1</span>:')  // Keys
+      .replace(/: (".*?")/g, ': <span class="text-green-400">$1</span>')  // String values
+      .replace(/: (true|false)/g, ': <span class="text-purple-400 font-semibold">$1</span>')  // Booleans
+      .replace(/: (null)/g, ': <span class="text-gray-500 italic">$1</span>')  // Null
+      .replace(/: (-?\d+\.?\d*)/g, ': <span class="text-orange-400">$1</span>');  // Numbers
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
