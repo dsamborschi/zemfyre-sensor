@@ -229,29 +229,33 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                       {formatDate(job.completed_at || job.started_at || job.queued_at)}
                     </td>
                     <td className="py-3 px-4 text-right">
-                      <div className="flex items-center justify-end gap-1">
+                      <div className="flex items-center justify-end gap-2">
                         {/* Cancel button - only for QUEUED jobs */}
                         {job.status === 'QUEUED' && (
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleCancelJob(job.job_id)}
                             disabled={cancelingJobId === job.job_id}
-                            className="p-1.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded transition-colors disabled:opacity-50"
-                            title="Cancel job"
+                            className="text-orange-600 hover:text-orange-700 border-orange-300 hover:bg-orange-50"
                           >
-                            <XCircle className="w-4 h-4" />
-                          </button>
+                            <XCircle className="w-4 h-4 mr-1" />
+                            Cancel
+                          </Button>
                         )}
                         
                         {/* Delete button - for all completed states */}
                         {['SUCCEEDED', 'FAILED', 'TIMED_OUT', 'CANCELED', 'REJECTED', 'QUEUED'].includes(job.status) && (
-                          <button
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => handleDeleteJob(job.job_id)}
                             disabled={deletingJobId === job.job_id}
-                            className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
-                            title="Delete job"
+                            className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50"
                           >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
+                            <Trash2 className="w-4 h-4 mr-1" />
+                            Delete
+                          </Button>
                         )}
                       </div>
                     </td>
