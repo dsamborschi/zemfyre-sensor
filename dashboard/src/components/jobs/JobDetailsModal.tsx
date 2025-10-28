@@ -72,7 +72,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose,
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[700px] max-h-[80vh] overflow-y-auto bg-white">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             Job Details: {job.job_name}
