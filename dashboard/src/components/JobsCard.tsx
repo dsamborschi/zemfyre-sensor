@@ -247,7 +247,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                           variant="outline"
                           size="sm"
                           onClick={() => handleViewJob(job)}
-                          className="text-blue-600 hover:text-blue-700 border-blue-300 hover:bg-blue-50"
+                          className="text-blue-600 hover:text-blue-700 border-blue-300 hover:bg-blue-50 w-20"
                         >
                           <Eye className="w-4 h-4 mr-1" />
                           View
@@ -260,7 +260,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                             size="sm"
                             onClick={() => handleCancelJob(job.job_id)}
                             disabled={cancelingJobId === job.job_id}
-                            className="text-orange-600 hover:text-orange-700 border-orange-300 hover:bg-orange-50"
+                            className="text-orange-600 hover:text-orange-700 border-orange-300 hover:bg-orange-50 w-20"
                           >
                             <XCircle className="w-4 h-4 mr-1" />
                             Cancel
@@ -274,7 +274,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                             size="sm"
                             onClick={() => handleDeleteJob(job.job_id)}
                             disabled={deletingJobId === job.job_id}
-                            className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50"
+                            className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50 w-20"
                           >
                             <Trash2 className="w-4 h-4 mr-1" />
                             Delete
