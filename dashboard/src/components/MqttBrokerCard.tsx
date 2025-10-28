@@ -247,13 +247,39 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
     }
   };
 
-  // Clear selected topic when device changes or topics become empty
+  // Auto-select first topic with a message when topics load or change
   useEffect(() => {
     if (topics.length === 0) {
       setSelectedTopic('');
       setSelectedMessage('');
+      return;
     }
-  }, [topics, deviceId]);
+
+    // Find first topic with a message (recursively)
+    const findFirstTopicWithMessage = (topics: MqttTopic[], path: string = ''): { topic: string; message: string } | null => {
+      for (const topic of topics) {
+        const currentPath = path ? `${path}/${topic.name}` : topic.name;
+        
+        // If this topic has a message, select it
+        if (topic.lastMessage) {
+          return { topic: currentPath, message: topic.lastMessage };
+        }
+        
+        // Otherwise check children
+        if (topic.children && topic.children.length > 0) {
+          const found = findFirstTopicWithMessage(topic.children, currentPath);
+          if (found) return found;
+        }
+      }
+      return null;
+    };
+
+    const firstTopic = findFirstTopicWithMessage(topics);
+    if (firstTopic && !selectedTopic) {
+      setSelectedTopic(firstTopic.topic);
+      setSelectedMessage(firstTopic.message);
+    }
+  }, [topics, deviceId, selectedTopic]);
 
   // Filter topics based on search query
   const filterTopics = (topics: MqttTopic[], query: string): MqttTopic[] => {
