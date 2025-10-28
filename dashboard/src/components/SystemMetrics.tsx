@@ -524,10 +524,7 @@ export function SystemMetrics({
           />
         </div>
 
-        {/* Jobs Card */}
-        <div id="jobs-section">
-          <JobsCard deviceUuid={device.deviceUuid} />
-        </div>
+      
 
         {/* Top Processes */}
         <Card className="p-4 md:p-6" id="processes-section">
