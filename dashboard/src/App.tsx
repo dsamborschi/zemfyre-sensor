@@ -78,7 +78,9 @@ export default function App() {
           deviceUuid: apiDevice.uuid,
           name: apiDevice.device_name || 'Unnamed Device',
           type: apiDevice.device_type || 'gateway',
-          status: apiDevice.is_online ? 'online' : 'offline',
+          status: apiDevice.provisioning_state === 'pending'
+            ? 'pending'
+            : (apiDevice.is_online ? 'online' : 'offline'),
           ipAddress: apiDevice.ip_address || 'N/A',
           macAddress: apiDevice.mac_address || 'N/A',
           lastSeen: formatLastSeen(apiDevice.last_connectivity_event),

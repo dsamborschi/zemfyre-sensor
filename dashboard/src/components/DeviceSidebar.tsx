@@ -26,7 +26,7 @@ export interface Device {
   deviceUuid: string;
   name: string;
   type: "desktop" | "laptop" | "mobile" | "server" | "gateway" | "edge-device" | "iot-hub" | "plc" | "controller" | "sensor-node" | "standalone";
-  status: "online" | "offline" | "warning";
+  status: "online" | "offline" | "warning" | "pending";
   ipAddress: string;
   macAddress?: string;
   lastSeen: string;
@@ -62,17 +62,19 @@ const statusColors = {
   online: "bg-green-500",
   offline: "bg-gray-400",
   warning: "bg-yellow-500",
+  pending: "bg-yellow-500",
 };
 
 const statusBadgeColors = {
   online: "bg-green-100 text-green-700 border-green-200",
   offline: "bg-gray-100 text-gray-700 border-gray-200",
   warning: "bg-yellow-100 text-yellow-700 border-yellow-200",
+  pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
 };
 
 export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDevice , onSelectDevice }: DeviceSidebarProps) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilters, setStatusFilters] = useState<string[]>(["online", "offline", "warning"]);
+  const [statusFilters, setStatusFilters] = useState<string[]>(["online", "offline", "warning", "pending"]);
   const [typeFilters, setTypeFilters] = useState<string[]>(["desktop", "laptop", "mobile", "server", "gateway", "edge-device", "iot-hub", "plc", "controller", "sensor-node", "standalone"]);
 
   const toggleStatusFilter = (status: string) => {
@@ -99,8 +101,8 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
 
   const clearFilters = () => {
     setSearchQuery("");
-    setStatusFilters(["online", "offline", "warning"]);
-    setTypeFilters(["desktop", "laptop", "mobile", "server", "gateway", "edge-device", "iot-hub", "plc", "controller", "sensor-node", "standalone"]);
+    setStatusFilters(["online", "offline", "warning", "pending"]);
+    setTypeFilters(["gateway", "edge-device", "iot-hub", "plc", "controller", "sensor-node", "standalone"]);
   };
 
   return (
@@ -164,6 +166,13 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
                 onCheckedChange={() => toggleStatusFilter("offline")}
               >
                 Offline
+              </DropdownMenuCheckboxItem>
+
+              <DropdownMenuCheckboxItem
+                checked={statusFilters.includes("pending")}
+                onCheckedChange={() => toggleStatusFilter("pending")}
+              >
+                Pending
               </DropdownMenuCheckboxItem>
               
               <DropdownMenuSeparator />
