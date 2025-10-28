@@ -567,13 +567,6 @@ export function ApplicationsCard({
                           >
                             View Logs
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              toast.info(`Restarting ${app.appName || app.name}`);
-                            }}
-                          >
-                            Restart
-                          </DropdownMenuItem>
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-red-600"
