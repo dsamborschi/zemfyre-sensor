@@ -400,11 +400,34 @@ export default function App() {
 
   const handleSaveDevice = async (deviceData: Omit<Device, "id"> & { id?: string }) => {
     if (deviceData.id) {
-      // Edit existing device - TODO: implement API call
-      setDevices(prev =>
-        prev.map(d => (d.id === deviceData.id ? { ...d, ...deviceData } : d))
-      );
-      toast.success('Device updated successfully');
+      // Edit existing device - persist changes to API
+      try {
+        toast.loading('Updating device...', { id: 'update-device' });
+        const response = await fetch(buildApiUrl(`/api/v1/devices/${deviceData.id}`), {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            deviceName: deviceData.name,
+            deviceType: deviceData.type,
+            ipAddress: deviceData.ipAddress,
+            macAddress: deviceData.macAddress
+          })
+        });
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to update device');
+        }
+        const result = await response.json();
+        setDevices(prev =>
+          prev.map(d => (d.id === deviceData.id ? { ...d, ...deviceData } : d))
+        );
+        toast.success('Device updated successfully', { id: 'update-device' });
+      } catch (error: any) {
+        console.error('Error updating device:', error);
+        toast.error(`Failed to update device: ${error.message}`, { id: 'update-device' });
+      }
     } else {
       // Add new device - register via API
       try {
