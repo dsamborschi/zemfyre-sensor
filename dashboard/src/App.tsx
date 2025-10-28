@@ -727,12 +727,31 @@ export default function App() {
         return;
       }
 
+      // Ensure appId is a number
+      const numericAppId = typeof app.appId === 'number' ? app.appId : parseInt(String(app.appId));
+      
       console.log('📦 Adding application:', {
         appId: app.appId,
         appIdType: typeof app.appId,
+        numericAppId: numericAppId,
+        numericType: typeof numericAppId,
         appName: app.appName,
         servicesCount: app.services?.length || 0
       });
+
+      const payload = {
+        appId: numericAppId,
+        appName: app.appName,
+        services: app.services.map(service => ({
+          serviceName: service.serviceName,
+          image: service.imageName,
+          ports: service.config?.ports || [],
+          environment: service.config?.environment || {},
+          volumes: service.config?.volumes || [],
+        }))
+      };
+
+      console.log('📤 Sending payload:', JSON.stringify(payload, null, 2));
 
       // Create application with services via API
       const response = await fetch(
@@ -742,17 +761,7 @@ export default function App() {
           headers: {
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({
-            appId: app.appId,
-            appName: app.appName,
-            services: app.services.map(service => ({
-              serviceName: service.serviceName,
-              image: service.imageName,
-              ports: service.config?.ports || [],
-              environment: service.config?.environment || {},
-              volumes: service.config?.volumes || [],
-            }))
-          })
+          body: JSON.stringify(payload)
         }
       );
 
