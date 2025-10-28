@@ -15,6 +15,7 @@ import { Textarea } from "./ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { toast } from "sonner@2.0.3";
 import { Device } from "./DeviceSidebar";
+import { buildApiUrl } from "../config/api";
 
 interface AddEditDeviceDialogProps {
   open: boolean;
@@ -29,11 +30,6 @@ const deviceGroups = [
   { value: "laptop", label: "Laptop" },
   { value: "mobile", label: "Mobile Device" },
 ];
-
-// Helper function to generate provisioning key
-const generateProvisioningKey = () => {
-  return `PROV-${Math.random().toString(36).substring(2, 15).toUpperCase()}-${Math.random().toString(36).substring(2, 15).toUpperCase()}`;
-};
 
 // Helper function to generate UUID v4
 const generateUuid = () => {
@@ -53,7 +49,9 @@ export function AddEditDeviceDialog({
   const isEditMode = !!device;
   const [copiedCommand, setCopiedCommand] = useState(false);
   const [copiedKey, setCopiedKey] = useState(false);
-  const [provisioningKey, setProvisioningKey] = useState(generateProvisioningKey());
+  const [provisioningKey, setProvisioningKey] = useState("");
+  const [provisioningKeyId, setProvisioningKeyId] = useState<string | null>(null);
+  const [isLoadingKey, setIsLoadingKey] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     type: "server" as "desktop" | "laptop" | "mobile" | "server",
@@ -69,6 +67,40 @@ export function AddEditDeviceDialog({
 
   // Install command
   const installCommand = `bash <(curl -H 'Cache-Control: no-cache' -sL --proto '=https' https://apps.iotistic.ca/install-agent)`;
+
+  // Fetch provisioning key from API
+  const fetchProvisioningKey = async (isRegenerate = false) => {
+    setIsLoadingKey(true);
+    try {
+      const response = await fetch(buildApiUrl('/api/v1/provisioning-keys/generate'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fleetId: 'default-fleet',
+          newKey: isRegenerate,
+          previousKeyId: isRegenerate ? provisioningKeyId : undefined,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to generate provisioning key');
+      }
+
+      const data = await response.json();
+      setProvisioningKey(data.key);
+      setProvisioningKeyId(data.id);
+      
+      if (isRegenerate) {
+        toast.success("New provisioning key generated and old key invalidated");
+      }
+    } catch (error: any) {
+      console.error('Error generating provisioning key:', error);
+      toast.error(error.message || 'Failed to generate provisioning key');
+    } finally {
+      setIsLoadingKey(false);
+    }
+  };
 
   useEffect(() => {
     if (device) {
@@ -97,8 +129,10 @@ export function AddEditDeviceDialog({
         memory: 0,
         disk: 0,
       });
-      // Generate new provisioning key when opening for new device
-      setProvisioningKey(generateProvisioningKey());
+      // Generate new provisioning key from API when opening for new device
+      if (open && !provisioningKey) {
+        fetchProvisioningKey(false);
+      }
     }
   }, [device, open]);
 
@@ -153,9 +187,8 @@ export function AddEditDeviceDialog({
     setTimeout(() => setCopiedKey(false), 2000);
   };
 
-  const regenerateProvisioningKey = () => {
-    setProvisioningKey(generateProvisioningKey());
-    toast.success("New provisioning key generated");
+  const regenerateProvisioningKey = async () => {
+    await fetchProvisioningKey(true);
   };
 
   return (
@@ -244,7 +277,7 @@ export function AddEditDeviceDialog({
                 <div className="relative">
                   <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-md px-3 py-2.5">
                     <code className="flex-1 font-mono text-sm text-gray-900 select-all">
-                      {provisioningKey}
+                      {isLoadingKey ? "Generating..." : (provisioningKey || "Loading...")}
                     </code>
                     <div className="flex gap-1 ml-2">
                       <Button
@@ -253,6 +286,7 @@ export function AddEditDeviceDialog({
                         variant="ghost"
                         className="h-8 w-8 hover:bg-gray-200"
                         onClick={copyProvisioningKey}
+                        disabled={isLoadingKey || !provisioningKey}
                       >
                         {copiedKey ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-600" />}
                       </Button>
@@ -262,8 +296,9 @@ export function AddEditDeviceDialog({
                         variant="ghost"
                         className="h-8 w-8 hover:bg-gray-200"
                         onClick={regenerateProvisioningKey}
+                        disabled={isLoadingKey}
                       >
-                        <RefreshCw className="w-4 h-4 text-gray-600" />
+                        <RefreshCw className={`w-4 h-4 text-gray-600 ${isLoadingKey ? 'animate-spin' : ''}`} />
                       </Button>
                     </div>
                   </div>
