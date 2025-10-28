@@ -155,12 +155,12 @@ export function SystemMetrics({
 
   // Fetch system info from API
   const [systemInfo, setSystemInfo] = useState([
-    { label: "Operating System", value: "Loading..." },
-    { label: "Architecture", value: "Loading..." },
-    { label: "Uptime", value: "Loading..." },
+    { label: "Operating System", value: "Unknown" },
+    { label: "Architecture", value: "Unknown" },
+    { label: "Uptime", value: "Unknown" },
     { label: "Hostname", value: device.name },
     { label: "IP Address", value: device.ipAddress },
-    { label: "MAC Address", value: "Loading..." },
+    { label: "MAC Address", value: "Unknown" },
   ]);
 
   useEffect(() => {
@@ -168,20 +168,39 @@ export function SystemMetrics({
       if (!device.deviceUuid) return;
       
       try {
-        const response = await fetch(buildApiUrl(`/api/v1/devices/${device.deviceUuid}/system-info`));
+        const response = await fetch(buildApiUrl(`/api/v1/devices/${device.deviceUuid}/current-state`));
         if (!response.ok) {
           console.warn('Failed to fetch system info');
           return;
         }
         const data = await response.json();
         
+        // Format uptime from seconds to human readable
+        const formatUptime = (seconds: number): string => {
+          const days = Math.floor(seconds / 86400);
+          const hours = Math.floor((seconds % 86400) / 3600);
+          const minutes = Math.floor((seconds % 3600) / 60);
+          
+          const parts = [];
+          if (days > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+          if (hours > 0) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+          if (minutes > 0) parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
+          
+          return parts.length > 0 ? parts.join(', ') : 'Less than a minute';
+        };
+        
+        // Extract OS and architecture from os_version string (e.g., "Microsoft Windows 10 Pro 10.0.19045")
+        const osVersion = data.os_version || '';
+        const osMatch = osVersion.match(/^([^0-9]+)/);
+        const os = osMatch ? osMatch[1].trim() : (osVersion || 'Unknown');
+        
         setSystemInfo([
-          { label: "Operating System", value: data.os || "Unknown" },
-          { label: "Architecture", value: data.arch || "Unknown" },
-          { label: "Uptime", value: data.uptime || "Unknown" },
+          { label: "Operating System", value: os },
+          { label: "Architecture", value: data.architecture || "Unknown" },
+          { label: "Uptime", value: data.uptime ? formatUptime(data.uptime) : "Unknown" },
           { label: "Hostname", value: data.hostname || device.name },
-          { label: "IP Address", value: data.ipAddress || device.ipAddress },
-          { label: "MAC Address", value: data.macAddress || "Unknown" },
+          { label: "IP Address", value: device.ipAddress },
+          { label: "MAC Address", value: data.mac_address || "Unknown" },
         ]);
       } catch (error) {
         console.error('Failed to fetch system info:', error);
