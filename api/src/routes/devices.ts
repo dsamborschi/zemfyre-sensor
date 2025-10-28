@@ -4,6 +4,30 @@
  * PATCH /api/v1/devices/:uuid
  * Body: { deviceName, deviceType, ipAddress, macAddress }
  */
+
+
+/**
+ * Device Management Routes
+ * Endpoints for managing individual devices and their deployed applications
+ */
+
+import express from 'express';
+import { query } from '../db/connection';
+import {
+  DeviceModel,
+  DeviceTargetStateModel,
+  DeviceCurrentStateModel,
+} from '../db/models';
+import {
+  logAuditEvent,
+  AuditEventType,
+  AuditSeverity
+} from '../utils/audit-logger';
+import { EventPublisher } from '../services/event-sourcing';
+
+export const router = express.Router();
+
+
 router.patch('/devices/:uuid', async (req, res) => {
   try {
     const { uuid } = req.params;
@@ -69,27 +93,6 @@ router.patch('/devices/:uuid', async (req, res) => {
     });
   }
 });
-
-/**
- * Device Management Routes
- * Endpoints for managing individual devices and their deployed applications
- */
-
-import express from 'express';
-import { query } from '../db/connection';
-import {
-  DeviceModel,
-  DeviceTargetStateModel,
-  DeviceCurrentStateModel,
-} from '../db/models';
-import {
-  logAuditEvent,
-  AuditEventType,
-  AuditSeverity
-} from '../utils/audit-logger';
-import { EventPublisher } from '../services/event-sourcing';
-
-export const router = express.Router();
 
 /**
  * Update device details (name, type, IP, MAC)
