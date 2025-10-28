@@ -577,6 +577,6 @@ export function SystemMetrics({
             </div>
           )}
         </Card>
-      </div>
-    );
-  }
+    </div>
+  );
+}
