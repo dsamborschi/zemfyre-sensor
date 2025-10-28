@@ -187,7 +187,7 @@ export function AnalyticsCard({ deviceName = "Device 1", deviceId, processes = [
           <p className="text-sm text-gray-600">Process performance metrics</p>
         </div>
         <div className="text-center py-8 text-gray-500">
-          <p>No analytics available: device not provisioned</p>
+          <p>No analytics available</p>
         </div>
       </Card>
     );
