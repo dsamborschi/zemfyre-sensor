@@ -121,6 +121,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { color: string; label: string }> = {
       QUEUED: { color: 'bg-gray-100 text-gray-700 border-gray-300', label: 'Queued' },
+      SCHEDULED: { color: 'bg-purple-100 text-purple-700 border-purple-300', label: 'Scheduled' },
       IN_PROGRESS: { color: 'bg-blue-100 text-blue-700 border-blue-300', label: 'In Progress' },
       SUCCEEDED: { color: 'bg-green-100 text-green-700 border-green-300', label: 'Succeeded' },
       FAILED: { color: 'bg-red-100 text-red-700 border-red-300', label: 'Failed' },
@@ -253,8 +254,8 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                           View
                         </Button>
                         
-                        {/* Cancel button - only for QUEUED jobs */}
-                        {job.status === 'QUEUED' && (
+                        {/* Cancel button - only for QUEUED or SCHEDULED jobs */}
+                        {(job.status === 'QUEUED' || job.status === 'SCHEDULED') && (
                           <Button
                             variant="outline"
                             size="sm"
@@ -268,7 +269,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                         )}
                         
                         {/* Delete button - for all completed states */}
-                        {['SUCCEEDED', 'FAILED', 'TIMED_OUT', 'CANCELED', 'REJECTED', 'QUEUED'].includes(job.status) && (
+                        {['SUCCEEDED', 'FAILED', 'TIMED_OUT', 'CANCELED', 'REJECTED', 'QUEUED', 'SCHEDULED'].includes(job.status) && (
                           <Button
                             variant="outline"
                             size="sm"
