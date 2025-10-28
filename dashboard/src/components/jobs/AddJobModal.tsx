@@ -120,7 +120,7 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[500px] bg-white">
         <DialogHeader>
           <DialogTitle>Add Job</DialogTitle>
         </DialogHeader>
