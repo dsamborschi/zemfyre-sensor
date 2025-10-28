@@ -19,6 +19,7 @@ const interfaceIcons = {
   wifi: Wifi,
   ethernet: Network,
   mobile: Smartphone,
+  wired: Network,
 };
 
 const statusColors = {
