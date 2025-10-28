@@ -142,8 +142,6 @@ router.get('/devices/:uuid', async (req, res) => {
  * - Quarantine compromised devices
  * - Disable test devices
  */
-  }
-});
 
 /**
  * Register a new device (pre-registration before agent connects)
