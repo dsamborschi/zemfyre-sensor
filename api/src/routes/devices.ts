@@ -180,7 +180,7 @@ router.post('/devices', async (req, res) => {
         is_active,
         provisioning_state,
         created_at, 
-        updated_at
+        modified_at
       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
       RETURNING *`,
       [
@@ -999,9 +999,9 @@ router.put('/devices/:uuid/broker', async (req, res) => {
 
     // 3. Update device broker assignment in database
     await query(
-      `UPDATE devices 
-       SET mqtt_broker_id = $1, updated_at = CURRENT_TIMESTAMP 
-       WHERE uuid = $2`,
+  `UPDATE devices 
+   SET mqtt_broker_id = $1, modified_at = CURRENT_TIMESTAMP 
+   WHERE uuid = $2`,
       [brokerId, uuid]
     );
 
