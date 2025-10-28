@@ -528,32 +528,8 @@ router.get('/devices/:uuid/jobs', async (req: Request, res: Response) => {
 
     const result = await pool.query(query, params);
 
-    // Transform jobs to add computed SCHEDULED status
-    const jobs = result.rows.map(job => {
-      // If job is QUEUED and has a future scheduled_at time, mark as SCHEDULED
-      if (job.status === 'QUEUED' && job.schedule?.scheduled_at) {
-        try {
-          // Parse the scheduled time - handle both ISO and datetime-local formats
-          let scheduledTime = new Date(job.schedule.scheduled_at);
-          
-          // If the format is like "2025-10-28T17:32" (datetime-local), treat as UTC
-          if (job.schedule.scheduled_at.length === 16) {
-            scheduledTime = new Date(job.schedule.scheduled_at + ':00Z');
-          }
-          
-          const now = new Date();
-          if (scheduledTime > now) {
-            return {
-              ...job,
-              status: 'SCHEDULED'
-            };
-          }
-        } catch (error) {
-          console.error('Error parsing scheduled_at:', error);
-        }
-      }
-      return job;
-    });
+    // No need to transform status - QUEUED means queued for execution (now or scheduled)
+    const jobs = result.rows;
 
     return res.status(200).json({
       device_uuid: uuid,
@@ -584,10 +560,17 @@ router.get('/devices/:uuid/jobs/next', deviceAuth, async (req: Request, res: Res
       `SELECT 
         djs.*,
         je.job_name,
-        je.job_document
+        je.job_document,
+        je.schedule
        FROM device_job_status djs
        INNER JOIN job_executions je ON djs.job_id = je.job_id
-       WHERE djs.device_uuid = $1 AND djs.status = 'QUEUED'
+       WHERE djs.device_uuid = $1 
+         AND djs.status = 'QUEUED'
+         AND (
+           je.schedule IS NULL 
+           OR je.schedule->>'scheduled_at' IS NULL 
+           OR (je.schedule->>'scheduled_at')::timestamptz <= NOW()
+         )
        ORDER BY djs.queued_at ASC
        LIMIT 1`,
       [uuid]
