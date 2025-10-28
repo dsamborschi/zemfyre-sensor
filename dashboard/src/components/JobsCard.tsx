@@ -213,19 +213,19 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-0 font-medium text-gray-600">Job Name</th>
+                  <th className="text-left py-2 px-4 font-medium text-gray-600">Job Name</th>
                   <th className="text-left py-2 px-4 font-medium text-gray-600">Status</th>
                   <th className="text-left py-2 px-4 font-medium text-gray-600 hidden md:table-cell">
                     Execution Type
                   </th>
                   <th className="text-left py-2 px-4 font-medium text-gray-600">Date</th>
-                  <th className="text-right py-2 px-4 font-medium text-gray-600">Actions</th>
+                  <th className="text-right py-2 px-4 font-medium text-gray-600 w-[1%] whitespace-nowrap">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {jobs.map((job) => (
                   <tr key={job.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                    <td className="py-3 px-0 text-gray-900">
+                    <td className="py-3 px-4 text-gray-900">
                       <div className="font-medium">{job.job_name}</div>
                       {job.reason && (
                         <div className="text-xs text-gray-500 mt-0.5 truncate max-w-[200px]">
@@ -240,7 +240,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                     <td className="py-3 px-4 text-gray-600">
                       {formatDate(job.completed_at || job.started_at || job.queued_at)}
                     </td>
-                    <td className="py-3 px-4 text-right">
+                    <td className="py-3 px-4 text-right align-middle">
                       <div className="flex items-center justify-end gap-2">
                         {/* View button - always visible */}
                         <Button
