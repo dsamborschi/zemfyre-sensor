@@ -196,7 +196,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
               size="sm"
               onClick={() => setShowModal(true)}
             >
-              <Plus className="w-4 h-4 mr-1" /> Add Job
+              <Plus className="w-4 h-4 mr-2" /> Add Job 
             </Button>
           </div>
         </div>
