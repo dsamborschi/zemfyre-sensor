@@ -14,250 +14,6 @@ import { buildApiUrl } from "./config/api";
 import { toast } from "sonner";
 import { Header } from "./components/Header";
 
-const mockDevices: Device[] = [
-  {
-    id: "1",
-    deviceUuid: "46b68204-9806-43c5-8d19-18b1f53e3b8a",
-    name: "Assembly Line Gateway",
-    type: "gateway",
-    status: "online",
-    ipAddress: "192.168.1.10",
-    lastSeen: "Just now",
-    cpu: 68,
-    memory: 72,
-    disk: 45,
-  },
-  {
-    id: "2",
-    deviceUuid: "b8e4d1c3-9f2a-4d6e-a5c7-d9f3e8b2a7c1",
-    name: "Quality Control Station",
-    type: "edge-device",
-    status: "online",
-    ipAddress: "192.168.1.11",
-    lastSeen: "2 mins ago",
-    cpu: 45,
-    memory: 85,
-    disk: 62,
-  },
-  {
-    id: "3",
-    deviceUuid: "c5d9f2e4-3a7b-4c8e-d1f6-e8a3c9b5d7f2",
-    name: "Warehouse Sensor Hub",
-    type: "iot-hub",
-    status: "online",
-    ipAddress: "192.168.1.25",
-    lastSeen: "5 mins ago",
-    cpu: 32,
-    memory: 58,
-    disk: 38,
-  },
-  {
-    id: "4",
-    deviceUuid: "d6e2a8f4-5c9b-4d7e-a3f8-e1c4b9d6a2f5",
-    name: "Conveyor Belt Monitor",
-    type: "plc",
-    status: "warning",
-    ipAddress: "192.168.1.12",
-    lastSeen: "10 mins ago",
-    cpu: 88,
-    memory: 92,
-    disk: 78,
-  },
-  {
-    id: "5",
-    deviceUuid: "e7f3b9c5-6d1a-4e8f-b2c9-f4d7a3e8b1c6",
-    name: "HVAC Control Unit",
-    type: "controller",
-    status: "online",
-    ipAddress: "192.168.1.30",
-    lastSeen: "15 mins ago",
-    cpu: 25,
-    memory: 48,
-    disk: 55,
-  },
-  {
-    id: "6",
-    deviceUuid: "f8a4c1d6-7e2b-4f9a-c3d8-a5e9b2f7c4d1",
-    name: "Environmental Sensor Node",
-    type: "sensor-node",
-    status: "online",
-    ipAddress: "192.168.1.45",
-    lastSeen: "1 min ago",
-    cpu: 18,
-    memory: 35,
-    disk: 68,
-  },
-  {
-    id: "7",
-    deviceUuid: "a1b5d2e7-8f3c-4a1b-d4e9-b6f1c5a8d3e2",
-    name: "Packaging Line Gateway",
-    type: "gateway",
-    status: "offline",
-    ipAddress: "192.168.1.50",
-    lastSeen: "2 hours ago",
-    cpu: 0,
-    memory: 0,
-    disk: 42,
-  },
-  {
-    id: "8",
-    deviceUuid: "b2c6e3f8-9a4d-4b2c-e5f1-c7a2d6b9e4f3",
-    name: "Cold Storage Monitor",
-    type: "edge-device",
-    status: "online",
-    ipAddress: "192.168.1.13",
-    lastSeen: "Just now",
-    cpu: 15,
-    memory: 28,
-    disk: 88,
-  },
-];
-
-// Mock network interfaces for each device
-const mockNetworkInterfaces: Record<string, any[]> = {
-  "1": [
-    {
-      id: "eth0",
-      type: "ethernet",
-      ipAddress: "192.168.1.10",
-      status: "connected",
-      speed: "1000 Mbps",
-    },
-    {
-      id: "wlan0",
-      type: "wifi",
-      ipAddress: "192.168.1.55",
-      status: "connected",
-      signal: 85,
-    },
-  ],
-  // Map by UUID for real API devices
-  "46b68204-9806-43c5-8d19-18b1f53e3b8a": [
-    {
-      id: "eth0",
-      type: "ethernet",
-      ipAddress: "192.168.1.10",
-      status: "connected",
-      speed: "1000 Mbps",
-    },
-    {
-      id: "wlan0",
-      type: "wifi",
-      ipAddress: "192.168.1.55",
-      status: "connected",
-      signal: 85,
-    },
-  ],
-  "2": [
-    {
-      id: "eth0",
-      type: "ethernet",
-      ipAddress: "192.168.1.11",
-      status: "connected",
-      speed: "1000 Mbps",
-    },
-  ],
-  "3": [
-    {
-      id: "wlan0",
-      type: "wifi",
-      ipAddress: "192.168.1.25",
-      status: "connected",
-      signal: 92,
-    },
-  ],
-  "4": [
-    {
-      id: "eth0",
-      type: "ethernet",
-      ipAddress: "192.168.1.12",
-      status: "connected",
-      speed: "1000 Mbps",
-    },
-    {
-      id: "wlan0",
-      type: "wifi",
-      ipAddress: "192.168.1.60",
-      status: "disconnected",
-      signal: 0,
-    },
-  ],
-  "5": [
-    {
-      id: "wlan0",
-      type: "wifi",
-      ipAddress: "192.168.1.30",
-      status: "connected",
-      signal: 78,
-    },
-  ],
-  "6": [
-    {
-      id: "wwan0",
-      type: "mobile",
-      ipAddress: "10.45.12.89",
-      status: "connected",
-      signal: 72,
-    },
-    {
-      id: "wlan0",
-      type: "wifi",
-      ipAddress: "192.168.1.45",
-      status: "connected",
-      signal: 88,
-    },
-  ],
-  "7": [
-    {
-      id: "eth0",
-      type: "ethernet",
-      ipAddress: "192.168.1.50",
-      status: "disconnected",
-      speed: "100 Mbps",
-    },
-  ],
-  "8": [
-    {
-      id: "eth0",
-      type: "ethernet",
-      ipAddress: "192.168.1.13",
-      status: "connected",
-      speed: "10 Gbps",
-    },
-    {
-      id: "eth1",
-      type: "ethernet",
-      ipAddress: "10.0.0.5",
-      status: "connected",
-      speed: "10 Gbps",
-    },
-  ],
-  "9": [
-    {
-      id: "wwan0",
-      type: "mobile",
-      ipAddress: "10.45.13.102",
-      status: "connected",
-      signal: 68,
-    },
-    {
-      id: "wlan0",
-      type: "wifi",
-      ipAddress: "192.168.1.46",
-      status: "connected",
-      signal: 95,
-    },
-  ],
-  "10": [
-    {
-      id: "eth0",
-      type: "ethernet",
-      ipAddress: "192.168.1.14",
-      status: "connected",
-      speed: "1000 Mbps",
-    },
-  ],
-};
 
 // Initial mock applications for each device
 const initialApplications: Record<string, Application[]> = {
@@ -641,12 +397,6 @@ export default function App() {
         }
       } catch (error) {
         console.error('Error fetching devices:', error);
-        toast.error('Failed to load devices');
-        // Fallback to mock data on error
-        setDevices(mockDevices);
-        if (!selectedDeviceId) {
-          setSelectedDeviceId(mockDevices[0].id);
-        }
       } finally {
         setIsLoadingDevices(false);
       }
@@ -669,6 +419,8 @@ export default function App() {
 
       try {
         const response = await fetch(buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}`));
+
+
         
         if (!response.ok) {
           console.error('Failed to fetch device state:', response.statusText);
@@ -676,6 +428,8 @@ export default function App() {
         }
 
         const data = await response.json();
+
+        console.log("Fetched device data:", data);
         
         // Capture deployment status
         if (data.target_state) {
@@ -764,6 +518,8 @@ export default function App() {
             ...prev,
             [selectedDeviceId]: transformedApps,
           }));
+
+
         } else {
           // No apps, set empty array
           setApplications(prev => ({
@@ -775,6 +531,7 @@ export default function App() {
         console.error('Error fetching applications:', error);
       }
     };
+
 
     fetchApplications();
     
