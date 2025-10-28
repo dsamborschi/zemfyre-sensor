@@ -669,7 +669,7 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
       }
     });
 
-    // Step 5: Check for duplicate registration
+    // Step 5: Check for duplicate registration or pre-registered device
     const existingDevice = await DeviceModel.getByUuid(uuid);
     
     if (existingDevice) {
@@ -716,6 +716,113 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
           hasProvisionedAt: !!existingDevice.provisioned_at,
           hasMqttUsername: !!existingDevice.mqtt_username,
           provisioningState: existingDevice.provisioning_state
+        }
+      });
+    }
+    
+    // Step 5b: Check for pre-registered device (matching MAC address or name)
+    // This handles the case where device was added via dashboard but hasn't connected yet
+    let preRegisteredDevice: any = null;
+    if (data.macAddress) {
+      const macCheckResult = await query(
+        `SELECT * FROM devices WHERE mac_address = $1 AND is_active = false AND provisioning_state = 'pending' LIMIT 1`,
+        [data.macAddress]
+      );
+      if (macCheckResult.rows.length > 0) {
+        preRegisteredDevice = macCheckResult.rows[0];
+        console.log(`🔗 Found pre-registered device with matching MAC: ${preRegisteredDevice.device_name}`);
+      }
+    }
+    
+    if (preRegisteredDevice) {
+      // Activate pre-registered device
+      console.log(`✅ Activating pre-registered device: ${preRegisteredDevice.device_name}`);
+      
+      // Hash device API key (same as createDeviceRecord)
+      const deviceApiKeyHash = await bcrypt.hash(data.deviceApiKey, 10);
+      console.log('🔒 Device API key hashed for secure storage');
+      
+      // Update the existing device record with agent data
+      await DeviceModel.update(preRegisteredDevice.uuid, {
+        device_api_key_hash: deviceApiKeyHash,
+        os_version: data.osVersion || null,
+        agent_version: data.agentVersion || null,
+        is_active: true,
+        is_online: true,
+        status: 'online',
+        provisioning_state: 'provisioning', // Will be set to 'registered' after MQTT setup
+        provisioned_by_key_id: provisioningKeyRecord.id,
+        last_connectivity_event: new Date(),
+      });
+      
+      // Use the pre-registered device UUID instead of the agent's UUID
+      // This ensures the device shows up correctly in the dashboard
+      const activatedDeviceUuid = preRegisteredDevice.uuid;
+      
+      // Create MQTT credentials using the activated device UUID
+      const mqttCredentials = await createMqttCredentials(activatedDeviceUuid);
+      
+      // Update device with MQTT username and mark as fully registered
+      await DeviceModel.update(activatedDeviceUuid, {
+        mqtt_username: mqttCredentials.username,
+        provisioned_at: new Date(),
+        provisioning_state: 'registered'
+      });
+      
+      // Create default target state if not exists
+      const targetState = await DeviceTargetStateModel.get(activatedDeviceUuid);
+      if (!targetState) {
+        const licenseData = await SystemConfigModel.get('license_data');
+        const { apps, config } = generateDefaultTargetState(licenseData);
+        await DeviceTargetStateModel.set(activatedDeviceUuid, apps, config);
+      }
+      
+      // Increment provisioning key usage
+      await incrementProvisioningKeyUsage(provisioningKeyRecord.id);
+      
+      await logAuditEvent({
+        eventType: AuditEventType.DEVICE_REGISTERED,
+        deviceUuid: activatedDeviceUuid,
+        ipAddress,
+        userAgent,
+        severity: AuditSeverity.INFO,
+        details: {
+          originalUuid: uuid,
+          activatedUuid: activatedDeviceUuid,
+          deviceName: preRegisteredDevice.device_name,
+          macAddress: data.macAddress,
+          source: 'pre-registered-activation',
+          fleetId: provisioningKeyRecord.fleet_id,
+          mqttUsername: mqttCredentials.username
+        }
+      });
+      
+      await logProvisioningAttempt(ipAddress!, activatedDeviceUuid, provisioningKeyRecord.id, true, 'Device activated from pre-registration', userAgent);
+      
+      // Build response using the same format as normal registration
+      const brokerConfig = await getBrokerConfigForDevice(activatedDeviceUuid);
+      const brokerUrl = brokerConfig 
+        ? buildBrokerUrl(brokerConfig)
+        : (process.env.MQTT_BROKER_URL || 'mqtt://mosquitto:1883');
+      
+      return res.status(200).json({
+        id: preRegisteredDevice.id,
+        uuid: activatedDeviceUuid,
+        deviceName: preRegisteredDevice.device_name,
+        deviceType: preRegisteredDevice.device_type,
+        fleetId: provisioningKeyRecord.fleet_id,
+        createdAt: preRegisteredDevice.created_at,
+        mqtt: {
+          username: mqttCredentials.username,
+          password: mqttCredentials.password,
+          broker: brokerUrl,
+          ...(brokerConfig && {
+            brokerConfig: formatBrokerConfigForClient(brokerConfig)
+          }),
+          topics: {
+            publish: [`iot/device/${activatedDeviceUuid}/#`],
+            subscribe: [`iot/device/${activatedDeviceUuid}/#`]
+          }
         }
       });
     }
