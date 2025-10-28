@@ -218,8 +218,9 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
             No jobs found. Click "Add Job" to create one.
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+          <>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-gray-200">
                   <th className="text-left py-2 px-4 font-medium text-gray-600">Job Name</th>
@@ -348,6 +349,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
               </div>
             </div>
           )}
+          </>
         )}
       </Card>
 
