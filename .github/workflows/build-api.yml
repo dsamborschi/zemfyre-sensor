@@ -1,22 +1,29 @@
-name: Build and Push Api Image
+name: Build and Push API Image
 
-on: 
+on:
   push:
     branches:
       - master
+      - main
+      - develop
     paths:
-      - 'api/**' 
+      - 'api/**'
       - '.github/workflows/build-api.yml'
+  # Optional: build on new semver tag (release)
+  tags:
+    - 'v*.*.*'
 
 jobs:
   buildx:
-    name: Build & Push Api Image
+    name: Build & Push API Image
     runs-on: ubuntu-24.04
+
     strategy:
       matrix:
         include:
           - board: x86
             platform: linux/amd64
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -44,12 +51,30 @@ jobs:
       - name: Generate Docker tags
         id: meta
         run: |
-          # Create version tag: v1.0.{RUN_NUMBER}-{SHORT_SHA}
-          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-          VERSION_TAG="v1.0.${{ github.run_number }}-${SHORT_SHA}"
+          SHORT_SHA=$(echo "${GITHUB_SHA}" | cut -c1-7)
+          VERSION_TAG="v1.0.${GITHUB_RUN_NUMBER}-${SHORT_SHA}"
+          BRANCH_TAG=$(echo "${GITHUB_REF_NAME}" | tr '/' '-')
+
+          # Detect if this is a semver tag push (release)
+          if [[ "${GITHUB_REF_TYPE}" == "tag" ]]; then
+            RELEASE_TAG="${GITHUB_REF_NAME}"
+            echo "Detected release: ${RELEASE_TAG}"
+          else
+            RELEASE_TAG=""
+          fi
+
           echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
           echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
-          echo "Generated version tag: ${VERSION_TAG}"
+          echo "branch_tag=${BRANCH_TAG}" >> $GITHUB_OUTPUT
+          echo "release_tag=${RELEASE_TAG}" >> $GITHUB_OUTPUT
+
+          echo "Generated tags:"
+          echo "  - ${VERSION_TAG}"
+          echo "  - ${SHORT_SHA}"
+          echo "  - ${BRANCH_TAG}"
+          if [[ -n "${RELEASE_TAG}" ]]; then
+            echo "  - ${RELEASE_TAG}"
+          fi
 
       - name: Build & Push API image
         uses: docker/build-push-action@v5
@@ -61,9 +86,11 @@ jobs:
           cache-from: type=local,src=/tmp/.buildx-cache/${{ matrix.board }}
           cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
           tags: |
-            iotistic/api:latest
             iotistic/api:${{ steps.meta.outputs.version_tag }}
             iotistic/api:${{ steps.meta.outputs.short_sha }}
+            iotistic/api:${{ steps.meta.outputs.branch_tag }}
+            iotistic/api:latest
+            ${{ steps.meta.outputs.release_tag && format('iotistic/api:{0}', steps.meta.outputs.release_tag) || '' }}
           labels: |
             org.opencontainers.image.title=Iotistic API
             org.opencontainers.image.description=IoT Platform API Service
@@ -71,3 +98,14 @@ jobs:
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: Output pushed image info
+        run: |
+          echo "✅ Image successfully built and pushed with the following tags:"
+          echo "  - iotistic/api:${{ steps.meta.outputs.version_tag }}"
+          echo "  - iotistic/api:${{ steps.meta.outputs.short_sha }}"
+          echo "  - iotistic/api:${{ steps.meta.outputs.branch_tag }}"
+          if [[ -n "${{ steps.meta.outputs.release_tag }}" ]]; then
+            echo "  - iotistic/api:${{ steps.meta.outputs.release_tag }}"
+          fi
+          echo "  - iotistic/api:latest"

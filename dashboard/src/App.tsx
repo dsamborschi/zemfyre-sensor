@@ -944,11 +944,40 @@ export default function App() {
     }
   };
 
-  const handleRemoveApplication = (appId: string) => {
-    setApplications(prev => ({
-      ...prev,
-      [selectedDeviceId]: (prev[selectedDeviceId] || []).filter(app => app.id !== appId),
-    }));
+  const handleRemoveApplication = async (appId: string) => {
+    try {
+      const selectedDevice = devices.find(d => d.id === selectedDeviceId);
+      if (!selectedDevice?.deviceUuid) {
+        toast.error('No device selected');
+        return;
+      }
+
+      // Call API to remove application
+      const response = await fetch(
+        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/apps/${appId}`),
+        {
+          method: 'DELETE',
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to remove application');
+      }
+
+      const result = await response.json();
+      toast.success(`Application "${result.appName}" removed successfully!`);
+      
+      // Update local state
+      setApplications(prev => ({
+        ...prev,
+        [selectedDeviceId]: (prev[selectedDeviceId] || []).filter(app => app.id !== appId),
+      }));
+
+    } catch (error: any) {
+      console.error('Error removing application:', error);
+      toast.error(`Failed to remove application: ${error.message}`);
+    }
   };
 
   const handleToggleAppStatus = (appId: string) => {
