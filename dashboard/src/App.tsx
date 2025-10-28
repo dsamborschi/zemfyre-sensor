@@ -419,8 +419,6 @@ export default function App() {
 
       try {
         const response = await fetch(buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}`));
-
-
         
         if (!response.ok) {
           console.error('Failed to fetch device state:', response.statusText);
