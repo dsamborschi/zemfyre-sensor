@@ -142,6 +142,118 @@ router.get('/devices/:uuid', async (req, res) => {
  * - Quarantine compromised devices
  * - Disable test devices
  */
+  }
+});
+
+/**
+ * Register a new device (pre-registration before agent connects)
+ * POST /api/v1/devices
+ * 
+ * Body:
+ * - deviceName: Device name
+ * - deviceType: Device type (gateway, edge-device, etc.)
+ * - ipAddress: IP address (optional)
+ * - macAddress: MAC address (optional)
+ */
+router.post('/devices', async (req, res) => {
+  try {
+    const { deviceName, deviceType, ipAddress, macAddress } = req.body;
+
+    if (!deviceName) {
+      return res.status(400).json({
+        error: 'Device name required',
+        message: 'deviceName is required'
+      });
+    }
+
+    // Generate UUID for the device
+    const { v4: uuidv4 } = require('uuid');
+    const deviceUuid = uuidv4();
+
+    // Create device record in database with is_active=false, provisioning_state='pending'
+    const result = await query(
+      `INSERT INTO devices (
+        uuid, 
+        device_name, 
+        device_type, 
+        ip_address, 
+        mac_address,
+        is_online, 
+        is_active,
+        provisioning_state,
+        created_at, 
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+      RETURNING *`,
+      [
+        deviceUuid,
+        deviceName,
+        deviceType || 'gateway',
+        ipAddress || null,
+        macAddress || null,
+        false, // Not online until agent connects
+        false,  // Not active until agent connects with provisioning key
+        'pending' // Waiting for agent to provision
+      ]
+    );
+
+    const device = result.rows[0];
+
+    // Create empty target state for the device
+    await query(
+      `INSERT INTO device_target_state (
+        device_uuid, 
+        apps, 
+        config, 
+        version, 
+        needs_deployment,
+        updated_at
+      ) VALUES ($1, $2, $3, $4, $5, NOW())`,
+      [deviceUuid, JSON.stringify({}), JSON.stringify({}), 1, false]
+    );
+
+    // Log audit event
+    await logAuditEvent({
+      eventType: AuditEventType.DEVICE_REGISTERED,
+      severity: AuditSeverity.INFO,
+      deviceUuid: deviceUuid,
+      details: {
+        deviceName,
+        deviceType: deviceType || 'gateway',
+        ipAddress,
+        macAddress,
+        action: 'pre-registered'
+      }
+    });
+
+    console.log(`✅ Device pre-registered: ${deviceName} (${deviceUuid})`);
+
+    res.status(201).json({
+      success: true,
+      device: {
+        uuid: device.uuid,
+        deviceName: device.device_name,
+        deviceType: device.device_type,
+        ipAddress: device.ip_address,
+        macAddress: device.mac_address,
+        isOnline: device.is_online,
+        isActive: device.is_active,
+        createdAt: device.created_at
+      }
+    });
+  } catch (error: any) {
+    console.error('Error registering device:', error);
+    res.status(500).json({
+      error: 'Failed to register device',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Activate/deactivate device
+ * PATCH /api/v1/devices/:uuid/active
+ */
 router.patch('/devices/:uuid/active', async (req, res) => {
   try {
     const { uuid } = req.params;

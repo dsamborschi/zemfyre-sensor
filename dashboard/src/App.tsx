@@ -16,296 +16,6 @@ import { Header } from "./components/Header";
 
 
 // Initial mock applications for each device
-const initialApplications: Record<string, Application[]> = {
-  "1": [
-    {
-      id: "app-1",
-      appId: 1001,
-      appName: "predictive-maintenance",
-      name: "predictive-maintenance",
-      image: "iotistic/maintenance-ai:latest",
-      status: "running",
-      syncStatus: "synced",
-      port: "8080",
-      uptime: "5d 12h",
-      services: [
-        {
-          serviceId: 1,
-          serviceName: "ml-predictor",
-          imageName: "iotistic/maintenance-ai:latest",
-          appId: 1001,
-          appName: "predictive-maintenance",
-          config: {
-            image: "iotistic/maintenance-ai:latest",
-            ports: ["8080:8080", "8443:443"],
-            environment: {
-              ENV: "production",
-              MODEL_VERSION: "v2.3.1",
-              ALERT_THRESHOLD: "0.85",
-            },
-            volumes: ["ml-models:/app/models", "training-data:/app/data"],
-          },
-          status: "running",
-          uptime: "5d 12h",
-        },
-      ],
-    },
-    {
-      id: "app-2",
-      appId: 1002,
-      appName: "asset-monitoring",
-      name: "asset-monitoring",
-      image: "timescaledb/timescaledb:latest",
-      status: "running",
-      syncStatus: "synced",
-      port: "5432",
-      uptime: "5d 12h",
-      services: [
-        {
-          serviceId: 1,
-          serviceName: "timeseries-db",
-          imageName: "timescaledb/timescaledb:latest-pg14",
-          appId: 1002,
-          appName: "asset-monitoring",
-          config: {
-            image: "timescaledb/timescaledb:latest-pg14",
-            ports: ["5432:5432"],
-            environment: {
-              POSTGRES_PASSWORD: "***",
-              POSTGRES_DB: "asset_metrics",
-              POSTGRES_USER: "iot_admin",
-            },
-            volumes: ["timeseries-data:/var/lib/postgresql/data"],
-          },
-          status: "running",
-          uptime: "5d 12h",
-        },
-      ],
-    },
-    {
-      id: "app-3",
-      appId: 1003,
-      appName: "quality-control",
-      name: "quality-control",
-      image: "iotistic/qc-inspector:alpine",
-      status: "running",
-      syncStatus: "syncing",
-      port: "9090",
-      uptime: "2d 4h",
-      services: [
-        {
-          serviceId: 1,
-          serviceName: "vision-inspector",
-          imageName: "iotistic/qc-inspector:v1.2-alpine",
-          appId: 1003,
-          appName: "quality-control",
-          config: {
-            image: "iotistic/qc-inspector:v1.2-alpine",
-            ports: ["9090:9090"],
-            environment: {
-              CAMERA_DEVICE: "/dev/video0",
-              DEFECT_THRESHOLD: "0.92",
-            },
-          },
-          status: "running",
-          uptime: "2d 4h",
-        },
-      ],
-    },
-  ],
-  "2": [
-    {
-      id: "app-4",
-      appId: 2001,
-      appName: "energy-management",
-      name: "energy-management",
-      image: "iotistic/energy-optimizer:latest",
-      status: "running",
-      syncStatus: "synced",
-      port: "8085",
-      uptime: "8d 3h",
-      services: [
-        {
-          serviceId: 1,
-          serviceName: "power-analyzer",
-          imageName: "iotistic/energy-optimizer:v3.1",
-          appId: 2001,
-          appName: "energy-management",
-          config: {
-            image: "iotistic/energy-optimizer:v3.1",
-            ports: ["8085:8085"],
-            environment: {
-              GRID_MONITOR: "enabled",
-              COST_OPTIMIZATION: "true",
-            },
-            volumes: ["energy-logs:/data/logs", "power-profiles:/config"],
-          },
-          status: "running",
-          uptime: "8d 3h",
-        },
-      ],
-    },
-    {
-      id: "app-5",
-      appId: 2002,
-      appName: "process-automation",
-      name: "process-automation",
-      image: "nodered/node-red:latest",
-      status: "running",
-      syncStatus: "error",
-      port: "1880",
-      uptime: "1d 2h",
-      services: [
-        {
-          serviceId: 1,
-          serviceName: "workflow-engine",
-          imageName: "nodered/node-red:3.1",
-          appId: 2002,
-          appName: "process-automation",
-          config: {
-            image: "nodered/node-red:3.1",
-            ports: ["1880:1880"],
-            environment: {
-              NODE_ENV: "production",
-              TZ: "UTC",
-              FLOWS: "production_flows.json",
-            },
-          },
-          status: "running",
-          uptime: "1d 2h",
-        },
-      ],
-    },
-  ],
-  "3": [
-    {
-      id: "app-6",
-      appId: 3001,
-      appName: "environmental-monitoring",
-      name: "environmental-monitoring",
-      image: "iotistic/env-sensor-hub:latest",
-      status: "running",
-      syncStatus: "synced",
-      port: "8086",
-      uptime: "4h 20m",
-      services: [
-        {
-          serviceId: 1,
-          serviceName: "sensor-collector",
-          imageName: "iotistic/env-sensor-hub:v2.0",
-          appId: 3001,
-          appName: "environmental-monitoring",
-          config: {
-            image: "iotistic/env-sensor-hub:v2.0",
-            ports: ["8086:8086"],
-            environment: {
-              SENSOR_INTERVAL: "5000",
-              DATA_RETENTION: "30d",
-            },
-          },
-          status: "running",
-          uptime: "4h 20m",
-        },
-      ],
-    },
-  ],
-  "4": [
-    {
-      id: "app-7",
-      appId: 4001,
-      appName: "safety-compliance",
-      name: "safety-compliance",
-      image: "iotistic/safety-monitor:latest",
-      status: "stopped",
-      syncStatus: "pending",
-      uptime: "0m",
-      services: [
-        {
-          serviceId: 1,
-          serviceName: "compliance-checker",
-          imageName: "iotistic/safety-monitor:v1.5",
-          appId: 4001,
-          appName: "safety-compliance",
-          config: {
-            image: "iotistic/safety-monitor:v1.5",
-            environment: {
-              ALERT_CHANNELS: "email,sms",
-              SAFETY_STANDARDS: "OSHA,ISO45001",
-            },
-          },
-          status: "stopped",
-          uptime: "0m",
-        },
-      ],
-    },
-  ],
-  "10": [
-    {
-      id: "app-8",
-      appId: 10001,
-      appName: "production-dashboard",
-      name: "production-dashboard",
-      image: "grafana/grafana:latest",
-      status: "running",
-      syncStatus: "synced",
-      port: "3000",
-      uptime: "3d 8h",
-      services: [
-        {
-          serviceId: 1,
-          serviceName: "metrics-viz",
-          imageName: "grafana/grafana:10.2-alpine",
-          appId: 10001,
-          appName: "production-dashboard",
-          config: {
-            image: "grafana/grafana:10.2-alpine",
-            ports: ["3000:3000"],
-            environment: {
-              GF_SECURITY_ADMIN_PASSWORD: "***",
-              GF_INSTALL_PLUGINS: "industrial-metrics",
-            },
-          },
-          status: "running",
-          uptime: "3d 8h",
-        },
-      ],
-    },
-    {
-      id: "app-9",
-      appId: 10002,
-      appName: "supply-chain-tracking",
-      name: "supply-chain-tracking",
-      image: "iotistic/logistics-tracker:latest",
-      status: "running",
-      syncStatus: "synced",
-      port: "8088",
-      uptime: "3d 8h",
-      services: [
-        {
-          serviceId: 1,
-          serviceName: "inventory-manager",
-          imageName: "iotistic/logistics-tracker:v2.4",
-          appId: 10002,
-          appName: "supply-chain-tracking",
-          config: {
-            image: "iotistic/logistics-tracker:v2.4",
-            ports: ["8088:8088", "8089:8089"],
-            environment: {
-              RFID_READER: "enabled",
-              BARCODE_SCANNER: "enabled",
-              WAREHOUSE_MODE: "real-time",
-            },
-            labels: {
-              "tracking.enabled": "true",
-            },
-          },
-          status: "running",
-          uptime: "3d 8h",
-        },
-      ],
-    },
-  ],
-};
 
 export default function App() {
    const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -320,7 +30,7 @@ export default function App() {
   const [networkHistory, setNetworkHistory] = useState<Array<{ time: string; download: number; upload: number }>>([]);
   const [networkInterfaces, setNetworkInterfaces] = useState<any[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [applications, setApplications] = useState<Record<string, Application[]>>(initialApplications);
+  const [applications, setApplications] = useState<Record<string, Application[]>>({});
   const [deploymentStatus, setDeploymentStatus] = useState<
     Record<string, { 
       needsDeployment: boolean;
@@ -686,20 +396,66 @@ export default function App() {
     setDeviceDialogOpen(true);
   };
 
-  const handleSaveDevice = (deviceData: Omit<Device, "id"> & { id?: string }) => {
+  const handleSaveDevice = async (deviceData: Omit<Device, "id"> & { id?: string }) => {
     if (deviceData.id) {
-      // Edit existing device
+      // Edit existing device - TODO: implement API call
       setDevices(prev =>
         prev.map(d => (d.id === deviceData.id ? { ...d, ...deviceData } : d))
       );
+      toast.success('Device updated successfully');
     } else {
-      // Add new device
-      const newDevice: Device = {
-        id: `${devices.length + 1}`,
-        ...deviceData,
-      };
-      setDevices(prev => [...prev, newDevice]);
-      setSelectedDeviceId(newDevice.id);
+      // Add new device - register via API
+      try {
+        toast.loading('Registering device...', { id: 'register-device' });
+
+        const response = await fetch(buildApiUrl('/api/v1/devices'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            deviceName: deviceData.name,
+            deviceType: deviceData.type,
+            ipAddress: deviceData.ipAddress,
+            macAddress: deviceData.macAddress
+          })
+        });
+
+        if (!response.ok) {
+          const error = await response.json();
+          throw new Error(error.message || 'Failed to register device');
+        }
+
+        const result = await response.json();
+        toast.success('Device registered successfully! Waiting for agent to connect.', { id: 'register-device' });
+
+        // Add device to local state with offline status
+        const newDevice: Device = {
+          id: result.device.uuid,
+          deviceUuid: result.device.uuid,
+          name: result.device.deviceName,
+          type: result.device.deviceType,
+          ipAddress: result.device.ipAddress || 'N/A',
+          macAddress: result.device.macAddress || 'N/A',
+          status: 'offline', // Will be offline until agent connects
+          lastSeen: 'Never',
+          cpu: 0,
+          memory: 0,
+          disk: 0,
+        };
+        
+        setDevices(prev => [...prev, newDevice]);
+        setSelectedDeviceId(newDevice.id);
+
+        // Refresh devices list after a short delay
+        setTimeout(() => {
+          setDevices(prev => [...prev]);
+        }, 2000);
+
+      } catch (error: any) {
+        console.error('Error registering device:', error);
+        toast.error(`Failed to register device: ${error.message}`, { id: 'register-device' });
+      }
     }
   };
 

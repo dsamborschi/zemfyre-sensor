@@ -21,7 +21,7 @@ interface AddEditDeviceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   device?: Device | null;
-  onSave: (device: Omit<Device, "id"> & { id?: string }) => void;
+  onSave: (device: Omit<Device, "id"> & { id?: string; provisioningKeyId?: string }) => void;
 }
 
 const deviceGroups = [
@@ -162,6 +162,7 @@ export function AddEditDeviceDialog({
       name: formData.name,
       type: formData.type,
       ipAddress: formData.ipAddress,
+      macAddress: formData.macAddress,
       lastSeen: formData.lastSeen,
       status: formData.status,
       cpu: formData.cpu,
@@ -169,7 +170,7 @@ export function AddEditDeviceDialog({
       disk: formData.disk,
     });
 
-    toast.success(isEditMode ? "Device updated successfully" : "Device added successfully");
+    // Note: Don't show success toast here - let the parent handle it since it's async now
     onOpenChange(false);
   };
 
