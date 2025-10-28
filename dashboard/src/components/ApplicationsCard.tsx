@@ -33,6 +33,7 @@ import { Label } from "./ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
 import { Textarea } from "./ui/textarea";
 import { toast } from "sonner";
+import { buildApiUrl } from "@/config/api";
 
 // Popular Docker images sorted alphabetically
 const popularDockerImages = [
@@ -164,7 +165,7 @@ export function ApplicationsCard({
     labels: "",
   });
 
-  const handleAddApplication = () => {
+  const handleAddApplication = async () => {
     if (!newApp.appName) {
       toast.error("Please fill in all required fields");
       return;
@@ -180,20 +181,41 @@ export function ApplicationsCard({
       onUpdateApplication(updatedApp);
       toast.success("Application updated successfully");
     } else {
-      // Generate a random app ID (4-digit number between 1000-9999)
-      const randomAppId = Math.floor(1000 + Math.random() * 9000);
+      // Get next unique app ID from API
+      try {
+        const response = await fetch(buildApiUrl('/api/v1/apps/next-id'), {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            appName: newApp.appName,
+            metadata: { createdFrom: 'dashboard' }
+          })
+        });
 
-      onAddApplication({
-        appId: randomAppId,
-        appName: newApp.appName,
-        name: newApp.appName, // For backward compatibility
-        image: "", // Placeholder, actual images are defined in services
-        status: "stopped",
-        syncStatus: "pending",
-        services: [], // Services will be added separately
-        uptime: "0m",
-      });
-      toast.success("Application added successfully");
+        if (!response.ok) {
+          throw new Error('Failed to generate app ID');
+        }
+
+        const { appId } = await response.json();
+
+        onAddApplication({
+          appId: appId,
+          appName: newApp.appName,
+          name: newApp.appName, // For backward compatibility
+          image: "", // Placeholder, actual images are defined in services
+          status: "stopped",
+          syncStatus: "pending",
+          services: [], // Services will be added separately
+          uptime: "0m",
+        });
+        toast.success("Application added successfully");
+      } catch (error) {
+        console.error('Error generating app ID:', error);
+        toast.error("Failed to generate app ID");
+        return;
+      }
     }
 
     setNewApp({ appId: "", appName: "" });
