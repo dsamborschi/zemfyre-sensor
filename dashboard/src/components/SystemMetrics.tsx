@@ -551,6 +551,7 @@ export function SystemMetrics({
           <div id="applications-section">
             <ApplicationsCard
               deviceId={device.id}
+              deviceUuid={device.deviceUuid}
               applications={applications}
               onAddApplication={onAddApplication}
               onUpdateApplication={onUpdateApplication}

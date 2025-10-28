@@ -563,6 +563,92 @@ router.delete('/devices/:uuid/apps/:appId', async (req, res) => {
 });
 
 /**
+ * Deploy specific app to device
+ * POST /api/v1/devices/:uuid/apps/:appId/deploy
+ * 
+ * Deploys a specific app by incrementing version
+ */
+router.post('/devices/:uuid/apps/:appId/deploy', async (req, res) => {
+  try {
+    const { uuid, appId: appIdStr } = req.params;
+    const deployedBy = req.body.deployedBy || 'dashboard';
+
+    const appId = parseInt(appIdStr);
+    if (isNaN(appId)) {
+      return res.status(400).json({
+        error: 'Invalid request',
+        message: 'appId must be a number'
+      });
+    }
+
+    console.log(`🚀 Deploying app ${appId} to device ${uuid.substring(0, 8)}... by ${deployedBy}`);
+
+    // Verify device exists
+    const device = await DeviceModel.getByUuid(uuid);
+    if (!device) {
+      return res.status(404).json({
+        error: 'Device not found',
+        message: `Device ${uuid} not found`
+      });
+    }
+
+    // Check if app exists in target state
+    const currentTarget = await DeviceTargetStateModel.get(uuid);
+    if (!currentTarget) {
+      return res.status(404).json({
+        error: 'Not found',
+        message: `Device ${uuid} has no target state`
+      });
+    }
+
+    const currentApps = currentTarget.apps || {};
+    if (!currentApps[appId]) {
+      return res.status(404).json({
+        error: 'Not found',
+        message: `App ${appId} not found in target state`
+      });
+    }
+
+    const appName = currentApps[appId].appName;
+
+    // Deploy target state (increments version so device picks up changes)
+    const deployedState = await DeviceTargetStateModel.deploy(uuid, deployedBy);
+
+    await logAuditEvent({
+      eventType: AuditEventType.DEVICE_CONFIG_UPDATE,
+      deviceUuid: uuid,
+      severity: AuditSeverity.INFO,
+      details: {
+        action: 'deploy_app',
+        appId,
+        appName,
+        version: deployedState.version,
+        deployedBy
+      }
+    });
+
+    console.log(`✅ Deployed app ${appId} (${appName}) - version ${deployedState.version} to device ${uuid.substring(0, 8)}...`);
+
+    res.json({
+      status: 'ok',
+      message: `Application ${appName} deployed successfully`,
+      version: deployedState.version,
+      appId,
+      appName,
+      deployedAt: deployedState.deployed_at,
+      deployedBy: deployedState.deployed_by
+    });
+
+  } catch (error: any) {
+    console.error('Error deploying app:', error);
+    res.status(500).json({
+      error: 'Failed to deploy application',
+      message: error.message
+    });
+  }
+});
+
+/**
  * Deploy target state to device
  * POST /api/v1/devices/:uuid/deploy
  * 

@@ -92,6 +92,7 @@ export interface Application {
 
 interface ApplicationsCardProps {
   deviceId: string;
+  deviceUuid: string; // Add deviceUuid for API calls
   applications: Application[];
   onAddApplication: (app: Omit<Application, "id">) => void;
   onUpdateApplication?: (app: Application) => void;
@@ -130,6 +131,7 @@ const syncStatusIcons = {
 
 export function ApplicationsCard({
   deviceId,
+  deviceUuid,
   applications,
   onAddApplication,
   onUpdateApplication = () => {},
@@ -347,18 +349,45 @@ export function ApplicationsCard({
     }
   };
 
-  const handleSyncApplication = (app: Application) => {
-    // Update app to syncing status
-    const updatedApp = { ...app, syncStatus: "syncing" as const };
-    onUpdateApplication(updatedApp);
-    toast.info(`Syncing ${app.appName || app.name} to device...`);
+  const handleSyncApplication = async (app: Application) => {
+    try {
+      // Update app to syncing status
+      const updatedApp = { ...app, syncStatus: "syncing" as const };
+      onUpdateApplication(updatedApp);
+      toast.loading(`Deploying ${app.appName || app.name}...`, { id: `deploy-${app.appId}` });
 
-    // Simulate sync process (2 seconds)
-    setTimeout(() => {
+      // Call API to deploy this specific app
+      const response = await fetch(
+        buildApiUrl(`/api/v1/devices/${deviceUuid}/apps/${app.appId}/deploy`),
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            deployedBy: 'dashboard'
+          })
+        }
+      );
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to deploy application');
+      }
+
+      const result = await response.json();
+      
+      // Update to synced status
       const syncedApp = { ...app, syncStatus: "synced" as const };
       onUpdateApplication(syncedApp);
-      toast.success(`${app.appName || app.name} synced successfully!`);
-    }, 2000);
+      toast.success(`${app.appName || app.name} deployed successfully! (v${result.version})`, { id: `deploy-${app.appId}` });
+
+    } catch (error: any) {
+      console.error('Error deploying app:', error);
+      const errorApp = { ...app, syncStatus: "error" as const };
+      onUpdateApplication(errorApp);
+      toast.error(`Failed to deploy ${app.appName || app.name}: ${error.message}`, { id: `deploy-${app.appId}` });
+    }
   };
 
   const handleDeleteService = () => {
@@ -513,7 +542,7 @@ export function ApplicationsCard({
                             disabled={app.syncStatus === "syncing"}
                           >
                             <RefreshCw className={`w-4 h-4 mr-2 ${app.syncStatus === "syncing" ? "animate-spin" : ""}`} />
-                            Sync to Device
+                            Deploy App
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => openServiceModal(app)}
