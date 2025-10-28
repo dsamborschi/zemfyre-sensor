@@ -937,7 +937,7 @@ export default function App() {
           />
         </div>
         {/* Main Content Area */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-y-auto">
           {isLoadingDevices ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
