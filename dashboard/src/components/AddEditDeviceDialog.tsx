@@ -229,7 +229,7 @@ export function AddEditDeviceDialog({
               <Label htmlFor="device-name">Device Name *</Label>
               <Input
                 id="device-name"
-                placeholder="Production Server 01"
+                placeholder="Raspberry-01"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
