@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -7,6 +7,7 @@ import {
 } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { Copy, CheckCircle2 } from 'lucide-react';
 
 interface JobDetailsModalProps {
   open: boolean;
@@ -22,6 +23,8 @@ interface JobDetailsModalProps {
     execution_type: string;
     exit_code: number | null;
     reason: string | null;
+    stdout?: string | null;
+    stderr?: string | null;
     job_document?: any;
     template_id?: number;
     target_type?: string;
@@ -30,7 +33,25 @@ interface JobDetailsModalProps {
 }
 
 export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose, job }) => {
+  const [copiedStdout, setCopiedStdout] = useState(false);
+  const [copiedStderr, setCopiedStderr] = useState(false);
+
   if (!job) return null;
+
+  const copyToClipboard = async (text: string, type: 'stdout' | 'stderr') => {
+    try {
+      await navigator.clipboard.writeText(text);
+      if (type === 'stdout') {
+        setCopiedStdout(true);
+        setTimeout(() => setCopiedStdout(false), 2000);
+      } else {
+        setCopiedStderr(true);
+        setTimeout(() => setCopiedStderr(false), 2000);
+      }
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
 
   const getStatusBadge = (status: string) => {
     const statusConfig: Record<string, { color: string; label: string }> = {
@@ -271,6 +292,83 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose,
                   />
                 </div>
               </details>
+            </div>
+          )}
+
+          {/* Execution Output */}
+          {(job.stdout || job.stderr) && (
+            <div className="border-t pt-4">
+              <h4 className="text-sm font-semibold text-gray-900 mb-3">Execution Output</h4>
+              
+              {/* Standard Output (stdout) */}
+              {job.stdout && (
+                <div className="mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-green-700 flex items-center gap-2">
+                      <span className="bg-green-100 px-2 py-0.5 rounded text-xs font-mono">stdout</span>
+                      Standard Output
+                    </label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(job.stdout!, 'stdout')}
+                      className="h-7 text-xs"
+                    >
+                      {copiedStdout ? (
+                        <>
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 mr-1" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto max-h-[300px] overflow-y-auto">
+                    <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap">
+                      {job.stdout}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {/* Standard Error (stderr) */}
+              {job.stderr && (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-medium text-red-700 flex items-center gap-2">
+                      <span className="bg-red-100 px-2 py-0.5 rounded text-xs font-mono">stderr</span>
+                      Error Output
+                    </label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => copyToClipboard(job.stderr!, 'stderr')}
+                      className="h-7 text-xs"
+                    >
+                      {copiedStderr ? (
+                        <>
+                          <CheckCircle2 className="w-3 h-3 mr-1" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3 h-3 mr-1" />
+                          Copy
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto max-h-[300px] overflow-y-auto">
+                    <pre className="text-xs font-mono text-red-400 whitespace-pre-wrap">
+                      {job.stderr}
+                    </pre>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>

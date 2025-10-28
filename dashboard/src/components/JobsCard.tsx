@@ -18,6 +18,8 @@ interface Job {
   execution_type: string;
   exit_code: number | null;
   reason: string | null;
+  stdout?: string | null;
+  stderr?: string | null;
   job_document?: any;
   template_id?: number;
   target_type?: string;
