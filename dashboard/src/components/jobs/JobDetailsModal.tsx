@@ -265,9 +265,10 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose,
                   View Raw JSON
                 </summary>
                 <div className="mt-2 bg-gray-900 rounded p-4 overflow-x-auto">
-                  <pre className="text-xs text-green-400 font-mono whitespace-pre-wrap">
-                    {JSON.stringify(job.job_document, null, 2)}
-                  </pre>
+                  <pre 
+                    className="text-xs font-mono whitespace-pre-wrap"
+                    dangerouslySetInnerHTML={{ __html: formatJsonWithSyntaxHighlight(job.job_document) }}
+                  />
                 </div>
               </details>
             </div>
