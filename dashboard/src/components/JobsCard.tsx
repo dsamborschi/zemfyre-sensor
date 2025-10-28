@@ -236,16 +236,16 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-sm table-fixed">
               <thead>
                 <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-4 font-medium text-gray-600">Job Name</th>
-                  <th className="text-left py-2 px-4 font-medium text-gray-600">Status</th>
-                  <th className="text-left py-2 px-4 font-medium text-gray-600 hidden md:table-cell">
+                  <th className="text-left py-2 px-4 font-medium text-gray-600 w-[25%]">Job Name</th>
+                  <th className="text-left py-2 px-4 font-medium text-gray-600 w-[15%]">Status</th>
+                  <th className="text-left py-2 px-4 font-medium text-gray-600 w-[15%] hidden md:table-cell">
                     Execution Type
                   </th>
-                  <th className="text-left py-2 px-4 font-medium text-gray-600">Date</th>
-                  <th></th>
+                  <th className="text-left py-2 px-4 font-medium text-gray-600 w-[20%]">Date</th>
+                  <th className="w-[25%] md:w-[300px]"></th>
                 </tr>
               </thead>
               <tbody>
