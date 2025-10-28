@@ -41,16 +41,6 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_PASSWORD }}
 
-      - name: Generate Docker tags
-        id: meta
-        run: |
-          # Create version tag: v1.0.{RUN_NUMBER}-{SHORT_SHA}
-          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
-          VERSION_TAG="v1.0.${{ github.run_number }}-${SHORT_SHA}"
-          echo "version_tag=${VERSION_TAG}" >> $GITHUB_OUTPUT
-          echo "short_sha=${SHORT_SHA}" >> $GITHUB_OUTPUT
-          echo "Generated version tag: ${VERSION_TAG}"
-
       - name: Build & Push API image
         uses: docker/build-push-action@v5
         with:
@@ -62,12 +52,3 @@ jobs:
           cache-to: type=local,dest=/tmp/.buildx-cache/${{ matrix.board }},mode=max
           tags: |
             iotistic/api:latest
-            iotistic/api:latest
-            iotistic/api:test
-          labels: |
-            org.opencontainers.image.title=Iotistic API
-            org.opencontainers.image.description=IoT Platform API Service
-            org.opencontainers.image.version=${{ steps.meta.outputs.version_tag }}
-            org.opencontainers.image.revision=${{ github.sha }}
-            org.opencontainers.image.created=${{ github.event.head_commit.timestamp }}
-            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
