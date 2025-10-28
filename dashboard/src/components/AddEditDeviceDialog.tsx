@@ -275,11 +275,11 @@ export function AddEditDeviceDialog({
               <div className="space-y-2">
                 <Label htmlFor="provisioning-key" className="text-sm font-semibold text-gray-900">Provisioning Key</Label>
                 <div className="relative">
-                  <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-md px-3 py-2.5">
-                    <code className="flex-1 font-mono text-sm text-gray-900 select-all">
+                  <div className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-md px-3 py-2.5">
+                    <code className="flex-1 font-mono text-xs text-gray-900 select-all break-all leading-relaxed">
                       {isLoadingKey ? "Generating..." : (provisioningKey || "Loading...")}
                     </code>
-                    <div className="flex gap-1 ml-2">
+                    <div className="flex gap-1 ml-2 flex-shrink-0">
                       <Button
                         type="button"
                         size="icon"
