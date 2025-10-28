@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, XCircle } from 'lucide-react';
 import { buildApiUrl } from '@/config/api';
-import { AddJobModal } from './jobs/AddJobModal';
+import AddJobModal from './jobs/AddJobModal';
 
 interface Job {
   id: number;
@@ -28,6 +28,9 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
+  const [cancelingJobId, setCancelingJobId] = useState<string | null>(null);
 
   const fetchJobs = async () => {
     if (!deviceUuid) return;
@@ -44,12 +47,63 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
       
       const data = await response.json();
       setJobs(data.jobs || []);
+      setLastRefresh(new Date());
     } catch (err) {
       console.error('Error fetching jobs:', err);
       setError(err instanceof Error ? err.message : 'Failed to load jobs');
       setJobs([]);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleDeleteJob = async (jobId: string) => {
+    if (!confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
+      return;
+    }
+
+    setDeletingJobId(jobId);
+    try {
+      const response = await fetch(buildApiUrl(`/api/v1/jobs/${jobId}`), {
+        method: 'DELETE',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete job');
+      }
+
+      // Refresh the jobs list
+      await fetchJobs();
+    } catch (err) {
+      console.error('Error deleting job:', err);
+      alert(err instanceof Error ? err.message : 'Failed to delete job');
+    } finally {
+      setDeletingJobId(null);
+    }
+  };
+
+  const handleCancelJob = async (jobId: string) => {
+    if (!confirm('Are you sure you want to cancel this job?')) {
+      return;
+    }
+
+    setCancelingJobId(jobId);
+    try {
+      const response = await fetch(buildApiUrl(`/api/v1/jobs/${jobId}/cancel`), {
+        method: 'POST',
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to cancel job');
+      }
+
+      // Refresh the jobs list
+      await fetchJobs();
+    } catch (err) {
+      console.error('Error canceling job:', err);
+      alert(err instanceof Error ? err.message : 'Failed to cancel job');
+    } finally {
+      setCancelingJobId(null);
     }
   };
 
@@ -105,7 +159,14 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h3 className="text-lg text-gray-900 font-medium mb-1">Jobs</h3>
-            <p className="text-sm text-gray-600">Job executions on this device</p>
+            <p className="text-sm text-gray-600">
+              Job executions on this device
+              {lastRefresh && (
+                <span className="text-xs text-gray-400 ml-2">
+                  • Last updated {lastRefresh.toLocaleTimeString()}
+                </span>
+              )}
+            </p>
           </div>
           <div className="flex gap-2">
             <Button
@@ -113,6 +174,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
               size="sm"
               onClick={fetchJobs}
               disabled={loading}
+              title="Refresh jobs"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
             </Button>
@@ -145,6 +207,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                     Execution Type
                   </th>
                   <th className="text-left py-2 px-4 font-medium text-gray-600">Date</th>
+                  <th className="text-right py-2 px-4 font-medium text-gray-600">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -164,6 +227,33 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                     </td>
                     <td className="py-3 px-4 text-gray-600">
                       {formatDate(job.completed_at || job.started_at || job.queued_at)}
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        {/* Cancel button - only for QUEUED jobs */}
+                        {job.status === 'QUEUED' && (
+                          <button
+                            onClick={() => handleCancelJob(job.job_id)}
+                            disabled={cancelingJobId === job.job_id}
+                            className="p-1.5 text-orange-600 hover:text-orange-700 hover:bg-orange-50 rounded transition-colors disabled:opacity-50"
+                            title="Cancel job"
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        )}
+                        
+                        {/* Delete button - for all completed states */}
+                        {['SUCCEEDED', 'FAILED', 'TIMED_OUT', 'CANCELED', 'REJECTED', 'QUEUED'].includes(job.status) && (
+                          <button
+                            onClick={() => handleDeleteJob(job.job_id)}
+                            disabled={deletingJobId === job.job_id}
+                            className="p-1.5 text-red-600 hover:text-red-700 hover:bg-red-50 rounded transition-colors disabled:opacity-50"
+                            title="Delete job"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}
