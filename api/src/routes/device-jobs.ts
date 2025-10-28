@@ -489,7 +489,8 @@ router.get('/devices/:uuid/jobs', async (req: Request, res: Response) => {
         djs.*,
         je.job_name,
         je.job_document,
-        je.execution_type
+        je.execution_type,
+        je.schedule
       FROM device_job_status djs
       INNER JOIN job_executions je ON djs.job_id = je.job_id
       WHERE djs.device_uuid = $1
@@ -509,10 +510,26 @@ router.get('/devices/:uuid/jobs', async (req: Request, res: Response) => {
 
     const result = await pool.query(query, params);
 
+    // Transform jobs to add computed SCHEDULED status
+    const jobs = result.rows.map(job => {
+      // If job is QUEUED and has a future scheduled_at time, mark as SCHEDULED
+      if (job.status === 'QUEUED' && job.schedule?.scheduled_at) {
+        const scheduledTime = new Date(job.schedule.scheduled_at);
+        const now = new Date();
+        if (scheduledTime > now) {
+          return {
+            ...job,
+            status: 'SCHEDULED'
+          };
+        }
+      }
+      return job;
+    });
+
     return res.status(200).json({
       device_uuid: uuid,
-      jobs: result.rows,
-      total: result.rows.length,
+      jobs,
+      total: jobs.length,
     });
   } catch (error) {
     console.error('Error fetching device jobs:', error);
