@@ -646,7 +646,6 @@ router.post('/devices/:uuid/apps/:appId/deploy', async (req, res) => {
       version: deployedState.version,
       appId,
       appName,
-      deployedAt: deployedState.deployed_at,
       deployedBy: deployedState.deployed_by
     });
 
