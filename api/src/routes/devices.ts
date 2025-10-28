@@ -1,3 +1,74 @@
+// ...existing code...
+/**
+ * Update device details (name, type, IP, MAC)
+ * PATCH /api/v1/devices/:uuid
+ * Body: { deviceName, deviceType, ipAddress, macAddress }
+ */
+router.patch('/devices/:uuid', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const { deviceName, deviceType, ipAddress, macAddress } = req.body;
+
+    // Validate at least one field is present
+    if (!deviceName && !deviceType && !ipAddress && !macAddress) {
+      return res.status(400).json({
+        error: 'No fields to update',
+        message: 'At least one of deviceName, deviceType, ipAddress, or macAddress must be provided.'
+      });
+    }
+
+    const device = await DeviceModel.getByUuid(uuid);
+    if (!device) {
+      return res.status(404).json({
+        error: 'Device not found',
+        message: `Device ${uuid} not found`
+      });
+    }
+
+    // Build update object
+    const updateFields = {};
+    if (deviceName) updateFields['device_name'] = deviceName;
+    if (deviceType) updateFields['device_type'] = deviceType;
+    if (ipAddress) updateFields['ip_address'] = ipAddress;
+    if (macAddress) updateFields['mac_address'] = macAddress;
+    updateFields['modified_at'] = new Date();
+
+    const updatedDevice = await DeviceModel.update(uuid, updateFields);
+
+    await logAuditEvent({
+      eventType: AuditEventType.DEVICE_CONFIG_UPDATE,
+      deviceUuid: uuid,
+      severity: AuditSeverity.INFO,
+      details: {
+        updatedFields: Object.keys(updateFields),
+        deviceName,
+        deviceType,
+        ipAddress,
+        macAddress
+      }
+    });
+
+    res.json({
+      success: true,
+      device: {
+        uuid: updatedDevice.uuid,
+        deviceName: updatedDevice.device_name,
+        deviceType: updatedDevice.device_type,
+        ipAddress: updatedDevice.ip_address,
+        macAddress: updatedDevice.mac_address,
+        isOnline: updatedDevice.is_online,
+        isActive: updatedDevice.is_active,
+        modifiedAt: updatedDevice.modified_at
+      }
+    });
+  } catch (error: any) {
+    console.error('Error updating device:', error);
+    res.status(500).json({
+      error: 'Failed to update device',
+      message: error.message
+    });
+  }
+});
 
 /**
  * Device Management Routes
@@ -19,6 +90,77 @@ import {
 import { EventPublisher } from '../services/event-sourcing';
 
 export const router = express.Router();
+
+/**
+ * Update device details (name, type, IP, MAC)
+ * PATCH /api/v1/devices/:uuid
+ * Body: { deviceName, deviceType, ipAddress, macAddress }
+ */
+router.patch('/devices/:uuid', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const { deviceName, deviceType, ipAddress, macAddress } = req.body;
+
+    // Validate at least one field is present
+    if (!deviceName && !deviceType && !ipAddress && !macAddress) {
+      return res.status(400).json({
+        error: 'No fields to update',
+        message: 'At least one of deviceName, deviceType, ipAddress, or macAddress must be provided.'
+      });
+    }
+
+    const device = await DeviceModel.getByUuid(uuid);
+    if (!device) {
+      return res.status(404).json({
+        error: 'Device not found',
+        message: `Device ${uuid} not found`
+      });
+    }
+
+    // Build update object
+    const updateFields = {};
+    if (deviceName) updateFields['device_name'] = deviceName;
+    if (deviceType) updateFields['device_type'] = deviceType;
+    if (ipAddress) updateFields['ip_address'] = ipAddress;
+    if (macAddress) updateFields['mac_address'] = macAddress;
+    updateFields['modified_at'] = new Date();
+
+    const updatedDevice = await DeviceModel.update(uuid, updateFields);
+
+    await logAuditEvent({
+      eventType: AuditEventType.DEVICE_CONFIG_UPDATE,
+      deviceUuid: uuid,
+      severity: AuditSeverity.INFO,
+      details: {
+        updatedFields: Object.keys(updateFields),
+        deviceName,
+        deviceType,
+        ipAddress,
+        macAddress
+      }
+    });
+
+    res.json({
+      success: true,
+      device: {
+        uuid: updatedDevice.uuid,
+        deviceName: updatedDevice.device_name,
+        deviceType: updatedDevice.device_type,
+        ipAddress: updatedDevice.ip_address,
+        macAddress: updatedDevice.mac_address,
+        isOnline: updatedDevice.is_online,
+        isActive: updatedDevice.is_active,
+        modifiedAt: updatedDevice.modified_at
+      }
+    });
+  } catch (error: any) {
+    console.error('Error updating device:', error);
+    res.status(500).json({
+      error: 'Failed to update device',
+      message: error.message
+    });
+  }
+});
 
 // Initialize event publisher for audit trail
 const eventPublisher = new EventPublisher();
