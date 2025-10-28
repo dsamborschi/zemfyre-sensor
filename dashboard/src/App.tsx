@@ -727,6 +727,13 @@ export default function App() {
         return;
       }
 
+      console.log('📦 Adding application:', {
+        appId: app.appId,
+        appIdType: typeof app.appId,
+        appName: app.appName,
+        servicesCount: app.services?.length || 0
+      });
+
       // Create application with services via API
       const response = await fetch(
         buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/apps`),
