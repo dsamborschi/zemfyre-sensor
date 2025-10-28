@@ -31,6 +31,7 @@ import { MqttBrokerCard } from "./MqttBrokerCard";
 import { TimelineCard } from "./TimelineCard";
 import { MqttMetricsCard } from "./MqttMetricsCard";
 import { DeviceTimelineCard } from "./DeviceTimelineCard";
+import { GeneralInfoCard } from "./GeneralInfoCard";
 import { buildApiUrl } from "@/config/api";
 
 interface SystemMetricsProps {
@@ -55,152 +56,11 @@ interface SystemMetricsProps {
   onCancelDeploy?: () => void;
 }
 
-const deviceTimelineEvents = [
-  {
-    id: "1114",
-    event_id: "e31876b4-dbf8-4845-a0ab-4f2768617b30",
-    type: "device.provisioned",
-    category: "device",
-    title: "Device Provisioned",
-    description: "Event occurred",
-    data: {
-      fleet_id: "default-fleet",
-      ip_address: "::1",
-      os_version: "Microsoft Windows 10 Pro 10.0.19045",
-      device_name: "device-46b68204",
-      device_type: "standalone",
-      mac_address: "2c:f0:5d:a1:eb:85",
-      provisioned_at: "2025-10-18T17:29:31.351Z",
-      supervisor_version: "1.0.0"
-    },
-    metadata: {
-      endpoint: "/device/register",
-      user_agent: "node",
-      provisioning_key_id: "f382cb59-945d-4e5e-b46f-bd198009e8ed"
-    }
-  },
-  {
-    id: "1115",
-    event_id: "f95842dd-7f0f-420f-9661-0c44568eeed2",
-    type: "device.offline",
-    category: "device",
-    title: "Device Offline",
-    description: "Device disconnected",
-    data: {
-      reason: "No heartbeat received - exceeded threshold",
-      last_seen: "2025-10-18T22:00:58.190Z",
-      detected_at: "2025-10-18T18:06:26.830Z",
-      device_name: "device-46b68204",
-      offline_threshold_minutes: 5
-    },
-    metadata: {
-      detection_method: "heartbeat_monitor",
-      check_interval_ms: 60000
-    }
-  },
-  {
-    id: "1116",
-    event_id: "05761775-4503-4e80-aa1c-daf5862bd6e6",
-    type: "device.online",
-    category: "device",
-    title: "Device Online",
-    description: "Device connected",
-    data: {
-      reason: "Device resumed communication",
-      device_name: "device-46b68204",
-      came_online_at: "2025-10-18T18:40:04.589Z",
-      was_offline_at: "2025-10-18T22:36:18.852Z",
-      offline_duration_minutes: -237
-    },
-    metadata: {
-      last_seen: "2025-10-18T22:00:58.190Z",
-      detection_method: "heartbeat_received"
-    }
-  },
-  {
-    id: "1117",
-    event_id: "0e944f51-347a-40c1-8f88-43223e38ed86",
-    type: "device.offline",
-    category: "device",
-    title: "Device Offline",
-    description: "Device disconnected",
-    data: {
-      reason: "No heartbeat received - exceeded threshold",
-      last_seen: "2025-10-18T23:31:27.175Z",
-      detected_at: "2025-10-18T19:36:50.287Z",
-      device_name: "device-46b68204",
-      offline_threshold_minutes: 5
-    },
-    metadata: {
-      detection_method: "heartbeat_monitor",
-      check_interval_ms: 60000
-    }
-  },
-  {
-    id: "1118",
-    event_id: "2b57c4d8-bc12-424c-a556-3b28baba30c9",
-    type: "device.online",
-    category: "device",
-    title: "Device Online",
-    description: "Device connected",
-    data: {
-      reason: "Device resumed communication",
-      device_name: "device-46b68204",
-      came_online_at: "2025-10-18T19:37:00.371Z",
-      was_offline_at: "2025-10-18T23:36:50.173Z",
-      offline_duration_minutes: -240
-    },
-    metadata: {
-      last_seen: "2025-10-18T23:31:27.175Z",
-      detection_method: "heartbeat_received"
-    }
-  }
-];
-
-const cpuData = [
-  { time: "00:00", value: 45 },
-  { time: "00:05", value: 52 },
-  { time: "00:10", value: 48 },
-  { time: "00:15", value: 65 },
-  { time: "00:20", value: 58 },
-  { time: "00:25", value: 72 },
-  { time: "00:30", value: 68 },
-  { time: "00:35", value: 55 },
-  { time: "00:40", value: 62 },
-  { time: "00:45", value: 58 },
-];
-
-const memoryData = [
-  { time: "00:00", used: 6.2, available: 9.8 },
-  { time: "00:05", used: 6.5, available: 9.5 },
-  { time: "00:10", used: 6.8, available: 9.2 },
-  { time: "00:15", used: 7.2, available: 8.8 },
-  { time: "00:20", used: 7.5, available: 8.5 },
-  { time: "00:25", used: 7.8, available: 8.2 },
-  { time: "00:30", used: 8.0, available: 8.0 },
-  { time: "00:35", used: 7.6, available: 8.4 },
-  { time: "00:40", used: 7.3, available: 8.7 },
-  { time: "00:45", used: 7.0, available: 9.0 },
-];
-
-const networkData = [
-  { time: "00:00", download: 12, upload: 5 },
-  { time: "00:05", download: 18, upload: 7 },
-  { time: "00:10", download: 15, upload: 6 },
-  { time: "00:15", download: 25, upload: 10 },
-  { time: "00:20", download: 22, upload: 9 },
-  { time: "00:25", download: 30, upload: 12 },
-  { time: "00:30", download: 28, upload: 11 },
-  { time: "00:35", download: 20, upload: 8 },
-  { time: "00:40", download: 24, upload: 10 },
-  { time: "00:45", download: 19, upload: 7 },
-];
-
 export function SystemMetrics({ 
   device, 
-  cpuHistory = cpuData,
-  memoryHistory = memoryData,
-  networkHistory = networkData,
+  cpuHistory = [],
+  memoryHistory = [],
+  networkHistory = [],
   applications = [],
   onAddApplication = () => {},
   onUpdateApplication = () => {},
@@ -293,14 +153,46 @@ export function SystemMetrics({
     },
   ];
 
-  const systemInfo = [
-    { label: "Operating System", value: "Linux" },
-    { label: "Architecture", value: "ArmV7" },
-    { label: "Uptime", value: "15 days, 7 hours" },
+  // Fetch system info from API
+  const [systemInfo, setSystemInfo] = useState([
+    { label: "Operating System", value: "Loading..." },
+    { label: "Architecture", value: "Loading..." },
+    { label: "Uptime", value: "Loading..." },
     { label: "Hostname", value: device.name },
     { label: "IP Address", value: device.ipAddress },
-    { label: "MAC Address", value: "00:1B:44:11:3A:B7" },
-  ];
+    { label: "MAC Address", value: "Loading..." },
+  ]);
+
+  useEffect(() => {
+    const fetchSystemInfo = async () => {
+      if (!device.deviceUuid) return;
+      
+      try {
+        const response = await fetch(buildApiUrl(`/api/v1/devices/${device.deviceUuid}/system-info`));
+        if (!response.ok) {
+          console.warn('Failed to fetch system info');
+          return;
+        }
+        const data = await response.json();
+        
+        setSystemInfo([
+          { label: "Operating System", value: data.os || "Unknown" },
+          { label: "Architecture", value: data.arch || "Unknown" },
+          { label: "Uptime", value: data.uptime || "Unknown" },
+          { label: "Hostname", value: data.hostname || device.name },
+          { label: "IP Address", value: data.ipAddress || device.ipAddress },
+          { label: "MAC Address", value: data.macAddress || "Unknown" },
+        ]);
+      } catch (error) {
+        console.error('Failed to fetch system info:', error);
+      }
+    };
+
+    fetchSystemInfo();
+    const interval = setInterval(fetchSystemInfo, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [device.deviceUuid, device.name, device.ipAddress]);
 
   // Fetch process data from API
   const [processes, setProcesses] = useState<Array<{
@@ -634,20 +526,7 @@ export function SystemMetrics({
           </Card>
 
           {/* System Info */}
-          <Card className="p-4 md:p-6">
-            <div className="mb-4">
-              <h3 className="text-gray-900 mb-1">General Info</h3>
-              <p className="text-gray-600">Device details and configuration</p>
-            </div>
-            <div className="space-y-3">
-              {systemInfo.map((info, index) => (
-                <div key={index} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                  <span className="text-gray-600">{info.label}</span>
-                  <span className="text-gray-900">{info.value}</span>
-                </div>
-              ))}
-            </div>
-          </Card>
+          <GeneralInfoCard systemInfo={systemInfo} />
 
           {/* Applications */}
           <div id="applications-section">
