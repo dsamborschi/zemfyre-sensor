@@ -621,6 +621,8 @@ export default function App() {
         }
 
         const data = await response.json();
+
+        console.log("Fetched network interfaces:", data);
         
         // Transform API format to dashboard format
         const interfaces = (data.interfaces || []).map((iface: any) => ({
