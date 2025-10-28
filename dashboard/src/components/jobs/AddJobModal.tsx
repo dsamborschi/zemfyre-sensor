@@ -7,6 +7,7 @@ import {
   DialogFooter,
 } from '../ui/dialog';
 import { Button } from '../ui/button';
+import { Badge } from '../ui/badge';
 import { buildApiUrl } from '@/config/api';
 
 interface JobTemplate {
@@ -14,6 +15,22 @@ interface JobTemplate {
   name: string;
   description: string;
   category: string;
+  job_document?: any;
+}
+
+interface JobStep {
+  name: string;
+  type: 'runCommand' | 'runHandler';
+  input: {
+    command?: string;
+    handler?: string;
+    args?: string[];
+    path?: string;
+  };
+  runAsUser?: string;
+  allowStdErr?: number;
+  ignoreStepFailure?: boolean;
+  timeoutSeconds?: number;
 }
 
 interface AddJobModalProps {
@@ -36,6 +53,21 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  
+  // Custom steps state
+  const [customSteps, setCustomSteps] = useState<JobStep[]>([]);
+  const [showStepsEditor, setShowStepsEditor] = useState(false);
+  const [editingStepIndex, setEditingStepIndex] = useState<number | null>(null);
+  
+  // Step editor form state
+  const [stepForm, setStepForm] = useState<JobStep>({
+    name: '',
+    type: 'runCommand',
+    input: { command: '' },
+    runAsUser: '',
+    timeoutSeconds: undefined,
+    ignoreStepFailure: false,
+  });
 
   useEffect(() => {
     if (!open) return;
@@ -68,6 +100,57 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
     setError('');
   }, [open]);
 
+  // Load steps from selected template
+  useEffect(() => {
+    if (templateId) {
+      const selectedTemplate = templates.find((t) => t.id === parseInt(templateId));
+      if (selectedTemplate?.job_document?.steps) {
+        setCustomSteps([...selectedTemplate.job_document.steps]);
+        setShowStepsEditor(true);
+      } else {
+        setCustomSteps([]);
+        setShowStepsEditor(false);
+      }
+    } else {
+      setCustomSteps([]);
+      setShowStepsEditor(false);
+    }
+  }, [templateId, templates]);
+
+  const handleAddStep = () => {
+    setCustomSteps([...customSteps, stepForm]);
+    resetStepForm();
+  };
+
+  const handleUpdateStep = (index: number) => {
+    const updated = [...customSteps];
+    updated[index] = stepForm;
+    setCustomSteps(updated);
+    setEditingStepIndex(null);
+    resetStepForm();
+  };
+
+  const handleDeleteStep = (index: number) => {
+    setCustomSteps(customSteps.filter((_, i) => i !== index));
+  };
+
+  const handleEditStep = (index: number) => {
+    setEditingStepIndex(index);
+    setStepForm({ ...customSteps[index] });
+  };
+
+  const resetStepForm = () => {
+    setStepForm({
+      name: '',
+      type: 'runCommand',
+      input: { command: '' },
+      runAsUser: '',
+      timeoutSeconds: undefined,
+      ignoreStepFailure: false,
+    });
+    setEditingStepIndex(null);
+  };
+
   const handleSave = async () => {
     if (!templateId) {
       setError('Please select a job template');
@@ -89,12 +172,19 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
         throw new Error('Selected template not found');
       }
 
+      // Build the job document with custom steps
+      const jobDocument = {
+        ...selectedTemplate.job_document,
+        steps: customSteps.length > 0 ? customSteps : selectedTemplate.job_document?.steps || []
+      };
+
       const response = await fetch(buildApiUrl('/api/v1/jobs/execute'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           job_name: selectedTemplate.name,
           template_id: parseInt(templateId),
+          job_document: jobDocument,
           target_type: 'device',
           target_devices: [deviceUuid],
           execution_type: executeTime === 'now' ? 'oneTime' : 'oneTime',
@@ -120,7 +210,7 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Job</DialogTitle>
         </DialogHeader>
@@ -197,6 +287,272 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
               />
             )}
           </div>
+
+          {/* Job Steps Editor */}
+          {showStepsEditor && (
+            <div className="border-t pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <label className="block text-sm font-medium text-gray-700">
+                  Job Steps ({customSteps.length})
+                </label>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => {
+                    setEditingStepIndex(-1);
+                    resetStepForm();
+                  }}
+                  disabled={saving || editingStepIndex !== null}
+                  className="text-xs"
+                >
+                  + Add Step
+                </Button>
+              </div>
+
+              {/* Steps List */}
+              {customSteps.length > 0 && (
+                <div className="space-y-2 mb-3">
+                  {customSteps.map((step, index) => (
+                    <div
+                      key={index}
+                      className="flex items-start gap-2 p-3 bg-gray-50 border border-gray-200 rounded-lg"
+                    >
+                      <div className="flex-shrink-0 w-6 h-6 bg-blue-600 text-white rounded-full flex items-center justify-center text-xs font-semibold">
+                        {index + 1}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h5 className="text-sm font-semibold text-gray-900">{step.name}</h5>
+                          <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">
+                            {step.type}
+                          </Badge>
+                        </div>
+                        {step.type === 'runCommand' && step.input.command && (
+                          <p className="text-xs text-gray-600 font-mono bg-gray-900 text-green-400 px-2 py-1 rounded">
+                            {step.input.command}
+                          </p>
+                        )}
+                        {step.type === 'runHandler' && step.input.handler && (
+                          <p className="text-xs text-gray-600">
+                            Handler: <span className="font-mono">{step.input.handler}</span>
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex gap-1">
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleEditStep(index)}
+                          disabled={saving || editingStepIndex !== null}
+                          className="text-xs h-6 px-2"
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDeleteStep(index)}
+                          disabled={saving || editingStepIndex !== null}
+                          className="text-xs h-6 px-2 text-red-600 hover:text-red-700"
+                        >
+                          Delete
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Step Editor Form */}
+              {editingStepIndex !== null && (
+                <div className="border border-blue-300 rounded-lg p-4 bg-blue-50 space-y-3">
+                  <h4 className="text-sm font-semibold text-gray-900">
+                    {editingStepIndex === -1 ? 'Add New Step' : `Edit Step ${editingStepIndex + 1}`}
+                  </h4>
+
+                  {/* Step Name */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Step Name *
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                      value={stepForm.name}
+                      onChange={(e) => setStepForm({ ...stepForm, name: e.target.value })}
+                      placeholder="e.g., Restart Service"
+                    />
+                  </div>
+
+                  {/* Step Type */}
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">
+                      Step Type *
+                    </label>
+                    <select
+                      className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                      value={stepForm.type}
+                      onChange={(e) => {
+                        const newType = e.target.value as 'runCommand' | 'runHandler';
+                        setStepForm({
+                          ...stepForm,
+                          type: newType,
+                          input: newType === 'runCommand' ? { command: '' } : { handler: '', args: [] }
+                        });
+                      }}
+                    >
+                      <option value="runCommand">Run Command</option>
+                      <option value="runHandler">Run Handler</option>
+                    </select>
+                  </div>
+
+                  {/* Command Input (for runCommand) */}
+                  {stepForm.type === 'runCommand' && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-700 mb-1">
+                        Command *
+                      </label>
+                      <input
+                        type="text"
+                        className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm font-mono"
+                        value={stepForm.input.command || ''}
+                        onChange={(e) => setStepForm({
+                          ...stepForm,
+                          input: { ...stepForm.input, command: e.target.value }
+                        })}
+                        placeholder="e.g., systemctl,restart,nginx"
+                      />
+                      <p className="text-xs text-gray-500 mt-1">
+                        Use comma-separated format: command,arg1,arg2
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Handler Input (for runHandler) */}
+                  {stepForm.type === 'runHandler' && (
+                    <>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Handler Name *
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm font-mono"
+                          value={stepForm.input.handler || ''}
+                          onChange={(e) => setStepForm({
+                            ...stepForm,
+                            input: { ...stepForm.input, handler: e.target.value }
+                          })}
+                          placeholder="e.g., install-package.sh"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Arguments (one per line)
+                        </label>
+                        <textarea
+                          className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm font-mono"
+                          rows={3}
+                          value={(stepForm.input.args || []).join('\n')}
+                          onChange={(e) => setStepForm({
+                            ...stepForm,
+                            input: {
+                              ...stepForm.input,
+                              args: e.target.value.split('\n').filter(line => line.trim())
+                            }
+                          })}
+                          placeholder="arg1&#10;arg2&#10;arg3"
+                        />
+                      </div>
+                    </>
+                  )}
+
+                  {/* Advanced Options */}
+                  <details className="text-xs">
+                    <summary className="cursor-pointer text-gray-700 font-medium">
+                      Advanced Options
+                    </summary>
+                    <div className="mt-2 space-y-2 pl-2">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Run As User
+                        </label>
+                        <input
+                          type="text"
+                          className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                          value={stepForm.runAsUser || ''}
+                          onChange={(e) => setStepForm({ ...stepForm, runAsUser: e.target.value })}
+                          placeholder="e.g., root"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 mb-1">
+                          Timeout (seconds)
+                        </label>
+                        <input
+                          type="number"
+                          className="w-full border border-gray-300 rounded-md px-2 py-1 text-sm"
+                          value={stepForm.timeoutSeconds || ''}
+                          onChange={(e) => setStepForm({
+                            ...stepForm,
+                            timeoutSeconds: e.target.value ? parseInt(e.target.value) : undefined
+                          })}
+                          placeholder="e.g., 300"
+                        />
+                      </div>
+                      <label className="flex items-center gap-2">
+                        <input
+                          type="checkbox"
+                          checked={stepForm.ignoreStepFailure || false}
+                          onChange={(e) => setStepForm({
+                            ...stepForm,
+                            ignoreStepFailure: e.target.checked
+                          })}
+                        />
+                        <span className="text-xs text-gray-700">Ignore step failure (continue on error)</span>
+                      </label>
+                    </div>
+                  </details>
+
+                  {/* Step Editor Actions */}
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={resetStepForm}
+                      className="text-xs"
+                    >
+                      Cancel
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        if (!stepForm.name || 
+                            (stepForm.type === 'runCommand' && !stepForm.input.command) ||
+                            (stepForm.type === 'runHandler' && !stepForm.input.handler)) {
+                          alert('Please fill in all required fields');
+                          return;
+                        }
+                        if (editingStepIndex === -1) {
+                          handleAddStep();
+                        } else {
+                          handleUpdateStep(editingStepIndex);
+                        }
+                      }}
+                      className="text-xs bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {editingStepIndex === -1 ? 'Add Step' : 'Update Step'}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Error Message */}
           {error && (
