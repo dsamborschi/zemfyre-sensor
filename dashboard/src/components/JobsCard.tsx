@@ -245,7 +245,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                     Execution Type
                   </th>
                   <th className="text-left py-2 px-4 font-medium text-gray-600">Date</th>
-                  <th className="w-[1%]"></th>
+                  <th className="text-right py-2 px-4 font-medium text-gray-600 w-[200px]"></th>
                 </tr>
               </thead>
               <tbody>
@@ -266,8 +266,8 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                     <td className="py-3 px-4 text-gray-600">
                       {formatDate(job.completed_at || job.started_at || job.queued_at)}
                     </td>
-                    <td className="py-3 px-4">
-                      <div className="flex items-center justify-end gap-2 whitespace-nowrap">
+                    <td className="py-3 px-4 text-right">
+                      <div className="inline-flex items-center justify-end gap-2 whitespace-nowrap">
                         {/* View button - always visible */}
                         <Button
                           variant="outline"
