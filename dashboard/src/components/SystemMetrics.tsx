@@ -44,7 +44,7 @@ interface SystemMetricsProps {
   onUpdateApplication?: (app: Application) => void;
   onRemoveApplication?: (appId: string) => void;
   onToggleAppStatus?: (appId: string) => void;
-  onToggleServiceStatus?: (appId: string, serviceId: number, action: "start" | "stop") => void;
+  onToggleServiceStatus?: (appId: string, serviceId: number, action: "start" | "pause" | "stop") => void;
   networkInterfaces?: NetworkInterface[];
   deploymentStatus?: {
     needsDeployment: boolean;
@@ -478,8 +478,14 @@ export function SystemMetrics({
             )}
 
             {selectedMetric === 'memory' && (
-              <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={memoryHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+              <>
+                {memoryHistory.length === 0 ? (
+                  <div className="flex items-center justify-center h-[250px] text-gray-500">
+                    No memory data available
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <AreaChart data={memoryHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                   <defs>
                     <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
                       <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
@@ -515,6 +521,8 @@ export function SystemMetrics({
                   />
                 </AreaChart>
               </ResponsiveContainer>
+                )}
+              </>
             )}
 
             {selectedMetric === 'network' && (

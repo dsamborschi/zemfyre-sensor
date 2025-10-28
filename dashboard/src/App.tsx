@@ -574,6 +574,11 @@ export default function App() {
             used: Math.round((parseFloat(m.memory_usage) || 0) / 1024 / 1024),
             available: Math.round(((parseFloat(m.memory_total) || 0) - (parseFloat(m.memory_usage) || 0)) / 1024 / 1024)
           }));
+          console.log('📊 Memory history data:', { 
+            count: memData.length, 
+            sample: memData[0],
+            rawMetric: metricsData[0]
+          });
           setMemoryHistory(memData);
           
           // Network history - for now just use placeholder data since network metrics aren't stored yet
