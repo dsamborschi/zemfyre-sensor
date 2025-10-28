@@ -178,6 +178,11 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
         steps: customSteps.length > 0 ? customSteps : selectedTemplate.job_document?.steps || []
       };
 
+      // Prepare schedule data with proper ISO timestamp
+      const scheduleData = executeTime === 'schedule' && scheduledFor 
+        ? { scheduled_at: new Date(scheduledFor).toISOString() }
+        : undefined;
+
       const response = await fetch(buildApiUrl('/api/v1/jobs/execute'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -187,8 +192,8 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
           job_document: jobDocument,
           target_type: 'device',
           target_devices: [deviceUuid],
-          execution_type: executeTime === 'now' ? 'oneTime' : 'oneTime',
-          schedule: executeTime === 'schedule' ? { scheduled_at: scheduledFor } : undefined,
+          execution_type: executeTime === 'schedule' ? 'scheduled' : 'oneTime',
+          schedule: scheduleData,
           created_by: 'dashboard-user',
         }),
       });

@@ -482,8 +482,25 @@ router.post('/jobs/executions/:jobId/cancel', async (req: Request, res: Response
 router.get('/devices/:uuid/jobs', async (req: Request, res: Response) => {
   try {
     const { uuid } = req.params;
-    const { status, limit = 20 } = req.query;
+    const { status, limit = 20, offset = 0 } = req.query;
 
+    // Count total jobs for this device
+    let countQuery = `
+      SELECT COUNT(*) as total
+      FROM device_job_status djs
+      WHERE djs.device_uuid = $1
+    `;
+    const countParams: any[] = [uuid];
+    
+    if (status) {
+      countQuery += ` AND djs.status = $2`;
+      countParams.push(status);
+    }
+    
+    const countResult = await pool.query(countQuery, countParams);
+    const totalCount = parseInt(countResult.rows[0].total);
+
+    // Fetch paginated jobs
     let query = `
       SELECT 
         djs.*,
@@ -505,8 +522,9 @@ router.get('/devices/:uuid/jobs', async (req: Request, res: Response) => {
       paramIndex++;
     }
 
-    query += ` ORDER BY djs.queued_at DESC LIMIT $${paramIndex}`;
+    query += ` ORDER BY djs.queued_at DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     params.push(parseInt(limit as string));
+    params.push(parseInt(offset as string));
 
     const result = await pool.query(query, params);
 
@@ -514,13 +532,24 @@ router.get('/devices/:uuid/jobs', async (req: Request, res: Response) => {
     const jobs = result.rows.map(job => {
       // If job is QUEUED and has a future scheduled_at time, mark as SCHEDULED
       if (job.status === 'QUEUED' && job.schedule?.scheduled_at) {
-        const scheduledTime = new Date(job.schedule.scheduled_at);
-        const now = new Date();
-        if (scheduledTime > now) {
-          return {
-            ...job,
-            status: 'SCHEDULED'
-          };
+        try {
+          // Parse the scheduled time - handle both ISO and datetime-local formats
+          let scheduledTime = new Date(job.schedule.scheduled_at);
+          
+          // If the format is like "2025-10-28T17:32" (datetime-local), treat as UTC
+          if (job.schedule.scheduled_at.length === 16) {
+            scheduledTime = new Date(job.schedule.scheduled_at + ':00Z');
+          }
+          
+          const now = new Date();
+          if (scheduledTime > now) {
+            return {
+              ...job,
+              status: 'SCHEDULED'
+            };
+          }
+        } catch (error) {
+          console.error('Error parsing scheduled_at:', error);
         }
       }
       return job;
@@ -529,7 +558,10 @@ router.get('/devices/:uuid/jobs', async (req: Request, res: Response) => {
     return res.status(200).json({
       device_uuid: uuid,
       jobs,
-      total: jobs.length,
+      total: totalCount,
+      page: Math.floor(parseInt(offset as string) / parseInt(limit as string)) + 1,
+      pageSize: parseInt(limit as string),
+      totalPages: Math.ceil(totalCount / parseInt(limit as string)),
     });
   } catch (error) {
     console.error('Error fetching device jobs:', error);

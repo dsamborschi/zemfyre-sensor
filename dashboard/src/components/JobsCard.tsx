@@ -38,15 +38,21 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
   const [cancelingJobId, setCancelingJobId] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalJobs, setTotalJobs] = useState(0);
+  const [pageSize] = useState(10);
 
-  const fetchJobs = async () => {
+  const fetchJobs = async (page: number = 1) => {
     if (!deviceUuid) return;
     
     setLoading(true);
     setError(null);
     
     try {
-      const response = await fetch(buildApiUrl(`/api/v1/devices/${deviceUuid}/jobs?limit=10`));
+      const offset = (page - 1) * pageSize;
+      const response = await fetch(buildApiUrl(`/api/v1/devices/${deviceUuid}/jobs?limit=${pageSize}&offset=${offset}`));
       
       if (!response.ok) {
         throw new Error('Failed to fetch jobs');
@@ -54,6 +60,8 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
       
       const data = await response.json();
       setJobs(data.jobs || []);
+      setTotalJobs(data.total || 0);
+      setCurrentPage(page);
       setLastRefresh(new Date());
     } catch (err) {
       console.error('Error fetching jobs:', err);
@@ -80,7 +88,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
       }
 
       // Refresh the jobs list
-      await fetchJobs();
+      await fetchJobs(currentPage);
     } catch (err) {
       console.error('Error deleting job:', err);
       alert(err instanceof Error ? err.message : 'Failed to delete job');
@@ -105,7 +113,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
       }
 
       // Refresh the jobs list
-      await fetchJobs();
+      await fetchJobs(currentPage);
     } catch (err) {
       console.error('Error canceling job:', err);
       alert(err instanceof Error ? err.message : 'Failed to cancel job');
@@ -115,7 +123,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
   };
 
   useEffect(() => {
-    fetchJobs();
+    fetchJobs(1);
   }, [deviceUuid]);
 
   const getStatusBadge = (status: string) => {
@@ -185,7 +193,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchJobs}
+              onClick={() => fetchJobs(currentPage)}
               disabled={loading}
               title="Refresh jobs"
             >
@@ -288,6 +296,58 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {totalJobs > pageSize && (
+            <div className="flex items-center justify-between px-4 py-3 border-t">
+              <div className="text-sm text-gray-600">
+                Showing {Math.min((currentPage - 1) * pageSize + 1, totalJobs)} to {Math.min(currentPage * pageSize, totalJobs)} of {totalJobs} jobs
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchJobs(currentPage - 1)}
+                  disabled={currentPage === 1 || loading}
+                >
+                  Previous
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.ceil(totalJobs / pageSize) }, (_, i) => i + 1)
+                    .filter(page => {
+                      // Show first page, last page, current page, and pages around current
+                      return page === 1 || 
+                             page === Math.ceil(totalJobs / pageSize) || 
+                             Math.abs(page - currentPage) <= 1;
+                    })
+                    .map((page, idx, arr) => (
+                      <React.Fragment key={page}>
+                        {idx > 0 && arr[idx - 1] !== page - 1 && (
+                          <span className="px-2 text-gray-400">...</span>
+                        )}
+                        <Button
+                          variant={currentPage === page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => fetchJobs(page)}
+                          disabled={loading}
+                          className={currentPage === page ? "bg-blue-600 text-white" : ""}
+                        >
+                          {page}
+                        </Button>
+                      </React.Fragment>
+                    ))}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchJobs(currentPage + 1)}
+                  disabled={currentPage === Math.ceil(totalJobs / pageSize) || loading}
+                >
+                  Next
+                </Button>
+              </div>
+            </div>
+          )}
         )}
       </Card>
 
