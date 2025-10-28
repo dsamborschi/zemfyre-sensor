@@ -31,6 +31,7 @@ const deviceGroups = [
   { value: "mobile", label: "Mobile Device" },
 ];
 
+// Helper function to generate UUID v4
 const generateUuid = () => {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
@@ -64,8 +65,10 @@ export function AddEditDeviceDialog({
     disk: 0,
   });
 
+  // Install command
   const installCommand = `bash <(curl -H 'Cache-Control: no-cache' -sL --proto '=https' https://apps.iotistic.ca/install-agent)`;
 
+  // Fetch provisioning key from API
   const fetchProvisioningKey = async (isRegenerate = false) => {
     setIsLoadingKey(true);
     try {
@@ -87,8 +90,10 @@ export function AddEditDeviceDialog({
       const data = await response.json();
       setProvisioningKey(data.key);
       setProvisioningKeyId(data.id);
-
-      if (isRegenerate) toast.success("New provisioning key generated and old key invalidated");
+      
+      if (isRegenerate) {
+        toast.success("New provisioning key generated and old key invalidated");
+      }
     } catch (error: any) {
       console.error('Error generating provisioning key:', error);
       toast.error(error.message || 'Failed to generate provisioning key');
@@ -102,9 +107,9 @@ export function AddEditDeviceDialog({
       setFormData({
         name: device.name,
         type: device.type,
-        description: device.description || "",
+        description: "",
         ipAddress: device.ipAddress,
-        macAddress: device.macAddress || "",
+        macAddress: "00:1B:44:11:3A:B7", // Default, would come from device in real scenario
         lastSeen: device.lastSeen,
         status: device.status,
         cpu: device.cpu,
@@ -124,7 +129,10 @@ export function AddEditDeviceDialog({
         memory: 0,
         disk: 0,
       });
-      if (open && !provisioningKey) fetchProvisioningKey(false);
+      // Generate new provisioning key from API when opening for new device
+      if (open && !provisioningKey) {
+        fetchProvisioningKey(false);
+      }
     }
   }, [device, open]);
 
@@ -134,22 +142,31 @@ export function AddEditDeviceDialog({
       return;
     }
 
+    // Validate IP address format
     const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
     if (!ipRegex.test(formData.ipAddress)) {
       toast.error("Please enter a valid IP address");
       return;
     }
 
+    // Validate MAC address format
     const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
     if (!macRegex.test(formData.macAddress)) {
-      toast.error("Please enter a valid MAC address");
+      toast.error("Please enter a valid MAC address (e.g., 00:1B:44:11:3A:B7)");
       return;
     }
 
     onSave({
       ...(device?.id ? { id: device.id } : {}),
       deviceUuid: device?.deviceUuid || generateUuid(),
-      ...formData,
+      name: formData.name,
+      type: formData.type,
+      ipAddress: formData.ipAddress,
+      lastSeen: formData.lastSeen,
+      status: formData.status,
+      cpu: formData.cpu,
+      memory: formData.memory,
+      disk: formData.disk,
     });
 
     toast.success(isEditMode ? "Device updated successfully" : "Device added successfully");
@@ -176,7 +193,7 @@ export function AddEditDeviceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl w-full p-6">
+      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{isEditMode ? "Edit Device" : "Add New Device"}</DialogTitle>
           <DialogDescription>
@@ -187,9 +204,8 @@ export function AddEditDeviceDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {/* Device Group */}
-            <div className="space-y-1">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
               <Label htmlFor="device-group">Device Group *</Label>
               <Select
                 value={formData.type}
@@ -208,8 +224,7 @@ export function AddEditDeviceDialog({
               </Select>
             </div>
 
-            {/* Device Name */}
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label htmlFor="device-name">Device Name *</Label>
               <Input
                 id="device-name"
@@ -218,9 +233,21 @@ export function AddEditDeviceDialog({
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </div>
+          </div>
 
-            {/* IP Address */}
-            <div className="space-y-1">
+          <div className="space-y-2">
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              placeholder="Enter device description (optional)"
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              rows={3}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
               <Label htmlFor="ip-address">IP Address *</Label>
               <Input
                 id="ip-address"
@@ -230,8 +257,7 @@ export function AddEditDeviceDialog({
               />
             </div>
 
-            {/* MAC Address */}
-            <div className="space-y-1">
+            <div className="space-y-2">
               <Label htmlFor="mac-address">MAC Address *</Label>
               <Input
                 id="mac-address"
@@ -240,83 +266,41 @@ export function AddEditDeviceDialog({
                 onChange={(e) => setFormData({ ...formData, macAddress: e.target.value })}
               />
             </div>
-
-            {/* CPU */}
-            <div className="space-y-1">
-              <Label htmlFor="cpu">CPU Cores</Label>
-              <Input
-                id="cpu"
-                type="number"
-                value={formData.cpu}
-                onChange={(e) => setFormData({ ...formData, cpu: Number(e.target.value) })}
-              />
-            </div>
-
-            {/* Memory */}
-            <div className="space-y-1">
-              <Label htmlFor="memory">Memory (GB)</Label>
-              <Input
-                id="memory"
-                type="number"
-                value={formData.memory}
-                onChange={(e) => setFormData({ ...formData, memory: Number(e.target.value) })}
-              />
-            </div>
-
-            {/* Disk */}
-            <div className="space-y-1">
-              <Label htmlFor="disk">Disk (GB)</Label>
-              <Input
-                id="disk"
-                type="number"
-                value={formData.disk}
-                onChange={(e) => setFormData({ ...formData, disk: Number(e.target.value) })}
-              />
-            </div>
-
-            {/* Description */}
-            <div className="space-y-1 col-span-1 sm:col-span-2 lg:col-span-3">
-              <Label htmlFor="description">Description</Label>
-              <Textarea
-                id="description"
-                placeholder="Optional description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                rows={2}
-              />
-            </div>
           </div>
 
-          {/* Provisioning & Install Command */}
+    
+
           {!isEditMode && (
-            <div className="space-y-4">
-              <div className="space-y-1">
-                <Label htmlFor="provisioning-key" className="text-sm font-semibold text-gray-900">
-                  Provisioning Key
-                </Label>
-                <div className="relative flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-md px-3 py-2.5">
-                  <code className="flex-1 font-mono text-xs text-gray-900 select-all break-all leading-relaxed">
-                    {isLoadingKey ? "Generating..." : (provisioningKey || "Loading...")}
-                  </code>
-                  <div className="flex gap-1 flex-shrink-0">
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      onClick={copyProvisioningKey}
-                      disabled={isLoadingKey || !provisioningKey}
-                    >
-                      {copiedKey ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-600" />}
-                    </Button>
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      onClick={regenerateProvisioningKey}
-                      disabled={isLoadingKey}
-                    >
-                      <RefreshCw className={`w-4 h-4 text-gray-600 ${isLoadingKey ? 'animate-spin' : ''}`} />
-                    </Button>
+            <div className="space-y-4 pt-4 border-t border-gray-200">
+              <div className="space-y-2">
+                <Label htmlFor="provisioning-key" className="text-sm font-semibold text-gray-900">Provisioning Key</Label>
+                <div className="relative">
+                  <div className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-md px-3 py-2.5">
+                    <code className="flex-1 font-mono text-xs text-gray-900 select-all break-all leading-relaxed">
+                      {isLoadingKey ? "Generating..." : (provisioningKey || "Loading...")}
+                    </code>
+                    <div className="flex gap-1 ml-2 flex-shrink-0">
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 hover:bg-gray-200"
+                        onClick={copyProvisioningKey}
+                        disabled={isLoadingKey || !provisioningKey}
+                      >
+                        {copiedKey ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-600" />}
+                      </Button>
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 hover:bg-gray-200"
+                        onClick={regenerateProvisioningKey}
+                        disabled={isLoadingKey}
+                      >
+                        <RefreshCw className={`w-4 h-4 text-gray-600 ${isLoadingKey ? 'animate-spin' : ''}`} />
+                      </Button>
+                    </div>
                   </div>
                 </div>
                 <p className="text-xs text-gray-500">
@@ -324,12 +308,10 @@ export function AddEditDeviceDialog({
                 </p>
               </div>
 
-              <div className="space-y-1">
-                <Label htmlFor="install-command" className="text-sm font-semibold text-gray-900">
-                  Install Command
-                </Label>
-                <div className="relative bg-black border border-gray-700 rounded-md px-4 py-3">
-                  <code className="block font-mono text-sm whitespace-pre-wrap break-all select-all" style={{ color: '#00ff41' }}>
+              <div className="space-y-2">
+                <Label htmlFor="install-command" className="text-sm font-semibold text-gray-900">Install Command</Label>
+                <div className="relative bg-black border border-gray-700 rounded-md px-4 py-3" style={{ backgroundColor: '#0d1117' }}>
+                  <code className="block font-mono text-sm whitespace-pre-wrap break-all select-all pr-10" style={{ color: '#00ff41' }}>
                     {installCommand}
                   </code>
                   <Button
@@ -351,9 +333,13 @@ export function AddEditDeviceDialog({
           )}
         </div>
 
-        <DialogFooter className="mt-4 flex justify-end gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-          <Button onClick={handleSave}>{isEditMode ? "Update Device" : "Add Device"}</Button>
+        <DialogFooter>
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button onClick={handleSave}>
+            {isEditMode ? "Update Device" : "Add Device"}
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
