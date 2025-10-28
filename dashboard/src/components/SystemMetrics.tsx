@@ -32,6 +32,7 @@ import { TimelineCard } from "./TimelineCard";
 import { MqttMetricsCard } from "./MqttMetricsCard";
 import { DeviceTimelineCard } from "./DeviceTimelineCard";
 import { GeneralInfoCard } from "./GeneralInfoCard";
+import JobsCard from "./JobsCard";
 import { buildApiUrl } from "@/config/api";
 
 interface SystemMetricsProps {
@@ -206,16 +207,50 @@ export function SystemMetrics({
           { label: "IP Address", value: device.ipAddress },
           { label: "MAC Address", value: device.macAddress || data.mac_address || "Unknown" },
         ]);
+      } catch (error) {
+        console.error('Error fetching system info:', error);
       }
-          </div>
-          
-          {/* Device Actions */}
-          <DeviceActions deviceName={device.name} deviceId={device.id} />
-        </div>
+    };
 
-        {/* Quick Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-          {metrics.map((metric, index) => {
+    fetchSystemInfo();
+  }, [device.deviceUuid, device.name, device.ipAddress]);
+
+  // Fetch processes for the device
+  const [processes, setProcesses] = useState<any[]>([]);
+  const [processesLoading, setProcessesLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchProcesses = async () => {
+      if (!device.deviceUuid) return;
+      
+      setProcessesLoading(true);
+      try {
+        const response = await fetch(buildApiUrl(`/api/v1/devices/${device.deviceUuid}/processes`));
+        if (response.ok) {
+          const data = await response.json();
+          setProcesses(data.processes || []);
+        } else {
+          setProcesses([]);
+        }
+      } catch (error) {
+        console.error('Error fetching processes:', error);
+        setProcesses([]);
+      } finally {
+        setProcessesLoading(false);
+      }
+    };
+
+    fetchProcesses();
+  }, [device.deviceUuid]);
+
+  return (
+    <div className="space-y-4 md:space-y-6">
+      {/* Device Actions */}
+      <DeviceActions deviceName={device.name} deviceId={device.id} />
+
+      {/* Quick Metrics */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+        {metrics.map((metric, index) => {
             const Icon = metric.icon;
             
             const getProgressColors = (color: string) => {
@@ -472,11 +507,6 @@ export function SystemMetrics({
 
           {/* MQTT Metrics */}
           <MqttMetricsCard deviceId={device.deviceUuid} />
-
-          {/* Event Timeline */}
-
-           
-         
         </div>
 
         {/* Analytics Card */}
@@ -492,6 +522,11 @@ export function SystemMetrics({
             }))} 
             provisioned={device.status !== 'pending'}
           />
+        </div>
+
+        {/* Jobs Card */}
+        <div id="jobs-section">
+          <JobsCard deviceUuid={device.deviceUuid} />
         </div>
 
         {/* Top Processes */}
@@ -536,118 +571,12 @@ export function SystemMetrics({
                         </div>
                       </td>
                     </tr>
-                                  ))}
-                                </tbody>
-                              </table>
-                            </div>
-                                        </SelectContent>
-                                      </Select>
-                                    </div>
-                                  </div>
-
-                                  {device.status === 'pending' ? (
-                                    <div className="flex items-center justify-center h-[250px] text-gray-500">
-                                      No telemetry available: device not provisioned
-                                    </div>
-                                  ) : (
-                                    <>
-                                      {selectedMetric === 'cpu' && (
-                                        <ResponsiveContainer width="100%" height={250}>
-                                          <AreaChart data={cpuHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                                            <defs>
-                                              <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                                                <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                                                <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                                              </linearGradient>
-                                            </defs>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                            <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                                            <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
-                                            <Tooltip />
-                                            <Area
-                                              type="monotone"
-                                              dataKey="value"
-                                              stroke="#3b82f6"
-                                              strokeWidth={2}
-                                              fillOpacity={1}
-                                              fill="url(#colorCpu)"
-                                            />
-                                          </AreaChart>
-                                        </ResponsiveContainer>
-                                      )}
-
-                                      {selectedMetric === 'memory' && (
-                                        <>
-                                          {memoryHistory.length === 0 ? (
-                                            <div className="flex items-center justify-center h-[250px] text-gray-500">
-                                              No memory data available
-                                            </div>
-                                          ) : (
-                                            <ResponsiveContainer width="100%" height={250}>
-                                              <AreaChart data={memoryHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                                                <defs>
-                                                  <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3} />
-                                                    <stop offset="95%" stopColor="#8b5cf6" stopOpacity={0} />
-                                                  </linearGradient>
-                                                  <linearGradient id="colorAvailable" x1="0" y1="0" x2="0" y2="1">
-                                                    <stop offset="5%" stopColor="#10b981" stopOpacity={0.3} />
-                                                    <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
-                                                  </linearGradient>
-                                                </defs>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                                <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                                                <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
-                                                <Tooltip />
-                                                <Area
-                                                  type="monotone"
-                                                  dataKey="used"
-                                                  stackId="1"
-                                                  stroke="#8b5cf6"
-                                                  strokeWidth={2}
-                                                  fillOpacity={1}
-                                                  fill="url(#colorUsed)"
-                                                />
-                                                <Area
-                                                  type="monotone"
-                                                  dataKey="available"
-                                                  stackId="1"
-                                                  stroke="#10b981"
-                                                  strokeWidth={2}
-                                                  fillOpacity={1}
-                                                  fill="url(#colorAvailable)"
-                                                />
-                                              </AreaChart>
-                                            </ResponsiveContainer>
-                                          )}
-                                        </>
-                                      )}
-
-                                      {selectedMetric === 'network' && (
-                                        <ResponsiveContainer width="100%" height={250}>
-                                          <LineChart data={networkHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                                            <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                                            <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
-                                            <Tooltip />
-                                            <Legend />
-                                            <Line
-                                              type="monotone"
-                                              dataKey="download"
-                                              stroke="#3b82f6"
-                                              strokeWidth={2}
-                                              dot={false}
-                                            />
-                                            <Line
-                                              type="monotone"
-                                              dataKey="upload"
-                                              stroke="#10b981"
-                                              strokeWidth={2}
-                                              dot={false}
-                                            />
-                                          </LineChart>
-                                        </ResponsiveContainer>
-                                      )}
-                                    </>
-                                  )}
-                                </Card>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
+    );
+  }
