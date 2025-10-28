@@ -33,6 +33,7 @@ interface AnalyticsCardProps {
   deviceName?: string;
   deviceId?: string;
   processes?: Process[];
+  provisioned?: boolean;
 }
 
 // Mock data for different processes based on actual process data
@@ -83,7 +84,7 @@ const timePeriodOptions = [
 // Colors for different processes
 const processColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#14b8a6'];
 
-export function AnalyticsCard({ deviceName = "Device 1", deviceId, processes = [] }: AnalyticsCardProps) {
+export function AnalyticsCard({ deviceName = "Device 1", deviceId, processes = [], provisioned = true }: AnalyticsCardProps) {
   const [selectedMetric, setSelectedMetric] = useState<MetricType>("cpu");
   const [timePeriod, setTimePeriod] = useState<TimePeriod>("24h");
   const [historicalData, setHistoricalData] = useState<any[]>([]);
@@ -153,10 +154,14 @@ export function AnalyticsCard({ deviceName = "Device 1", deviceId, processes = [
     return () => clearInterval(interval);
   }, [deviceId, timePeriod, selectedMetric]);
 
-  // Fallback to simulated data if no real data available
-  const chartData = useRealData && historicalData.length > 0 
-    ? historicalData 
-    : generateProcessData(timePeriod, activeProcesses, selectedMetric);
+
+  // Fallback to simulated data if no real data available, but only if provisioned
+  let chartData: any[] = [];
+  if (provisioned) {
+    chartData = useRealData && historicalData.length > 0 
+      ? historicalData 
+      : generateProcessData(timePeriod, activeProcesses, selectedMetric);
+  }
 
   const getMetricUnit = () => {
     switch (selectedMetric) {
@@ -173,6 +178,20 @@ export function AnalyticsCard({ deviceName = "Device 1", deviceId, processes = [
         return "%";
     }
   };
+
+  if (!provisioned) {
+    return (
+      <Card className="p-4 md:p-6">
+        <div className="mb-4 space-y-3">
+          <h3 className="text-lg text-gray-900 font-medium mb-1">Analytics</h3>
+          <p className="text-sm text-gray-600">Process performance metrics</p>
+        </div>
+        <div className="text-center py-8 text-gray-500">
+          <p>No analytics available: device not provisioned</p>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-4 md:p-6">

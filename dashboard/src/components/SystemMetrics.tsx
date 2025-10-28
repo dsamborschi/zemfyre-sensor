@@ -595,7 +595,17 @@ export function SystemMetrics({
 
         {/* Analytics Card */}
         <div id="analytics-section">
-          <AnalyticsCard deviceName={device.name} deviceId={device.deviceUuid} processes={processes} />
+          <AnalyticsCard 
+            deviceName={device.name} 
+            deviceId={device.deviceUuid} 
+            processes={processes.map(p => ({
+              name: p.name,
+              pid: p.pid,
+              cpu: p.cpu,
+              memory: p.mem, // Map mem to memory for AnalyticsCard
+            }))} 
+            provisioned={device.status !== 'pending'}
+          />
         </div>
 
         {/* Top Processes */}
