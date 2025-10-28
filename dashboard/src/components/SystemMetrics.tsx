@@ -28,11 +28,8 @@ import { ApplicationsCard, Application } from "./ApplicationsCard";
 import { NetworkingCard, NetworkInterface } from "./NetworkingCard";
 import { AnalyticsCard } from "./AnalyticsCard";
 import { MqttBrokerCard } from "./MqttBrokerCard";
-import { TimelineCard } from "./TimelineCard";
 import { MqttMetricsCard } from "./MqttMetricsCard";
-import { DeviceTimelineCard } from "./DeviceTimelineCard";
 import { GeneralInfoCard } from "./GeneralInfoCard";
-import JobsCard from "./JobsCard";
 import { buildApiUrl } from "@/config/api";
 
 interface SystemMetricsProps {
@@ -523,8 +520,6 @@ export function SystemMetrics({
             provisioned={device.status !== 'pending'}
           />
         </div>
-
-      
 
         {/* Top Processes */}
         <Card className="p-4 md:p-6" id="processes-section">
