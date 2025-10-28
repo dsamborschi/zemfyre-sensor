@@ -246,7 +246,7 @@ export function AddEditDeviceDialog({
               rows={3}
             />
           </div>
-
+          {isEditMode && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="ip-address">IP Address *</Label>
@@ -268,7 +268,7 @@ export function AddEditDeviceDialog({
               />
             </div>
           </div>
-
+          )}
     
 
           {!isEditMode && (
