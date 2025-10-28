@@ -447,13 +447,24 @@ router.patch('/devices/:uuid/apps/:appId', async (req, res) => {
       });
     }
 
-    // Generate new service IDs for updated services
+    // Preserve existing service IDs or generate new ones for new services
+    const existingServices = currentApps[appId].services || [];
     const servicesWithIds = await Promise.all(
       services.map(async (service: any) => {
-        const idResult = await query<{ nextval: number }>(
-          "SELECT nextval('global_service_id_seq') as nextval"
-        );
-        const serviceId = idResult.rows[0].nextval;
+        // Try to find existing service by name to preserve its ID
+        const existingService = existingServices.find((s: any) => s.serviceName === service.serviceName);
+        
+        let serviceId: number;
+        if (existingService && existingService.serviceId) {
+          // Preserve existing service ID
+          serviceId = existingService.serviceId;
+        } else {
+          // Generate new ID for new services only
+          const idResult = await query<{ nextval: number }>(
+            "SELECT nextval('global_service_id_seq') as nextval"
+          );
+          serviceId = idResult.rows[0].nextval;
+        }
 
         return {
           serviceId,
