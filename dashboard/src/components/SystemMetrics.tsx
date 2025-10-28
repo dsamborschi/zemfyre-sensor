@@ -32,6 +32,7 @@ import { TimelineCard } from "./TimelineCard";
 import { MqttMetricsCard } from "./MqttMetricsCard";
 import { DeviceTimelineCard } from "./DeviceTimelineCard";
 import { GeneralInfoCard } from "./GeneralInfoCard";
+import JobsCard from "./JobsCard";
 import { buildApiUrl } from "@/config/api";
 
 interface SystemMetricsProps {
@@ -421,6 +422,9 @@ export function SystemMetrics({
             );
           })}
         </div>
+
+        {/* Jobs Card */}
+        <JobsCard deviceUuid={device.deviceUuid} />
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
