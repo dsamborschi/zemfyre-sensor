@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, CheckCircle2, XCircle, Clock, Play, Square, MoreVertical, Pen, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, CheckCircle2, XCircle, Clock, Play, Pause, Square, MoreVertical, Pen, RefreshCw, Trash2 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -73,7 +73,8 @@ export interface Service {
     labels?: Record<string, string>;
     [key: string]: any;
   };
-  status?: "running" | "stopped" | "syncing";
+  status?: "running" | "stopped" | "paused" | "syncing";
+  state?: "running" | "stopped" | "paused"; // Target state for agent
   uptime?: string;
 }
 
@@ -98,7 +99,7 @@ interface ApplicationsCardProps {
   onUpdateApplication?: (app: Application) => void;
   onRemoveApplication: (appId: string) => void;
   onToggleStatus: (appId: string) => void;
-  onToggleServiceStatus?: (appId: string, serviceId: number, action: "start" | "stop") => void;
+  onToggleServiceStatus?: (appId: string, serviceId: number, action: "start" | "pause" | "stop") => void;
   deploymentStatus?: {
     needsDeployment: boolean;
     version: number;
@@ -112,6 +113,7 @@ interface ApplicationsCardProps {
 const statusColors = {
   running: "bg-green-100 text-green-700 border-green-200",
   stopped: "bg-gray-100 text-gray-700 border-gray-200",
+  paused: "bg-yellow-100 text-yellow-700 border-yellow-200",
   syncing: "bg-blue-100 text-blue-700 border-blue-200",
 };
 
@@ -623,6 +625,23 @@ export function ApplicationsCard({
                                   title="Start"
                                 >
                                   <Play className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    onToggleServiceStatus(app.id, service.serviceId, "pause");
+                                    toast.info(`Pausing ${service.serviceName}`);
+                                  }}
+                                  disabled={service.status === "paused" || service.status === "stopped" || service.status === "syncing" || !service.status}
+                                  className={`h-8 w-8 p-0 ${
+                                    service.status === "paused" || service.status === "stopped" || service.status === "syncing" || !service.status
+                                      ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                                      : "border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 hover:border-yellow-400"
+                                  }`}
+                                  title="Pause"
+                                >
+                                  <Pause className="w-4 h-4" />
                                 </Button>
                                 <Button
                                   variant="outline"

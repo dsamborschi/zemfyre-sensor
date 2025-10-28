@@ -1011,7 +1011,7 @@ export default function App() {
     }));
   };
 
-  const handleToggleServiceStatus = async (appId: string, serviceId: number, action: "start" | "stop") => {
+  const handleToggleServiceStatus = async (appId: string, serviceId: number, action: "start" | "pause" | "stop") => {
     if (!selectedDeviceId) return;
 
     const selectedDevice = devices.find(d => d.id === selectedDeviceId);
@@ -1023,10 +1023,17 @@ export default function App() {
     if (!app || !app.services) return;
 
     try {
+      // Map action to state field for agent
+      const stateMap = {
+        "start": "running",
+        "pause": "paused",
+        "stop": "stopped"
+      };
+
       // Prepare services array with updated state field
       const updatedServices = app.services.map(s => {
         const serviceState = s.serviceId === serviceId 
-          ? (action === "start" ? "running" : "stopped")
+          ? stateMap[action]
           : (s.state || "running"); // Preserve existing state or default to running
 
         return {
@@ -1059,7 +1066,8 @@ export default function App() {
         throw new Error(error.message || `Failed to ${action} service`);
       }
 
-      toast.success(`Service will ${action === "start" ? "start" : "stop"} on next deployment`);
+      const actionText = action === "start" ? "start" : action === "pause" ? "pause" : "stop";
+      toast.success(`Service will ${actionText} on next deployment`);
       
       // Mark as needs deployment - don't update service state locally
       // State will update from device after reconciliation
