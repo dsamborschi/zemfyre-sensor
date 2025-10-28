@@ -2,9 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Plus, RefreshCw, Trash2, XCircle } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, XCircle, Eye } from 'lucide-react';
 import { buildApiUrl } from '@/config/api';
 import AddJobModal from './jobs/AddJobModal';
+import JobDetailsModal from './jobs/JobDetailsModal';
 
 interface Job {
   id: number;
@@ -17,6 +18,10 @@ interface Job {
   execution_type: string;
   exit_code: number | null;
   reason: string | null;
+  job_document?: any;
+  template_id?: number;
+  target_type?: string;
+  target_devices?: string[];
 }
 
 interface JobsCardProps {
@@ -31,6 +36,8 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [cancelingJobId, setCancelingJobId] = useState<string | null>(null);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const fetchJobs = async () => {
     if (!deviceUuid) return;
@@ -153,6 +160,11 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
     fetchJobs(); // Refresh the list
   };
 
+  const handleViewJob = (job: Job) => {
+    setSelectedJob(job);
+    setShowDetailsModal(true);
+  };
+
   return (
     <>
       <Card className="p-4 md:p-6">
@@ -230,6 +242,17 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        {/* View button - always visible */}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleViewJob(job)}
+                          className="text-blue-600 hover:text-blue-700 border-blue-300 hover:bg-blue-50"
+                        >
+                          <Eye className="w-4 h-4 mr-1" />
+                          View
+                        </Button>
+                        
                         {/* Cancel button - only for QUEUED jobs */}
                         {job.status === 'QUEUED' && (
                           <Button
@@ -272,6 +295,12 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
         onClose={() => setShowModal(false)}
         deviceUuid={deviceUuid}
         onJobAdded={handleJobAdded}
+      />
+
+      <JobDetailsModal
+        open={showDetailsModal}
+        onClose={() => setShowDetailsModal(false)}
+        job={selectedJob}
       />
     </>
   );
