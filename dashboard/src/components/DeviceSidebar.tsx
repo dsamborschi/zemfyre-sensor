@@ -28,7 +28,9 @@ export interface Device {
   type: "desktop" | "laptop" | "mobile" | "server" | "gateway" | "edge-device" | "iot-hub" | "plc" | "controller" | "sensor-node" | "standalone";
   status: "online" | "offline" | "warning";
   ipAddress: string;
+  macAddress?: string;
   lastSeen: string;
+  lastConnectivity?: string; // Store raw timestamp
   cpu: number;
   memory: number;
   disk: number;

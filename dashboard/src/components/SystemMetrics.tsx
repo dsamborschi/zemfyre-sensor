@@ -200,7 +200,7 @@ export function SystemMetrics({
           { label: "Uptime", value: data.uptime ? formatUptime(data.uptime) : "Unknown" },
           { label: "Hostname", value: data.hostname || device.name },
           { label: "IP Address", value: device.ipAddress },
-          { label: "MAC Address", value: data.mac_address || "Unknown" },
+          { label: "MAC Address", value: device.macAddress || data.mac_address || "Unknown" },
         ]);
       } catch (error) {
         console.error('Failed to fetch system info:', error);
@@ -211,7 +211,7 @@ export function SystemMetrics({
     const interval = setInterval(fetchSystemInfo, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(interval);
-  }, [device.deviceUuid, device.name, device.ipAddress]);
+  }, [device.deviceUuid, device.name, device.ipAddress, device.macAddress]);
 
   // Fetch process data from API
   const [processes, setProcesses] = useState<Array<{

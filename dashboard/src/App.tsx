@@ -370,7 +370,9 @@ export default function App() {
           type: apiDevice.device_type || 'gateway',
           status: apiDevice.is_online ? 'online' : 'offline',
           ipAddress: apiDevice.ip_address || 'N/A',
+          macAddress: apiDevice.mac_address || 'N/A',
           lastSeen: apiDevice.is_online ? 'Just now' : formatLastSeen(apiDevice.last_connectivity_event),
+          lastConnectivity: apiDevice.last_connectivity_event,
           cpu: Math.round(parseFloat(apiDevice.cpu_usage) || 0),
           memory: apiDevice.memory_usage && apiDevice.memory_total 
             ? Math.round((parseFloat(apiDevice.memory_usage) / parseFloat(apiDevice.memory_total) * 100)) 
