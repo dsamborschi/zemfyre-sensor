@@ -164,9 +164,18 @@ export function SystemMetrics({
   ]);
 
   useEffect(() => {
+    // Clear systemInfo immediately on device change
+    setSystemInfo([
+      { label: "Operating System", value: "Unknown" },
+      { label: "Architecture", value: "Unknown" },
+      { label: "Uptime", value: "Unknown" },
+      { label: "Hostname", value: device.name },
+      { label: "IP Address", value: device.ipAddress },
+      { label: "MAC Address", value: "Unknown" },
+    ]);
+
     const fetchSystemInfo = async () => {
       if (!device.deviceUuid) return;
-      
       try {
         const response = await fetch(buildApiUrl(`/api/v1/devices/${device.deviceUuid}/current-state`));
         if (!response.ok) {
@@ -174,26 +183,21 @@ export function SystemMetrics({
           return;
         }
         const data = await response.json();
-        
         // Format uptime from seconds to human readable
         const formatUptime = (seconds: number): string => {
           const days = Math.floor(seconds / 86400);
           const hours = Math.floor((seconds % 86400) / 3600);
           const minutes = Math.floor((seconds % 3600) / 60);
-          
           const parts = [];
           if (days > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
           if (hours > 0) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
           if (minutes > 0) parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
-          
           return parts.length > 0 ? parts.join(', ') : 'Less than a minute';
         };
-        
         // Extract OS and architecture from os_version string (e.g., "Microsoft Windows 10 Pro 10.0.19045")
         const osVersion = data.os_version || '';
         const osMatch = osVersion.match(/^([^0-9]+)/);
         const os = osMatch ? osMatch[1].trim() : (osVersion || 'Unknown');
-        
         setSystemInfo([
           { label: "Operating System", value: os },
           { label: "Architecture", value: data.architecture || "Unknown" },
@@ -209,7 +213,6 @@ export function SystemMetrics({
 
     fetchSystemInfo();
     const interval = setInterval(fetchSystemInfo, 30000); // Refresh every 30 seconds
-
     return () => clearInterval(interval);
   }, [device.deviceUuid, device.name, device.ipAddress, device.macAddress]);
 
@@ -224,13 +227,15 @@ export function SystemMetrics({
   const [processesLoading, setProcessesLoading] = useState(true);
 
   useEffect(() => {
+    // Clear processes immediately on device change
+    setProcesses([]);
+    setProcessesLoading(true);
+
     const fetchProcesses = async () => {
       if (!device.deviceUuid) return;
-      
       try {
         const response = await fetch(buildApiUrl(`/api/v1/devices/${device.deviceUuid}/processes`));
         const data = await response.json();
-        
         if (data.top_processes && Array.isArray(data.top_processes)) {
           setProcesses(data.top_processes);
         }
@@ -243,7 +248,6 @@ export function SystemMetrics({
 
     fetchProcesses();
     const interval = setInterval(fetchProcesses, 5000); // Refresh every 5 seconds
-
     return () => clearInterval(interval);
   }, [device.deviceUuid]);
 
