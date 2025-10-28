@@ -18,10 +18,13 @@ import { Header } from "./components/Header";
 // Initial mock applications for each device
 
 export default function App() {
-   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
-  const [selectedDeviceId, setSelectedDeviceId] = useState("");
+  // Initialize selectedDeviceId from localStorage if available
+  const [selectedDeviceId, setSelectedDeviceId] = useState(() => {
+    return localStorage.getItem('selectedDeviceId') || "";
+  });
   const [devices, setDevices] = useState<Device[]>([]);
   const devicesRef = useRef<Device[]>([]); // Ref to access devices without causing re-renders
   const [isLoadingDevices, setIsLoadingDevices] = useState(true);
@@ -48,6 +51,13 @@ export default function App() {
   }, [devices, selectedDeviceId]);
   
   const deviceApplications = applications[selectedDeviceId] || [];
+
+  // Persist selectedDeviceId to localStorage whenever it changes
+  useEffect(() => {
+    if (selectedDeviceId) {
+      localStorage.setItem('selectedDeviceId', selectedDeviceId);
+    }
+  }, [selectedDeviceId]);
 
   // Fetch devices from API
   useEffect(() => {
@@ -105,7 +115,7 @@ export default function App() {
           return prev;
         });
         
-        // Select first device if none selected
+        // Select first device if none selected (and update localStorage)
         if (!selectedDeviceId && transformedDevices.length > 0) {
           setSelectedDeviceId(transformedDevices[0].id);
         }
