@@ -4,7 +4,7 @@ import { Wifi, Network, Smartphone } from "lucide-react";
 
 export interface NetworkInterface {
   id: string;
-  type: "wifi" | "ethernet" | "mobile";
+  type: "wifi" | "ethernet" | "mobile" | "wired";
   ipAddress: string;
   status: "connected" | "disconnected";
   signal?: number; // For wifi/mobile
