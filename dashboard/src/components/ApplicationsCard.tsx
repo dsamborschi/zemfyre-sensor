@@ -200,8 +200,12 @@ export function ApplicationsCard({
 
         const { appId } = await response.json();
 
+        // Ensure appId is a number
+        const numericAppId = typeof appId === 'number' ? appId : parseInt(appId);
+        console.log('🔢 App ID from API:', { appId, type: typeof appId, numeric: numericAppId });
+
         onAddApplication({
-          appId: appId,
+          appId: numericAppId,
           appName: newApp.appName,
           name: newApp.appName, // For backward compatibility
           image: "", // Placeholder, actual images are defined in services
