@@ -264,47 +264,40 @@ export default function App() {
 
   // Fetch historical metrics for telemetry charts
   useEffect(() => {
+    // Clear metrics immediately on device change
+    setCpuHistory([]);
+    setMemoryHistory([]);
+    setNetworkHistory([]);
+
     const fetchMetrics = async () => {
       if (!selectedDeviceId) return;
-      
       const selectedDevice = devicesRef.current.find((d: any) => d.id === selectedDeviceId);
       if (!selectedDevice?.deviceUuid) return;
 
       try {
         const response = await fetch(buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/metrics?limit=30`));
-        
         if (!response.ok) {
           console.error('Failed to fetch device metrics:', response.statusText);
           return;
         }
-
         const data = await response.json();
         console.log('Historical metrics:', data);
-        
         if (data.metrics && data.metrics.length > 0) {
           // Reverse to get chronological order (oldest first)
           const metricsData = data.metrics.reverse();
-          
           // Update CPU history
           const cpuData = metricsData.map((m: any) => ({
             time: new Date(m.recorded_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             value: Math.round(parseFloat(m.cpu_usage) || 0)
           }));
           setCpuHistory(cpuData);
-          
           // Update Memory history
           const memData = metricsData.map((m: any) => ({
             time: new Date(m.recorded_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             used: Math.round((parseFloat(m.memory_usage) || 0) / 1024 / 1024),
             available: Math.round(((parseFloat(m.memory_total) || 0) - (parseFloat(m.memory_usage) || 0)) / 1024 / 1024)
           }));
-          console.log('📊 Memory history data:', { 
-            count: memData.length, 
-            sample: memData[0],
-            rawMetric: metricsData[0]
-          });
           setMemoryHistory(memData);
-          
           // Network history - for now just use placeholder data since network metrics aren't stored yet
           setNetworkHistory(metricsData.map((m: any) => ({
             time: new Date(m.recorded_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
@@ -318,7 +311,6 @@ export default function App() {
     };
 
     fetchMetrics();
-    
     // Refresh metrics every 30 seconds
     const interval = setInterval(fetchMetrics, 30000);
     return () => clearInterval(interval);
