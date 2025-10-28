@@ -146,6 +146,23 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
     );
   };
 
+  const getExecutionTypeBadge = (executionType: string) => {
+    const typeConfig: Record<string, { color: string; label: string }> = {
+      oneTime: { color: 'bg-purple-100 text-purple-700 border-purple-300', label: 'One-Time' },
+      scheduled: { color: 'bg-cyan-100 text-cyan-700 border-cyan-300', label: 'Scheduled' },
+      recurring: { color: 'bg-indigo-100 text-indigo-700 border-indigo-300', label: 'Recurring' },
+      continuous: { color: 'bg-teal-100 text-teal-700 border-teal-300', label: 'Continuous' },
+    };
+
+    const config = typeConfig[executionType] || typeConfig.oneTime;
+
+    return (
+      <Badge variant="outline" className={`${config.color} text-xs px-2 py-0.5`}>
+        {config.label}
+      </Badge>
+    );
+  };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return '—';
     
@@ -243,8 +260,8 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                       )}
                     </td>
                     <td className="py-3 px-4">{getStatusBadge(job.status)}</td>
-                    <td className="py-3 px-4 text-gray-600 hidden md:table-cell capitalize">
-                      {job.execution_type}
+                    <td className="py-3 px-4 hidden md:table-cell">
+                      {getExecutionTypeBadge(job.execution_type)}
                     </td>
                     <td className="py-3 px-4 text-gray-600">
                       {formatDate(job.completed_at || job.started_at || job.queued_at)}
