@@ -17,26 +17,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from './ui/alert-dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from './ui/alert-dialog';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from './ui/alert-dialog';
 
 interface Job {
   id: number;
@@ -66,14 +46,16 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [showAddTemplateModal, setShowAddTemplateModal] = useState(false);
-  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
-  const [jobDocumentToSave, setJobDocumentToSave] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [cancelingJobId, setCancelingJobId] = useState<string | null>(null);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [jobToDelete, setJobToDelete] = useState<Job | null>(null);
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [jobToCancel, setJobToCancel] = useState<Job | null>(null);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -108,14 +90,12 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
     }
   };
 
-  const handleDeleteJob = async (jobId: string) => {
-    if (!confirm('Are you sure you want to delete this job? This action cannot be undone.')) {
-      return;
-    }
+  const handleDeleteJob = async () => {
+    if (!jobToDelete) return;
 
-    setDeletingJobId(jobId);
+    setDeletingJobId(jobToDelete.job_id);
     try {
-      const response = await fetch(buildApiUrl(`/api/v1/jobs/${jobId}`), {
+      const response = await fetch(buildApiUrl(`/api/v1/jobs/${jobToDelete.job_id}`), {
         method: 'DELETE',
       });
 
@@ -123,8 +103,9 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
         throw new Error('Failed to delete job');
       }
 
-      // Refresh the jobs list
       await fetchJobs(currentPage);
+      setDeleteConfirmOpen(false);
+      setJobToDelete(null);
     } catch (err) {
       console.error('Error deleting job:', err);
       alert(err instanceof Error ? err.message : 'Failed to delete job');
@@ -133,14 +114,12 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
     }
   };
 
-  const handleCancelJob = async (jobId: string) => {
-    if (!confirm('Are you sure you want to cancel this job?')) {
-      return;
-    }
+  const handleCancelJob = async () => {
+    if (!jobToCancel) return;
 
-    setCancelingJobId(jobId);
+    setCancelingJobId(jobToCancel.job_id);
     try {
-      const response = await fetch(buildApiUrl(`/api/v1/jobs/${jobId}/cancel`), {
+      const response = await fetch(buildApiUrl(`/api/v1/jobs/${jobToCancel.job_id}/cancel`), {
         method: 'POST',
       });
 
@@ -148,8 +127,9 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
         throw new Error('Failed to cancel job');
       }
 
-      // Refresh the jobs list
       await fetchJobs(currentPage);
+      setCancelConfirmOpen(false);
+      setJobToCancel(null);
     } catch (err) {
       console.error('Error canceling job:', err);
       alert(err instanceof Error ? err.message : 'Failed to cancel job');
@@ -331,7 +311,10 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleCancelJob(job.job_id)}
+                            onClick={() => {
+                              setJobToCancel(job);
+                              setCancelConfirmOpen(true);
+                            }}
                             disabled={cancelingJobId === job.job_id}
                             className="text-orange-600 hover:text-orange-700 border-orange-300 hover:bg-orange-50 min-w-[84px]"
                           >
@@ -345,7 +328,10 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => handleDeleteJob(job.job_id)}
+                            onClick={() => {
+                              setJobToDelete(job);
+                              setDeleteConfirmOpen(true);
+                            }}
                             disabled={deletingJobId === job.job_id}
                             className="text-red-600 hover:text-red-700 border-red-300 hover:bg-red-50 min-w-[84px]"
                           >
@@ -437,6 +423,62 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
           console.log('Template saved successfully');
         }}
       />
+
+      {/* Delete Job Confirmation Dialog */}
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-red-100">
+                <AlertTriangle className="h-5 w-5 text-red-600" />
+              </div>
+              <AlertDialogTitle>Delete Job</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-left pt-2">
+              Are you sure you want to delete job <strong className="text-gray-900">"{jobToDelete?.job_name}"</strong>? 
+              This action cannot be undone and all job data will be permanently removed.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!deletingJobId}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteJob}
+              disabled={!!deletingJobId}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {deletingJobId ? 'Deleting...' : 'Delete Job'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Cancel Job Confirmation Dialog */}
+      <AlertDialog open={cancelConfirmOpen} onOpenChange={setCancelConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-100">
+                <XCircle className="h-5 w-5 text-orange-600" />
+              </div>
+              <AlertDialogTitle>Cancel Job</AlertDialogTitle>
+            </div>
+            <AlertDialogDescription className="text-left pt-2">
+              Are you sure you want to cancel job <strong className="text-gray-900">"{jobToCancel?.job_name}"</strong>? 
+              The job will not be executed and its status will be updated to canceled.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={!!cancelingJobId}>No, Keep It</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelJob}
+              disabled={!!cancelingJobId}
+              className="bg-orange-600 hover:bg-orange-700 focus:ring-orange-600"
+            >
+              {cancelingJobId ? 'Canceling...' : 'Yes, Cancel Job'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 };
