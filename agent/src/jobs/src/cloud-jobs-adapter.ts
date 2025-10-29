@@ -9,8 +9,8 @@
  */
 
 import axios, { AxiosInstance } from 'axios';
-import { JobEngine } from './src/job-engine';
-import { JobDocument, JobExecutionData } from './src/types';
+import { JobEngine } from './job-engine';
+import { JobDocument, JobExecutionData } from './types';
 
 export interface CloudJobsAdapterConfig {
   cloudApiUrl: string;

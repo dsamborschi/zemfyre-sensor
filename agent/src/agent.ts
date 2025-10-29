@@ -28,7 +28,7 @@ import { AgentLogger } from './logging/agent-logger.js';
 import type { LogBackend } from './logging/types.js';
 import { SSHTunnelManager } from './remote-access/ssh-tunnel.js';
 import { JobEngine } from './jobs/src/job-engine.js';
-import { CloudJobsAdapter } from './jobs/cloud-jobs-adapter.js';
+import { CloudJobsAdapter } from './jobs/src/cloud-jobs-adapter.js';
 import { createJobsFeature, JobsFeature } from './jobs/src/index.js';
 import { JobsMqttConnectionAdapter } from './mqtt/mqtt-connection-adapter.js';
 import { SensorPublishFeature } from './sensor-publish/index.js';
