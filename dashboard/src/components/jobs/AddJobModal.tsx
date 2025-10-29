@@ -54,6 +54,10 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
   const [error, setError] = useState('');
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   
+  // Template variables state
+  const [templateVariables, setTemplateVariables] = useState<Record<string, string>>({});
+  const [requiredVariables, setRequiredVariables] = useState<string[]>([]);
+  
   // Custom steps state
   const [customSteps, setCustomSteps] = useState<JobStep[]>([]);
   const [showStepsEditor, setShowStepsEditor] = useState(false);
@@ -68,6 +72,60 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
     timeoutSeconds: undefined,
     ignoreStepFailure: false,
   });
+
+  // Extract variables from template (e.g., {{SERVICE_NAME}})
+  const extractVariables = (jobDocument: any): string[] => {
+    const variables = new Set<string>();
+    const regex = /\{\{([A-Z_]+)\}\}/g;
+
+    const extractFromString = (str: string) => {
+      let match;
+      while ((match = regex.exec(str)) !== null) {
+        variables.add(match[1]);
+      }
+    };
+
+    const extractFromObject = (obj: any) => {
+      if (typeof obj === 'string') {
+        extractFromString(obj);
+      } else if (Array.isArray(obj)) {
+        obj.forEach(extractFromObject);
+      } else if (obj && typeof obj === 'object') {
+        Object.values(obj).forEach(extractFromObject);
+      }
+    };
+
+    extractFromObject(jobDocument);
+    return Array.from(variables);
+  };
+
+  // Replace variables in template
+  const replaceVariables = (jobDocument: any, variables: Record<string, string>): any => {
+    const replaceInString = (str: string): string => {
+      let result = str;
+      Object.entries(variables).forEach(([key, value]) => {
+        result = result.replace(new RegExp(`\\{\\{${key}\\}\\}`, 'g'), value);
+      });
+      return result;
+    };
+
+    const replaceInObject = (obj: any): any => {
+      if (typeof obj === 'string') {
+        return replaceInString(obj);
+      } else if (Array.isArray(obj)) {
+        return obj.map(replaceInObject);
+      } else if (obj && typeof obj === 'object') {
+        const result: any = {};
+        Object.entries(obj).forEach(([key, value]) => {
+          result[key] = replaceInObject(value);
+        });
+        return result;
+      }
+      return obj;
+    };
+
+    return replaceInObject(jobDocument);
+  };
 
   useEffect(() => {
     if (!open) return;
@@ -98,7 +156,28 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
     setExecuteTime('now');
     setScheduledFor('');
     setError('');
+    setTemplateVariables({});
+    setRequiredVariables([]);
   }, [open]);
+
+  // When template changes, extract variables
+  useEffect(() => {
+    if (!templateId) {
+      setRequiredVariables([]);
+      setTemplateVariables({});
+      return;
+    }
+
+    const selectedTemplate = templates.find((t) => t.id === parseInt(templateId));
+    if (selectedTemplate?.job_document) {
+      const vars = extractVariables(selectedTemplate.job_document);
+      setRequiredVariables(vars);
+      // Initialize with empty strings
+      const initialVars: Record<string, string> = {};
+      vars.forEach(v => initialVars[v] = '');
+      setTemplateVariables(initialVars);
+    }
+  }, [templateId, templates]);
 
   // Load steps from selected template
   useEffect(() => {
@@ -162,6 +241,13 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
       return;
     }
 
+    // Validate required variables
+    const missingVars = requiredVariables.filter(v => !templateVariables[v] || templateVariables[v].trim() === '');
+    if (missingVars.length > 0) {
+      setError(`Please provide values for: ${missingVars.join(', ')}`);
+      return;
+    }
+
     setSaving(true);
     setError('');
 
@@ -173,10 +259,15 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
       }
 
       // Build the job document with custom steps
-      const jobDocument = {
+      let jobDocument = {
         ...selectedTemplate.job_document,
         steps: customSteps.length > 0 ? customSteps : selectedTemplate.job_document?.steps || []
       };
+
+      // Replace variables in job document
+      if (requiredVariables.length > 0) {
+        jobDocument = replaceVariables(jobDocument, templateVariables);
+      }
 
       // Prepare schedule data with proper ISO timestamp
       const scheduleData = executeTime === 'schedule' && scheduledFor 
@@ -249,6 +340,38 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
               </p>
             )}
           </div>
+
+          {/* Template Variables */}
+          {requiredVariables.length > 0 && (
+            <div className="border border-blue-200 bg-blue-50 rounded-md p-4">
+              <h4 className="text-sm font-semibold text-blue-900 mb-3">
+                Template Parameters
+              </h4>
+              <p className="text-xs text-blue-700 mb-3">
+                This template requires the following parameters to be filled in:
+              </p>
+              <div className="space-y-3">
+                {requiredVariables.map((varName) => (
+                  <div key={varName}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      {varName.replace(/_/g, ' ')} <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      value={templateVariables[varName] || ''}
+                      onChange={(e) => setTemplateVariables({
+                        ...templateVariables,
+                        [varName]: e.target.value
+                      })}
+                      placeholder={`Enter ${varName.toLowerCase().replace(/_/g, ' ')}`}
+                      disabled={saving}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Execution Time */}
           <div>
