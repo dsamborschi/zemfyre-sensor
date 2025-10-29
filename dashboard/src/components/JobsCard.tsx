@@ -2,10 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Plus, RefreshCw, Trash2, XCircle, Eye } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, XCircle, Eye, Save } from 'lucide-react';
 import { buildApiUrl } from '@/config/api';
 import AddJobModal from './jobs/AddJobModal';
 import JobDetailsModal from './jobs/JobDetailsModal';
+import SaveTemplateModal from './jobs/SaveTemplateModal';
 
 interface Job {
   id: number;
@@ -34,6 +35,8 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
+  const [jobDocumentToSave, setJobDocumentToSave] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
