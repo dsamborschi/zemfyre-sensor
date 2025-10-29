@@ -7,7 +7,7 @@ Both features now use the **same Iotistic IoT topic convention** for consistency
 ## Topic Structure
 
 ```
-$iot/device/{deviceUuid}/{feature}/{...}
+iot/device/{deviceUuid}/{feature}/{...}
      │        │            │         │
      │        │            │         └─ Feature-specific subtopics
      │        │            └─ Feature name (sensor|shadow|telemetry|...)
@@ -29,12 +29,12 @@ new SensorPublishFeature(
 )
 
 // Topics
-$iot/device/{deviceUuid}/sensor/{sensorTopic}
-$iot/device/{deviceUuid}/sensor/{heartbeatTopic}
+iot/device/{deviceUuid}/sensor/{sensorTopic}
+iot/device/{deviceUuid}/sensor/{heartbeatTopic}
 
 // Example
-$iot/device/abc-123/sensor/temperature
-$iot/device/abc-123/sensor/heartbeat
+iot/device/abc-123/sensor/temperature
+iot/device/abc-123/sensor/heartbeat
 ```
 
 ### Shadow Feature
@@ -49,18 +49,18 @@ new ShadowFeature(
 )
 
 // Topics
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/accepted
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/rejected
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/delta
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/documents
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/get
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/get/accepted
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/get/rejected
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update/accepted
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update/rejected
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update/delta
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update/documents
+iot/device/{deviceUuid}/shadow/name/{shadowName}/get
+iot/device/{deviceUuid}/shadow/name/{shadowName}/get/accepted
+iot/device/{deviceUuid}/shadow/name/{shadowName}/get/rejected
 
 // Example
-$iot/device/abc-123/shadow/name/device-state/update
-$iot/device/abc-123/shadow/name/device-state/update/delta
+iot/device/abc-123/shadow/name/device-state/update
+iot/device/abc-123/shadow/name/device-state/update/delta
 ```
 
 ## Complete Topic Tree
@@ -96,7 +96,7 @@ $iot/
 ### Sensor Data (Sensor Publish)
 
 ```json
-// Topic: $iot/device/dev-001/sensor/temperature
+// Topic: iot/device/dev-001/sensor/temperature
 {
   "sensorName": "bme688",
   "temperature": 25.5,
@@ -108,7 +108,7 @@ $iot/
 ### Shadow Update (Shadow Feature)
 
 ```json
-// Topic: $iot/device/dev-001/shadow/name/device-config/update
+// Topic: iot/device/dev-001/shadow/name/device-config/update
 {
   "state": {
     "reported": {
@@ -127,7 +127,7 @@ $iot/
 ### Shadow Delta (Shadow Feature)
 
 ```json
-// Topic: $iot/device/dev-001/shadow/name/device-config/update/delta
+// Topic: iot/device/dev-001/shadow/name/device-config/update/delta
 {
   "state": {
     "logLevel": "debug"  // Desired != Reported
@@ -143,7 +143,7 @@ $iot/
 
 ```javascript
 // Cloud MQTT subscriber
-const devicePattern = '$iot/device/+/#';
+const devicePattern = 'iot/device/+/#';
 
 client.subscribe(devicePattern, (topic, message) => {
   const [, , , deviceUuid, feature, ...rest] = topic.split('/');
@@ -166,7 +166,7 @@ SELECT
   feature_type,
   COUNT(*) as message_count
 FROM mqtt_messages
-WHERE topic LIKE '$iot/device/%'
+WHERE topic LIKE 'iot/device/%'
 GROUP BY device_uuid, feature_type;
 ```
 
@@ -175,11 +175,11 @@ GROUP BY device_uuid, feature_type;
 ```conf
 # Mosquitto ACL
 # Single rule gives device access to ALL its features
-pattern readwrite $iot/device/%u/#
+pattern readwrite iot/device/%u/#
 
 # Or more granular:
-pattern readwrite $iot/device/%u/sensor/#
-pattern readwrite $iot/device/%u/shadow/#
+pattern readwrite iot/device/%u/sensor/#
+pattern readwrite iot/device/%u/shadow/#
 ```
 
 ## Comparison with AWS IoT
@@ -199,7 +199,7 @@ $aws/things/{thingName}/shadow/name/{shadowName}/update
 ### Iotistic IoT Topics (New Pattern)
 
 ```
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update
 ```
 
 **Benefits:**
@@ -218,7 +218,7 @@ If you're migrating from AWS IoT Device Shadow:
 # Mosquitto bridge config
 connection aws-to-Iotistic
 bridge_attempt_unsubscribe false
-topic $aws/things/+/shadow/# in 0 $iot/device/
+topic $aws/things/+/shadow/# in 0 iot/device/
 ```
 
 ### Option 2: Dual Implementation
@@ -242,7 +242,7 @@ SELECT * FROM '$aws/things/+/shadow/#' AS topic
 // AWS Lambda to translate and republish
 exports.handler = async (event) => {
   const oldTopic = event.topic;
-  const newTopic = oldTopic.replace('$aws/things/', '$iot/device/');
+  const newTopic = oldTopic.replace('$aws/things/', 'iot/device/');
   await iotData.publish({
     topic: newTopic,
     payload: JSON.stringify(event)
@@ -255,11 +255,11 @@ exports.handler = async (event) => {
 The convention easily extends to new features:
 
 ```
-$iot/device/{deviceUuid}/telemetry/{metric}
-$iot/device/{deviceUuid}/commands/{commandName}
-$iot/device/{deviceUuid}/events/{eventType}
-$iot/device/{deviceUuid}/logs/{level}
-$iot/device/{deviceUuid}/files/{fileName}
+iot/device/{deviceUuid}/telemetry/{metric}
+iot/device/{deviceUuid}/commands/{commandName}
+iot/device/{deviceUuid}/events/{eventType}
+iot/device/{deviceUuid}/logs/{level}
+iot/device/{deviceUuid}/files/{fileName}
 ```
 
 All following the same pattern! 🎯

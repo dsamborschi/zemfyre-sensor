@@ -19,14 +19,14 @@ The Shadow feature enables your device to:
 
 The feature uses the Iotistic IoT device topic convention (same as sensor-publish):
 
-- `$iot/device/{deviceUuid}/shadow/name/{shadowName}/update` - Publish updates
-- `$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/accepted` - Update succeeded
-- `$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/rejected` - Update failed
-- `$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/documents` - Shadow changed
-- `$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/delta` - Desired != reported
-- `$iot/device/{deviceUuid}/shadow/name/{shadowName}/get` - Request shadow
-- `$iot/device/{deviceUuid}/shadow/name/{shadowName}/get/accepted` - Get succeeded
-- `$iot/device/{deviceUuid}/shadow/name/{shadowName}/get/rejected` - Get failed
+- `iot/device/{deviceUuid}/shadow/name/{shadowName}/update` - Publish updates
+- `iot/device/{deviceUuid}/shadow/name/{shadowName}/update/accepted` - Update succeeded
+- `iot/device/{deviceUuid}/shadow/name/{shadowName}/update/rejected` - Update failed
+- `iot/device/{deviceUuid}/shadow/name/{shadowName}/update/documents` - Shadow changed
+- `iot/device/{deviceUuid}/shadow/name/{shadowName}/update/delta` - Desired != reported
+- `iot/device/{deviceUuid}/shadow/name/{shadowName}/get` - Request shadow
+- `iot/device/{deviceUuid}/shadow/name/{shadowName}/get/accepted` - Get succeeded
+- `iot/device/{deviceUuid}/shadow/name/{shadowName}/get/rejected` - Get failed
 
 **Note**: Uses device UUID instead of AWS thing name for consistency with other agent features.
 

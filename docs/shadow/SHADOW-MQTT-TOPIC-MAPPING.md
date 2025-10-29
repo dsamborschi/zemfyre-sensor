@@ -7,11 +7,11 @@
 │         Device Agent                 │
 │                                     │
 │  Publishes to:                      │
-│  $iot/device/abc-123/shadow/        │
+│  iot/device/abc-123/shadow/        │
 │    name/sensor-config/update        │
 │                                     │
 │  Receives on:                       │
-│  $iot/device/abc-123/shadow/        │
+│  iot/device/abc-123/shadow/        │
 │    name/sensor-config/update/       │
 │    accepted ✅                      │
 └─────────────────────────────────────┘
@@ -20,7 +20,7 @@
 │         MQTT Broker                  │
 │                                     │
 │  Topic:                             │
-│  $iot/device/abc-123/shadow/        │
+│  iot/device/abc-123/shadow/        │
 │    name/sensor-config/update/       │
 │    accepted                         │
 └─────────────────────────────────────┘
@@ -43,11 +43,11 @@
 │         Device Agent                 │
 │                                     │
 │  Publishes to:                      │
-│  $iot/device/abc-123/shadow/        │
+│  iot/device/abc-123/shadow/        │
 │    name/sensor-config/update        │
 │                                     │
 │  Receives on:                       │
-│  $iot/device/abc-123/shadow/        │
+│  iot/device/abc-123/shadow/        │
 │    name/sensor-config/update/       │
 │    accepted ✅                      │
 └─────────────────────────────────────┘
@@ -56,7 +56,7 @@
 │         MQTT Broker                  │
 │                                     │
 │  Topic:                             │
-│  $iot/device/abc-123/shadow/        │
+│  iot/device/abc-123/shadow/        │
 │    name/sensor-config/update/       │
 │    accepted                         │
 └─────────────────────────────────────┘
@@ -65,9 +65,9 @@
 │          Cloud API                   │
 │                                     │
 │  Subscribed to:                     │
-│  $iot/device/*/shadow/name/+/       │
+│  iot/device/*/shadow/name/+/       │
 │    update/accepted ✅                │
-│  $iot/device/*/shadow/name/+/       │
+│  iot/device/*/shadow/name/+/       │
 │    update/delta ✅                   │
 │                                     │
 │  MATCHES! Saves to DB! 🎉          │
@@ -90,7 +90,7 @@
 ### AWS IoT Shadow Topic Structure
 
 ```
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/{type}
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update/{type}
 │    │      │           │      │    │           │       │
 │    │      │           │      │    │           │       └─ accepted/delta/rejected/documents
 │    │      │           │      │    │           └───────── action
@@ -105,7 +105,7 @@ $iot/device/{deviceUuid}/shadow/name/{shadowName}/update/{type}
 ### Wildcard Subscriptions
 
 ```
-$iot/device/*/shadow/name/+/update/accepted
+iot/device/*/shadow/name/+/update/accepted
             │             │
             │             └─ Single-level wildcard (+ matches one segment)
             │                Matches ANY shadow name
@@ -115,15 +115,15 @@ $iot/device/*/shadow/name/+/update/accepted
 ```
 
 **Examples that match**:
-- `$iot/device/abc-123-456/shadow/name/sensor-config/update/accepted` ✅
-- `$iot/device/xyz-789-012/shadow/name/sensor-config/update/accepted` ✅
-- `$iot/device/abc-123-456/shadow/name/container-state/update/accepted` ✅
-- `$iot/device/any-device/shadow/name/any-shadow/update/accepted` ✅
+- `iot/device/abc-123-456/shadow/name/sensor-config/update/accepted` ✅
+- `iot/device/xyz-789-012/shadow/name/sensor-config/update/accepted` ✅
+- `iot/device/abc-123-456/shadow/name/container-state/update/accepted` ✅
+- `iot/device/any-device/shadow/name/any-shadow/update/accepted` ✅
 
 **Examples that DON'T match**:
 - `device/abc-123/shadow/reported` ❌ (missing $iot prefix)
-- `$iot/device/abc-123/shadow/update` ❌ (missing /name/{shadowName})
-- `$iot/device/abc-123/shadow/name/sensor-config/update` ❌ (missing /accepted)
+- `iot/device/abc-123/shadow/update` ❌ (missing /name/{shadowName})
+- `iot/device/abc-123/shadow/name/sensor-config/update` ❌ (missing /accepted)
 
 ## Message Flow Examples
 
@@ -131,11 +131,11 @@ $iot/device/*/shadow/name/+/update/accepted
 
 ```
 1. Device publishes:
-   Topic:   $iot/device/abc-123/shadow/name/sensor-config/update
+   Topic:   iot/device/abc-123/shadow/name/sensor-config/update
    Payload: {"state":{"reported":{"sensors":{"sensor1":{"enabled":true}}}}}
 
 2. MQTT Broker processes and responds:
-   Topic:   $iot/device/abc-123/shadow/name/sensor-config/update/accepted
+   Topic:   iot/device/abc-123/shadow/name/sensor-config/update/accepted
    Payload: {"state":{"reported":{...}},"metadata":{"reported":{...}},"version":2}
 
 3. Cloud API receives (subscribed to .../accepted):
@@ -156,11 +156,11 @@ $iot/device/*/shadow/name/+/update/accepted
 
 ```
 1. Admin dashboard publishes:
-   Topic:   $iot/device/abc-123/shadow/name/sensor-config/update
+   Topic:   iot/device/abc-123/shadow/name/sensor-config/update
    Payload: {"state":{"desired":{"sensors":{"sensor1":{"publishInterval":60000}}}}}
 
 2. MQTT Broker compares desired vs reported, computes delta:
-   Topic:   $iot/device/abc-123/shadow/name/sensor-config/update/delta
+   Topic:   iot/device/abc-123/shadow/name/sensor-config/update/delta
    Payload: {"state":{"sensors":{"sensor1":{"publishInterval":60000}}},"version":3}
 
 3. Cloud API receives (subscribed to .../delta):
@@ -193,13 +193,13 @@ subscribe(deviceUuid: string, topics: string[]): void {
   const topicPatterns = topics.map(type => {
     switch (type) {
       case 'shadow-reported':
-        return `$iot/device/${deviceUuid}/shadow/name/+/update/accepted`;
+        return `iot/device/${deviceUuid}/shadow/name/+/update/accepted`;
         //      ^^^^^^^^^^ ^^^^^^^^^^^^ ^^^^^^^^^^^^^ ^ ^^^^^^^^^^^^^^
         //      AWS IoT    UUID         name/shadow   + = any name
         //      prefix     (or *)       pattern       
       
       case 'shadow-desired':
-        return `$iot/device/${deviceUuid}/shadow/name/+/update/delta`;
+        return `iot/device/${deviceUuid}/shadow/name/+/update/delta`;
         //                                                     ^^^^^
         //                                                     delta = desired state
     }
@@ -213,7 +213,7 @@ subscribe(deviceUuid: string, topics: string[]): void {
 // api/src/mqtt/mqtt-manager.ts
 
 private handleMessage(topic: string, payload: Buffer): void {
-  if (topic.startsWith('$iot/device/')) {
+  if (topic.startsWith('iot/device/')) {
     //                   ^^^^^^^^^^^^^^
     //                   AWS IoT format
     this.handleAwsIotShadowMessage(topic, message);
@@ -229,7 +229,7 @@ private handleMessage(topic: string, payload: Buffer): void {
 // api/src/mqtt/mqtt-manager.ts
 
 private handleAwsIotShadowMessage(topic: string, message: string): void {
-  // Parse: $iot/device/{uuid}/shadow/name/{shadowName}/update/{type}
+  // Parse: iot/device/{uuid}/shadow/name/{shadowName}/update/{type}
   const parts = topic.split('/');
   //            [0]    [1]     [2]   [3]     [4]   [5]          [6]     [7]
   //            $iot   device  uuid  shadow  name  shadowName   update  type
@@ -272,8 +272,8 @@ subscribe('*', topics)   ← '*' = all devices
   ↓
 mqttClient.subscribe([
   'device/*/sensor/+/data',
-  '$iot/device/*/shadow/name/+/update/accepted',   ← Shadow reported
-  '$iot/device/*/shadow/name/+/update/delta',      ← Shadow desired
+  'iot/device/*/shadow/name/+/update/accepted',   ← Shadow reported
+  'iot/device/*/shadow/name/+/update/delta',      ← Shadow desired
   'device/*/logs/+',
   'device/*/metrics',
   'device/*/status'
@@ -316,8 +316,8 @@ DO UPDATE SET
 
 | Aspect | Before | After |
 |--------|--------|-------|
-| **Device Topic** | `$iot/device/.../shadow/.../update` | Same (no change) |
-| **API Subscription** | `device/*/shadow/reported` ❌ | `$iot/device/*/shadow/.../accepted` ✅ |
+| **Device Topic** | `iot/device/.../shadow/.../update` | Same (no change) |
+| **API Subscription** | `device/*/shadow/reported` ❌ | `iot/device/*/shadow/.../accepted` ✅ |
 | **Topic Match** | No | Yes |
 | **Data Saved** | No ❌ | Yes ✅ |
 | **Shadow Sync** | Broken 🚨 | Working 🎉 |

@@ -1,12 +1,11 @@
-import { EventEmitter } from 'events';
 import { promises as fs } from 'fs';
 import { watch, FSWatcher } from 'fs';
 import { randomUUID } from 'crypto';
 import path from 'path';
+import { BaseFeature } from '../features/index.js';
+import { AgentLogger } from '../logging/agent-logger.js';
 import {
   ShadowConfig,
-  MqttConnection,
-  Logger,
   ShadowTopics,
   ShadowUpdateRequest,
   ShadowUpdateResponse,
@@ -28,21 +27,13 @@ import {
  * - File monitoring for automatic updates
  * - Persist shadow documents to output file
  */
-export class ShadowFeature extends EventEmitter {
+export class ShadowFeature extends BaseFeature {
   private static readonly NAME = 'Shadow';
   private static readonly TAG = 'ShadowFeature';
   private static readonly DEFAULT_SHADOW_DOCUMENT = { welcome: 'aws-iot' };
-  private static readonly DEFAULT_WAIT_TIME_MS = 10000;
-  private static readonly DEFAULT_OUTPUT_DIR = '~/.Iotistic-agent/shadow';
-  private static readonly QOS_AT_LEAST_ONCE = 1;
-
-  private config: ShadowConfig;
-  private mqttConnection: MqttConnection;
-  private logger: Logger;
-  private deviceUuid: string;
+  private static readonly QOS_AT_LEAST_ONCE: 1 = 1;
   
   private shadowTopics: ShadowTopics;
-  private started = false;
   private fileWatcher?: FSWatcher;
   private publishIntervalId?: NodeJS.Timeout;  // Track periodic publish interval
   private stats: ShadowStats;
@@ -50,20 +41,20 @@ export class ShadowFeature extends EventEmitter {
 
   constructor(
     config: ShadowConfig,
-    mqttConnection: MqttConnection,
-    logger: Logger,
+    agentLogger: AgentLogger,
     deviceUuid: string
   ) {
-    super();
-    this.config = config;
-    this.mqttConnection = mqttConnection;
-    this.logger = logger;
-    this.deviceUuid = deviceUuid;
+    super(
+      config,
+      agentLogger,
+      ShadowFeature.NAME,
+      deviceUuid,
+      true, // Requires MQTT
+      'SHADOW_DEBUG'
+    );
     
     this.shadowTopics = new ShadowTopics(deviceUuid, config.shadowName);
     this.stats = this.initializeStats();
-    
-    this.validateConfig();
   }
 
   /**
@@ -74,77 +65,62 @@ export class ShadowFeature extends EventEmitter {
   }
 
   /**
+   * Initialize - called by BaseFeature.start() before onStart()
+   */
+  protected async onInitialize(): Promise<void> {
+    this.validateConfig();
+    this.logger.info(`Starting Shadow feature for '${(this.config as ShadowConfig).shadowName}'`);
+  }
+
+  /**
    * Start the shadow feature
    */
-  public async start(): Promise<void> {
-    this.logger.info(`${ShadowFeature.TAG}: Starting Shadow feature for '${this.config.shadowName}'`);
-    
-    try {
-      // Subscribe to all pertinent shadow topics
-      await this.subscribeToPertinentShadowTopics();
-      
-      // Read and publish initial shadow state
-      await this.readAndUpdateShadowFromFile();
-      
-      // Start file monitor if enabled
-      if (this.config.enableFileMonitor && this.config.inputFile) {
-        await this.startFileMonitor();
-      }
-      
-      // Start periodic publish if configured
-      if (this.config.publishInterval) {
-        this.startPeriodicPublish();
-      }
-      
-      this.started = true;
-      this.logger.info(`${ShadowFeature.TAG}: Shadow feature started successfully`);
-      this.emit('started');
-      
-    } catch (error) {
-      const errorMessage = `Failed to start Shadow feature: ${error instanceof Error ? error.message : String(error)}`;
-      this.logger.error(`${ShadowFeature.TAG}: ${errorMessage}`);
-      this.emit('error', new Error(errorMessage));
-      throw error;
+  protected async onStart(): Promise<void> {
+    if (!this.mqttConnection) {
+      throw new Error('MQTT connection required for Shadow feature');
     }
+
+    // Subscribe to all pertinent shadow topics
+    await this.subscribeToPertinentShadowTopics();
+    
+    // Read and publish initial shadow state
+    await this.readAndUpdateShadowFromFile();
+    
+    // Start file monitor if enabled
+    const shadowConfig = this.config as ShadowConfig;
+    if (shadowConfig.enableFileMonitor && shadowConfig.inputFile) {
+      await this.startFileMonitor();
+    }
+    
+    // Start periodic publish if configured
+    if (shadowConfig.publishInterval) {
+      this.startPeriodicPublish();
+    }
+    
+    this.emit('started');
   }
 
   /**
    * Stop the shadow feature
    */
-  public async stop(): Promise<void> {
-    if (!this.started) {
-      return;
+  protected async onStop(): Promise<void> {
+    // Stop periodic publish interval
+    if (this.publishIntervalId) {
+      clearInterval(this.publishIntervalId);
+      this.publishIntervalId = undefined;
+      this.logger.info('Stopped periodic publish interval');
     }
 
-    this.logger.info(`${ShadowFeature.TAG}: Stopping Shadow feature`);
+    // Stop file watcher
+    if (this.fileWatcher) {
+      this.fileWatcher.close();
+      this.fileWatcher = undefined;
+    }
     
-    try {
-      // Stop periodic publish interval
-      if (this.publishIntervalId) {
-        clearInterval(this.publishIntervalId);
-        this.publishIntervalId = undefined;
-        this.logger.info(`${ShadowFeature.TAG}: Stopped periodic publish interval`);
-      }
-
-      // Stop file watcher
-      if (this.fileWatcher) {
-        this.fileWatcher.close();
-        this.fileWatcher = undefined;
-      }
-      
-      // Unsubscribe from topics
-      await this.unsubscribeFromTopics();
-      
-      this.started = false;
-      
-      this.logger.info(`${ShadowFeature.TAG}: Shadow feature stopped successfully`);
-      this.emit('stopped');
-      
-    } catch (error) {
-      const errorMessage = `Error stopping Shadow feature: ${error instanceof Error ? error.message : String(error)}`;
-      this.logger.error(`${ShadowFeature.TAG}: ${errorMessage}`);
-      this.emit('error', new Error(errorMessage));
-    }
+    // Unsubscribe from topics
+    await this.unsubscribeFromTopics();
+    
+    this.emit('stopped');
   }
 
   /**
@@ -163,14 +139,18 @@ export class ShadowFeature extends EventEmitter {
    * Get current shadow from cloud
    */
   public async getShadow(): Promise<void> {
+    if (!this.mqttConnection) {
+      throw new Error('MQTT connection not available');
+    }
+
     const clientToken = randomUUID();
     const payload = JSON.stringify({ clientToken });
     
-    this.logger.debug(`${ShadowFeature.TAG}: Requesting shadow with token ${clientToken}`);
+    this.logger.debug(`Requesting shadow with token ${clientToken}`);
     await this.mqttConnection.publish(
       this.shadowTopics.get,
       payload,
-      ShadowFeature.QOS_AT_LEAST_ONCE
+      { qos: ShadowFeature.QOS_AT_LEAST_ONCE }
     );
     
     this.stats.getRequestsSent++;
@@ -187,7 +167,11 @@ export class ShadowFeature extends EventEmitter {
    * Subscribe to all pertinent shadow topics
    */
   private async subscribeToPertinentShadowTopics(): Promise<void> {
-    this.logger.debug(`${ShadowFeature.TAG}: Subscribing to shadow topics`);
+    if (!this.mqttConnection) {
+      throw new Error('MQTT connection not available');
+    }
+
+    this.logger.debug('Subscribing to shadow topics');
     
     const subscriptions: Promise<void>[] = [
       this.subscribeToUpdateAccepted(),
@@ -200,10 +184,10 @@ export class ShadowFeature extends EventEmitter {
 
     try {
       await Promise.all(subscriptions);
-      this.logger.info(`${ShadowFeature.TAG}: Successfully subscribed to all shadow topics`);
+      this.logger.info('Successfully subscribed to all shadow topics');
     } catch (error) {
       const errorMessage = `Failed to subscribe to shadow topics: ${error instanceof Error ? error.message : String(error)}`;
-      this.logger.error(`${ShadowFeature.TAG}: ${errorMessage}`);
+      this.logger.error(errorMessage, error);
       throw new Error(errorMessage);
     }
   }
@@ -212,72 +196,72 @@ export class ShadowFeature extends EventEmitter {
    * Subscribe to update/accepted topic
    */
   private async subscribeToUpdateAccepted(): Promise<void> {
-    await this.mqttConnection.subscribe(
+    await this.mqttConnection!.subscribe(
       this.shadowTopics.updateAccepted,
-      ShadowFeature.QOS_AT_LEAST_ONCE,
+      { qos: ShadowFeature.QOS_AT_LEAST_ONCE },
       (topic, payload) => this.handleUpdateAccepted(payload)
     );
-    this.logger.debug(`${ShadowFeature.TAG}: Subscribed to ${this.shadowTopics.updateAccepted}`);
+    this.logger.debug(`Subscribed to ${this.shadowTopics.updateAccepted}`);
   }
 
   /**
    * Subscribe to update/rejected topic
    */
   private async subscribeToUpdateRejected(): Promise<void> {
-    await this.mqttConnection.subscribe(
+    await this.mqttConnection!.subscribe(
       this.shadowTopics.updateRejected,
-      ShadowFeature.QOS_AT_LEAST_ONCE,
+      { qos: ShadowFeature.QOS_AT_LEAST_ONCE },
       (topic, payload) => this.handleUpdateRejected(payload)
     );
-    this.logger.debug(`${ShadowFeature.TAG}: Subscribed to ${this.shadowTopics.updateRejected}`);
+    this.logger.debug(`Subscribed to ${this.shadowTopics.updateRejected}`);
   }
 
   /**
    * Subscribe to update/documents topic
    */
   private async subscribeToUpdateDocuments(): Promise<void> {
-    await this.mqttConnection.subscribe(
+    await this.mqttConnection!.subscribe(
       this.shadowTopics.updateDocuments,
-      ShadowFeature.QOS_AT_LEAST_ONCE,
+      { qos: ShadowFeature.QOS_AT_LEAST_ONCE },
       (topic, payload) => this.handleUpdateDocuments(payload)
     );
-    this.logger.debug(`${ShadowFeature.TAG}: Subscribed to ${this.shadowTopics.updateDocuments}`);
+    this.logger.debug(`Subscribed to ${this.shadowTopics.updateDocuments}`);
   }
 
   /**
    * Subscribe to update/delta topic
    */
   private async subscribeToUpdateDelta(): Promise<void> {
-    await this.mqttConnection.subscribe(
+    await this.mqttConnection!.subscribe(
       this.shadowTopics.updateDelta,
-      ShadowFeature.QOS_AT_LEAST_ONCE,
+      { qos: ShadowFeature.QOS_AT_LEAST_ONCE },
       (topic, payload) => this.handleUpdateDelta(payload)
     );
-    this.logger.debug(`${ShadowFeature.TAG}: Subscribed to ${this.shadowTopics.updateDelta}`);
+    this.logger.debug(`Subscribed to ${this.shadowTopics.updateDelta}`);
   }
 
   /**
    * Subscribe to get/accepted topic
    */
   private async subscribeToGetAccepted(): Promise<void> {
-    await this.mqttConnection.subscribe(
+    await this.mqttConnection!.subscribe(
       this.shadowTopics.getAccepted,
-      ShadowFeature.QOS_AT_LEAST_ONCE,
+      { qos: ShadowFeature.QOS_AT_LEAST_ONCE },
       (topic, payload) => this.handleGetAccepted(payload)
     );
-    this.logger.debug(`${ShadowFeature.TAG}: Subscribed to ${this.shadowTopics.getAccepted}`);
+    this.logger.debug(`Subscribed to ${this.shadowTopics.getAccepted}`);
   }
 
   /**
    * Subscribe to get/rejected topic
    */
   private async subscribeToGetRejected(): Promise<void> {
-    await this.mqttConnection.subscribe(
+    await this.mqttConnection!.subscribe(
       this.shadowTopics.getRejected,
-      ShadowFeature.QOS_AT_LEAST_ONCE,
+      { qos: ShadowFeature.QOS_AT_LEAST_ONCE },
       (topic, payload) => this.handleGetRejected(payload)
     );
-    this.logger.debug(`${ShadowFeature.TAG}: Subscribed to ${this.shadowTopics.getRejected}`);
+    this.logger.debug(`Subscribed to ${this.shadowTopics.getRejected}`);
   }
 
   /**
@@ -286,16 +270,14 @@ export class ShadowFeature extends EventEmitter {
   private handleUpdateAccepted(payload: Buffer): void {
     try {
       const response: ShadowUpdateResponse = JSON.parse(payload.toString());
-      this.logger.debug(
-        `${ShadowFeature.TAG}: Shadow update accepted (version: ${response.version}, token: ${response.clientToken})`
-      );
+      this.logger.debug(`Shadow update accepted (version: ${response.version}, token: ${response.clientToken})`);
       
       this.stats.updatesAccepted++;
       this.stats.lastUpdateTime = new Date();
       
       this.emit('update-accepted', response);
     } catch (error) {
-      this.logger.error(`${ShadowFeature.TAG}: Error parsing update accepted: ${error}`);
+      this.logger.error('Error parsing update accepted', error);
     }
   }
 
@@ -305,9 +287,7 @@ export class ShadowFeature extends EventEmitter {
   private handleUpdateRejected(payload: Buffer): void {
     try {
       const errorResponse: ShadowErrorResponse = JSON.parse(payload.toString());
-      this.logger.error(
-        `${ShadowFeature.TAG}: Shadow update rejected: ${errorResponse.message} (code: ${errorResponse.code})`
-      );
+      this.logger.error(`Shadow update rejected: ${errorResponse.message} (code: ${errorResponse.code})`);
       
       this.stats.updatesRejected++;
       this.stats.lastErrorCode = errorResponse.code;
@@ -315,7 +295,7 @@ export class ShadowFeature extends EventEmitter {
       
       this.emit('update-rejected', errorResponse);
     } catch (error) {
-      this.logger.error(`${ShadowFeature.TAG}: Error parsing update rejected: ${error}`);
+      this.logger.error('Error parsing update rejected', error);
     }
   }
 
@@ -325,20 +305,19 @@ export class ShadowFeature extends EventEmitter {
   private async handleUpdateDocuments(payload: Buffer): Promise<void> {
     try {
       const event: ShadowUpdatedEvent = JSON.parse(payload.toString());
-      this.logger.debug(
-        `${ShadowFeature.TAG}: Shadow document updated (version: ${event.current?.version})`
-      );
+      this.logger.debug(`Shadow document updated (version: ${event.current?.version})`);
       
       this.stats.documentEventsReceived++;
       
       // Write to output file if configured
-      if (this.config.outputFile && event.current) {
+      const shadowConfig = this.config as ShadowConfig;
+      if (shadowConfig.outputFile && event.current) {
         await this.writeShadowToFile(event.current);
       }
       
       this.emit('shadow-updated', event);
     } catch (error) {
-      this.logger.error(`${ShadowFeature.TAG}: Error handling update documents: ${error}`);
+      this.logger.error('Error handling update documents', error);
     }
   }
 
@@ -348,9 +327,7 @@ export class ShadowFeature extends EventEmitter {
   private async handleUpdateDelta(payload: Buffer): Promise<void> {
     try {
       const event: ShadowDeltaUpdatedEvent = JSON.parse(payload.toString());
-      this.logger.debug(
-        `${ShadowFeature.TAG}: Shadow delta received (version: ${event.version})`
-      );
+      this.logger.debug(`Shadow delta received (version: ${event.version})`);
       
       this.stats.deltaEventsReceived++;
       this.stats.lastDeltaTime = new Date();
@@ -358,12 +335,13 @@ export class ShadowFeature extends EventEmitter {
       this.emit('delta-updated', event);
       
       // Auto-sync if enabled: update reported to match desired
-      if (this.config.syncOnDelta && event.state) {
-        this.logger.info(`${ShadowFeature.TAG}: Auto-syncing shadow (reporting delta as current state)`);
+      const shadowConfig = this.config as ShadowConfig;
+      if (shadowConfig.syncOnDelta && event.state) {
+        this.logger.info('Auto-syncing shadow (reporting delta as current state)');
         await this.updateShadow(event.state, true);
       }
     } catch (error) {
-      this.logger.error(`${ShadowFeature.TAG}: Error handling update delta: ${error}`);
+      this.logger.error('Error handling update delta', error);
     }
   }
 
@@ -373,18 +351,17 @@ export class ShadowFeature extends EventEmitter {
   private async handleGetAccepted(payload: Buffer): Promise<void> {
     try {
       const document: ShadowDocument = JSON.parse(payload.toString());
-      this.logger.debug(
-        `${ShadowFeature.TAG}: Shadow get accepted (version: ${document.version})`
-      );
+      this.logger.debug(`Shadow get accepted (version: ${document.version})`);
       
       // Write to output file if configured
-      if (this.config.outputFile) {
+      const shadowConfig = this.config as ShadowConfig;
+      if (shadowConfig.outputFile) {
         await this.writeShadowToFile(document);
       }
       
       this.emit('get-accepted', document);
     } catch (error) {
-      this.logger.error(`${ShadowFeature.TAG}: Error handling get accepted: ${error}`);
+      this.logger.error('Error handling get accepted', error);
     }
   }
 
@@ -394,16 +371,14 @@ export class ShadowFeature extends EventEmitter {
   private handleGetRejected(payload: Buffer): void {
     try {
       const errorResponse: ShadowErrorResponse = JSON.parse(payload.toString());
-      this.logger.error(
-        `${ShadowFeature.TAG}: Shadow get rejected: ${errorResponse.message} (code: ${errorResponse.code})`
-      );
+      this.logger.error(`Shadow get rejected: ${errorResponse.message} (code: ${errorResponse.code})`);
       
       this.stats.lastErrorCode = errorResponse.code;
       this.stats.lastErrorMessage = errorResponse.message;
       
       this.emit('get-rejected', errorResponse);
     } catch (error) {
-      this.logger.error(`${ShadowFeature.TAG}: Error parsing get rejected: ${error}`);
+      this.logger.error('Error parsing get rejected', error);
     }
   }
 
@@ -412,21 +387,22 @@ export class ShadowFeature extends EventEmitter {
    */
   private async readAndUpdateShadowFromFile(): Promise<void> {
     let data: Record<string, any>;
+    const shadowConfig = this.config as ShadowConfig;
 
-    if (!this.config.inputFile) {
+    if (!shadowConfig.inputFile) {
       // Use default data
-      this.logger.debug(`${ShadowFeature.TAG}: No input file configured, using default shadow data`);
+      this.logger.debug('No input file configured, using default shadow data');
       data = ShadowFeature.DEFAULT_SHADOW_DOCUMENT;
     } else {
       try {
         // Expand ~ in path
-        const expandedPath = this.expandPath(this.config.inputFile);
+        const expandedPath = this.expandPath(shadowConfig.inputFile);
         const fileContent = await fs.readFile(expandedPath, 'utf-8');
         data = JSON.parse(fileContent);
-        this.logger.debug(`${ShadowFeature.TAG}: Read shadow data from ${expandedPath}`);
+        this.logger.debug(`Read shadow data from ${expandedPath}`);
       } catch (error) {
-        const errorMessage = `Unable to read input file '${this.config.inputFile}': ${error}`;
-        this.logger.error(`${ShadowFeature.TAG}: ${errorMessage}`);
+        const errorMessage = `Unable to read input file '${shadowConfig.inputFile}': ${error}`;
+        this.logger.error(errorMessage, error);
         throw new Error(errorMessage);
       }
     }
@@ -444,20 +420,22 @@ export class ShadowFeature extends EventEmitter {
    * Publish shadow update request
    */
   private async publishUpdateRequest(request: ShadowUpdateRequest): Promise<void> {
+    if (!this.mqttConnection) {
+      throw new Error('MQTT connection not available');
+    }
+
     const payload = JSON.stringify(request);
     
     console.log(`📤 Publishing shadow update to: ${this.shadowTopics.update}`);
     console.log(`   Payload size: ${payload.length} bytes`);
     console.log(`   Token: ${request.clientToken}`);
     
-    this.logger.debug(
-      `${ShadowFeature.TAG}: Publishing shadow update (token: ${request.clientToken})`
-    );
+    this.logger.debug(`Publishing shadow update (token: ${request.clientToken})`);
     
     await this.mqttConnection.publish(
       this.shadowTopics.update,
       payload,
-      ShadowFeature.QOS_AT_LEAST_ONCE
+      { qos: ShadowFeature.QOS_AT_LEAST_ONCE }
     );
     
     this.stats.updatesPublished++;
@@ -467,12 +445,13 @@ export class ShadowFeature extends EventEmitter {
    * Write shadow document to output file
    */
   private async writeShadowToFile(document: ShadowDocument): Promise<void> {
-    if (!this.config.outputFile) {
+    const shadowConfig = this.config as ShadowConfig;
+    if (!shadowConfig.outputFile) {
       return;
     }
 
     try {
-      const expandedPath = this.expandPath(this.config.outputFile);
+      const expandedPath = this.expandPath(shadowConfig.outputFile);
       
       // Ensure directory exists
       const dir = path.dirname(expandedPath);
@@ -482,9 +461,9 @@ export class ShadowFeature extends EventEmitter {
       const content = JSON.stringify(document, null, 2);
       await fs.writeFile(expandedPath, content, 'utf-8');
       
-      this.logger.info(`${ShadowFeature.TAG}: Wrote shadow document to ${expandedPath}`);
+      this.logger.info(`Wrote shadow document to ${expandedPath}`);
     } catch (error) {
-      this.logger.error(`${ShadowFeature.TAG}: Failed to write shadow to file: ${error}`);
+      this.logger.error('Failed to write shadow to file', error);
     }
   }
 
@@ -492,33 +471,34 @@ export class ShadowFeature extends EventEmitter {
    * Start file monitor to detect changes to input file
    */
   private async startFileMonitor(): Promise<void> {
-    if (!this.config.inputFile) {
+    const shadowConfig = this.config as ShadowConfig;
+    if (!shadowConfig.inputFile) {
       return;
     }
 
-    const expandedPath = this.expandPath(this.config.inputFile);
+    const expandedPath = this.expandPath(shadowConfig.inputFile);
     
     try {
-      this.logger.info(`${ShadowFeature.TAG}: Starting file monitor for ${expandedPath}`);
+      this.logger.info(`Starting file monitor for ${expandedPath}`);
       
       this.fileWatcher = watch(expandedPath, async (eventType, filename) => {
         if (eventType === 'change') {
-          this.logger.debug(`${ShadowFeature.TAG}: Input file changed, updating shadow`);
+          this.logger.debug('Input file changed, updating shadow');
           try {
             await this.readAndUpdateShadowFromFile();
           } catch (error) {
-            this.logger.error(`${ShadowFeature.TAG}: Error updating shadow from file: ${error}`);
+            this.logger.error('Error updating shadow from file', error);
           }
         }
       });
 
       this.fileWatcher.on('error', (error) => {
-        this.logger.error(`${ShadowFeature.TAG}: File watcher error: ${error}`);
+        this.logger.error('File watcher error', error);
         this.emit('error', error);
       });
       
     } catch (error) {
-      this.logger.error(`${ShadowFeature.TAG}: Failed to start file monitor: ${error}`);
+      this.logger.error('Failed to start file monitor', error);
     }
   }
 
@@ -526,16 +506,15 @@ export class ShadowFeature extends EventEmitter {
    * Start periodic shadow publish
    */
   private startPeriodicPublish(): void {
-    if (!this.config.publishInterval) {
+    const shadowConfig = this.config as ShadowConfig;
+    if (!shadowConfig.publishInterval) {
       return;
     }
 
-    this.logger.info(
-      `${ShadowFeature.TAG}: Starting periodic shadow publish (interval: ${this.config.publishInterval}ms)`
-    );
+    this.logger.info(`Starting periodic shadow publish (interval: ${shadowConfig.publishInterval}ms)`);
 
     this.publishIntervalId = setInterval(async () => {
-      if (!this.started) {
+      if (!this.isRunning) {
         if (this.publishIntervalId) {
           clearInterval(this.publishIntervalId);
           this.publishIntervalId = undefined;
@@ -546,38 +525,43 @@ export class ShadowFeature extends EventEmitter {
       try {
         await this.readAndUpdateShadowFromFile();
       } catch (error) {
-        this.logger.error(`${ShadowFeature.TAG}: Error in periodic publish: ${error}`);
+        this.logger.error('Error in periodic publish', error);
       }
-    }, this.config.publishInterval);
+    }, shadowConfig.publishInterval);
   }
 
   /**
    * Unsubscribe from all shadow topics
    */
   private async unsubscribeFromTopics(): Promise<void> {
+    if (!this.mqttConnection) {
+      return;
+    }
+
     const topics = this.shadowTopics.getSubscriptionTopics();
     
     try {
-      await Promise.all(topics.map(topic => this.mqttConnection.unsubscribe(topic)));
-      this.logger.debug(`${ShadowFeature.TAG}: Unsubscribed from all shadow topics`);
+      await Promise.all(topics.map(topic => this.mqttConnection!.unsubscribe(topic)));
+      this.logger.debug('Unsubscribed from all shadow topics');
     } catch (error) {
-      this.logger.error(`${ShadowFeature.TAG}: Error unsubscribing from topics: ${error}`);
+      this.logger.error('Error unsubscribing from topics', error);
     }
   }
 
   /**
    * Validate configuration
    */
-  private validateConfig(): void {
-    if (!this.config.shadowName) {
+  protected validateConfig(): void {
+    const shadowConfig = this.config as ShadowConfig;
+    if (!shadowConfig.shadowName) {
       throw new Error('Shadow name is required');
     }
 
-    if (this.config.publishInterval && this.config.publishInterval < 1000) {
+    if (shadowConfig.publishInterval && shadowConfig.publishInterval < 1000) {
       throw new Error('Publish interval must be at least 1000ms (1 second)');
     }
 
-    this.logger.debug(`${ShadowFeature.TAG}: Configuration validated for shadow '${this.config.shadowName}'`);
+    this.logger.debug(`Configuration validated for shadow '${shadowConfig.shadowName}'`);
   }
 
   /**

@@ -206,6 +206,7 @@ export class Sensor extends EventEmitter {
    */
   private onData(data: Buffer): void {
     this.stats.bytesReceived += data.length;
+    this.logger.info(`${Sensor.TAG}: Received ${data.length} bytes from sensor '${this.getSensorName()}'`);
     
     // Append to buffer
     this.buffer = Buffer.concat([this.buffer, data]);
@@ -263,9 +264,11 @@ export class Sensor extends EventEmitter {
     this.stats.messagesReceived++;
     
     // Check if should publish batch
+    const bufferSize = this.config.bufferSize ?? 0;
+    const bufferTimeMs = this.config.bufferTimeMs ?? 0;
     const shouldPublish = 
-      (this.config.bufferSize > 0 && this.messageBatch.messages.length >= this.config.bufferSize) ||
-      (this.config.bufferSize === 0 && this.config.bufferTimeMs === 0);
+      (bufferSize > 0 && this.messageBatch.messages.length >= bufferSize) ||
+      (bufferSize === 0 && bufferTimeMs === 0);
     
     if (shouldPublish) {
       this.publishBatch();
@@ -296,7 +299,7 @@ export class Sensor extends EventEmitter {
         messages: this.messageBatch.messages
       });
       
-      await this.mqttConnection.publish(topic, payload, 1);
+      await this.mqttConnection.publish(topic, payload, { qos: 1 });
       
       this.stats.messagesPublished += this.messageBatch.messages.length;
       this.stats.bytesPublished += this.messageBatch.totalBytes;
@@ -417,7 +420,7 @@ export class Sensor extends EventEmitter {
         stats: this.stats
       });
       
-      await this.mqttConnection.publish(topic, payload, 0);
+      await this.mqttConnection.publish(topic, payload, { qos: 0 });
       
       this.stats.lastHeartbeatTime = new Date();
       this.logger.debug(`${Sensor.TAG}: Published heartbeat for sensor '${this.getSensorName()}'`);

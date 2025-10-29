@@ -6,9 +6,9 @@ API was subscribing to **wrong sensor topic format**:
 
 | Component | Topic Format | Status |
 |-----------|-------------|---------|
-| **Device Agent** | `$iot/device/{uuid}/sensor/{topic}` | AWS IoT Format ✅ |
+| **Device Agent** | `iot/device/{uuid}/sensor/{topic}` | AWS IoT Format ✅ |
 | **Cloud API (Before)** | `device/*/sensor/+/data` | Legacy Format ❌ |
-| **Cloud API (After)** | `$iot/device/*/sensor/+` | AWS IoT Format ✅ |
+| **Cloud API (After)** | `iot/device/*/sensor/+` | AWS IoT Format ✅ |
 
 **Result**: Topics didn't match, so sensor data never reached the API!
 
@@ -20,12 +20,12 @@ The device agent publishes sensor data using AWS IoT format:
 
 ```typescript
 // agent/src/sensor-publish/sensor.ts (line 290)
-const topic = `$iot/device/${this.deviceUuid}/sensor/${this.config.mqttTopic}`;
+const topic = `iot/device/${this.deviceUuid}/sensor/${this.config.mqttTopic}`;
 ```
 
 **Example topic**:
 ```
-$iot/device/abc-123-456/sensor/temperature
+iot/device/abc-123-456/sensor/temperature
 ```
 
 But the API was subscribing to legacy format:
@@ -51,7 +51,7 @@ case 'sensor':
 ```typescript
 case 'sensor':
   // Subscribe to AWS IoT sensor data format (matches device agent)
-  return `$iot/device/${deviceUuid}/sensor/+`;
+  return `iot/device/${deviceUuid}/sensor/+`;
 ```
 
 ### 2. Updated Message Router
@@ -60,7 +60,7 @@ case 'sensor':
 
 **Before**:
 ```typescript
-if (topic.startsWith('$iot/device/')) {
+if (topic.startsWith('iot/device/')) {
   this.handleAwsIotShadowMessage(topic, message);
   return;
 }
@@ -68,7 +68,7 @@ if (topic.startsWith('$iot/device/')) {
 
 **After**:
 ```typescript
-if (topic.startsWith('$iot/device/')) {
+if (topic.startsWith('iot/device/')) {
   // Check if it's a shadow topic or sensor topic
   if (topic.includes('/shadow/')) {
     this.handleAwsIotShadowMessage(topic, message);
@@ -86,10 +86,10 @@ if (topic.startsWith('$iot/device/')) {
 ```typescript
 /**
  * Handle AWS IoT sensor message
- * Topic format: $iot/device/{uuid}/sensor/{sensorTopic}
+ * Topic format: iot/device/{uuid}/sensor/{sensorTopic}
  */
 private handleAwsIotSensorMessage(topic: string, message: string): void {
-  // Parse topic: $iot/device/{uuid}/sensor/{sensorTopic}
+  // Parse topic: iot/device/{uuid}/sensor/{sensorTopic}
   const parts = topic.split('/');
   const deviceUuid = parts[2];
   const sensorTopic = parts[4]; // temperature, humidity, etc.
@@ -118,7 +118,7 @@ Updated topic structure comment to reflect AWS IoT format for sensors.
 ```
 Device Agent (Sensor)
     ↓ Publishes sensor reading
-Topic: $iot/device/abc-123/sensor/temperature
+Topic: iot/device/abc-123/sensor/temperature
 Payload: {
   "timestamp": "2025-10-18T14:30:00Z",
   "data": { "temperature": 22.5, "unit": "C" },
@@ -126,10 +126,10 @@ Payload: {
 }
     ↓ MQTT Broker
 Cloud API (MQTT Manager)
-    ✅ Subscribed to: $iot/device/*/sensor/+
+    ✅ Subscribed to: iot/device/*/sensor/+
     ↓ MATCH! Receives message
     ↓ handleMessage()
-    ↓ Detects: topic.startsWith('$iot/device/')
+    ↓ Detects: topic.startsWith('iot/device/')
     ↓ Detects: topic.includes('/sensor/')
     ↓ handleAwsIotSensorMessage()
     ↓ Parses: deviceUuid=abc-123, sensorTopic=temperature
@@ -155,10 +155,10 @@ PostgreSQL
 📋 Client ID: api-server
 🔧 QoS: 1
 📡 Subscribing to all device topics...
-🔍 Attempting to subscribe to: $iot/device/*/sensor/+
-✅ Subscribed to $iot/device/*/sensor/+ (QoS: 1)  ← FIXED!
-🔍 Attempting to subscribe to: $iot/device/*/shadow/name/+/update/accepted
-✅ Subscribed to $iot/device/*/shadow/name/+/update/accepted (QoS: 1)
+🔍 Attempting to subscribe to: iot/device/*/sensor/+
+✅ Subscribed to iot/device/*/sensor/+ (QoS: 1)  ← FIXED!
+🔍 Attempting to subscribe to: iot/device/*/shadow/name/+/update/accepted
+✅ Subscribed to iot/device/*/shadow/name/+/update/accepted (QoS: 1)
 ✅ MQTT service initialized
 ```
 
@@ -166,12 +166,12 @@ PostgreSQL
 
 ```bash
 # Device log:
-[SensorPublish] Publishing sensor data to $iot/device/abc-123.../sensor/temperature
+[SensorPublish] Publishing sensor data to iot/device/abc-123.../sensor/temperature
 
 # API log (NEW):
-📨 Raw MQTT message event fired: $iot/device/abc-123.../sensor/temperature
+📨 Raw MQTT message event fired: iot/device/abc-123.../sensor/temperature
 🔔 MQTT Message received: {
-  topic: '$iot/device/abc-123.../sensor/temperature',
+  topic: 'iot/device/abc-123.../sensor/temperature',
   payloadSize: 156,
   preview: '{"timestamp":"2025-10-18...","data":{"temperature":22.5}...}'
 }
@@ -191,7 +191,7 @@ cd api
 npm run dev
 
 # Look for:
-✅ Subscribed to $iot/device/*/sensor/+ (QoS: 1)
+✅ Subscribed to iot/device/*/sensor/+ (QoS: 1)
 ```
 
 ### 2. Start Device Agent
@@ -208,16 +208,16 @@ npm run dev
 
 **Monitor MQTT (optional)**:
 ```bash
-mosquitto_sub -h localhost -p 1883 -t '$iot/device/+/sensor/#' -v
+mosquitto_sub -h localhost -p 1883 -t 'iot/device/+/sensor/#' -v
 
 # Should see:
-$iot/device/abc-123.../sensor/temperature {"timestamp":...}
+iot/device/abc-123.../sensor/temperature {"timestamp":...}
 ```
 
 **Check API logs**:
 ```bash
 # Should now see:
-📨 Raw MQTT message event fired: $iot/device/abc-123.../sensor/temperature
+📨 Raw MQTT message event fired: iot/device/abc-123.../sensor/temperature
 ✅ Detected AWS IoT topic
 📊 Sensor data from abc-123.../sensor1
 ✅ Stored sensor data: abc-123.../sensor1
@@ -246,17 +246,17 @@ LIMIT 10;
 
 | Device Publishes | API Subscribes (Before) | Match? |
 |-----------------|-------------------------|---------|
-| `$iot/device/abc-123/sensor/temperature` | `device/*/sensor/+/data` | ❌ NO |
+| `iot/device/abc-123/sensor/temperature` | `device/*/sensor/+/data` | ❌ NO |
 
 | Device Publishes | API Subscribes (After) | Match? |
 |-----------------|------------------------|---------|
-| `$iot/device/abc-123/sensor/temperature` | `$iot/device/*/sensor/+` | ✅ YES! |
+| `iot/device/abc-123/sensor/temperature` | `iot/device/*/sensor/+` | ✅ YES! |
 
 ### Shadow Topics (Already Working)
 
 | Device Publishes | API Subscribes | Match? |
 |-----------------|----------------|---------|
-| `$iot/device/abc-123/shadow/name/sensor-config/update/accepted` | `$iot/device/*/shadow/name/+/update/accepted` | ✅ YES |
+| `iot/device/abc-123/shadow/name/sensor-config/update/accepted` | `iot/device/*/shadow/name/+/update/accepted` | ✅ YES |
 
 ---
 
@@ -266,18 +266,18 @@ LIMIT 10;
 
 ```
 Sensors:
-  $iot/device/{uuid}/sensor/{sensorTopic}
+  iot/device/{uuid}/sensor/{sensorTopic}
   Examples:
-    - $iot/device/abc-123/sensor/temperature
-    - $iot/device/abc-123/sensor/humidity
-    - $iot/device/abc-123/sensor/pressure
+    - iot/device/abc-123/sensor/temperature
+    - iot/device/abc-123/sensor/humidity
+    - iot/device/abc-123/sensor/pressure
 
 Shadow:
-  $iot/device/{uuid}/shadow/name/{shadowName}/update/accepted
-  $iot/device/{uuid}/shadow/name/{shadowName}/update/delta
+  iot/device/{uuid}/shadow/name/{shadowName}/update/accepted
+  iot/device/{uuid}/shadow/name/{shadowName}/update/delta
   Examples:
-    - $iot/device/abc-123/shadow/name/sensor-config/update/accepted
-    - $iot/device/abc-123/shadow/name/device-state/update/delta
+    - iot/device/abc-123/shadow/name/sensor-config/update/accepted
+    - iot/device/abc-123/shadow/name/device-state/update/delta
 ```
 
 ### Legacy Format (Container Logs, Metrics)
@@ -313,7 +313,7 @@ Status:
 ## Files Modified
 
 1. **`api/src/mqtt/mqtt-manager.ts`**:
-   - Updated sensor subscription: `$iot/device/*/sensor/+`
+   - Updated sensor subscription: `iot/device/*/sensor/+`
    - Updated message router to detect sensor vs shadow
    - Added `handleAwsIotSensorMessage()` method
    - Updated topic documentation comments

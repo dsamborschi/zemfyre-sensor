@@ -1,258 +1,296 @@
-import { EventEmitter } from 'events';
+/**
+ * Jobs Feature
+ * 
+ * Unified job delivery system combining MQTT (primary) and HTTP polling (fallback).
+ * Automatically handles failover between MQTT and HTTP based on connection status.
+ * 
+ * Architecture:
+ * - Primary: MQTT-based job notifications (instant, ~ms latency)
+ * - Fallback: HTTP polling (configurable interval, default 30s)
+ * - Automatic failover: Internal monitor switches delivery method based on MQTT connection
+ * - Unified execution: Single JobEngine handles jobs from both delivery methods
+ * - HTTP API integration: Polls /api/v1/devices/:uuid/jobs/next and posts status updates
+ */
+
+import axios, { AxiosInstance } from 'axios';
 import { randomUUID } from 'crypto';
-import { 
-  Feature,
-  JobExecutionData, 
-  JobExecutionStatusInfo,
-  JobStatus,
-  JobsConfig,
-  JobsTopics,
-  MqttConnection,
-  Logger,
-  ClientBaseNotifier
-} from './types';
-import { JobEngine } from './job-engine';
+import { BaseFeature, FeatureConfig } from '../../features/base-feature.js';
+import { AgentLogger } from '../../logging/agent-logger.js';
+import { MqttManager } from '../../mqtt/mqtt-manager.js';
+import { JobEngine } from './job-engine.js';
+import { JobDocument, JobStatus, JobExecutionData } from './types.js';
+
+export interface JobsConfig extends FeatureConfig {
+  enabled: boolean;
+  cloudApiUrl: string;
+  deviceApiKey?: string;
+  pollingIntervalMs?: number;
+  maxRetries?: number;
+  handlerDirectory?: string;
+  maxConcurrentJobs?: number;
+  defaultHandlerTimeout?: number;
+}
+
+interface CloudJob {
+  job_id: string;
+  job_name: string;
+  job_document: JobDocument;
+  timeout_seconds: number;
+  created_at: string;
+}
+
+interface JobStatusUpdate {
+  status: 'QUEUED' | 'IN_PROGRESS' | 'SUCCEEDED' | 'FAILED' | 'TIMED_OUT' | 'CANCELED';
+  exit_code?: number;
+  stdout?: string;
+  stderr?: string;
+  status_details?: {
+    message?: string;
+    progress?: number;
+    error?: string;
+    timestamp?: string;
+    [key: string]: any;
+  };
+}
 
 /**
- * Jobs Feature - Main orchestrator for AWS IoT Jobs
- * Ported from C++ JobsFeature class
+ * Jobs Feature
+ * 
+ * Unified job delivery system managing both MQTT (primary) and HTTP (fallback).
+ * Automatically switches between them based on MQTT connection status.
  */
-export class JobsFeature extends EventEmitter implements Feature {
-  private static readonly NAME = 'Jobs';
-  private static readonly TAG = 'JobsFeature';
-  private static readonly MAX_STATUS_DETAIL_LENGTH = 1024;
-
-  private mqttConnection: MqttConnection;
-  private logger: Logger;
-  private notifier: ClientBaseNotifier;
-  private config: JobsConfig;
+export class JobsFeature extends BaseFeature {
   private jobEngine: JobEngine;
-  private topics: JobsTopics;
-  
-  private needStop = false;
-  private handlingJob = false;
+  private httpClient: AxiosInstance;
+  private httpPollingInterval?: NodeJS.Timeout;
+  private connectionMonitor?: NodeJS.Timeout;
+  private lastMqttState: boolean = false;
+  private httpPaused: boolean = false;
+  private currentJobId: string | null = null;
+  private handlingJob: boolean = false;
+  private needStop: boolean = false;
   private latestJobNotification: JobExecutionData | null = null;
-  private updatePromises = new Map<string, { resolve: Function; reject: Function }>();
+  private mqttSubscribed: boolean = false;
 
   constructor(
-    mqttConnection: MqttConnection,
-    logger: Logger,
-    notifier: ClientBaseNotifier,
-    config: JobsConfig
+    config: JobsConfig,
+    agentLogger: AgentLogger,
+    deviceUuid: string
   ) {
-    super();
-    this.mqttConnection = mqttConnection;
-    this.logger = logger;
-    this.notifier = notifier;
-    this.config = config;
-    this.jobEngine = new JobEngine(logger);
-    
-    // Build topics using deviceUuid from config
-    this.topics = this.buildTopics(config.deviceUuid);
-  }
+    super(
+      config,
+      agentLogger,
+      'Jobs',
+      deviceUuid,
+      false, // We'll manage MQTT ourselves
+      'JOBS_DEBUG'
+    );
 
-  getName(): string {
-    return JobsFeature.NAME;
-  }
+    // Create shared JobEngine
+    this.jobEngine = new JobEngine(this.logger);
 
-  /**
-   * Start the Jobs feature
-   * Ported from C++ start() method
-   */
-  async start(): Promise<void> {
-    if (!this.config.enabled) {
-      this.logger.info(`${JobsFeature.TAG}: Jobs feature is disabled`);
-      return;
-    }
-
-    this.logger.info(`${JobsFeature.TAG}: Starting Jobs feature for device: ${this.config.deviceUuid}`);
-    
-    try {
-      // Subscribe to all necessary topics
-      await this.subscribeToJobsTopics();
-      
-      // Request the next pending job
-      await this.publishStartNextPendingJobExecutionRequest();
-      
-      this.notifier.onEvent(JobsFeature.NAME, 'FEATURE_STARTED');
-      this.logger.info(`${JobsFeature.TAG}: Jobs feature started successfully`);
-      
-    } catch (error) {
-      const errorMessage = `Failed to start Jobs feature: ${error instanceof Error ? error.message : String(error)}`;
-      this.logger.error(`${JobsFeature.TAG}: ${errorMessage}`);
-      this.notifier.onError(JobsFeature.NAME, 'STARTUP_FAILED', errorMessage);
-      throw error;
-    }
+    // Create HTTP client for polling
+    const jobConfig = this.config as JobsConfig;
+    this.httpClient = axios.create({
+      baseURL: jobConfig.cloudApiUrl,
+      timeout: 30000,
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': `Iotistic-agent/${deviceUuid}`,
+        'X-Device-API-Key': jobConfig.deviceApiKey || ''
+      }
+    });
   }
 
   /**
-   * Stop the Jobs feature
-   * Ported from C++ stop() method
+   * Validate configuration
    */
-  async stop(): Promise<void> {
-    this.logger.info(`${JobsFeature.TAG}: Stopping Jobs feature`);
+  protected validateConfig(): void {
+    const config = this.config as JobsConfig;
+    
+    if (!config.cloudApiUrl) {
+      throw new Error('cloudApiUrl is required for Jobs feature');
+    }
+
+    this.logger.debug(`Jobs configuration validated`);
+  }
+
+  /**
+   * Initialize - called before start
+   */
+  protected async onInitialize(): Promise<void> {
+    const config = this.config as JobsConfig;
+    
+    this.logger.info(`Initializing Jobs Feature`);
+    this.logger.info(`Cloud API: ${config.cloudApiUrl}`);
+    this.logger.info(`Polling interval: ${config.pollingIntervalMs || 30000}ms`);
+    this.logger.info(`Handler directory: ${config.handlerDirectory || '/app/data/job-handlers'}`);
+  }
+
+  /**
+   * Start the unified jobs feature
+   */
+  protected async onStart(): Promise<void> {
+    const config = this.config as JobsConfig;
+
+    // 1. Start HTTP polling (always available as fallback)
+    await this.startHttpPolling(config);
+
+    // 2. Initialize MQTT subscriptions (if available)
+    await this.initializeMqttSubscriptions();
+
+    // 3. Start connection monitor for automatic fallback
+    this.startConnectionMonitor();
+
+    this.logger.info(`Jobs Feature started - Mode: ${this.mqttSubscribed ? 'MQTT-primary with HTTP fallback' : 'HTTP-only'}`);
+  }
+
+  /**
+   * Stop the jobs feature
+   */
+  protected async onStop(): Promise<void> {
+    this.logger.info(`Stopping Jobs Feature`);
     this.needStop = true;
+
+    // Stop connection monitor
+    if (this.connectionMonitor) {
+      clearInterval(this.connectionMonitor);
+      this.connectionMonitor = undefined;
+    }
+
+    // Stop HTTP polling
+    if (this.httpPollingInterval) {
+      clearInterval(this.httpPollingInterval);
+      this.httpPollingInterval = undefined;
+      this.logger.info(`HTTP polling stopped`);
+    }
+
+    // Unsubscribe from MQTT topics
+    if (this.mqttSubscribed) {
+      await this.unsubscribeFromMqtt();
+    }
+
+    // Wait for current job to complete
+    while (this.handlingJob) {
+      await this.sleep(100);
+    }
+
+    this.logger.info(`Jobs Feature stopped`);
+  }
+
+  /**
+   * Start HTTP polling (always available as fallback)
+   */
+  private async startHttpPolling(config: JobsConfig): Promise<void> {
+    const pollingIntervalMs = config.pollingIntervalMs || 30000;
     
-    try {
-      // Wait for current job to complete if running
-      while (this.handlingJob) {
-        await this.sleep(100);
+    this.logger.info(`Starting HTTP polling (interval: ${pollingIntervalMs}ms)`);
+
+    // Initial poll
+    await this.pollForJobs();
+
+    // Set up recurring polls
+    this.httpPollingInterval = setInterval(async () => {
+      if (!this.httpPaused && !this.handlingJob && !this.needStop) {
+        await this.pollForJobs();
       }
-      
-      // Unsubscribe from all topics
-      await this.unsubscribeFromJobsTopics();
-      
-      this.notifier.onEvent(JobsFeature.NAME, 'FEATURE_STOPPED');
-      this.logger.info(`${JobsFeature.TAG}: Jobs feature stopped successfully`);
-      
-    } catch (error) {
-      const errorMessage = `Error stopping Jobs feature: ${error instanceof Error ? error.message : String(error)}`;
-      this.logger.error(`${JobsFeature.TAG}: ${errorMessage}`);
-      this.notifier.onError(JobsFeature.NAME, 'SHUTDOWN_ERROR', errorMessage);
-    }
+    }, pollingIntervalMs);
+
+    this.logger.info(`HTTP polling started`);
   }
 
   /**
-   * Subscribe to all Jobs-related MQTT topics
+   * Poll cloud API for pending jobs
    */
-  private async subscribeToJobsTopics(): Promise<void> {
-    const subscriptions = [
-      { topic: this.topics.startNextAccepted, handler: this.handleStartNextJobAccepted.bind(this) },
-      { topic: this.topics.startNextRejected, handler: this.handleStartNextJobRejected.bind(this) },
-      { topic: this.topics.updateAccepted, handler: this.handleUpdateJobExecutionAccepted.bind(this) },
-      { topic: this.topics.updateRejected, handler: this.handleUpdateJobExecutionRejected.bind(this) },
-      { topic: this.topics.notifyNext, handler: this.handleNextJobChanged.bind(this) }
-    ];
+  private async pollForJobs(): Promise<void> {
+    try {
+      const response = await this.httpClient.get<CloudJob | null>(
+        `/devices/${this.deviceUuid}/jobs/next`
+      );
 
-    for (const sub of subscriptions) {
-      try {
-        await this.mqttConnection.subscribe(sub.topic, (topic: string, payload: Buffer) => {
-          try {
-            const message = JSON.parse(payload.toString());
-            sub.handler(message);
-          } catch (error) {
-            this.logger.error(`${JobsFeature.TAG}: Failed to parse message on topic ${topic}: ${error}`);
-          }
-        });
-        this.logger.debug(`${JobsFeature.TAG}: Subscribed to topic: ${sub.topic}`);
-      } catch (error) {
-        this.logger.error(`${JobsFeature.TAG}: Failed to subscribe to topic ${sub.topic}: ${error}`);
-        throw error;
+      if (response.data) {
+        const cloudJob = response.data;
+        this.logger.info(`Received job from HTTP polling: ${cloudJob.job_id}`);
+        
+        // Convert to JobExecutionData format
+        const jobData: JobExecutionData = {
+          jobId: cloudJob.job_id,
+          deviceUuid: this.deviceUuid,
+          jobDocument: cloudJob.job_document,
+          status: 'QUEUED' as any,
+          versionNumber: 1,
+          executionNumber: 1
+        };
+
+        await this.executeJob(jobData);
+      }
+    } catch (error: any) {
+      if (error.response?.status !== 404) {
+        this.logger.error(`HTTP polling error: ${error.message}`);
       }
     }
   }
 
   /**
-   * Unsubscribe from all Jobs-related MQTT topics
+   * Initialize MQTT subscriptions (optional, primary method)
    */
-  private async unsubscribeFromJobsTopics(): Promise<void> {
-    const topics = [
-      this.topics.startNextAccepted,
-      this.topics.startNextRejected,
-      this.topics.updateAccepted,
-      this.topics.updateRejected,
-      this.topics.notifyNext
-    ];
-
-    for (const topic of topics) {
-      try {
-        await this.mqttConnection.unsubscribe(topic);
-        this.logger.debug(`${JobsFeature.TAG}: Unsubscribed from topic: ${topic}`);
-      } catch (error) {
-        this.logger.warn(`${JobsFeature.TAG}: Failed to unsubscribe from topic ${topic}: ${error}`);
+  private async initializeMqttSubscriptions(): Promise<void> {
+    try {
+      const mqttManager = MqttManager.getInstance();
+      if (!mqttManager.isConnected()) {
+        this.logger.warn(`MQTT not connected, using HTTP-only mode`);
+        return;
       }
-    }
-  }
 
-  /**
-   * Publish a request to start the next pending job execution
-   * Ported from C++ publishStartNextPendingJobExecutionRequest
-   */
-  private async publishStartNextPendingJobExecutionRequest(): Promise<void> {
-    const request = {
-      clientToken: randomUUID()
-    };
+      this.logger.info(`Initializing MQTT job notifications (primary)`);
 
-    const payload = JSON.stringify(request);
-    
-    try {
-      await this.mqttConnection.publish(this.topics.startNext, payload);
-      this.logger.debug(`${JobsFeature.TAG}: Published StartNextPendingJobExecution request`);
+      // Subscribe to job notification topic
+      const notifyTopic = `iot/device/${this.deviceUuid}/jobs/notify-next`;
+      
+      await mqttManager.subscribe(notifyTopic, { qos: 1 }, async (topic: string, payload: Buffer) => {
+        try {
+          const message = JSON.parse(payload.toString());
+          await this.handleMqttJobNotification(message);
+        } catch (error) {
+          this.logger.error(`Failed to parse MQTT job notification: ${error}`);
+        }
+      });
+
+      this.mqttSubscribed = true;
+      this.logger.info(`MQTT job notifications initialized`);
+
     } catch (error) {
-      this.logger.error(`${JobsFeature.TAG}: Failed to publish StartNextPendingJobExecution request: ${error}`);
-      throw error;
+      this.logger.warn(`Failed to initialize MQTT subscriptions (will use HTTP fallback): ${error}`);
+      this.mqttSubscribed = false;
     }
   }
 
   /**
-   * Update job execution status
-   * Ported from C++ publishUpdateJobExecutionStatus
+   * Handle MQTT job notification
    */
-  private async publishUpdateJobExecutionStatus(
-    jobData: JobExecutionData,
-    statusInfo: JobExecutionStatusInfo
-  ): Promise<void> {
-    const statusDetails: Record<string, string> = {};
+  private async handleMqttJobNotification(message: any): Promise<void> {
+    this.logger.debug(`Received MQTT job notification`);
     
-    if (statusInfo.reason) {
-      statusDetails.reason = this.truncateStatusDetail(statusInfo.reason);
-    }
-    
-    if (statusInfo.stdOutput && jobData.jobDocument.includeStdOut) {
-      statusDetails.stdout = this.truncateStatusDetail(statusInfo.stdOutput);
-    }
-    
-    if (statusInfo.stdError) {
-      statusDetails.stderr = this.truncateStatusDetail(statusInfo.stdError);
-    }
-
-    const updateRequest = {
-      status: statusInfo.status,
-      statusDetails,
-      expectedVersion: jobData.versionNumber,
-      executionNumber: jobData.executionNumber,
-      clientToken: randomUUID()
-    };
-
-    const topic = `iot/device/${this.config.deviceUuid}/jobs/${jobData.jobId}/update`;
-    const payload = JSON.stringify(updateRequest);
-
-    try {
-      await this.mqttConnection.publish(topic, payload);
-      this.logger.info(`${JobsFeature.TAG}: Published job status update for job ${jobData.jobId}: ${statusInfo.status}`);
-    } catch (error) {
-      this.logger.error(`${JobsFeature.TAG}: Failed to publish job status update: ${error}`);
-      throw error;
-    }
-  }
-
-  /**
-   * Handle StartNextJobAccepted response
-   * Ported from C++ startNextPendingJobReceivedHandler
-   */
-  private async handleStartNextJobAccepted(response: any): Promise<void> {
-    this.logger.debug(`${JobsFeature.TAG}: Received StartNextJobAccepted response`);
-    
-    if (!response.execution) {
-      this.logger.info(`${JobsFeature.TAG}: No pending jobs available`);
+    if (!message.execution) {
+      this.logger.info(`No pending jobs available`);
       return;
     }
 
     const jobData: JobExecutionData = {
-      jobId: response.execution.jobId,
-      deviceUuid: response.execution.deviceUuid || response.execution.thingName,
-      jobDocument: response.execution.jobDocument,
-      status: response.execution.status,
-      queuedAt: response.execution.queuedAt ? new Date(response.execution.queuedAt) : undefined,
-      startedAt: response.execution.startedAt ? new Date(response.execution.startedAt) : undefined,
-      lastUpdatedAt: response.execution.lastUpdatedAt ? new Date(response.execution.lastUpdatedAt) : undefined,
-      versionNumber: response.execution.versionNumber,
-      executionNumber: response.execution.executionNumber,
-      statusDetails: response.execution.statusDetails || undefined
+      jobId: message.execution.jobId,
+      deviceUuid: message.execution.deviceUuid || message.execution.thingName || this.deviceUuid,
+      jobDocument: message.execution.jobDocument,
+      status: message.execution.status || 'QUEUED',
+      queuedAt: message.execution.queuedAt ? new Date(message.execution.queuedAt) : undefined,
+      startedAt: message.execution.startedAt ? new Date(message.execution.startedAt) : undefined,
+      lastUpdatedAt: message.execution.lastUpdatedAt ? new Date(message.execution.lastUpdatedAt) : undefined,
+      versionNumber: message.execution.versionNumber || 1,
+      executionNumber: message.execution.executionNumber || 1,
+      statusDetails: message.execution.statusDetails
     };
 
     if (this.isDuplicateNotification(jobData)) {
-      this.logger.debug(`${JobsFeature.TAG}: Ignoring duplicate job notification for job ${jobData.jobId}`);
+      this.logger.debug(`Ignoring duplicate job notification for job ${jobData.jobId}`);
       return;
     }
 
@@ -260,135 +298,112 @@ export class JobsFeature extends EventEmitter implements Feature {
   }
 
   /**
-   * Handle StartNextJobRejected response
-   * Ported from C++ startNextPendingJobRejectedHandler
+   * Unsubscribe from MQTT topics
    */
-  private handleStartNextJobRejected(error: any): void {
-    this.logger.error(`${JobsFeature.TAG}: StartNextJob request rejected: ${JSON.stringify(error)}`);
-    this.notifier.onError(JobsFeature.NAME, 'START_JOB_REJECTED', `Start job request rejected: ${error.message || 'Unknown error'}`);
-  }
-
-  /**
-   * Handle job execution update accepted
-   * Ported from C++ updateJobExecutionStatusAcceptedHandler
-   */
-  private handleUpdateJobExecutionAccepted(response: any): void {
-    this.logger.debug(`${JobsFeature.TAG}: Job execution update accepted for job ${response.jobId}`);
-    
-    if (response.clientToken && this.updatePromises.has(response.clientToken)) {
-      const promise = this.updatePromises.get(response.clientToken);
-      promise?.resolve(response);
-      this.updatePromises.delete(response.clientToken);
-    }
-  }
-
-  /**
-   * Handle job execution update rejected
-   * Ported from C++ updateJobExecutionStatusRejectedHandler
-   */
-  private handleUpdateJobExecutionRejected(error: any): void {
-    this.logger.error(`${JobsFeature.TAG}: Job execution update rejected: ${JSON.stringify(error)}`);
-    
-    if (error.clientToken && this.updatePromises.has(error.clientToken)) {
-      const promise = this.updatePromises.get(error.clientToken);
-      promise?.reject(new Error(`Update rejected: ${error.message || 'Unknown error'}`));
-      this.updatePromises.delete(error.clientToken);
-    }
-  }
-
-  /**
-   * Handle next job changed notification
-   * Ported from C++ nextJobChangedHandler
-   */
-  private async handleNextJobChanged(event: any): Promise<void> {
-    this.logger.debug(`${JobsFeature.TAG}: Next job changed notification received`);
-    
-    if (event.execution) {
-      const jobData: JobExecutionData = {
-        jobId: event.execution.jobId,
-        deviceUuid: event.execution.deviceUuid || event.execution.thingName,
-        jobDocument: event.execution.jobDocument,
-        status: event.execution.status,
-        queuedAt: event.execution.queuedAt ? new Date(event.execution.queuedAt) : undefined,
-        startedAt: event.execution.startedAt ? new Date(event.execution.startedAt) : undefined,
-        lastUpdatedAt: event.execution.lastUpdatedAt ? new Date(event.execution.lastUpdatedAt) : undefined,
-        versionNumber: event.execution.versionNumber,
-        executionNumber: event.execution.executionNumber,
-        statusDetails: event.execution.statusDetails || undefined
-      };
-
-      if (!this.isDuplicateNotification(jobData)) {
-        await this.executeJob(jobData);
-      }
-    } else {
-      this.logger.info(`${JobsFeature.TAG}: No more jobs to execute`);
+  private async unsubscribeFromMqtt(): Promise<void> {
+    try {
+      const mqttManager = MqttManager.getInstance();
+      const notifyTopic = `iot/device/${this.deviceUuid}/jobs/notify-next`;
+      await mqttManager.unsubscribe(notifyTopic);
+      this.mqttSubscribed = false;
+      this.logger.info(`Unsubscribed from MQTT job notifications`);
+    } catch (error) {
+      this.logger.warn(`Failed to unsubscribe from MQTT: ${error}`);
     }
   }
 
   /**
    * Execute a job
-   * Ported from C++ executeJob method
    */
   private async executeJob(jobData: JobExecutionData): Promise<void> {
     if (this.needStop) {
-      this.logger.info(`${JobsFeature.TAG}: Ignoring job ${jobData.jobId} due to shutdown request`);
+      this.logger.info(`Ignoring job ${jobData.jobId} due to shutdown request`);
       return;
     }
 
     if (this.handlingJob) {
-      this.logger.warn(`${JobsFeature.TAG}: Already handling a job, ignoring job ${jobData.jobId}`);
+      this.logger.warn(`Already handling a job, ignoring job ${jobData.jobId}`);
       return;
     }
 
     this.handlingJob = true;
+    this.currentJobId = jobData.jobId;
     this.latestJobNotification = jobData;
 
     try {
-      this.logger.info(`${JobsFeature.TAG}: Starting execution of job ${jobData.jobId}`);
+      this.logger.info(`Starting execution of job ${jobData.jobId}`);
 
       // Update job status to IN_PROGRESS
-      await this.publishUpdateJobExecutionStatus(jobData, {
-        status: JobStatus.IN_PROGRESS,
-        reason: 'Job execution started'
+      await this.updateJobStatus(jobData.jobId, {
+        status: 'IN_PROGRESS',
+        status_details: {
+          message: 'Job execution started',
+          timestamp: new Date().toISOString()
+        }
       });
 
       // Execute the job
-      const result = await this.jobEngine.executeSteps(jobData.jobDocument, this.config.handlerDirectory);
+      const config = this.config as JobsConfig;
+      const result = await this.jobEngine.executeSteps(
+        jobData.jobDocument,
+        config.handlerDirectory || '/app/data/job-handlers'
+      );
 
       // Update final job status
-      const finalStatus = result.success ? JobStatus.SUCCEEDED : JobStatus.FAILED;
-      await this.publishUpdateJobExecutionStatus(jobData, {
+      const finalStatus = result.success ? 'SUCCEEDED' : 'FAILED';
+      await this.updateJobStatus(jobData.jobId, {
         status: finalStatus,
-        reason: result.reason,
-        stdOutput: result.stdout,
-        stdError: result.stderr
+        exit_code: result.exitCode,
+        stdout: result.stdout,
+        stderr: result.stderr,
+        status_details: {
+          message: result.reason || (result.success ? 'Job completed successfully' : 'Job failed'),
+          timestamp: new Date().toISOString()
+        }
       });
 
-      this.logger.info(`${JobsFeature.TAG}: Job ${jobData.jobId} completed with status: ${finalStatus}`);
+      this.logger.info(`Job ${jobData.jobId} completed with status: ${finalStatus}`);
 
     } catch (error) {
       const errorMessage = `Job execution failed: ${error instanceof Error ? error.message : String(error)}`;
-      this.logger.error(`${JobsFeature.TAG}: ${errorMessage}`);
+      this.logger.error(errorMessage);
 
       try {
-        await this.publishUpdateJobExecutionStatus(jobData, {
-          status: JobStatus.FAILED,
-          reason: errorMessage,
-          stdError: errorMessage
+        await this.updateJobStatus(jobData.jobId, {
+          status: 'FAILED',
+          stderr: errorMessage,
+          status_details: {
+            error: errorMessage,
+            timestamp: new Date().toISOString()
+          }
         });
       } catch (updateError) {
-        this.logger.error(`${JobsFeature.TAG}: Failed to update job status after error: ${updateError}`);
+        this.logger.error(`Failed to update job status after error: ${updateError}`);
       }
-
-      this.notifier.onError(JobsFeature.NAME, 'JOB_EXECUTION_FAILED', errorMessage);
     } finally {
       this.handlingJob = false;
+      this.currentJobId = null;
+    }
+  }
+
+  /**
+   * Update job status via HTTP API
+   */
+  private async updateJobStatus(jobId: string, update: JobStatusUpdate): Promise<void> {
+    try {
+      await this.httpClient.post(
+        `/devices/${this.deviceUuid}/jobs/${jobId}/status`,
+        update
+      );
+      this.logger.debug(`Updated job ${jobId} status to ${update.status}`);
+    } catch (error: any) {
+      this.logger.error(`Failed to update job status: ${error.message}`);
+      throw error;
     }
   }
 
   /**
    * Check if this is a duplicate job notification
-   * Ported from C++ isDuplicateNotification method
    */
   private isDuplicateNotification(jobData: JobExecutionData): boolean {
     if (!this.latestJobNotification) {
@@ -401,28 +416,39 @@ export class JobsFeature extends EventEmitter implements Feature {
   }
 
   /**
-   * Build MQTT topic patterns for the given device UUID
+   * Monitor MQTT connection and coordinate HTTP pause/resume
    */
-  private buildTopics(deviceUuid: string): JobsTopics {
-    return {
-      startNext: `iot/device/${deviceUuid}/jobs/start-next`,
-      startNextAccepted: `iot/device/${deviceUuid}/jobs/start-next/accepted`,
-      startNextRejected: `iot/device/${deviceUuid}/jobs/start-next/rejected`,
-      updateAccepted: `iot/device/${deviceUuid}/jobs/+/update/accepted`,
-      updateRejected: `iot/device/${deviceUuid}/jobs/+/update/rejected`,
-      notifyNext: `iot/device/${deviceUuid}/jobs/notify-next`
-    };
-  }
+  private startConnectionMonitor(): void {
+    const mqttManager = MqttManager.getInstance();
+    this.lastMqttState = mqttManager.isConnected();
 
-  /**
-   * Truncate status detail to fit AWS IoT Jobs API limits
-   */
-  private truncateStatusDetail(detail: string): string {
-    if (detail.length <= JobsFeature.MAX_STATUS_DETAIL_LENGTH) {
-      return detail;
+    // Initially pause HTTP if MQTT is connected
+    if (this.lastMqttState && this.mqttSubscribed) {
+      this.httpPaused = true;
+      this.logger.info(`MQTT connected - HTTP polling paused (MQTT-primary mode)`);
     }
-    
-    return detail.substring(0, JobsFeature.MAX_STATUS_DETAIL_LENGTH - 20) + '... [truncated]';
+
+    // Monitor MQTT connection every 5 seconds
+    this.connectionMonitor = setInterval(() => {
+      const currentMqttState = mqttManager.isConnected();
+
+      // MQTT state changed
+      if (currentMqttState !== this.lastMqttState) {
+        if (currentMqttState && this.mqttSubscribed) {
+          // MQTT reconnected - pause HTTP polling
+          this.httpPaused = true;
+          this.logger.info(`MQTT reconnected - switching to MQTT-primary mode`);
+        } else {
+          // MQTT disconnected - resume HTTP polling
+          this.httpPaused = false;
+          this.logger.warn(`MQTT disconnected - falling back to HTTP polling`);
+        }
+
+        this.lastMqttState = currentMqttState;
+      }
+    }, 5000); // Check every 5 seconds
+
+    this.logger.info(`Connection monitor started - Initial mode: ${this.lastMqttState && this.mqttSubscribed ? 'MQTT-primary' : 'HTTP-fallback'}`);
   }
 
   /**
@@ -430,5 +456,33 @@ export class JobsFeature extends EventEmitter implements Feature {
    */
   private sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  /**
+   * Get the shared JobEngine instance
+   */
+  public getJobEngine(): JobEngine {
+    return this.jobEngine;
+  }
+
+  /**
+   * Check if MQTT jobs are active
+   */
+  public isMqttActive(): boolean {
+    return this.mqttSubscribed && MqttManager.getInstance().isConnected();
+  }
+
+  /**
+   * Check if HTTP jobs are active
+   */
+  public isHttpActive(): boolean {
+    return !this.httpPaused;
+  }
+
+  /**
+   * Get current delivery mode
+   */
+  public getCurrentMode(): 'mqtt' | 'http' {
+    return this.isMqttActive() ? 'mqtt' : 'http';
   }
 }

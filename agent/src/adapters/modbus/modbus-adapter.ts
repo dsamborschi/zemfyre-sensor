@@ -225,6 +225,9 @@ export class ModbusAdapter extends EventEmitter {
 
       this.emit('device-error', deviceConfig.name, error);
       
+      // ✅ Start polling even when disconnected (to send BAD quality data)
+      this.startPolling(deviceConfig);
+      
       // Schedule retry
       this.scheduleDeviceRetry(deviceConfig);
     }
@@ -267,6 +270,23 @@ export class ModbusAdapter extends EventEmitter {
         const client = this.clients.get(deviceConfig.name);
         if (!client || !client.isConnected()) {
           this.logger.warn(`Device ${deviceConfig.name} is not connected, skipping poll`);
+          
+          // ✅ Still send BAD quality data points to indicate device is offline
+          const timestamp = new Date().toISOString();
+          const badDataPoints = deviceConfig.registers.map(register => ({
+            deviceName: deviceConfig.name,
+            registerName: register.name,
+            value: null,
+            unit: register.unit || '',
+            timestamp: timestamp,
+            quality: 'BAD' as const,
+            qualityCode: 'DEVICE_OFFLINE'
+          }));
+          
+          if (badDataPoints.length > 0) {
+            this.socketServer.sendData(badDataPoints);
+          }
+          
           return;
         }
 
@@ -277,7 +297,7 @@ export class ModbusAdapter extends EventEmitter {
         const status = this.deviceStatuses.get(deviceConfig.name)!;
         status.lastPoll = new Date();
 
-        // Send data to socket server
+        // Send data to socket server (includes both GOOD and BAD quality points)
         if (dataPoints.length > 0) {
           this.socketServer.sendData(dataPoints);
           this.emit('data-received', deviceConfig.name, dataPoints);
@@ -295,6 +315,23 @@ export class ModbusAdapter extends EventEmitter {
 
         this.emit('device-error', deviceConfig.name, error);
         
+        // ✅ Send BAD quality data points with error code
+        const timestamp = new Date().toISOString();
+        const qualityCode = this.extractQualityCode(errorMessage);
+        const badDataPoints = deviceConfig.registers.map(register => ({
+          deviceName: deviceConfig.name,
+          registerName: register.name,
+          value: null,
+          unit: register.unit || '',
+          timestamp: timestamp,
+          quality: 'BAD' as const,
+          qualityCode: qualityCode
+        }));
+        
+        if (badDataPoints.length > 0) {
+          this.socketServer.sendData(badDataPoints);
+        }
+        
         // Try to reconnect
         this.scheduleDeviceRetry(deviceConfig);
         return;
@@ -307,6 +344,29 @@ export class ModbusAdapter extends EventEmitter {
 
     // Start first poll immediately
     setTimeout(pollDevice, 100);
+  }
+
+  /**
+   * Extract quality code from error message
+   */
+  private extractQualityCode(errorMessage: string): string {
+    if (errorMessage.includes('ETIMEDOUT') || errorMessage.includes('timeout')) {
+      return 'TIMEOUT';
+    }
+    if (errorMessage.includes('ECONNREFUSED')) {
+      return 'CONNECTION_REFUSED';
+    }
+    if (errorMessage.includes('EHOSTUNREACH')) {
+      return 'HOST_UNREACHABLE';
+    }
+    if (errorMessage.includes('ECONNRESET')) {
+      return 'CONNECTION_RESET';
+    }
+    if (errorMessage.includes('File not found') || errorMessage.includes('ENOENT')) {
+      return 'PORT_NOT_FOUND';
+    }
+    
+    return 'DEVICE_ERROR';
   }
 
   /**

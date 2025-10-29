@@ -6,9 +6,9 @@ API was subscribed to **wrong shadow update topic**:
 
 | Component | Topic | Status |
 |-----------|-------|---------|
-| **Device Agent** | `$iot/device/{uuid}/shadow/name/{shadowName}/update` | Device publishes ✅ |
-| **Cloud API (Before)** | `$iot/device/*/shadow/name/+/update/accepted` | Listening for responses ❌ |
-| **Cloud API (After)** | `$iot/device/*/shadow/name/+/update` | Matches device! ✅ |
+| **Device Agent** | `iot/device/{uuid}/shadow/name/{shadowName}/update` | Device publishes ✅ |
+| **Cloud API (Before)** | `iot/device/*/shadow/name/+/update/accepted` | Listening for responses ❌ |
+| **Cloud API (After)** | `iot/device/*/shadow/name/+/update` | Matches device! ✅ |
 
 **Result**: Device was publishing shadow updates, but API was waiting for AWS IoT service responses that never came!
 
@@ -21,11 +21,11 @@ API was subscribed to **wrong shadow update topic**:
 In AWS IoT Core, shadow topics have a specific structure:
 
 ```
-Device → AWS IoT:  $iot/device/{uuid}/shadow/name/{name}/update
-AWS IoT → Device:  $iot/device/{uuid}/shadow/name/{name}/update/accepted
-AWS IoT → Device:  $iot/device/{uuid}/shadow/name/{name}/update/rejected
-AWS IoT → Device:  $iot/device/{uuid}/shadow/name/{name}/update/delta
-AWS IoT → Device:  $iot/device/{uuid}/shadow/name/{name}/update/documents
+Device → AWS IoT:  iot/device/{uuid}/shadow/name/{name}/update
+AWS IoT → Device:  iot/device/{uuid}/shadow/name/{name}/update/accepted
+AWS IoT → Device:  iot/device/{uuid}/shadow/name/{name}/update/rejected
+AWS IoT → Device:  iot/device/{uuid}/shadow/name/{name}/update/delta
+AWS IoT → Device:  iot/device/{uuid}/shadow/name/{name}/update/documents
 ```
 
 **Our Iotistic system** (without AWS IoT service):
@@ -46,15 +46,15 @@ We don't have AWS IoT Core in the middle to generate `/accepted` responses!
 ```typescript
 case 'shadow-reported':
   // Subscribe to AWS IoT Shadow update/accepted (device reports state)
-  return `$iot/device/${deviceUuid}/shadow/name/+/update/accepted`;
+  return `iot/device/${deviceUuid}/shadow/name/+/update/accepted`;
 ```
 
 **After**:
 ```typescript
 case 'shadow-reported':
   // Subscribe to AWS IoT Shadow /update topic (device publishes state updates here)
-  // Device publishes to: $iot/device/{uuid}/shadow/name/{shadowName}/update
-  return `$iot/device/${deviceUuid}/shadow/name/+/update`;
+  // Device publishes to: iot/device/{uuid}/shadow/name/{shadowName}/update
+  return `iot/device/${deviceUuid}/shadow/name/+/update`;
 ```
 
 ### 2. Updated Shadow Message Handler
@@ -97,7 +97,7 @@ case 'shadow-reported':
 ```
 Device Agent (Shadow Feature)
     ↓ Publishes shadow state
-Topic: $iot/device/46b68204.../shadow/name/device-state/update
+Topic: iot/device/46b68204.../shadow/name/device-state/update
 Payload: {
   "state": {
     "reported": {
@@ -110,10 +110,10 @@ Payload: {
 }
     ↓ MQTT Broker (Mosquitto)
 Cloud API (MQTT Manager)
-    ✅ Subscribed to: $iot/device/*/shadow/name/+/update
+    ✅ Subscribed to: iot/device/*/shadow/name/+/update
     ↓ MATCH! Receives message
     ↓ handleMessage()
-    ↓ Detects: topic.startsWith('$iot/device/')
+    ↓ Detects: topic.startsWith('iot/device/')
     ↓ Detects: topic.includes('/shadow/')
     ↓ handleAwsIotShadowMessage()
     ↓ Parses: deviceUuid, shadowName, updateType='update'
@@ -139,12 +139,12 @@ PostgreSQL
 📋 Client ID: api-server
 🔧 QoS: 1
 📡 Subscribing to 6 topic patterns...
-🔍 Attempting to subscribe to: $iot/device/*/sensor/+
-✅ Subscribed to $iot/device/*/sensor/+ (QoS: 1)
-🔍 Attempting to subscribe to: $iot/device/*/shadow/name/+/update  ← FIXED!
-✅ Subscribed to $iot/device/*/shadow/name/+/update (QoS: 1)     ← FIXED!
-🔍 Attempting to subscribe to: $iot/device/*/shadow/name/+/update/delta
-✅ Subscribed to $iot/device/*/shadow/name/+/update/delta (QoS: 1)
+🔍 Attempting to subscribe to: iot/device/*/sensor/+
+✅ Subscribed to iot/device/*/sensor/+ (QoS: 1)
+🔍 Attempting to subscribe to: iot/device/*/shadow/name/+/update  ← FIXED!
+✅ Subscribed to iot/device/*/shadow/name/+/update (QoS: 1)     ← FIXED!
+🔍 Attempting to subscribe to: iot/device/*/shadow/name/+/update/delta
+✅ Subscribed to iot/device/*/shadow/name/+/update/delta (QoS: 1)
 ✅ Successfully subscribed to 6 topics
 ```
 
@@ -152,12 +152,12 @@ PostgreSQL
 
 ```bash
 # Device log:
-[Shadow] Publishing to $iot/device/46b68204.../shadow/name/device-state/update
+[Shadow] Publishing to iot/device/46b68204.../shadow/name/device-state/update
 
 # API log (NEW):
-📨 Raw MQTT message event fired: $iot/device/46b68204.../shadow/name/device-state/update
+📨 Raw MQTT message event fired: iot/device/46b68204.../shadow/name/device-state/update
 🔔 MQTT Message received: {
-  topic: '$iot/device/46b68204.../shadow/name/device-state/update',
+  topic: 'iot/device/46b68204.../shadow/name/device-state/update',
   payloadSize: 450,
   preview: '{"state":{"reported":{"sensors":...}}}'
 }
@@ -178,7 +178,7 @@ cd api
 npm run dev
 
 # Look for:
-✅ Subscribed to $iot/device/*/shadow/name/+/update (QoS: 1)
+✅ Subscribed to iot/device/*/shadow/name/+/update (QoS: 1)
 ```
 
 ### 2. Start Device Agent (or check if running)
@@ -194,10 +194,10 @@ npm run dev
 
 ```bash
 # Subscribe to all shadow topics
-docker exec -it mosquitto mosquitto_sub -t '$iot/device/+/shadow/#' -v
+docker exec -it mosquitto mosquitto_sub -t 'iot/device/+/shadow/#' -v
 
 # Should see:
-$iot/device/46b68204.../shadow/name/device-state/update {"state":{"reported":{...}}}
+iot/device/46b68204.../shadow/name/device-state/update {"state":{"reported":{...}}}
 ```
 
 ### 4. Verify API Receives Messages
@@ -205,7 +205,7 @@ $iot/device/46b68204.../shadow/name/device-state/update {"state":{"reported":{..
 **Check API logs**:
 ```bash
 # Should now see:
-📨 Raw MQTT message event fired: $iot/device/.../shadow/name/.../update
+📨 Raw MQTT message event fired: iot/device/.../shadow/name/.../update
 🔔 Shadow message: 46b68204.../device-state [update]
 ✅ Stored shadow update: 46b68204.../device-state
 ```
@@ -234,12 +234,12 @@ LIMIT 10;
 
 | Topic | Direction | Purpose | API Subscribes? |
 |-------|-----------|---------|-----------------|
-| `$iot/device/{uuid}/shadow/name/{name}/update` | Device → Cloud | Device reports state | ✅ YES (FIXED!) |
-| `$iot/device/{uuid}/shadow/name/{name}/update/accepted` | Cloud → Device | Confirm update accepted | ❌ No (we don't publish this) |
-| `$iot/device/{uuid}/shadow/name/{name}/update/rejected` | Cloud → Device | Reject invalid update | ❌ No (we don't publish this) |
-| `$iot/device/{uuid}/shadow/name/{name}/update/delta` | Cloud → Device | Desired ≠ Reported diff | ✅ YES (for cloud-to-device commands) |
-| `$iot/device/{uuid}/shadow/name/{name}/update/documents` | Cloud → Device | Full shadow document | ❌ No (not needed yet) |
-| `$iot/device/{uuid}/shadow/name/{name}/get` | Device → Cloud | Request shadow state | ❌ No (not implemented) |
+| `iot/device/{uuid}/shadow/name/{name}/update` | Device → Cloud | Device reports state | ✅ YES (FIXED!) |
+| `iot/device/{uuid}/shadow/name/{name}/update/accepted` | Cloud → Device | Confirm update accepted | ❌ No (we don't publish this) |
+| `iot/device/{uuid}/shadow/name/{name}/update/rejected` | Cloud → Device | Reject invalid update | ❌ No (we don't publish this) |
+| `iot/device/{uuid}/shadow/name/{name}/update/delta` | Cloud → Device | Desired ≠ Reported diff | ✅ YES (for cloud-to-device commands) |
+| `iot/device/{uuid}/shadow/name/{name}/update/documents` | Cloud → Device | Full shadow document | ❌ No (not needed yet) |
+| `iot/device/{uuid}/shadow/name/{name}/get` | Device → Cloud | Request shadow state | ❌ No (not implemented) |
 
 ---
 
@@ -276,8 +276,8 @@ We were following AWS IoT conventions but forgot we don't have the AWS IoT servi
 
 These subscriptions are still correct and working:
 
-✅ Sensors: `$iot/device/*/sensor/+`  
-✅ Shadow Delta: `$iot/device/*/shadow/name/+/update/delta` (for cloud-to-device commands)  
+✅ Sensors: `iot/device/*/sensor/+`  
+✅ Shadow Delta: `iot/device/*/shadow/name/+/update/delta` (for cloud-to-device commands)  
 ✅ Logs: `device/*/logs/+`  
 ✅ Metrics: `device/*/metrics`  
 ✅ Status: `device/*/status`  
@@ -287,7 +287,7 @@ These subscriptions are still correct and working:
 ## Files Modified
 
 1. **`api/src/mqtt/mqtt-manager.ts`**:
-   - Updated shadow-reported subscription: `$iot/device/*/shadow/name/+/update`
+   - Updated shadow-reported subscription: `iot/device/*/shadow/name/+/update`
    - Relaxed topic validation in `handleAwsIotShadowMessage()`: accept 7+ parts
    - Added default updateType: `parts[7] || 'update'`
    - Added 'update' type handling: treat as reported state

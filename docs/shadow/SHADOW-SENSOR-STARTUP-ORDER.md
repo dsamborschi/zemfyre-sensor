@@ -213,7 +213,7 @@ public async start(): Promise<void> {
 │    ├─ Subscribe to shadow MQTT topics                         │
 │    ├─ Read input file (or use default)                        │
 │    └─ Publish initial shadow update                           │
-│       → Topic: $iot/device/{uuid}/shadow/name/.../update      │
+│       → Topic: iot/device/{uuid}/shadow/name/.../update      │
 │       → Payload: { state: { reported: {...} } }               │
 │  ✅ Shadow SUBSCRIBED, initial state published                │
 └────────────────────────────────────────────────────────────────┘
@@ -239,7 +239,7 @@ public async start(): Promise<void> {
 │  Cloud API Receives Initial State                             │
 ├────────────────────────────────────────────────────────────────┤
 │  • MQTT Manager receives:                                      │
-│    $iot/device/{uuid}/shadow/name/sensor-config/update/       │
+│    iot/device/{uuid}/shadow/name/sensor-config/update/       │
 │    accepted                                                    │
 │  • Parses AWS IoT Shadow format                                │
 │  • Saves to PostgreSQL:                                        │
@@ -343,12 +343,12 @@ npm run dev
 📡 Initializing Sensor Publish Feature...
 ✅ Sensor Publish Feature initialized
    Sensors configured: 1
-   MQTT Topic pattern: $iot/device/{deviceUuid}/sensor/{topic}
+   MQTT Topic pattern: iot/device/{deviceUuid}/sensor/{topic}
 
 🔮 Initializing Shadow Feature...
 [Shadow] Starting Shadow feature for 'sensor-config'
-[Shadow] Subscribed to $iot/device/{uuid}/shadow/name/sensor-config/update/accepted
-[Shadow] Subscribed to $iot/device/{uuid}/shadow/name/sensor-config/update/delta
+[Shadow] Subscribed to iot/device/{uuid}/shadow/name/sensor-config/update/accepted
+[Shadow] Subscribed to iot/device/{uuid}/shadow/name/sensor-config/update/delta
 [Shadow] Publishing shadow update (token: abc-123...)
 ✅ Shadow Feature initialized
 
@@ -362,10 +362,10 @@ npm run dev
 
 ```bash
 # Monitor MQTT
-mosquitto_sub -h localhost -p 1883 -t '$iot/device/+/shadow/#' -v
+mosquitto_sub -h localhost -p 1883 -t 'iot/device/+/shadow/#' -v
 
 # You should see:
-$iot/device/YOUR-UUID/shadow/name/sensor-config/update/accepted
+iot/device/YOUR-UUID/shadow/name/sensor-config/update/accepted
 {
   "state": {
     "reported": {

@@ -21,7 +21,7 @@ ENABLE_SHADOW=true
 - **Default**: `device-state`
 - **Description**: Name of the shadow (must be unique per device)
 - **Example**: `SHADOW_NAME=device-config`
-- **MQTT Topic**: `$iot/device/{deviceUuid}/shadow/name/{shadowName}/...`
+- **MQTT Topic**: `iot/device/{deviceUuid}/shadow/name/{shadowName}/...`
 - **Note**: Uses device UUID instead of AWS thing name for consistency with agent's sensor-publish feature
 
 ## Optional Environment Variables

@@ -95,12 +95,11 @@ spec:
       restartPolicy: Always
       initContainers:
       - name: config-init
-        image: alpine:latest
+        image: bhgedigital/envsubst:latest
         command:
         - sh
         - -c
         - |
-          apk add --no-cache gettext
           envsubst < /config-template/mosquitto.conf > /config-processed/mosquitto.conf
           cat /config-processed/mosquitto.conf
         env:

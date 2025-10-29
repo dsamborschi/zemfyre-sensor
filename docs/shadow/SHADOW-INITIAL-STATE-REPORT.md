@@ -116,7 +116,7 @@ Step 12: Initialize Sensor Config Handler
     ✅ Initial state REPORTED
     ↓
 MQTT Broker
-    ↓ $iot/device/{uuid}/shadow/name/sensor-config/update/accepted
+    ↓ iot/device/{uuid}/shadow/name/sensor-config/update/accepted
     ↓
 Cloud API (MQTT Manager)
     ↓ handleAwsIotShadowMessage()
@@ -151,7 +151,7 @@ PostgreSQL
 
 **Topic**:
 ```
-$iot/device/abc-123-456/shadow/name/sensor-config/update
+iot/device/abc-123-456/shadow/name/sensor-config/update
 ```
 
 **Payload**:
@@ -179,7 +179,7 @@ $iot/device/abc-123-456/shadow/name/sensor-config/update
 
 **Broker Response**:
 ```
-$iot/device/abc-123-456/shadow/name/sensor-config/update/accepted
+iot/device/abc-123-456/shadow/name/sensor-config/update/accepted
 ```
 
 ## Database Result
@@ -229,7 +229,7 @@ npm run dev
 ### 2. Monitor MQTT
 
 ```bash
-mosquitto_sub -h localhost -p 1883 -t '$iot/device/+/shadow/#' -v
+mosquitto_sub -h localhost -p 1883 -t 'iot/device/+/shadow/#' -v
 ```
 
 **Expected**: See shadow update message with sensor configuration.

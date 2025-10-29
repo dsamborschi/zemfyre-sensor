@@ -15,14 +15,16 @@ export type SocketOutput = z.infer<typeof SocketOutputSchema>;
 
 /**
  * Sensor Data Point interface
+ * Quality model follows OPC UA standard (GOOD, BAD, UNCERTAIN)
  */
 export interface SensorDataPoint {
   deviceName: string;
   registerName: string;
-  value: number | boolean | string;
+  value: number | boolean | string | null;  // null when quality is BAD
   unit: string;
   timestamp: string;
-  quality: 'good' | 'bad' | 'uncertain';
+  quality: 'GOOD' | 'BAD' | 'UNCERTAIN';  // OPC UA quality codes
+  qualityCode?: string;  // Error code when quality is BAD (e.g., 'ETIMEDOUT', 'DEVICE_OFFLINE')
 }
 
 /**

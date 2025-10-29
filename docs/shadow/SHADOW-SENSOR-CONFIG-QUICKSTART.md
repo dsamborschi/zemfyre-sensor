@@ -105,7 +105,7 @@ Open a new terminal and subscribe to shadow updates:
 ```bash
 # Subscribe to all shadow updates
 mosquitto_sub -h localhost -p 1883 -v \
-  -t '$iot/device/+/shadow/name/sensor-config/#'
+  -t 'iot/device/+/shadow/name/sensor-config/#'
 ```
 
 You should see the device report initial sensor state automatically.
@@ -119,7 +119,7 @@ You should see the device report initial sensor state automatically.
 ```bash
 # Publish desired state (change interval to 60 seconds)
 mosquitto_pub -h localhost -p 1883 \
-  -t '$iot/device/YOUR-DEVICE-UUID/shadow/name/sensor-config/update' \
+  -t 'iot/device/YOUR-DEVICE-UUID/shadow/name/sensor-config/update' \
   -m '{
     "state": {
       "desired": {
@@ -170,7 +170,7 @@ mosquitto_pub -h localhost -p 1883 \
 
 ```bash
 mosquitto_pub -h localhost -p 1883 \
-  -t '$iot/device/YOUR-DEVICE-UUID/shadow/name/sensor-config/update' \
+  -t 'iot/device/YOUR-DEVICE-UUID/shadow/name/sensor-config/update' \
   -m '{
     "state": {
       "desired": {
@@ -197,7 +197,7 @@ mosquitto_pub -h localhost -p 1883 \
 
 ```bash
 mosquitto_pub -h localhost -p 1883 \
-  -t '$iot/device/YOUR-DEVICE-UUID/shadow/name/sensor-config/update' \
+  -t 'iot/device/YOUR-DEVICE-UUID/shadow/name/sensor-config/update' \
   -m '{
     "state": {
       "desired": {
@@ -224,7 +224,7 @@ mosquitto_pub -h localhost -p 1883 \
 
 ```bash
 mosquitto_pub -h localhost -p 1883 \
-  -t '$iot/device/YOUR-DEVICE-UUID/shadow/name/sensor-config/update' \
+  -t 'iot/device/YOUR-DEVICE-UUID/shadow/name/sensor-config/update' \
   -m '{
     "state": {
       "desired": {
@@ -252,7 +252,7 @@ mosquitto_pub -h localhost -p 1883 \
 ```bash
 # Try to set interval too low (minimum is 1000ms)
 mosquitto_pub -h localhost -p 1883 \
-  -t '$iot/device/YOUR-DEVICE-UUID/shadow/name/sensor-config/update' \
+  -t 'iot/device/YOUR-DEVICE-UUID/shadow/name/sensor-config/update' \
   -m '{
     "state": {
       "desired": {
@@ -303,7 +303,7 @@ router.patch('/devices/:deviceId/sensors', async (req, res) => {
   const { sensors } = req.body;
   
   // Publish desired state to device's shadow
-  const topic = `$iot/device/${deviceId}/shadow/name/sensor-config/update`;
+  const topic = `iot/device/${deviceId}/shadow/name/sensor-config/update`;
   const message = {
     state: {
       desired: {

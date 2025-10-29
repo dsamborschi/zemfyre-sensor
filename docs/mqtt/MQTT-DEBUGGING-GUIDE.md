@@ -44,10 +44,10 @@ npm run dev
 📡 Subscribing to all device topics...
 🔍 Attempting to subscribe to: device/*/sensor/+/data
 ✅ Subscribed to device/*/sensor/+/data (QoS: 1)
-🔍 Attempting to subscribe to: $iot/device/*/shadow/name/+/update/accepted
-✅ Subscribed to $iot/device/*/shadow/name/+/update/accepted (QoS: 1)
-🔍 Attempting to subscribe to: $iot/device/*/shadow/name/+/update/delta
-✅ Subscribed to $iot/device/*/shadow/name/+/update/delta (QoS: 1)
+🔍 Attempting to subscribe to: iot/device/*/shadow/name/+/update/accepted
+✅ Subscribed to iot/device/*/shadow/name/+/update/accepted (QoS: 1)
+🔍 Attempting to subscribe to: iot/device/*/shadow/name/+/update/delta
+✅ Subscribed to iot/device/*/shadow/name/+/update/delta (QoS: 1)
 ✅ MQTT service initialized
 ```
 
@@ -99,11 +99,11 @@ mosquitto_sub -h localhost -p 1883 -t '#' -v
 [Shadow] Publishing shadow update (token: abc-123...)
 
 # Monitor specific shadow topics
-mosquitto_sub -h localhost -p 1883 -t '$iot/device/+/shadow/#' -v
+mosquitto_sub -h localhost -p 1883 -t 'iot/device/+/shadow/#' -v
 
 # You should see messages like:
-$iot/device/YOUR-UUID/shadow/name/sensor-config/update {"state":{"reported":{...}}}
-$iot/device/YOUR-UUID/shadow/name/sensor-config/update/accepted {"state":{...}}
+iot/device/YOUR-UUID/shadow/name/sensor-config/update {"state":{"reported":{...}}}
+iot/device/YOUR-UUID/shadow/name/sensor-config/update/accepted {"state":{...}}
 ```
 
 ### Step 6: Check API Client ID Conflict
@@ -130,17 +130,17 @@ api-server (or api-{hostname})
 
 **Device publishes to**:
 ```
-$iot/device/abc-123-456/shadow/name/sensor-config/update
+iot/device/abc-123-456/shadow/name/sensor-config/update
 ```
 
 **MQTT broker responds with**:
 ```
-$iot/device/abc-123-456/shadow/name/sensor-config/update/accepted
+iot/device/abc-123-456/shadow/name/sensor-config/update/accepted
 ```
 
 **API subscribes to**:
 ```
-$iot/device/*/shadow/name/+/update/accepted
+iot/device/*/shadow/name/+/update/accepted
 ```
 
 **Wildcards**:
@@ -150,13 +150,13 @@ $iot/device/*/shadow/name/+/update/accepted
 **Test subscription match**:
 ```bash
 # This SHOULD match
-Topic:        $iot/device/abc-123/shadow/name/sensor-config/update/accepted
-Subscription: $iot/device/*/shadow/name/+/update/accepted
+Topic:        iot/device/abc-123/shadow/name/sensor-config/update/accepted
+Subscription: iot/device/*/shadow/name/+/update/accepted
 Result:       ✅ MATCH
 
 # This should NOT match
 Topic:        device/abc-123/shadow/reported
-Subscription: $iot/device/*/shadow/name/+/update/accepted
+Subscription: iot/device/*/shadow/name/+/update/accepted
 Result:       ❌ NO MATCH (different prefix)
 ```
 
@@ -246,7 +246,7 @@ MQTT client: api-server
 **Debug**:
 ```bash
 # Subscribe with exact same pattern as API
-mosquitto_sub -h localhost -p 1883 -t '$iot/device/*/shadow/name/+/update/accepted' -v
+mosquitto_sub -h localhost -p 1883 -t 'iot/device/*/shadow/name/+/update/accepted' -v
 
 # If mosquitto_sub receives but API doesn't → API subscription issue
 # If mosquitto_sub doesn't receive → Topic pattern mismatch
@@ -255,13 +255,13 @@ mosquitto_sub -h localhost -p 1883 -t '$iot/device/*/shadow/name/+/update/accept
 **Solution**: Verify topic format matches exactly:
 ```typescript
 // Device publishes to:
-$iot/device/{uuid}/shadow/name/{shadowName}/update
+iot/device/{uuid}/shadow/name/{shadowName}/update
 
 // Broker responds on:
-$iot/device/{uuid}/shadow/name/{shadowName}/update/accepted
+iot/device/{uuid}/shadow/name/{shadowName}/update/accepted
 
 // API subscribes to:
-$iot/device/*/shadow/name/+/update/accepted  ✅ Should match
+iot/device/*/shadow/name/+/update/accepted  ✅ Should match
 ```
 
 ### Problem 6: QoS Mismatch
@@ -296,10 +296,10 @@ MQTT_QOS=1
 📡 Subscribing to all device topics...
 🔍 Attempting to subscribe to: device/*/sensor/+/data
 ✅ Subscribed to device/*/sensor/+/data (QoS: 1)
-🔍 Attempting to subscribe to: $iot/device/*/shadow/name/+/update/accepted
-✅ Subscribed to $iot/device/*/shadow/name/+/update/accepted (QoS: 1)
-🔍 Attempting to subscribe to: $iot/device/*/shadow/name/+/update/delta
-✅ Subscribed to $iot/device/*/shadow/name/+/update/delta (QoS: 1)
+🔍 Attempting to subscribe to: iot/device/*/shadow/name/+/update/accepted
+✅ Subscribed to iot/device/*/shadow/name/+/update/accepted (QoS: 1)
+🔍 Attempting to subscribe to: iot/device/*/shadow/name/+/update/delta
+✅ Subscribed to iot/device/*/shadow/name/+/update/delta (QoS: 1)
 🔍 Attempting to subscribe to: device/*/logs/+
 ✅ Subscribed to device/*/logs/+ (QoS: 1)
 🔍 Attempting to subscribe to: device/*/metrics
@@ -316,9 +316,9 @@ MQTT_QOS=1
 [Shadow] Publishing shadow update (token: abc-123...)
 
 # API log (NEW with debug):
-📨 Raw MQTT message event fired: $iot/device/abc-123.../shadow/name/sensor-config/update/accepted
+📨 Raw MQTT message event fired: iot/device/abc-123.../shadow/name/sensor-config/update/accepted
 🔔 MQTT Message received: {
-  topic: '$iot/device/abc-123.../shadow/name/sensor-config/update/accepted',
+  topic: 'iot/device/abc-123.../shadow/name/sensor-config/update/accepted',
   payloadSize: 234,
   preview: '{"state":{"reported":{"sensors":...'
 }

@@ -153,12 +153,12 @@ SENSOR_PUBLISH_DEBUG=true
 
 **`mqttTopic`** (string, required)
 - MQTT topic name for sensor data
-- Published to: `$iot/device/{deviceUuid}/sensor/{mqttTopic}`
-- Example: `temperature` → `$iot/device/abc-123/sensor/temperature`
+- Published to: `iot/device/{deviceUuid}/sensor/{mqttTopic}`
+- Example: `temperature` → `iot/device/abc-123/sensor/temperature`
 
 **`mqttHeartbeatTopic`** (string, optional)
 - MQTT topic name for heartbeat messages
-- Published to: `$iot/device/{deviceUuid}/sensor/{mqttHeartbeatTopic}`
+- Published to: `iot/device/{deviceUuid}/sensor/{mqttHeartbeatTopic}`
 - Heartbeat only sent when sensor is connected
 - If omitted, no heartbeat messages are sent
 
@@ -173,12 +173,12 @@ The Sensor Publish feature uses a standardized topic hierarchy:
 ### Sensor Data Topics
 
 ```
-$iot/device/{deviceUuid}/sensor/{mqttTopic}
+iot/device/{deviceUuid}/sensor/{mqttTopic}
 ```
 
 **Example:**
 ```
-$iot/device/f3b2a1c0-1234-5678-9abc-def012345678/sensor/temperature
+iot/device/f3b2a1c0-1234-5678-9abc-def012345678/sensor/temperature
 ```
 
 **Payload Format:**
@@ -197,12 +197,12 @@ $iot/device/f3b2a1c0-1234-5678-9abc-def012345678/sensor/temperature
 ### Heartbeat Topics
 
 ```
-$iot/device/{deviceUuid}/sensor/{mqttHeartbeatTopic}
+iot/device/{deviceUuid}/sensor/{mqttHeartbeatTopic}
 ```
 
 **Example:**
 ```
-$iot/device/f3b2a1c0-1234-5678-9abc-def012345678/sensor/heartbeat
+iot/device/f3b2a1c0-1234-5678-9abc-def012345678/sensor/heartbeat
 ```
 
 **Payload Format:**
@@ -443,13 +443,13 @@ Subscribe to sensor topics:
 
 ```bash
 # Subscribe to temperature data
-mosquitto_sub -h localhost -t '$iot/device/+/sensor/temperature'
+mosquitto_sub -h localhost -t 'iot/device/+/sensor/temperature'
 
 # Subscribe to heartbeat
-mosquitto_sub -h localhost -t '$iot/device/+/sensor/heartbeat'
+mosquitto_sub -h localhost -t 'iot/device/+/sensor/heartbeat'
 
 # Subscribe to all sensor topics
-mosquitto_sub -h localhost -t '$iot/device/+/sensor/#'
+mosquitto_sub -h localhost -t 'iot/device/+/sensor/#'
 ```
 
 ## Troubleshooting

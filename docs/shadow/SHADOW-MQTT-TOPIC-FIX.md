@@ -8,9 +8,9 @@ The device agent and cloud API were using **different MQTT topic formats** for s
 
 **Device Agent** (AWS IoT Format):
 ```
-$iot/device/{uuid}/shadow/name/sensor-config/update
-$iot/device/{uuid}/shadow/name/sensor-config/update/accepted
-$iot/device/{uuid}/shadow/name/sensor-config/update/delta
+iot/device/{uuid}/shadow/name/sensor-config/update
+iot/device/{uuid}/shadow/name/sensor-config/update/accepted
+iot/device/{uuid}/shadow/name/sensor-config/update/delta
 ```
 
 **Cloud API** (Simple Format):
@@ -31,14 +31,14 @@ Updated the Cloud API's MQTT Manager to subscribe to **AWS IoT Shadow topic form
 
 **Device Agent** (unchanged):
 ```
-$iot/device/{uuid}/shadow/name/sensor-config/update/accepted  ← Device reports state
-$iot/device/{uuid}/shadow/name/sensor-config/update/delta     ← Cloud sets desired
+iot/device/{uuid}/shadow/name/sensor-config/update/accepted  ← Device reports state
+iot/device/{uuid}/shadow/name/sensor-config/update/delta     ← Cloud sets desired
 ```
 
 **Cloud API** (updated):
 ```
-$iot/device/*/shadow/name/+/update/accepted  ✅ Matches!
-$iot/device/*/shadow/name/+/update/delta     ✅ Matches!
+iot/device/*/shadow/name/+/update/accepted  ✅ Matches!
+iot/device/*/shadow/name/+/update/delta     ✅ Matches!
 ```
 
 **Result**: API now receives shadow updates and saves them to PostgreSQL `device_shadows` table.
@@ -54,17 +54,17 @@ $iot/device/*/shadow/name/+/update/delta     ✅ Matches!
 ```typescript
 case 'shadow-reported':
   // Subscribe to AWS IoT Shadow update/accepted (device reports state)
-  return `$iot/device/${deviceUuid}/shadow/name/+/update/accepted`;
+  return `iot/device/${deviceUuid}/shadow/name/+/update/accepted`;
 case 'shadow-desired':
   // Subscribe to AWS IoT Shadow update/delta (cloud sets desired state)
-  return `$iot/device/${deviceUuid}/shadow/name/+/update/delta`;
+  return `iot/device/${deviceUuid}/shadow/name/+/update/delta`;
 ```
 
 **2. Added AWS IoT Shadow Message Handler**
 
 ```typescript
 private handleAwsIotShadowMessage(topic: string, message: string): void {
-  // Parse: $iot/device/{uuid}/shadow/name/{shadowName}/update/{type}
+  // Parse: iot/device/{uuid}/shadow/name/{shadowName}/update/{type}
   const parts = topic.split('/');
   const deviceUuid = parts[2];
   const shadowName = parts[5];
@@ -90,7 +90,7 @@ private handleAwsIotShadowMessage(topic: string, message: string): void {
 ```typescript
 private handleMessage(topic: string, payload: Buffer): void {
   // Check if this is an AWS IoT Shadow topic
-  if (topic.startsWith('$iot/device/')) {
+  if (topic.startsWith('iot/device/')) {
     this.handleAwsIotShadowMessage(topic, message);
     return;
   }
@@ -116,22 +116,22 @@ private handleMessage(topic: string, payload: Buffer): void {
 │    ↓ reports new state                          │
 │  shadow.updateShadow({ sensors: {...} })        │
 │    ↓ publishes MQTT                             │
-│  Topic: $iot/device/{uuid}/shadow/name/         │
+│  Topic: iot/device/{uuid}/shadow/name/         │
 │         sensor-config/update                    │
 │  Payload: { state: { reported: {...} } }        │
 └─────────────────────────────────────────────────┘
                       ↓ MQTT
 ┌─────────────────────────────────────────────────┐
 │      MQTT Broker (Mosquitto)                     │
-│  Receives: $iot/device/{uuid}/shadow/.../update │
-│  Publishes: $iot/device/{uuid}/shadow/.../      │
+│  Receives: iot/device/{uuid}/shadow/.../update │
+│  Publishes: iot/device/{uuid}/shadow/.../      │
 │             update/accepted                     │
 └─────────────────────────────────────────────────┘
                       ↓ MQTT
 ┌─────────────────────────────────────────────────┐
 │         Cloud API (MQTT Manager)                 │
 ├─────────────────────────────────────────────────┤
-│  Subscribed: $iot/device/*/shadow/name/+/       │
+│  Subscribed: iot/device/*/shadow/name/+/       │
 │              update/accepted ✅                  │
 │    ↓ receives message                           │
 │  handleAwsIotShadowMessage()                    │
@@ -174,8 +174,8 @@ npm run dev
 
 # Expected logs:
 # ✅ Connected to MQTT broker
-# ✅ Subscribed to $iot/device/*/shadow/name/+/update/accepted
-# ✅ Subscribed to $iot/device/*/shadow/name/+/update/delta
+# ✅ Subscribed to iot/device/*/shadow/name/+/update/accepted
+# ✅ Subscribed to iot/device/*/shadow/name/+/update/delta
 ```
 
 ### 2. Start Device Agent
@@ -198,7 +198,7 @@ npm run dev
 
 ```bash
 mosquitto_pub -h localhost -p 1883 \
-  -t '$iot/device/YOUR-UUID/shadow/name/sensor-config/update' \
+  -t 'iot/device/YOUR-UUID/shadow/name/sensor-config/update' \
   -m '{"state":{"desired":{"sensors":{"sensor1":{"publishInterval":60000}}}}}'
 ```
 
@@ -252,7 +252,7 @@ WHERE device_uuid = 'YOUR-UUID';
 
 ### Subscription Patterns
 
-**`$iot/device/*/shadow/name/+/update/accepted`**
+**`iot/device/*/shadow/name/+/update/accepted`**
 
 - `*` = Multi-level wildcard (matches ANY device UUID)
 - `+` = Single-level wildcard (matches ANY shadow name)
@@ -260,15 +260,15 @@ WHERE device_uuid = 'YOUR-UUID';
 
 **Examples that match**:
 ```
-$iot/device/abc-123.../shadow/name/sensor-config/update/accepted  ✅
-$iot/device/xyz-789.../shadow/name/sensor-config/update/accepted  ✅
-$iot/device/abc-123.../shadow/name/container-state/update/accepted ✅
+iot/device/abc-123.../shadow/name/sensor-config/update/accepted  ✅
+iot/device/xyz-789.../shadow/name/sensor-config/update/accepted  ✅
+iot/device/abc-123.../shadow/name/container-state/update/accepted ✅
 ```
 
 **Examples that DON'T match**:
 ```
 device/abc-123.../shadow/reported  ❌ (wrong format)
-$iot/device/abc-123.../shadow/name/sensor-config/update  ❌ (missing /accepted)
+iot/device/abc-123.../shadow/name/sensor-config/update  ❌ (missing /accepted)
 ```
 
 ---
@@ -309,9 +309,9 @@ $iot/device/abc-123.../shadow/name/sensor-config/update  ❌ (missing /accepted)
 
 ```typescript
 case 'shadow-documents':
-  return `$iot/device/${deviceUuid}/shadow/name/+/update/documents`;
+  return `iot/device/${deviceUuid}/shadow/name/+/update/documents`;
 case 'shadow-rejected':
-  return `$iot/device/${deviceUuid}/shadow/name/+/update/rejected`;
+  return `iot/device/${deviceUuid}/shadow/name/+/update/rejected`;
 ```
 
 ### 2. Named Shadow Filtering
@@ -351,7 +351,7 @@ Monitor for deltas and auto-apply desired state to devices that are offline.
 
 ```bash
 # In API logs, look for:
-✅ Subscribed to $iot/device/*/shadow/name/+/update/accepted
+✅ Subscribed to iot/device/*/shadow/name/+/update/accepted
 ```
 
 **2. Check Device Publishing**
@@ -365,7 +365,7 @@ Monitor for deltas and auto-apply desired state to devices that are offline.
 
 ```bash
 # Subscribe to all shadow topics
-mosquitto_sub -h localhost -p 1883 -t '$iot/device/+/shadow/#' -v
+mosquitto_sub -h localhost -p 1883 -t 'iot/device/+/shadow/#' -v
 ```
 
 **4. Check Database Connection**
@@ -380,8 +380,8 @@ mosquitto_sub -h localhost -p 1883 -t '$iot/device/+/shadow/#' -v
 **Symptom**: Device publishes, API doesn't receive
 
 **Check**:
-- Device uses: `$iot/device/.../shadow/name/.../update`
-- API subscribes to: `$iot/device/*/shadow/name/+/update/accepted`
+- Device uses: `iot/device/.../shadow/name/.../update`
+- API subscribes to: `iot/device/*/shadow/name/+/update/accepted`
 
 **Fix**: Ensure both use AWS IoT format (this document's fix)
 

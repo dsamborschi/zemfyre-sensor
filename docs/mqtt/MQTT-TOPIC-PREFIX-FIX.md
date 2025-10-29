@@ -8,8 +8,8 @@ Topics starting with **`$`** are **reserved for MQTT broker system topics**!
 
 **Original topics**:
 ```
-$iot/device/{uuid}/shadow/name/{shadowName}/update
-$iot/device/{uuid}/sensor/{topic}
+iot/device/{uuid}/shadow/name/{shadowName}/update
+iot/device/{uuid}/sensor/{topic}
 ```
 
 **Why this failed**:
@@ -37,7 +37,7 @@ iot/device/{uuid}/sensor/{topic}
 **Before**:
 ```typescript
 public get update(): string {
-  return `$iot/device/${this.deviceUuid}/shadow/name/${this.shadowName}/update`;
+  return `iot/device/${this.deviceUuid}/shadow/name/${this.shadowName}/update`;
 }
 ```
 
@@ -56,7 +56,7 @@ All shadow topic methods updated (update, updateAccepted, updateDelta, get, dele
 
 **Before**:
 ```typescript
-const topic = `$iot/device/${this.deviceUuid}/sensor/${this.config.mqttTopic}`;
+const topic = `iot/device/${this.deviceUuid}/sensor/${this.config.mqttTopic}`;
 ```
 
 **After**:
@@ -75,9 +75,9 @@ Updated in both:
 **Before**:
 ```typescript
 case 'sensor':
-  return `$iot/device/${mqttDevicePattern}/sensor/+`;
+  return `iot/device/${mqttDevicePattern}/sensor/+`;
 case 'shadow-reported':
-  return `$iot/device/${mqttDevicePattern}/shadow/name/+/update`;
+  return `iot/device/${mqttDevicePattern}/shadow/name/+/update`;
 ```
 
 **After**:
@@ -122,7 +122,7 @@ const updateType = parts[6] || 'update';  // Was parts[7]
 
 **Before**:
 ```typescript
-if (topic.startsWith('$iot/device/')) {
+if (topic.startsWith('iot/device/')) {
   console.log('✅ Detected AWS IoT topic');
   ...
 }
@@ -161,15 +161,15 @@ Updated topic structure documentation in `mqtt-manager.ts` header:
 
 | Before (Broken) | After (Fixed) |
 |----------------|---------------|
-| `$iot/device/{uuid}/shadow/name/{name}/update` | `iot/device/{uuid}/shadow/name/{name}/update` |
-| `$iot/device/{uuid}/shadow/name/{name}/update/accepted` | `iot/device/{uuid}/shadow/name/{name}/update/accepted` |
-| `$iot/device/{uuid}/shadow/name/{name}/update/delta` | `iot/device/{uuid}/shadow/name/{name}/update/delta` |
+| `iot/device/{uuid}/shadow/name/{name}/update` | `iot/device/{uuid}/shadow/name/{name}/update` |
+| `iot/device/{uuid}/shadow/name/{name}/update/accepted` | `iot/device/{uuid}/shadow/name/{name}/update/accepted` |
+| `iot/device/{uuid}/shadow/name/{name}/update/delta` | `iot/device/{uuid}/shadow/name/{name}/update/delta` |
 
 ### Sensor Topics
 
 | Before (Broken) | After (Fixed) |
 |----------------|---------------|
-| `$iot/device/{uuid}/sensor/{topic}` | `iot/device/{uuid}/sensor/{topic}` |
+| `iot/device/{uuid}/sensor/{topic}` | `iot/device/{uuid}/sensor/{topic}` |
 
 ### Example
 
@@ -177,8 +177,8 @@ Updated topic structure documentation in `mqtt-manager.ts` header:
 
 **Before**:
 ```
-$iot/device/46b68204-9806-43c5-8d19-18b1f53e3b8a/shadow/name/device-state/update
-$iot/device/46b68204-9806-43c5-8d19-18b1f53e3b8a/sensor/temperature
+iot/device/46b68204-9806-43c5-8d19-18b1f53e3b8a/shadow/name/device-state/update
+iot/device/46b68204-9806-43c5-8d19-18b1f53e3b8a/sensor/temperature
 ```
 
 **After**:

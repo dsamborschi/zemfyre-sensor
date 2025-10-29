@@ -36,9 +36,9 @@ A complete **remote sensor configuration system** using AWS IoT Shadow pattern w
 │                      MQTT Broker (Mosquitto)                     │
 ├─────────────────────────────────────────────────────────────────┤
 │  Topics:                                                         │
-│  • $iot/device/{uuid}/shadow/name/sensor-config/update         │
-│  • $iot/device/{uuid}/shadow/name/sensor-config/update/accepted│
-│  • $iot/device/{uuid}/shadow/name/sensor-config/update/delta   │
+│  • iot/device/{uuid}/shadow/name/sensor-config/update         │
+│  • iot/device/{uuid}/shadow/name/sensor-config/update/accepted│
+│  • iot/device/{uuid}/shadow/name/sensor-config/update/delta   │
 └─────────────────────────────────────────────────────────────────┘
                             ↓ MQTT
 ┌─────────────────────────────────────────────────────────────────┐
@@ -150,7 +150,7 @@ A complete **remote sensor configuration system** using AWS IoT Shadow pattern w
      "metrics": {"totalSensors": 1, "enabledSensors": 1}
    }
    ↓
-5. MQTT Broker → $iot/device/{uuid}/shadow/.../update/accepted
+5. MQTT Broker → iot/device/{uuid}/shadow/.../update/accepted
    ↓
 6. Cloud API receives and saves to device_shadows table
    ✅ Dashboard can now query sensor state!
@@ -162,7 +162,7 @@ A complete **remote sensor configuration system** using AWS IoT Shadow pattern w
 1. Admin changes sensor1 interval to 60 seconds
    ↓
 2. Dashboard publishes:
-   Topic: $iot/device/{uuid}/shadow/name/sensor-config/update
+   Topic: iot/device/{uuid}/shadow/name/sensor-config/update
    Payload: {"state":{"desired":{"sensors":{"sensor1":{"publishInterval":60000}}}}}
    ↓
 3. MQTT Broker computes delta (desired ≠ reported)
@@ -260,7 +260,7 @@ export SENSOR_PUBLISH_CONFIG='{"sensors":[{"name":"sensor1","enabled":true,"addr
 npm run dev
 
 # Terminal 3: Monitor MQTT (optional)
-mosquitto_sub -h localhost -p 1883 -t '$iot/device/+/shadow/#' -v
+mosquitto_sub -h localhost -p 1883 -t 'iot/device/+/shadow/#' -v
 ```
 
 ### Verify Database
@@ -283,7 +283,7 @@ ORDER BY updated_at DESC;
 ```bash
 # Change sensor1 interval to 60 seconds
 mosquitto_pub -h localhost -p 1883 \
-  -t '$iot/device/YOUR-UUID/shadow/name/sensor-config/update' \
+  -t 'iot/device/YOUR-UUID/shadow/name/sensor-config/update' \
   -m '{"state":{"desired":{"sensors":{"sensor1":{"publishInterval":60000}}}}}'
 
 # Check logs for:

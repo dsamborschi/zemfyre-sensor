@@ -34,16 +34,19 @@ export type SensorConfig = z.infer<typeof SensorConfigSchema>;
  * Sensor Publish Feature Configuration Schema
  */
 export const SensorPublishConfigSchema = z.object({
+  enabled: z.boolean().default(true),
   sensors: z.array(SensorConfigSchema).max(10)
 });
 
-export type SensorPublishConfig = z.infer<typeof SensorPublishConfigSchema>;
+export type SensorPublishConfig = z.infer<typeof SensorPublishConfigSchema> & {
+  enabled: boolean; // Make sure it extends FeatureConfig
+};
 
 /**
  * MQTT Connection interface for publishing sensor data
  */
 export interface MqttConnection {
-  publish(topic: string, payload: string | Buffer, qos?: 0 | 1 | 2): Promise<void>;
+  publish(topic: string, payload: string | Buffer, options?: { qos?: 0 | 1 | 2 }): Promise<void>;
   isConnected(): boolean;
 }
 

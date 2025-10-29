@@ -654,7 +654,7 @@ Device should report initial sensor config to shadow automatically.
 ```bash
 # Simulate cloud updating desired state
 mosquitto_pub -h localhost -p 1883 \
-  -t '$iot/device/{device-uuid}/shadow/name/sensor-config/update' \
+  -t 'iot/device/{device-uuid}/shadow/name/sensor-config/update' \
   -m '{
     "state": {
       "desired": {
@@ -680,7 +680,7 @@ mosquitto_pub -h localhost -p 1883 \
 
 ```bash
 mosquitto_sub -h localhost -p 1883 \
-  -t '$iot/device/{device-uuid}/shadow/name/sensor-config/update/documents'
+  -t 'iot/device/{device-uuid}/shadow/name/sensor-config/update/documents'
 ```
 
 Should show delta eliminated (desired = reported).

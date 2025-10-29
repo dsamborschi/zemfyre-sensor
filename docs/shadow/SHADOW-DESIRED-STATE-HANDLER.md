@@ -23,7 +23,7 @@ This document describes how the device handles **desired state updates** from th
 │  }                                                           │
 └────────────────────────┬─────────────────────────────────────┘
                          │
-                         │ MQTT: $iot/device/{uuid}/shadow/name/device-config/update/delta
+                         │ MQTT: iot/device/{uuid}/shadow/name/device-config/update/delta
                          ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                         Device Agent                         │
@@ -49,7 +49,7 @@ This document describes how the device handles **desired state updates** from th
 │                                                              │
 └──────────────────────┬───────────────────────────────────────┘
                        │
-                       │ MQTT: $iot/device/{uuid}/shadow/name/device-config/update
+                       │ MQTT: iot/device/{uuid}/shadow/name/device-config/update
                        ↓
 ┌─────────────────────────────────────────────────────────────┐
 │                      Cloud Shadow Service                    │
@@ -443,7 +443,7 @@ npm run dev
 ```bash
 # Simulate cloud updating desired state
 mosquitto_pub -h localhost -p 1883 \
-  -t '$iot/device/{your-device-uuid}/shadow/name/device-config/update' \
+  -t 'iot/device/{your-device-uuid}/shadow/name/device-config/update' \
   -m '{
     "state": {
       "desired": {
@@ -470,7 +470,7 @@ mosquitto_pub -h localhost -p 1883 \
 ```bash
 # Subscribe to shadow updates
 mosquitto_sub -h localhost -p 1883 \
-  -t '$iot/device/{your-device-uuid}/shadow/name/device-config/update/documents'
+  -t 'iot/device/{your-device-uuid}/shadow/name/device-config/update/documents'
 ```
 
 Should show:

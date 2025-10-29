@@ -6,12 +6,13 @@
  * by the sensor-publish system.
  */
 
+import { BaseFeature, FeatureConfig } from '../features/index.js';
+import { AgentLogger } from '../logging/agent-logger.js';
 import { ModbusAdapter } from './modbus/modbus-adapter.js';
 import { ModbusAdapterConfig } from './modbus/types.js';
 import { ConfigLoader } from './modbus/config-loader.js';
-import { Logger } from './common/types.js';
 
-export interface ProtocolAdaptersConfig {
+export interface ProtocolAdaptersConfig extends FeatureConfig {
   modbus?: {
     enabled: boolean;
     configPath?: string;
@@ -27,57 +28,50 @@ export interface ProtocolAdaptersConfig {
   };
 }
 
-export class ProtocolAdaptersFeature {
+export class ProtocolAdaptersFeature extends BaseFeature {
   private modbusAdapter?: ModbusAdapter;
-  private config: ProtocolAdaptersConfig;
-  private logger: Logger;
-  private running = false;
 
-  constructor(config: ProtocolAdaptersConfig, logger: Logger) {
-    this.config = config;
-    this.logger = logger;
+  constructor(
+    config: ProtocolAdaptersConfig,
+    agentLogger: AgentLogger,
+    deviceUuid: string
+  ) {
+    super(config, agentLogger, 'ProtocolAdapters', deviceUuid, false, 'PROTOCOL_ADAPTERS_DEBUG');
+  }
+
+  /**
+   * Initialize - called by BaseFeature.start() before onStart()
+   */
+  protected async onInitialize(): Promise<void> {
+    // No initialization needed
   }
 
   /**
    * Start all enabled protocol adapters
    */
-  async start(): Promise<void> {
-    if (this.running) {
-      this.logger.warn('Protocol adapters already running');
-      return;
-    }
-
-    this.logger.info('Starting protocol adapters feature...');
-
+  protected async onStart(): Promise<void> {
     // Start Modbus adapter if enabled
-    if (this.config.modbus?.enabled) {
+    if ((this.config as ProtocolAdaptersConfig).modbus?.enabled) {
       await this.startModbusAdapter();
     }
 
     // TODO: Start CAN adapter when implemented
-    if (this.config.can?.enabled) {
+    if ((this.config as ProtocolAdaptersConfig).can?.enabled) {
       this.logger.warn('CAN adapter not yet implemented');
     }
 
     // TODO: Start OPC-UA adapter when implemented
-    if (this.config.opcua?.enabled) {
+    if ((this.config as ProtocolAdaptersConfig).opcua?.enabled) {
       this.logger.warn('OPC-UA adapter not yet implemented');
     }
 
-    this.running = true;
-    this.logger.info('Protocol adapters feature started');
+    this.emit('started');
   }
 
   /**
    * Stop all running protocol adapters
    */
-  async stop(): Promise<void> {
-    if (!this.running) {
-      return;
-    }
-
-    this.logger.info('Stopping protocol adapters feature...');
-
+  protected async onStop(): Promise<void> {
     // Stop Modbus adapter
     if (this.modbusAdapter) {
       await this.modbusAdapter.stop();
@@ -86,8 +80,7 @@ export class ProtocolAdaptersFeature {
 
     // TODO: Stop other adapters
 
-    this.running = false;
-    this.logger.info('Protocol adapters feature stopped');
+    this.emit('stopped');
   }
 
   /**
@@ -144,9 +137,36 @@ export class ProtocolAdaptersFeature {
   }
 
   /**
-   * Check if feature is running
+   * Get device statuses from all enabled protocol adapters
+   * Returns a map of protocol type to array of device statuses
    */
-  isRunning(): boolean {
-    return this.running;
+  getAllDeviceStatuses(): Map<string, any[]> {
+    const statuses = new Map<string, any[]>();
+
+    // Collect Modbus device statuses
+    if (this.modbusAdapter) {
+      const modbusStatuses = this.modbusAdapter.getDeviceStatuses();
+      if (modbusStatuses.length > 0) {
+        statuses.set('modbus', modbusStatuses);
+      }
+    }
+
+    // TODO: Add CAN device statuses when implemented
+    // if (this.canAdapter) {
+    //   const canStatuses = this.canAdapter.getDeviceStatuses();
+    //   if (canStatuses.length > 0) {
+    //     statuses.set('can', canStatuses);
+    //   }
+    // }
+
+    // TODO: Add OPC-UA device statuses when implemented
+    // if (this.opcuaAdapter) {
+    //   const opcuaStatuses = this.opcuaAdapter.getDeviceStatuses();
+    //   if (opcuaStatuses.length > 0) {
+    //     statuses.set('opcua', opcuaStatuses);
+    //   }
+    // }
+
+    return statuses;
   }
 }

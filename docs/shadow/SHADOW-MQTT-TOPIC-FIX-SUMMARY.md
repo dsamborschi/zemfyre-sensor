@@ -8,7 +8,7 @@ The Cloud API was **not receiving shadow updates from devices** because of a top
 
 | Component | Topic Format | Status |
 |-----------|-------------|---------|
-| **Device Agent** | `$iot/device/{uuid}/shadow/name/{name}/update` | AWS IoT Standard ✅ |
+| **Device Agent** | `iot/device/{uuid}/shadow/name/{name}/update` | AWS IoT Standard ✅ |
 | **Cloud API** | `device/{uuid}/shadow/reported` | Custom Format ❌ |
 | **Result** | Topics don't match | **No data saved!** 🚨 |
 
@@ -24,9 +24,9 @@ Updated Cloud API MQTT Manager to use **AWS IoT Shadow topic format**.
 
 ```typescript
 case 'shadow-reported':
-  return `$iot/device/${deviceUuid}/shadow/name/+/update/accepted`;
+  return `iot/device/${deviceUuid}/shadow/name/+/update/accepted`;
 case 'shadow-desired':
-  return `$iot/device/${deviceUuid}/shadow/name/+/update/delta`;
+  return `iot/device/${deviceUuid}/shadow/name/+/update/delta`;
 ```
 
 #### 2. Added AWS IoT Message Router
@@ -34,7 +34,7 @@ case 'shadow-desired':
 ```typescript
 private handleMessage(topic: string, payload: Buffer): void {
   // Route AWS IoT Shadow messages
-  if (topic.startsWith('$iot/device/')) {
+  if (topic.startsWith('iot/device/')) {
     this.handleAwsIotShadowMessage(topic, message);
     return;
   }
@@ -84,7 +84,7 @@ Device Agent                    MQTT Broker                Cloud API            
 # Terminal 1: Start Cloud API
 cd api
 npm run dev
-# Look for: ✅ Subscribed to $iot/device/*/shadow/name/+/update/accepted
+# Look for: ✅ Subscribed to iot/device/*/shadow/name/+/update/accepted
 
 # Terminal 2: Start Device Agent
 cd agent
@@ -94,7 +94,7 @@ npm run dev
 # Look for: ✅ Shadow feature started successfully
 
 # Terminal 3: Monitor MQTT (optional)
-mosquitto_sub -h localhost -p 1883 -t '$iot/device/+/shadow/#' -v
+mosquitto_sub -h localhost -p 1883 -t 'iot/device/+/shadow/#' -v
 
 # Device should auto-publish initial shadow state on startup
 # API should receive and save to database

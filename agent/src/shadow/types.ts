@@ -85,7 +85,7 @@ export interface ShadowUpdatedEvent {
  * Shadow Configuration Schema
  */
 export const ShadowConfigSchema = z.object({
-  enabled: z.boolean().default(false),
+  enabled: z.boolean().default(true),
   shadowName: z.string().min(1),
   inputFile: z.string().optional(),
   outputFile: z.string().optional(),
@@ -94,14 +94,16 @@ export const ShadowConfigSchema = z.object({
   publishInterval: z.number().min(1000).optional(), // Minimum 1 second
 });
 
-export type ShadowConfig = z.infer<typeof ShadowConfigSchema>;
+export type ShadowConfig = z.infer<typeof ShadowConfigSchema> & {
+  enabled: boolean; // Make sure it extends FeatureConfig
+};
 
 /**
  * MQTT Connection interface for shadow operations
  */
 export interface MqttConnection {
-  publish(topic: string, payload: string | Buffer, qos?: 0 | 1 | 2): Promise<void>;
-  subscribe(topic: string, qos?: 0 | 1 | 2, handler?: (topic: string, payload: Buffer) => void): Promise<void>;
+  publish(topic: string, payload: string | Buffer, options?: { qos?: 0 | 1 | 2 }): Promise<void>;
+  subscribe(topic: string, options?: { qos?: 0 | 1 | 2 }, handler?: (topic: string, payload: Buffer) => void): Promise<void>;
   unsubscribe(topic: string): Promise<void>;
   isConnected(): boolean;
 }

@@ -2,7 +2,7 @@
 
 ## What Was Changed
 
-Refactored the Shadow feature to use Iotistic IoT device topic convention (`$iot/device/{deviceUuid}/...`) instead of AWS IoT convention (`$aws/things/{thingName}/...`), matching the sensor-publish feature for consistency.
+Refactored the Shadow feature to use Iotistic IoT device topic convention (`iot/device/{deviceUuid}/...`) instead of AWS IoT convention (`$aws/things/{thingName}/...`), matching the sensor-publish feature for consistency.
 
 ## Changes Summary
 
@@ -36,10 +36,10 @@ $aws/things/{thingName}/shadow/name/{shadowName}/update/delta
 
 ### After (Iotistic IoT Style)
 ```
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/accepted
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/rejected
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/delta
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update/accepted
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update/rejected
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update/delta
 ```
 
 ## API Changes
@@ -116,8 +116,8 @@ this.shadowFeature = new ShadowFeature(
 
 ### 1. **Consistency**
 All agent features now use the same topic convention:
-- Sensor Publish: `$iot/device/{deviceUuid}/sensor/...`
-- Shadow: `$iot/device/{deviceUuid}/shadow/...`
+- Sensor Publish: `iot/device/{deviceUuid}/sensor/...`
+- Shadow: `iot/device/{deviceUuid}/shadow/...`
 - Future features will follow the same pattern
 
 ### 2. **Simplified Cloud Integration**
@@ -132,7 +132,7 @@ All agent features now use the same topic convention:
 ### 4. **Better Security**
 ```conf
 # Single ACL rule for all device features
-pattern readwrite $iot/device/%u/#
+pattern readwrite iot/device/%u/#
 ```
 
 ## Breaking Changes
@@ -153,18 +153,18 @@ With device UUID `device-abc-123`:
 
 **Publish Update:**
 ```
-Topic: $iot/device/device-abc-123/shadow/name/device-state/update
+Topic: iot/device/device-abc-123/shadow/name/device-state/update
 Payload: {"state": {"reported": {"temperature": 25.5}}}
 ```
 
 **Subscribe to Delta:**
 ```
-Topic: $iot/device/device-abc-123/shadow/name/device-state/update/delta
+Topic: iot/device/device-abc-123/shadow/name/device-state/update/delta
 ```
 
 **Get Shadow:**
 ```
-Topic: $iot/device/device-abc-123/shadow/name/device-state/get
+Topic: iot/device/device-abc-123/shadow/name/device-state/get
 Payload: {}
 ```
 

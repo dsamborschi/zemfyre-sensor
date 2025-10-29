@@ -115,7 +115,8 @@ export class ModbusClient {
    */
   async readAllRegisters(): Promise<SensorDataPoint[]> {
     if (!this.connected) {
-      throw new Error(`Modbus device ${this.device.name} is not connected`);
+      // Device not connected - return BAD quality for all registers
+      return this.createBadQualityDataPoints('DEVICE_OFFLINE');
     }
 
     const dataPoints: SensorDataPoint[] = [];
@@ -131,25 +132,73 @@ export class ModbusClient {
           value: value,
           unit: register.unit || '',
           timestamp: timestamp,
-          quality: 'good'
+          quality: 'GOOD'  // ✅ Successful read
         });
         
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         this.logger.warn(`Failed to read register ${register.name} from device ${this.device.name}: ${errorMessage}`);
         
+        // Extract quality code from error message
+        const qualityCode = this.extractQualityCode(errorMessage);
+        
         dataPoints.push({
           deviceName: this.device.name,
           registerName: register.name,
-          value: 0,
+          value: null,  // ✅ null when quality is BAD
           unit: register.unit || '',
           timestamp: timestamp,
-          quality: 'bad'
+          quality: 'BAD',  // ✅ Failed read
+          qualityCode: qualityCode  // ✅ Include error code
         });
       }
     }
 
     return dataPoints;
+  }
+
+  /**
+   * Create BAD quality data points for all registers when device is offline
+   */
+  private createBadQualityDataPoints(qualityCode: string): SensorDataPoint[] {
+    const timestamp = new Date().toISOString();
+    return this.device.registers.map(register => ({
+      deviceName: this.device.name,
+      registerName: register.name,
+      value: null,
+      unit: register.unit || '',
+      timestamp: timestamp,
+      quality: 'BAD' as const,
+      qualityCode: qualityCode
+    }));
+  }
+
+  /**
+   * Extract quality code from error message
+   */
+  private extractQualityCode(errorMessage: string): string {
+    // Common Modbus error patterns
+    if (errorMessage.includes('ETIMEDOUT') || errorMessage.includes('timeout')) {
+      return 'TIMEOUT';
+    }
+    if (errorMessage.includes('ECONNREFUSED')) {
+      return 'CONNECTION_REFUSED';
+    }
+    if (errorMessage.includes('EHOSTUNREACH')) {
+      return 'HOST_UNREACHABLE';
+    }
+    if (errorMessage.includes('ECONNRESET')) {
+      return 'CONNECTION_RESET';
+    }
+    if (errorMessage.includes('File not found') || errorMessage.includes('ENOENT')) {
+      return 'PORT_NOT_FOUND';
+    }
+    if (errorMessage.includes('Exception')) {
+      return 'MODBUS_EXCEPTION';
+    }
+    
+    // Default
+    return 'READ_ERROR';
   }
 
   /**

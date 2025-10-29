@@ -21,12 +21,12 @@ $aws/things/{thingName}/shadow/name/{shadowName}/get
 
 **New (Iotistic IoT style):**
 ```
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/accepted
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/rejected
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/delta
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/update/documents
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/get
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update/accepted
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update/rejected
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update/delta
+iot/device/{deviceUuid}/shadow/name/{shadowName}/update/documents
+iot/device/{deviceUuid}/shadow/name/{shadowName}/get
 ...
 ```
 
@@ -90,16 +90,16 @@ All agent features now use the same topic convention:
 
 **Sensor Publish:**
 ```
-$iot/device/{deviceUuid}/sensor/{sensorTopic}
-$iot/device/{deviceUuid}/sensor/{heartbeatTopic}
+iot/device/{deviceUuid}/sensor/{sensorTopic}
+iot/device/{deviceUuid}/sensor/{heartbeatTopic}
 ```
 
 **Shadow:**
 ```
-$iot/device/{deviceUuid}/shadow/name/{shadowName}/*
+iot/device/{deviceUuid}/shadow/name/{shadowName}/*
 ```
 
-**Future features** will follow the same pattern: `$iot/device/{deviceUuid}/{feature}/...`
+**Future features** will follow the same pattern: `iot/device/{deviceUuid}/{feature}/...`
 
 ### 2. Cloud API Integration
 
@@ -114,7 +114,7 @@ The cloud API can now easily:
 MQTT ACLs can use pattern matching:
 ```conf
 # Mosquitto ACL - single rule for all device features
-pattern readwrite $iot/device/%u/#
+pattern readwrite iot/device/%u/#
 ```
 
 ## Migration Notes
@@ -128,7 +128,7 @@ If you have existing shadow data on AWS IoT or another MQTT broker:
    - Example with Mosquitto:
    ```conf
    connection bridge-aws-to-Iotistic
-   topic $aws/things/+/shadow/# both 0 "" $iot/device/
+   topic $aws/things/+/shadow/# both 0 "" iot/device/
    ```
 
 2. **Option B: Update Shadow Names**
@@ -193,18 +193,18 @@ With device UUID `abc-123-def`:
 
 **Update Shadow:**
 ```
-Topic: $iot/device/abc-123-def/shadow/name/device-state/update
+Topic: iot/device/abc-123-def/shadow/name/device-state/update
 Payload: {"state": {"reported": {"temperature": 25.5}}}
 ```
 
 **Subscribe to Delta:**
 ```
-Topic: $iot/device/abc-123-def/shadow/name/device-state/update/delta
+Topic: iot/device/abc-123-def/shadow/name/device-state/update/delta
 ```
 
 **Get Shadow:**
 ```
-Topic: $iot/device/abc-123-def/shadow/name/device-state/get
+Topic: iot/device/abc-123-def/shadow/name/device-state/get
 Payload: {}
 ```
 

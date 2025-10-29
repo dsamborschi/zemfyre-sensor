@@ -4,7 +4,7 @@
 
 The Cloud API's MQTT Manager was **not receiving shadow updates** because it subscribed to the wrong topic format.
 
-**Device published to**: `$iot/device/{uuid}/shadow/name/{name}/update/accepted` (AWS IoT format)  
+**Device published to**: `iot/device/{uuid}/shadow/name/{name}/update/accepted` (AWS IoT format)  
 **API subscribed to**: `device/{uuid}/shadow/reported` (Custom format)  
 **Result**: Topics didn't match = No data saved ❌
 
@@ -13,8 +13,8 @@ The Cloud API's MQTT Manager was **not receiving shadow updates** because it sub
 Updated API to subscribe to **AWS IoT Shadow topic format** matching the device agent.
 
 **Now API subscribes to**:
-- `$iot/device/*/shadow/name/+/update/accepted` (device reports state)
-- `$iot/device/*/shadow/name/+/update/delta` (cloud sets desired state)
+- `iot/device/*/shadow/name/+/update/accepted` (device reports state)
+- `iot/device/*/shadow/name/+/update/delta` (cloud sets desired state)
 
 **Result**: Topics match = Shadow data saves to PostgreSQL ✅
 
@@ -33,7 +33,7 @@ Updated API to subscribe to **AWS IoT Shadow topic format** matching the device 
 ```
 Device Agent
   ↓ publishes shadow update
-MQTT Broker ($iot/device/{uuid}/shadow/name/{name}/update/accepted)
+MQTT Broker (iot/device/{uuid}/shadow/name/{name}/update/accepted)
   ↓ matched subscription
 Cloud API (MqttManager)
   ↓ handleAwsIotShadowMessage()
@@ -49,7 +49,7 @@ PostgreSQL ✅
 ```bash
 # Start API
 cd api && npm run dev
-# Look for: ✅ Subscribed to $iot/device/*/shadow/name/+/update/accepted
+# Look for: ✅ Subscribed to iot/device/*/shadow/name/+/update/accepted
 
 # Start Agent (will auto-publish shadow on startup)
 cd agent

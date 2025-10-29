@@ -74,14 +74,14 @@ Report Initial State to Shadow
 
 ```
 Cloud updates shadow desired state
-  ↓ MQTT: $iot/device/{uuid}/shadow/name/sensor-config/update/delta
+  ↓ MQTT: iot/device/{uuid}/shadow/name/sensor-config/update/delta
 Device receives delta event
   ↓
 SensorConfigHandler.handleDelta()
   ├─ Validate configuration
   ├─ Apply changes (enable/disable/interval)
   └─ Report actual state back
-       ↓ MQTT: $iot/device/{uuid}/shadow/name/sensor-config/update
+       ↓ MQTT: iot/device/{uuid}/shadow/name/sensor-config/update
 Cloud sees reported state = desired state (delta eliminated)
 ```
 
@@ -196,11 +196,11 @@ export ENABLE_SENSOR_PUBLISH=true
 npm run dev
 
 # 2. Monitor shadow updates (separate terminal)
-mosquitto_sub -h localhost -p 1883 -t '$iot/device/+/shadow/#' -v
+mosquitto_sub -h localhost -p 1883 -t 'iot/device/+/shadow/#' -v
 
 # 3. Update sensor interval
 mosquitto_pub -h localhost -p 1883 \
-  -t '$iot/device/YOUR-UUID/shadow/name/sensor-config/update' \
+  -t 'iot/device/YOUR-UUID/shadow/name/sensor-config/update' \
   -m '{"state":{"desired":{"sensors":{"sensor1":{"publishInterval":60000}}}}}'
 
 # 4. Verify in logs
@@ -255,7 +255,7 @@ router.patch('/', async (req, res) => {
   const { deviceId } = req.params;
   const { sensors } = req.body;
   
-  const topic = `$iot/device/${deviceId}/shadow/name/sensor-config/update`;
+  const topic = `iot/device/${deviceId}/shadow/name/sensor-config/update`;
   await mqttClient.publish(topic, JSON.stringify({
     state: { desired: { sensors } }
   }));

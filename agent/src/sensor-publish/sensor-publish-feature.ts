@@ -1,9 +1,8 @@
-import { EventEmitter } from 'events';
+import { BaseFeature } from '../features/index.js';
+import { AgentLogger } from '../logging/agent-logger.js';
 import {
   SensorPublishConfig,
-  SensorConfig,
-  MqttConnection,
-  Logger
+  SensorConfig
 } from './types';
 import { Sensor } from './sensor';
 
@@ -11,32 +10,25 @@ import { Sensor } from './sensor';
  * SensorPublishFeature - Manages multiple sensors and publishes data to MQTT
  * Ported from AWS IoT Device Client SensorPublishFeature.cpp
  */
-export class SensorPublishFeature extends EventEmitter {
+export class SensorPublishFeature extends BaseFeature {
   private static readonly NAME = 'SensorPublish';
-  private static readonly TAG = 'SensorPublishFeature';
   private static readonly MAX_SENSORS = 10;
-
-  private config: SensorPublishConfig;
-  private mqttConnection: MqttConnection;
-  private logger: Logger;
-  private deviceUuid: string;
   
   private sensors: Sensor[] = [];
-  private started = false;
 
   constructor(
-    config: SensorPublishConfig,
-    mqttConnection: MqttConnection,
-    logger: Logger,
+    config: SensorPublishConfig & { enabled: boolean },
+    agentLogger: AgentLogger,
     deviceUuid: string
   ) {
-    super();
-    this.config = config;
-    this.mqttConnection = mqttConnection;
-    this.logger = logger;
-    this.deviceUuid = deviceUuid;
-    
-    this.validateConfig();
+    super(
+      config,
+      agentLogger,
+      SensorPublishFeature.NAME,
+      deviceUuid,
+      true, // Requires MQTT
+      'SENSOR_PUBLISH_DEBUG'
+    );
   }
 
   /**
@@ -47,93 +39,108 @@ export class SensorPublishFeature extends EventEmitter {
   }
 
   /**
-   * Start the sensor publish feature
+   * Validate configuration - override from BaseFeature
    */
-  public async start(): Promise<void> {
-    if (this.config.sensors.length === 0) {
-      this.logger.warn(`${SensorPublishFeature.TAG}: No sensors configured`);
+  protected validateConfig(): void {
+    const sensorConfig = this.config as SensorPublishConfig;
+    
+    if (!sensorConfig.sensors || !Array.isArray(sensorConfig.sensors)) {
+      throw new Error('Sensor Publish configuration must include sensors array');
+    }
+
+    // Check max sensors limit
+    if (sensorConfig.sensors.length > SensorPublishFeature.MAX_SENSORS) {
+      throw new Error(`Maximum ${SensorPublishFeature.MAX_SENSORS} sensors supported, got ${sensorConfig.sensors.length}`);
+    }
+
+    // Validate each sensor configuration
+    sensorConfig.sensors.forEach((config: SensorConfig) => {
+      this.validateSensorConfig(config);
+    });
+
+    this.logger.debug(`Validated configuration for ${sensorConfig.sensors.length} sensors`);
+  }
+
+  /**
+   * Initialize - called by BaseFeature.start() before onStart()
+   */
+  protected async onInitialize(): Promise<void> {
+    const sensorConfig = this.config as SensorPublishConfig;
+    
+    if (sensorConfig.sensors.length === 0) {
+      this.logger.warn('No sensors configured');
       return;
     }
 
-    this.logger.info(`${SensorPublishFeature.TAG}: Starting Sensor Publish feature with ${this.config.sensors.length} sensors`);
+    this.logger.info(`Starting Sensor Publish feature with ${sensorConfig.sensors.length} sensors`);
+  }
+
+  /**
+   * Start the sensor publish feature
+   */
+  protected async onStart(): Promise<void> {
+    if (!this.mqttConnection) {
+      throw new Error('MQTT connection required for Sensor Publish feature');
+    }
+
+    const sensorConfig = this.config as SensorPublishConfig;
     
-    try {
-      // Create and start all sensors
-      for (let i = 0; i < this.config.sensors.length; i++) {
-        const sensorConfig = this.config.sensors[i];
-        
-        // Set default name if not provided
-        if (!sensorConfig.name) {
-          sensorConfig.name = `sensor-${i + 1}`;
-        }
-        
-        // Create sensor
-        const sensor = new Sensor(
-          sensorConfig,
-          this.mqttConnection,
-          this.logger,
-          this.deviceUuid
-        );
-        
-        // Set up event handlers
-        sensor.on('connected', () => {
-          this.logger.info(`${SensorPublishFeature.TAG}: Sensor '${sensorConfig.name}' connected`);
-          this.emit('sensor-connected', sensorConfig.name);
-        });
-        
-        sensor.on('disconnected', () => {
-          this.logger.info(`${SensorPublishFeature.TAG}: Sensor '${sensorConfig.name}' disconnected`);
-          this.emit('sensor-disconnected', sensorConfig.name);
-        });
-        
-        sensor.on('error', (error: Error) => {
-          this.logger.error(`${SensorPublishFeature.TAG}: Sensor '${sensorConfig.name}' error: ${error.message}`);
-          this.emit('sensor-error', sensorConfig.name, error);
-        });
-        
-        this.sensors.push(sensor);
-        
-        // Start sensor
-        await sensor.start();
+    if (sensorConfig.sensors.length === 0) {
+      return;
+    }
+    
+    // Create and start all sensors
+    for (let i = 0; i < sensorConfig.sensors.length; i++) {
+      const config = sensorConfig.sensors[i];
+      
+      // Set default name if not provided
+      if (!config.name) {
+        config.name = `sensor-${i + 1}`;
       }
       
-      this.started = true;
-      this.logger.info(`${SensorPublishFeature.TAG}: Sensor Publish feature started successfully`);
-      this.emit('started');
+      // Create sensor
+      const sensor = new Sensor(
+        config,
+        this.mqttConnection,
+        this.logger,
+        this.deviceUuid
+      );
       
-    } catch (error) {
-      const errorMessage = `Failed to start Sensor Publish feature: ${error instanceof Error ? error.message : String(error)}`;
-      this.logger.error(`${SensorPublishFeature.TAG}: ${errorMessage}`);
-      this.emit('error', new Error(errorMessage));
-      throw error;
+      // Set up event handlers
+      sensor.on('connected', () => {
+        this.logger.info(`Sensor '${config.name}' connected`);
+        this.emit('sensor-connected', config.name);
+      });
+      
+      sensor.on('disconnected', () => {
+        this.logger.info(`Sensor '${config.name}' disconnected`);
+        this.emit('sensor-disconnected', config.name);
+      });
+      
+      sensor.on('error', (error: Error) => {
+        this.logger.error(`Sensor '${config.name}' error: ${error.message}`, error);
+        this.emit('sensor-error', config.name, error);
+      });
+      
+      this.sensors.push(sensor);
+      
+      // Start sensor
+      await sensor.start();
     }
+    
+    this.emit('started');
   }
 
   /**
    * Stop the sensor publish feature
    */
-  public async stop(): Promise<void> {
-    if (!this.started) {
-      return;
-    }
-
-    this.logger.info(`${SensorPublishFeature.TAG}: Stopping Sensor Publish feature`);
+  protected async onStop(): Promise<void> {
+    // Stop all sensors
+    await Promise.all(this.sensors.map(sensor => sensor.stop()));
     
-    try {
-      // Stop all sensors
-      await Promise.all(this.sensors.map(sensor => sensor.stop()));
-      
-      this.sensors = [];
-      this.started = false;
-      
-      this.logger.info(`${SensorPublishFeature.TAG}: Sensor Publish feature stopped successfully`);
-      this.emit('stopped');
-      
-    } catch (error) {
-      const errorMessage = `Error stopping Sensor Publish feature: ${error instanceof Error ? error.message : String(error)}`;
-      this.logger.error(`${SensorPublishFeature.TAG}: ${errorMessage}`);
-      this.emit('error', new Error(errorMessage));
-    }
+    this.sensors = [];
+    
+    this.emit('stopped');
   }
 
   /**
@@ -157,7 +164,8 @@ export class SensorPublishFeature extends EventEmitter {
    * Get sensor by name
    */
   public getSensor(name: string): Sensor | undefined {
-    const index = this.config.sensors.findIndex(s => s.name === name);
+    const sensorConfig = this.config as SensorPublishConfig;
+    const index = sensorConfig.sensors.findIndex((s: SensorConfig) => s.name === name);
     return index >= 0 ? this.sensors[index] : undefined;
   }
 
@@ -165,13 +173,13 @@ export class SensorPublishFeature extends EventEmitter {
    * Get all sensors with their configuration
    */
   public getSensors(): Array<{ name: string; enabled: boolean; addr: string; publishInterval: number }> {
-    return this.config.sensors.map((sensorConfig, index) => {
-      const sensor = this.sensors[index];
+    const sensorConfig = this.config as SensorPublishConfig;
+    return sensorConfig.sensors.map((config: SensorConfig, index: number) => {
       return {
-        name: sensorConfig.name || `sensor-${index + 1}`,
-        enabled: sensorConfig.enabled !== false,
-        addr: sensorConfig.addr,
-        publishInterval: sensorConfig.publishInterval || 30000
+        name: config.name || `sensor-${index + 1}`,
+        enabled: config.enabled !== false,
+        addr: config.addr,
+        publishInterval: config.publishInterval || 30000
       };
     });
   }
@@ -180,22 +188,23 @@ export class SensorPublishFeature extends EventEmitter {
    * Enable a sensor by name
    */
   public async enableSensor(sensorName: string): Promise<void> {
-    const index = this.config.sensors.findIndex(s => s.name === sensorName);
+    const publishConfig = this.config as SensorPublishConfig;
+    const index = publishConfig.sensors.findIndex((s: SensorConfig) => s.name === sensorName);
     if (index < 0) {
       throw new Error(`Sensor not found: ${sensorName}`);
     }
 
-    const sensorConfig = this.config.sensors[index];
+    const sensorConfig = publishConfig.sensors[index];
     const sensor = this.sensors[index];
 
     if (sensorConfig.enabled === false) {
       sensorConfig.enabled = true;
       
-      if (sensor && this.started) {
+      if (sensor && this.isRunning) {
         await sensor.start();
       }
       
-      this.logger.info(`${SensorPublishFeature.TAG}: Sensor '${sensorName}' enabled`);
+      this.logger.info(`Sensor '${sensorName}' enabled`);
       this.emit('sensor-enabled', sensorName);
     }
   }
@@ -204,22 +213,23 @@ export class SensorPublishFeature extends EventEmitter {
    * Disable a sensor by name
    */
   public async disableSensor(sensorName: string): Promise<void> {
-    const index = this.config.sensors.findIndex(s => s.name === sensorName);
+    const publishConfig = this.config as SensorPublishConfig;
+    const index = publishConfig.sensors.findIndex((s: SensorConfig) => s.name === sensorName);
     if (index < 0) {
       throw new Error(`Sensor not found: ${sensorName}`);
     }
 
-    const sensorConfig = this.config.sensors[index];
+    const sensorConfig = publishConfig.sensors[index];
     const sensor = this.sensors[index];
 
     if (sensorConfig.enabled !== false) {
       sensorConfig.enabled = false;
       
-      if (sensor && this.started) {
+      if (sensor && this.isRunning) {
         await sensor.stop();
       }
       
-      this.logger.info(`${SensorPublishFeature.TAG}: Sensor '${sensorName}' disabled`);
+      this.logger.info(`Sensor '${sensorName}' disabled`);
       this.emit('sensor-disabled', sensorName);
     }
   }
@@ -228,12 +238,13 @@ export class SensorPublishFeature extends EventEmitter {
    * Update publish interval for a sensor
    */
   public async updateInterval(sensorName: string, intervalMs: number): Promise<void> {
-    const index = this.config.sensors.findIndex(s => s.name === sensorName);
+    const publishConfig = this.config as SensorPublishConfig;
+    const index = publishConfig.sensors.findIndex((s: SensorConfig) => s.name === sensorName);
     if (index < 0) {
       throw new Error(`Sensor not found: ${sensorName}`);
     }
 
-    const sensorConfig = this.config.sensors[index];
+    const sensorConfig = publishConfig.sensors[index];
     const sensor = this.sensors[index];
 
     if (intervalMs < 1000) {
@@ -243,11 +254,11 @@ export class SensorPublishFeature extends EventEmitter {
     sensorConfig.publishInterval = intervalMs;
     
     // Update the sensor's interval if it's running
-    if (sensor && this.started && sensorConfig.enabled !== false) {
+    if (sensor && this.isRunning && sensorConfig.enabled !== false) {
       sensor.updateInterval(intervalMs);
     }
     
-    this.logger.info(`${SensorPublishFeature.TAG}: Updated interval for '${sensorName}': ${intervalMs}ms`);
+    this.logger.info(`Updated interval for '${sensorName}': ${intervalMs}ms`);
     this.emit('sensor-interval-updated', sensorName, intervalMs);
   }
 
@@ -255,28 +266,15 @@ export class SensorPublishFeature extends EventEmitter {
    * Check if MQTT is connected
    */
   public isMqttConnected(): boolean {
-    return this.mqttConnection.isConnected();
+    return this.mqttConnection?.isConnected() ?? false;
   }
 
-  /**
-   * Validate configuration
-   */
-  private validateConfig(): void {
-    // Check max sensors limit
-    if (this.config.sensors.length > SensorPublishFeature.MAX_SENSORS) {
-      throw new Error(`Maximum ${SensorPublishFeature.MAX_SENSORS} sensors supported, got ${this.config.sensors.length}`);
-    }
 
-    // Validate each sensor configuration
-    for (const sensorConfig of this.config.sensors) {
-      this.validateSensorConfig(sensorConfig);
-    }
-  }
 
   /**
    * Validate individual sensor configuration
    */
-  private validateSensorConfig(config: SensorConfig): void {
+  protected validateSensorConfig(config: SensorConfig): void {
     // Check required fields
     if (!config.addr) {
       throw new Error(`Sensor '${config.name}': 'addr' is required`);
@@ -302,6 +300,6 @@ export class SensorPublishFeature extends EventEmitter {
       throw new Error(`Sensor '${config.name}': Invalid 'eomDelimiter' regex: ${config.eomDelimiter}`);
     }
 
-    this.logger.debug(`${SensorPublishFeature.TAG}: Validated configuration for sensor '${config.name}'`);
+    this.logger.debug(`Validated configuration for sensor '${config.name}'`);
   }
 }

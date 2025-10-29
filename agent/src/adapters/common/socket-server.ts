@@ -221,6 +221,7 @@ export class SocketServer {
         value: point.value,
         unit: point.unit,
         quality: point.quality,
+        qualityCode: point.qualityCode,
         timestamp: point.timestamp
       };
     }
