@@ -2,11 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Plus, RefreshCw, Trash2, XCircle, Eye, Save } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, XCircle, Eye, FileText } from 'lucide-react';
 import { buildApiUrl } from '@/config/api';
 import AddJobModal from './jobs/AddJobModal';
 import JobDetailsModal from './jobs/JobDetailsModal';
-import SaveTemplateModal from './jobs/SaveTemplateModal';
+import AddTemplateModal from './jobs/AddTemplateModal';
 
 interface Job {
   id: number;
@@ -35,6 +35,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  const [showAddTemplateModal, setShowAddTemplateModal] = useState(false);
   const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
   const [jobDocumentToSave, setJobDocumentToSave] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
@@ -214,11 +215,18 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
             <Button
               variant="outline"
               size="sm"
-              onClick={() => fetchJobs(currentPage)}
+              onClick={handleRefresh}
               disabled={loading}
               title="Refresh jobs"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAddTemplateModal(true)}
+            >
+              <FileText className="w-4 h-4 mr-2" /> Add Template
             </Button>
             <Button
               variant="outline"
@@ -385,6 +393,15 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
         open={showDetailsModal}
         onClose={() => setShowDetailsModal(false)}
         job={selectedJob}
+      />
+
+      <AddTemplateModal
+        open={showAddTemplateModal}
+        onClose={() => setShowAddTemplateModal(false)}
+        onSaved={() => {
+          // Optionally refresh or show success message
+          console.log('Template saved successfully');
+        }}
       />
     </>
   );
