@@ -138,12 +138,12 @@ export class CloudJobsAdapter {
 
     try {
       this.log('Polling for jobs', {
-        endpoint: `/api/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/next`,
+        endpoint: `/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/next`,
         hasApiKey: !!this.config.deviceApiKey
       }, 'debug');
       
       const response = await this.httpClient.get<CloudJob>(
-        `/api/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/next`
+        `/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/next`
       );
 
       // Check if there's a job
@@ -264,7 +264,7 @@ export class CloudJobsAdapter {
 
     try {
       await this.httpClient.patch(
-        `/api/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/${this.currentJobId}/status`,
+        `/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/${this.currentJobId}/status`,
         update
       );
 
@@ -320,7 +320,7 @@ export class CloudJobsAdapter {
   async queryJobStatus(jobId: string): Promise<any> {
     try {
       const response = await this.httpClient.get(
-        `/api/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/${jobId}`
+        `/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs/${jobId}`
       );
       return response.data;
     } catch (error: any) {
@@ -338,7 +338,7 @@ export class CloudJobsAdapter {
   async getJobHistory(limit: number = 10): Promise<any> {
     try {
       const response = await this.httpClient.get(
-        `/api/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs`,
+        `/${this.apiVersion}/devices/${this.config.deviceUuid}/jobs`,
         { params: { limit } }
       );
       return response.data;

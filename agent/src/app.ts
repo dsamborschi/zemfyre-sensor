@@ -12,26 +12,45 @@
 import process from 'process';
 import DeviceAgent from './agent';
 
-// Register signal handlers for graceful shutdown
-process.on('SIGTERM', () => {
-	console.log('Received SIGTERM. Exiting gracefully...');
-	process.exit(143); // 128 + 15 (SIGTERM signal code)
-});
+// Start the device agent
+const supervisor = new DeviceAgent();
 
-process.on('SIGINT', () => {
-	console.log('Received SIGINT. Exiting gracefully...');
-	process.exit(130); // 128 + 2 (SIGINT signal code)
-});
+// Track if shutdown is in progress
+let shuttingDown = false;
+
+// Graceful shutdown handler
+async function gracefulShutdown(signal: string) {
+	if (shuttingDown) {
+		console.log(`Already shutting down, ignoring ${signal}`);
+		return;
+	}
+	
+	shuttingDown = true;
+	console.log(`\n${signal} received. Starting graceful shutdown...`);
+
+	try {
+		// Stop the agent (closes Device API, MQTT, etc.)
+		await supervisor.stop();
+		console.log('✅ Device agent stopped successfully');
+		process.exit(0);
+	} catch (error) {
+		console.error('❌ Error during shutdown:', error);
+		process.exit(1);
+	}
+}
+
+// Register signal handlers for graceful shutdown
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 // Catch unhandled rejections
 process.on('unhandledRejection', (reason, promise) => {
 	console.error('Unhandled Rejection at:', promise, 'reason:', reason);
-	process.exit(1);
+	// Don't exit immediately - try graceful shutdown first
+	gracefulShutdown('unhandledRejection');
 });
 
 // Start the device agent
-const supervisor = new DeviceAgent();
-
 supervisor.init().catch((error) => {
 	console.error('Failed to initialize device agent:', error);
 	process.exit(1);

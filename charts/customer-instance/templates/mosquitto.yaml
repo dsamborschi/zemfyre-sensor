@@ -92,6 +92,7 @@ spec:
         {{- include "customer-instance.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: mqtt
     spec:
+      restartPolicy: Always
       initContainers:
       - name: config-init
         image: alpine:latest

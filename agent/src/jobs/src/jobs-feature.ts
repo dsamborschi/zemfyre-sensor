@@ -212,7 +212,7 @@ export class JobsFeature extends EventEmitter implements Feature {
       clientToken: randomUUID()
     };
 
-    const topic = `$iot/device/${this.config.deviceUuid}/jobs/${jobData.jobId}/update`;
+    const topic = `iot/device/${this.config.deviceUuid}/jobs/${jobData.jobId}/update`;
     const payload = JSON.stringify(updateRequest);
 
     try {
@@ -403,12 +403,12 @@ export class JobsFeature extends EventEmitter implements Feature {
    */
   private buildTopics(deviceUuid: string): JobsTopics {
     return {
-      startNext: `$iot/device/${deviceUuid}/jobs/start-next`,
-      startNextAccepted: `$iot/device/${deviceUuid}/jobs/start-next/accepted`,
-      startNextRejected: `$iot/device/${deviceUuid}/jobs/start-next/rejected`,
-      updateAccepted: `$iot/device/${deviceUuid}/jobs/+/update/accepted`,
-      updateRejected: `$iot/device/${deviceUuid}/jobs/+/update/rejected`,
-      notifyNext: `$iot/device/${deviceUuid}/jobs/notify-next`
+      startNext: `iot/device/${deviceUuid}/jobs/start-next`,
+      startNextAccepted: `iot/device/${deviceUuid}/jobs/start-next/accepted`,
+      startNextRejected: `iot/device/${deviceUuid}/jobs/start-next/rejected`,
+      updateAccepted: `iot/device/${deviceUuid}/jobs/+/update/accepted`,
+      updateRejected: `iot/device/${deviceUuid}/jobs/+/update/rejected`,
+      notifyNext: `iot/device/${deviceUuid}/jobs/notify-next`
     };
   }
 

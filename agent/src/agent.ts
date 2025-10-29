@@ -29,6 +29,8 @@ import type { LogBackend } from './logging/types.js';
 import { SSHTunnelManager } from './remote-access/ssh-tunnel.js';
 import { EnhancedJobEngine } from './jobs/src/enhanced-job-engine.js';
 import { CloudJobsAdapter } from './jobs/cloud-jobs-adapter.js';
+import { createJobsFeature, JobsFeature } from './jobs/src/index.js';
+import { JobsMqttConnectionAdapter } from './mqtt/mqtt-connection-adapter.js';
 import { SensorPublishFeature } from './sensor-publish/index.js';
 import { SensorConfigHandler } from './sensor-publish/config-handler.js';
 import { ShadowFeature, ShadowConfig } from './shadow/index.js';
@@ -50,6 +52,7 @@ export default class DeviceAgent {
 	private sshTunnel?: SSHTunnelManager;
 	private jobEngine?: EnhancedJobEngine;
 	private cloudJobsAdapter?: CloudJobsAdapter;
+	private mqttJobsFeature?: JobsFeature;
 	private sensorPublish?: SensorPublishFeature;
 	private shadowFeature?: ShadowFeature;
 	private sensorConfigHandler?: SensorConfigHandler;
@@ -97,18 +100,18 @@ export default class DeviceAgent {
 			await this.initializeApiBinder();
 
 		// 8. Check config from target state BEFORE initializing features
-		//    Config-driven feature management (no env var fallbacks)
+		//    Config-driven feature management with env var fallbacks for local dev
 		const targetState = this.containerManager.getTargetState();
 		const configFeatures = targetState?.config?.features || {};
 		const configSettings = targetState?.config?.settings || {};
 		const configLogging = targetState?.config?.logging || {};
 		
-		// Get feature flags from config (default to false if not specified)
-		const enableRemoteAccess = configFeatures.enableRemoteAccess === true;
-		const enableJobEngine = configFeatures.enableJobEngine === true;
-		const enableCloudJobs = configFeatures.enableCloudJobs === true;
-		const enableSensorPublish = configFeatures.enableSensorPublish === true;
-		const enableShadow = configFeatures.enableShadow === true;
+		// Get feature flags from config with environment variable fallbacks for local development
+		const enableRemoteAccess = configFeatures.enableRemoteAccess ?? (process.env.ENABLE_REMOTE_ACCESS === 'true');
+		const enableJobEngine = configFeatures.enableJobEngine ?? (process.env.ENABLE_JOB_ENGINE === 'true');
+		const enableCloudJobs = configFeatures.enableCloudJobs ?? (process.env.ENABLE_CLOUD_JOBS === 'true');
+		const enableSensorPublish = configFeatures.enableSensorPublish ?? (process.env.ENABLE_SENSOR_PUBLISH === 'true');
+		const enableShadow = configFeatures.enableShadow ?? (process.env.ENABLE_SHADOW === 'true');
 		
 		// Get system settings from config (with defaults)
 		const reconciliationIntervalMs = configSettings.reconciliationIntervalMs || this.RECONCILIATION_INTERVAL;
@@ -156,9 +159,12 @@ export default class DeviceAgent {
 				await this.initializeJobEngine();
 			}
 
-			// 11. Initialize Cloud Jobs Adapter (if enabled by config)
+			// 11. Initialize Cloud Jobs Adapter (HTTP fallback - if enabled by config)
 			if (enableCloudJobs) {
 				await this.initializeCloudJobsAdapter();
+				
+				// 11b. Initialize MQTT Jobs Feature (primary - if MQTT available)
+				await this.initializeMqttJobsFeature();
 			}
 
 			// 12. Initialize Sensor Publish Feature (if enabled by config)
@@ -699,6 +705,88 @@ export default class DeviceAgent {
 				note: 'Continuing without Cloud Jobs'
 			});
 			this.cloudJobsAdapter = undefined;
+		}
+	}
+
+	private async initializeMqttJobsFeature(): Promise<void> {
+		this.agentLogger?.infoSync('Initializing MQTT Jobs Feature', { component: 'Agent' });
+
+		try {
+			// Check if MQTT is available
+			const mqttManager = MqttManager.getInstance();
+			if (!mqttManager.isConnected()) {
+				this.agentLogger?.warnSync('MQTT not connected, skipping MQTT Jobs (will use HTTP fallback)', {
+					component: 'Agent',
+					note: 'HTTP polling will be used as fallback'
+				});
+				return;
+			}
+
+			// Check if job engine is available
+			if (!this.jobEngine) {
+				this.agentLogger?.warnSync('Job Engine not available, cannot initialize MQTT Jobs', {
+					component: 'Agent'
+				});
+				return;
+			}
+
+			// Create MQTT connection adapter
+			const mqttAdapter = new JobsMqttConnectionAdapter();
+
+			// Create logger wrapper
+			const jobLogger = {
+				info: (message: string) => this.agentLogger?.infoSync(message, { component: 'MqttJobs' }),
+				warn: (message: string) => this.agentLogger?.warnSync(message, { component: 'MqttJobs' }),
+				error: (message: string) => this.agentLogger?.errorSync(message, new Error(message), { component: 'MqttJobs' }),
+				debug: (message: string) => {
+					if (process.env.DEBUG === 'true') {
+						this.agentLogger?.debugSync(message, { component: 'MqttJobs' });
+					}
+				},
+			};
+
+			// Create notifier
+			const notifier = {
+				onEvent: (feature: string, event: string) => {
+					this.agentLogger?.infoSync(`${feature}: ${event}`, { component: 'MqttJobs' });
+				},
+				onError: (feature: string, code: string, message: string) => {
+					this.agentLogger?.errorSync(`${feature}: ${code} - ${message}`, new Error(message), { component: 'MqttJobs' });
+				}
+			};
+
+			// Create Jobs Feature
+			this.mqttJobsFeature = createJobsFeature(mqttAdapter as any, {
+				deviceUuid: this.deviceInfo.uuid,
+				enabled: true,
+				handlerDirectory: process.env.JOB_HANDLER_DIR || '/app/data/job-handlers',
+				maxConcurrentJobs: 1,
+				defaultHandlerTimeout: 60000
+			});
+
+			// Start the feature
+			await this.mqttJobsFeature.start();
+
+			// If MQTT Jobs is working, we can reduce HTTP polling frequency
+			if (this.cloudJobsAdapter) {
+				this.agentLogger?.infoSync('MQTT Jobs active - HTTP polling will serve as fallback only', {
+					component: 'Agent',
+					note: 'Consider increasing HTTP polling interval to reduce server load'
+				});
+			}
+
+			this.agentLogger?.infoSync('MQTT Jobs Feature initialized successfully', {
+				component: 'Agent',
+				deviceUuid: this.deviceInfo.uuid,
+				mode: 'MQTT-primary with HTTP fallback'
+			});
+
+		} catch (error) {
+			this.agentLogger?.errorSync('Failed to initialize MQTT Jobs Feature', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Agent',
+				note: 'HTTP polling will be used as fallback'
+			});
+			this.mqttJobsFeature = undefined;
 		}
 	}
 
@@ -1499,7 +1587,13 @@ export default class DeviceAgent {
 				this.agentLogger?.infoSync('Job Engine cleanup', { component: 'Agent' });
 			}
 
-			// Stop Cloud Jobs Adapter
+			// Stop MQTT Jobs Feature
+			if (this.mqttJobsFeature) {
+				await this.mqttJobsFeature.stop();
+				this.agentLogger?.infoSync('MQTT Jobs Feature stopped', { component: 'Agent' });
+			}
+
+			// Stop Cloud Jobs Adapter (HTTP fallback)
 			if (this.cloudJobsAdapter) {
 				this.cloudJobsAdapter.stop();
 				this.agentLogger?.infoSync('Cloud Jobs Adapter stopped', { component: 'Agent' });
