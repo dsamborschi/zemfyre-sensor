@@ -7,7 +7,8 @@ import {
 } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
-import { Copy, CheckCircle2 } from 'lucide-react';
+import { Copy, CheckCircle2, Save } from 'lucide-react';
+import SaveTemplateModal from './SaveTemplateModal';
 
 interface JobDetailsModalProps {
   open: boolean;
@@ -35,6 +36,7 @@ interface JobDetailsModalProps {
 export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose, job }) => {
   const [copiedStdout, setCopiedStdout] = useState(false);
   const [copiedStderr, setCopiedStderr] = useState(false);
+  const [showSaveTemplateModal, setShowSaveTemplateModal] = useState(false);
 
   if (!job) return null;
 
@@ -361,11 +363,31 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose,
           )}
         </div>
 
-        <div className="flex justify-end pt-4 border-t">
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          {job.job_document && (
+            <Button
+              variant="outline"
+              onClick={() => setShowSaveTemplateModal(true)}
+            >
+              <Save className="w-4 h-4 mr-2" />
+              Save as Template
+            </Button>
+          )}
           <Button variant="outline" onClick={onClose}>
             Close
           </Button>
         </div>
+
+        {/* Save Template Modal */}
+        <SaveTemplateModal
+          open={showSaveTemplateModal}
+          onClose={() => setShowSaveTemplateModal(false)}
+          jobDocument={job.job_document}
+          onSaved={() => {
+            setShowSaveTemplateModal(false);
+            // Optionally show success message
+          }}
+        />
       </DialogContent>
     </Dialog>
   );
