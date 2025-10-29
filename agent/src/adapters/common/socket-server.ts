@@ -4,7 +4,8 @@ import * as path from 'path';
 import { SensorDataPoint, SocketOutput, Logger } from './types';
 
 /**
- * Unix Socket Server that receives sensor data and serves it to connected clients
+ * IPC Socket Server that receives sensor data and serves it to connected clients
+ * Supports both Unix Domain Sockets (Linux/macOS) and Named Pipes (Windows)
  */
 export class SocketServer {
   private server?: net.Server;
@@ -12,14 +13,18 @@ export class SocketServer {
   private config: SocketOutput;
   private logger: Logger;
   private started = false;
+  private isWindowsNamedPipe: boolean;
 
   constructor(config: SocketOutput, logger: Logger) {
     this.config = config;
     this.logger = logger;
+    
+    // Detect if this is a Windows Named Pipe
+    this.isWindowsNamedPipe = this.config.socketPath.startsWith('\\\\.\\pipe\\');
   }
 
   /**
-   * Start the Unix socket server
+   * Start the IPC socket server (Unix socket or Windows Named Pipe)
    */
   async start(): Promise<void> {
     if (this.started) {
@@ -27,15 +32,17 @@ export class SocketServer {
     }
 
     try {
-      // Ensure socket directory exists
-      const socketDir = path.dirname(this.config.socketPath);
-      if (!fs.existsSync(socketDir)) {
-        fs.mkdirSync(socketDir, { recursive: true });
-      }
+      // For Unix sockets, ensure directory exists and clean up old socket
+      if (!this.isWindowsNamedPipe) {
+        const socketDir = path.dirname(this.config.socketPath);
+        if (!fs.existsSync(socketDir)) {
+          fs.mkdirSync(socketDir, { recursive: true });
+        }
 
-      // Remove existing socket file if it exists
-      if (fs.existsSync(this.config.socketPath)) {
-        fs.unlinkSync(this.config.socketPath);
+        // Remove existing socket file if it exists
+        if (fs.existsSync(this.config.socketPath)) {
+          fs.unlinkSync(this.config.socketPath);
+        }
       }
 
       this.server = net.createServer((socket) => {
@@ -44,7 +51,8 @@ export class SocketServer {
 
       await new Promise<void>((resolve, reject) => {
         this.server!.listen(this.config.socketPath, () => {
-          this.logger.info(`Unix socket server started at: ${this.config.socketPath}`);
+          const transportType = this.isWindowsNamedPipe ? 'Windows Named Pipe' : 'Unix socket';
+          this.logger.info(`IPC server started (${transportType}) at: ${this.config.socketPath}`);
           this.started = true;
           resolve();
         });
@@ -63,7 +71,7 @@ export class SocketServer {
   }
 
   /**
-   * Stop the Unix socket server
+   * Stop the IPC socket server (Unix socket or Windows Named Pipe)
    */
   async stop(): Promise<void> {
     if (!this.started || !this.server) {
@@ -80,13 +88,14 @@ export class SocketServer {
       // Close server
       await new Promise<void>((resolve) => {
         this.server!.close(() => {
-          this.logger.info('Unix socket server stopped');
+          const transportType = this.isWindowsNamedPipe ? 'Windows Named Pipe' : 'Unix socket';
+          this.logger.info(`IPC server stopped (${transportType})`);
           resolve();
         });
       });
 
-      // Remove socket file
-      if (fs.existsSync(this.config.socketPath)) {
+      // Remove Unix socket file (Named Pipes are cleaned up automatically by Windows)
+      if (!this.isWindowsNamedPipe && fs.existsSync(this.config.socketPath)) {
         fs.unlinkSync(this.config.socketPath);
       }
 

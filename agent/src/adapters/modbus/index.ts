@@ -4,7 +4,7 @@ import * as yargs from 'yargs';
 import * as dotenv from 'dotenv';
 import { ModbusAdapter } from './modbus-adapter';
 import { ConfigLoader } from './config-loader';
-import { ConsoleLogger } from './logger';
+import { ConsoleLogger } from '../common/logger';
 
 // Load environment variables
 dotenv.config();
@@ -92,7 +92,7 @@ async function main() {
     adapter.on('started', () => {
       logger.info('Modbus Adapter is running');
       logger.info(`Socket server: ${config.output.socketPath}`);
-      logger.info(`Active devices: ${config.devices.filter(d => d.enabled).length}`);
+      logger.info(`Active devices: ${config.devices.filter((d: any) => d.enabled).length}`);
     });
 
     adapter.on('device-connected', (deviceName: string) => {

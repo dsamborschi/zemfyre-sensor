@@ -1,7 +1,8 @@
 import { EventEmitter } from 'events';
-import { ModbusAdapterConfig, ModbusDevice, DeviceStatus, SensorDataPoint, Logger } from './types';
+import { ModbusAdapterConfig, ModbusDevice } from './types';
+import { SensorDataPoint, DeviceStatus, Logger } from '../common/types';
 import { ModbusClient } from './modbus-client';
-import { SocketServer } from './socket-server';
+import { SocketServer } from '../common/socket-server';
 
 /**
  * Main Modbus Adapter class that coordinates Modbus devices and Unix socket output

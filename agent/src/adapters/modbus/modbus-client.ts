@@ -4,10 +4,9 @@ import {
   ModbusConnectionType,
   ModbusFunctionCode,
   ModbusDataType,
-  Endianness,
-  SensorDataPoint,
-  Logger
+  Endianness
 } from './types';
+import { SensorDataPoint, Logger } from '../common/types';
 
 /**
  * Modbus Client wrapper that handles different connection types and data reading

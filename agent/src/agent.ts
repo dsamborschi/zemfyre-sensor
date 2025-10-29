@@ -37,6 +37,7 @@ import { ShadowFeature, ShadowConfig } from './shadow/index.js';
 import { MqttShadowAdapter } from './shadow/mqtt-shadow-adapter.js';
 import { MqttManager } from './mqtt/mqtt-manager.js';
 import { TwinStateManager } from './digital-twin/twin-state-manager.js';
+import { ProtocolAdaptersFeature, ProtocolAdaptersConfig } from './adapters/index.js';
 
 export default class DeviceAgent {
 	private orchestratorDriver!: IOrchestratorDriver;
@@ -54,6 +55,7 @@ export default class DeviceAgent {
 	private cloudJobsAdapter?: CloudJobsAdapter;
 	private mqttJobsFeature?: JobsFeature;
 	private sensorPublish?: SensorPublishFeature;
+	private protocolAdapters?: ProtocolAdaptersFeature;
 	private shadowFeature?: ShadowFeature;
 	private sensorConfigHandler?: SensorConfigHandler;
 	private twinStateManager?: TwinStateManager;
@@ -112,6 +114,7 @@ export default class DeviceAgent {
 		const enableJobEngine = configFeatures.enableJobEngine ?? (process.env.ENABLE_JOB_ENGINE === 'true');
 		const enableCloudJobs = configFeatures.enableCloudJobs ?? (process.env.ENABLE_CLOUD_JOBS === 'true');
 		const enableSensorPublish = configFeatures.enableSensorPublish ?? (process.env.ENABLE_SENSOR_PUBLISH === 'true');
+		const enableProtocolAdapters = configFeatures.enableProtocolAdapters ?? (process.env.ENABLE_PROTOCOL_ADAPTERS === 'true');
 		const enableShadow = configFeatures.enableShadow ?? (process.env.ENABLE_SHADOW === 'true');
 		
 		// Get system settings from config (with defaults)
@@ -135,6 +138,7 @@ export default class DeviceAgent {
 				jobEngine: enableJobEngine,
 				cloudJobs: enableCloudJobs,
 				sensorPublish: enableSensorPublish,
+				protocolAdapters: enableProtocolAdapters,
 				shadow: enableShadow
 			},
 			settings: {
@@ -176,6 +180,11 @@ export default class DeviceAgent {
 			// 12. Initialize Sensor Publish Feature (if enabled by config)
 			if (enableSensorPublish) {
 				await this.initializeSensorPublish();
+			}
+
+			// 12.5. Initialize Protocol Adapters Feature (if enabled by config)
+			if (enableProtocolAdapters) {
+				await this.initializeProtocolAdapters();
 			}
 
 			// 13. Initialize Shadow Feature (if enabled by config)
@@ -931,6 +940,77 @@ export default class DeviceAgent {
 		}
 	}
 
+	private async initializeProtocolAdapters(): Promise<void> {
+		this.agentLogger?.infoSync('Initializing Protocol Adapters Feature', { component: 'Agent' });
+
+		try {
+			// Get protocol adapters configuration from target state or environment
+			const targetState = this.containerManager.getTargetState();
+			const configFeatures = targetState?.config?.features || {};
+			const protocolAdaptersConfig: ProtocolAdaptersConfig = configFeatures.protocolAdapters || {};
+
+			// Check environment variable for config override
+			const envConfigStr = process.env.PROTOCOL_ADAPTERS_CONFIG;
+			if (envConfigStr) {
+				try {
+					const envConfig = JSON.parse(envConfigStr);
+					Object.assign(protocolAdaptersConfig, envConfig);
+					this.agentLogger?.debugSync('Loaded protocol adapters config from PROTOCOL_ADAPTERS_CONFIG', {
+						component: 'Agent'
+					});
+				} catch (error) {
+					this.agentLogger?.warnSync('Failed to parse PROTOCOL_ADAPTERS_CONFIG, using target state config', {
+						component: 'Agent'
+					});
+				}
+			}
+
+			// Check if any adapters are enabled
+			const hasEnabledAdapters = 
+				protocolAdaptersConfig.modbus?.enabled ||
+				protocolAdaptersConfig.can?.enabled ||
+				protocolAdaptersConfig.opcua?.enabled;
+
+			if (!hasEnabledAdapters) {
+				this.agentLogger?.warnSync('Protocol adapters feature enabled but no adapters configured', {
+					component: 'Agent',
+					note: 'Configure adapters in target state features.protocolAdapters or PROTOCOL_ADAPTERS_CONFIG env var'
+				});
+				return;
+			}
+
+			// Create logger adapter for protocol adapters
+			const protocolLogger = {
+				info: (message: string) => this.agentLogger?.infoSync(message, { component: 'ProtocolAdapters' }),
+				warn: (message: string) => this.agentLogger?.warnSync(message, { component: 'ProtocolAdapters' }),
+				error: (message: string) => this.agentLogger?.errorSync(message, new Error(message), { component: 'ProtocolAdapters' }),
+				debug: (message: string) => {
+					if (process.env.PROTOCOL_ADAPTERS_DEBUG === 'true') {
+						this.agentLogger?.debugSync(message, { component: 'ProtocolAdapters' });
+					}
+				}
+			};
+
+			// Create and start protocol adapters feature
+			this.protocolAdapters = new ProtocolAdaptersFeature(protocolAdaptersConfig, protocolLogger);
+			await this.protocolAdapters.start();
+
+			this.agentLogger?.infoSync('Protocol Adapters Feature initialized', {
+				component: 'Agent',
+				modbus: protocolAdaptersConfig.modbus?.enabled || false,
+				can: protocolAdaptersConfig.can?.enabled || false,
+				opcua: protocolAdaptersConfig.opcua?.enabled || false
+			});
+
+		} catch (error) {
+			this.agentLogger?.errorSync('Failed to initialize Protocol Adapters', error instanceof Error ? error : new Error(String(error)), {
+				component: 'Agent',
+				note: 'Continuing without Protocol Adapters'
+			});
+			this.protocolAdapters = undefined;
+		}
+	}
+
 	private async initializeShadowFeature(): Promise<void> {
 		this.agentLogger?.infoSync('Initializing Shadow Feature', { component: 'Agent' });
 
@@ -1568,6 +1648,27 @@ export default class DeviceAgent {
 					}
 				}
 
+				// Enable/disable Protocol Adapters dynamically
+				if (features.enableProtocolAdapters !== undefined) {
+					const isCurrentlyEnabled = !!this.protocolAdapters;
+					const shouldBeEnabled = features.enableProtocolAdapters;
+					
+					if (shouldBeEnabled === isCurrentlyEnabled) {
+						this.agentLogger?.debugSync('Protocol Adapters already in desired state', {
+							category: 'Agent',
+							enabled: shouldBeEnabled
+						});
+					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
+						this.agentLogger?.infoSync('Enabling Protocol Adapters', { category: 'Agent' });
+						await this.initializeProtocolAdapters();
+					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
+						this.agentLogger?.infoSync('Disabling Protocol Adapters', { category: 'Agent' });
+						await this.protocolAdapters!.stop();
+						this.protocolAdapters = undefined;
+						this.agentLogger?.infoSync('Protocol Adapters disabled successfully', { category: 'Agent' });
+					}
+				}
+
 				// Enable/disable Shadow Feature dynamically
 				if (features.enableShadow !== undefined) {
 					const isCurrentlyEnabled = !!this.shadowFeature;
@@ -1634,6 +1735,12 @@ export default class DeviceAgent {
 			if (this.sensorPublish) {
 				await this.sensorPublish.stop();
 				this.agentLogger?.infoSync('Sensor Publish stopped', { component: 'Agent' });
+			}
+
+			// Stop Protocol Adapters
+			if (this.protocolAdapters) {
+				await this.protocolAdapters.stop();
+				this.agentLogger?.infoSync('Protocol Adapters stopped', { component: 'Agent' });
 			}
 
 			// Stop Sensor Config Handler

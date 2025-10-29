@@ -111,24 +111,17 @@ export const ModbusDeviceSchema = z.object({
 export type ModbusDevice = z.infer<typeof ModbusDeviceSchema>;
 
 /**
- * Unix Socket Output Configuration Schema
- */
-export const SocketOutputSchema = z.object({
-  socketPath: z.string().min(1),
-  dataFormat: z.enum(['json', 'csv']).optional().default('json'),
-  delimiter: z.string().optional().default('\n'),
-  includeTimestamp: z.boolean().optional().default(true),
-  includeDeviceName: z.boolean().optional().default(true)
-});
-
-export type SocketOutput = z.infer<typeof SocketOutputSchema>;
-
-/**
  * Modbus Adapter Configuration Schema
  */
 export const ModbusAdapterConfigSchema = z.object({
   devices: z.array(ModbusDeviceSchema).min(1),
-  output: SocketOutputSchema,
+  output: z.object({
+    socketPath: z.string().min(1),
+    dataFormat: z.enum(['json', 'csv']).optional().default('json'),
+    delimiter: z.string().optional().default('\n'),
+    includeTimestamp: z.boolean().optional().default(true),
+    includeDeviceName: z.boolean().optional().default(true)
+  }),
   logging: z.object({
     level: z.enum(['debug', 'info', 'warn', 'error']).optional().default('info'),
     enableConsole: z.boolean().optional().default(true),
@@ -138,36 +131,3 @@ export const ModbusAdapterConfigSchema = z.object({
 });
 
 export type ModbusAdapterConfig = z.infer<typeof ModbusAdapterConfigSchema>;
-
-/**
- * Sensor Data Point interface
- */
-export interface SensorDataPoint {
-  deviceName: string;
-  registerName: string;
-  value: number | boolean | string;
-  unit: string;
-  timestamp: string;
-  quality: 'good' | 'bad' | 'uncertain';
-}
-
-/**
- * Device Status interface
- */
-export interface DeviceStatus {
-  deviceName: string;
-  connected: boolean;
-  lastPoll: Date | null;
-  errorCount: number;
-  lastError: string | null;
-}
-
-/**
- * Logger interface
- */
-export interface Logger {
-  debug(message: string, ...args: any[]): void;
-  info(message: string, ...args: any[]): void;
-  warn(message: string, ...args: any[]): void;
-  error(message: string, ...args: any[]): void;
-}
