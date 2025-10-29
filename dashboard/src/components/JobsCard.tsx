@@ -191,6 +191,10 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
     fetchJobs(); // Refresh the list
   };
 
+  const handleRefresh = () => {
+    fetchJobs(currentPage);
+  };
+
   const handleViewJob = (job: Job) => {
     setSelectedJob(job);
     setShowDetailsModal(true);

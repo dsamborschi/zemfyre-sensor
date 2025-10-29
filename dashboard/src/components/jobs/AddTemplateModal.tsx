@@ -27,12 +27,19 @@ interface JobStep {
   timeoutSeconds?: number;
 }
 
+interface TemplateVariable {
+  name: string;
+  description: string;
+  defaultValue?: string;
+}
+
 export const AddTemplateModal: React.FC<AddTemplateModalProps> = ({ open, onClose, onSaved }) => {
   const [templateName, setTemplateName] = useState('');
   const [description, setDescription] = useState('');
   const [category, setCategory] = useState('system');
   const [version, setVersion] = useState('1.0');
   const [includeStdOut, setIncludeStdOut] = useState(true);
+  const [variables, setVariables] = useState<TemplateVariable[]>([]);
   const [steps, setSteps] = useState<JobStep[]>([
     {
       name: '',
@@ -43,6 +50,53 @@ export const AddTemplateModal: React.FC<AddTemplateModalProps> = ({ open, onClos
   ]);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Extract variables from all step commands
+  const extractVariablesFromSteps = (): string[] => {
+    const regex = /\{\{([A-Z_]+)\}\}/g;
+    const foundVars = new Set<string>();
+    
+    steps.forEach(step => {
+      let match;
+      while ((match = regex.exec(step.input.command)) !== null) {
+        foundVars.add(match[1]);
+      }
+    });
+    
+    return Array.from(foundVars);
+  };
+
+  const handleAddVariable = () => {
+    setVariables([...variables, { name: '', description: '' }]);
+  };
+
+  const handleRemoveVariable = (index: number) => {
+    setVariables(variables.filter((_, i) => i !== index));
+  };
+
+  const handleVariableChange = (index: number, field: keyof TemplateVariable, value: string) => {
+    const newVariables = [...variables];
+    newVariables[index][field] = value;
+    setVariables(newVariables);
+  };
+
+  const handleAutoDetectVariables = () => {
+    const detectedVars = extractVariablesFromSteps();
+    const existingVarNames = new Set(variables.map(v => v.name));
+    
+    // Add only new variables
+    const newVars = detectedVars
+      .filter(varName => !existingVarNames.has(varName))
+      .map(varName => ({
+        name: varName,
+        description: '',
+        defaultValue: ''
+      }));
+    
+    if (newVars.length > 0) {
+      setVariables([...variables, ...newVars]);
+    }
+  };
 
   const handleAddStep = () => {
     setSteps([
@@ -96,6 +150,17 @@ export const AddTemplateModal: React.FC<AddTemplateModalProps> = ({ open, onClos
       const jobDocument = {
         version,
         includeStdOut,
+        ...(variables.length > 0 && {
+          variables: variables.reduce((acc, v) => {
+            if (v.name) {
+              acc[v.name] = {
+                description: v.description || undefined,
+                defaultValue: v.defaultValue || undefined
+              };
+            }
+            return acc;
+          }, {} as Record<string, any>)
+        }),
         steps: steps.map(step => ({
           name: step.name,
           type: step.type,
@@ -133,6 +198,7 @@ export const AddTemplateModal: React.FC<AddTemplateModalProps> = ({ open, onClos
       setCategory('system');
       setVersion('1.0');
       setIncludeStdOut(true);
+      setVariables([]);
       setSteps([
         {
           name: '',
@@ -232,6 +298,105 @@ export const AddTemplateModal: React.FC<AddTemplateModalProps> = ({ open, onClos
                 Include stdout/stderr in job output
               </label>
             </div>
+          </div>
+
+          {/* Template Variables */}
+          <div className="border-t pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h3 className="text-sm font-semibold text-gray-900">Template Variables</h3>
+                <p className="text-xs text-gray-500 mt-0.5">
+                  Define parameters users must provide (e.g., SERVICE_NAME, PORT)
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleAutoDetectVariables}
+                  type="button"
+                >
+                  Auto-Detect
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={handleAddVariable}
+                  type="button"
+                >
+                  <Plus className="w-4 h-4 mr-1" />
+                  Add Variable
+                </Button>
+              </div>
+            </div>
+
+            {variables.length > 0 ? (
+              <div className="space-y-3">
+                {variables.map((variable, index) => (
+                  <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-1 space-y-2">
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Variable Name (use UPPER_CASE) <span className="text-red-500">*</span>
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full px-2 py-1.5 text-sm font-mono border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            value={variable.name}
+                            onChange={(e) => handleVariableChange(index, 'name', e.target.value.toUpperCase())}
+                            placeholder="e.g., SERVICE_NAME"
+                          />
+                          <p className="text-xs text-gray-500 mt-1">
+                            Use in commands as: <code className="bg-gray-200 px-1 rounded">{'{{' + (variable.name || 'VARIABLE_NAME') + '}}'}</code>
+                          </p>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Description
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            value={variable.description}
+                            onChange={(e) => handleVariableChange(index, 'description', e.target.value)}
+                            placeholder="e.g., Name of the service to restart"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Default Value (optional)
+                          </label>
+                          <input
+                            type="text"
+                            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            value={variable.defaultValue || ''}
+                            onChange={(e) => handleVariableChange(index, 'defaultValue', e.target.value)}
+                            placeholder="e.g., nginx"
+                          />
+                        </div>
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleRemoveVariable(index)}
+                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        type="button"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="bg-gray-50 border border-gray-200 rounded p-4 text-center text-sm text-gray-500">
+                No variables defined. Use {'{{VARIABLE_NAME}}'} in commands and click "Auto-Detect" or "Add Variable".
+              </div>
+            )}
           </div>
 
           {/* Job Steps */}
