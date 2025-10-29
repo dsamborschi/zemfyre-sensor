@@ -57,6 +57,7 @@ export default class DeviceAgent {
 	private shadowFeature?: ShadowFeature;
 	private sensorConfigHandler?: SensorConfigHandler;
 	private twinStateManager?: TwinStateManager;
+	private mqttConnectionMonitor?: NodeJS.Timeout; // For coordinating MQTT/HTTP fallback
 	
 	// System settings (config-driven with env var defaults)
 	private reconciliationIntervalMs: number;
@@ -165,6 +166,11 @@ export default class DeviceAgent {
 				
 				// 11b. Initialize MQTT Jobs Feature (primary - if MQTT available)
 				await this.initializeMqttJobsFeature();
+				
+				// 11c. Start MQTT/HTTP coordination monitor
+				if (this.mqttJobsFeature && this.cloudJobsAdapter) {
+					this.startJobsCoordinator();
+				}
 			}
 
 			// 12. Initialize Sensor Publish Feature (if enabled by config)
@@ -767,18 +773,10 @@ export default class DeviceAgent {
 			// Start the feature
 			await this.mqttJobsFeature.start();
 
-			// If MQTT Jobs is working, we can reduce HTTP polling frequency
-			if (this.cloudJobsAdapter) {
-				this.agentLogger?.infoSync('MQTT Jobs active - HTTP polling will serve as fallback only', {
-					component: 'Agent',
-					note: 'Consider increasing HTTP polling interval to reduce server load'
-				});
-			}
-
 			this.agentLogger?.infoSync('MQTT Jobs Feature initialized successfully', {
 				component: 'Agent',
 				deviceUuid: this.deviceInfo.uuid,
-				mode: 'MQTT-primary with HTTP fallback'
+				mode: 'MQTT-primary with HTTP fallback coordination'
 			});
 
 		} catch (error) {
@@ -788,6 +786,69 @@ export default class DeviceAgent {
 			});
 			this.mqttJobsFeature = undefined;
 		}
+	}
+
+	/**
+	 * Start MQTT/HTTP Jobs Coordinator
+	 * 
+	 * Monitors MQTT connection and coordinates between MQTT Jobs (primary) and HTTP polling (fallback):
+	 * - When MQTT connected: MQTT Jobs executes, HTTP polling paused
+	 * - When MQTT disconnects: HTTP polling resumes as fallback
+	 * - When MQTT reconnects: HTTP polling paused again
+	 */
+	private startJobsCoordinator(): void {
+		this.agentLogger?.infoSync('Starting Jobs Coordinator (MQTT primary, HTTP fallback)', {
+			component: 'Agent',
+			note: 'Will automatically switch between MQTT and HTTP based on connection'
+		});
+
+		const mqttManager = MqttManager.getInstance();
+		let lastMqttState = mqttManager.isConnected();
+
+		// Initially pause HTTP if MQTT is connected
+		if (lastMqttState && this.cloudJobsAdapter) {
+			this.cloudJobsAdapter.pause();
+			this.agentLogger?.infoSync('MQTT connected - HTTP polling paused', {
+				component: 'JobsCoordinator',
+				mode: 'MQTT-primary'
+			});
+		}
+
+		// Monitor MQTT connection every 5 seconds
+		this.mqttConnectionMonitor = setInterval(() => {
+			const currentMqttState = mqttManager.isConnected();
+
+			// MQTT state changed
+			if (currentMqttState !== lastMqttState) {
+				if (currentMqttState) {
+					// MQTT reconnected - pause HTTP polling
+					if (this.cloudJobsAdapter && !this.cloudJobsAdapter.isPaused()) {
+						this.cloudJobsAdapter.pause();
+						this.agentLogger?.infoSync('MQTT reconnected - switching to MQTT Jobs', {
+							component: 'JobsCoordinator',
+							mode: 'MQTT-primary'
+						});
+					}
+				} else {
+					// MQTT disconnected - resume HTTP polling
+					if (this.cloudJobsAdapter && this.cloudJobsAdapter.isPaused()) {
+						this.cloudJobsAdapter.resume();
+						this.agentLogger?.warnSync('MQTT disconnected - falling back to HTTP polling', {
+							component: 'JobsCoordinator',
+							mode: 'HTTP-fallback'
+						});
+					}
+				}
+
+				lastMqttState = currentMqttState;
+			}
+		}, 5000); // Check every 5 seconds
+
+		this.agentLogger?.infoSync('Jobs Coordinator started', {
+			component: 'Agent',
+			checkInterval: '5 seconds',
+			initialMode: lastMqttState ? 'MQTT-primary' : 'HTTP-fallback'
+		});
 	}
 
 	private async initializeSensorPublish(): Promise<void> {
@@ -1585,6 +1646,13 @@ export default class DeviceAgent {
 			if (this.jobEngine) {
 				// Clean up any scheduled or running jobs
 				this.agentLogger?.infoSync('Job Engine cleanup', { component: 'Agent' });
+			}
+
+			// Stop Jobs Coordinator
+			if (this.mqttConnectionMonitor) {
+				clearInterval(this.mqttConnectionMonitor);
+				this.mqttConnectionMonitor = undefined;
+				this.agentLogger?.infoSync('Jobs Coordinator stopped', { component: 'Agent' });
 			}
 
 			// Stop MQTT Jobs Feature

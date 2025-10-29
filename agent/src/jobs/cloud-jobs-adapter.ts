@@ -50,6 +50,7 @@ export class CloudJobsAdapter {
   private httpClient: AxiosInstance;
   private config: Required<CloudJobsAdapterConfig>;
   private apiVersion: string;
+  private paused: boolean = false; // For MQTT fallback coordination
 
   constructor(
     config: CloudJobsAdapterConfig,
@@ -123,10 +124,55 @@ export class CloudJobsAdapter {
   }
 
   /**
+   * Pause polling (for MQTT fallback coordination)
+   * Keeps the adapter running but stops HTTP polling
+   */
+  pause(): void {
+    if (this.paused) {
+      return;
+    }
+
+    this.paused = true;
+    
+    // Stop the polling interval but keep polling flag
+    if (this.pollingInterval) {
+      clearInterval(this.pollingInterval);
+      this.pollingInterval = null;
+    }
+
+    this.log('HTTP polling paused (MQTT Jobs active)');
+  }
+
+  /**
+   * Resume polling (when MQTT falls back to HTTP)
+   */
+  resume(): void {
+    if (!this.paused) {
+      return;
+    }
+
+    this.paused = false;
+
+    // Only resume if we're still supposed to be polling
+    if (this.polling && !this.pollingInterval) {
+      this.log('HTTP polling resumed (MQTT fallback)');
+      this.poll(); // Poll immediately
+      this.pollingInterval = setInterval(() => this.poll(), this.config.pollingIntervalMs);
+    }
+  }
+
+  /**
+   * Check if adapter is currently paused
+   */
+  isPaused(): boolean {
+    return this.paused;
+  }
+
+  /**
    * Poll for next pending job
    */
   private async poll(): Promise<void> {
-    if (!this.polling) {
+    if (!this.polling || this.paused) {
       return;
     }
 

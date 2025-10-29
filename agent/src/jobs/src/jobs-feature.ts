@@ -46,6 +46,8 @@ export class JobsFeature extends EventEmitter implements Feature {
     this.notifier = notifier;
     this.config = config;
     this.jobEngine = new JobEngine(logger);
+    
+    // Build topics using deviceUuid from config
     this.topics = this.buildTopics(config.deviceUuid);
   }
 

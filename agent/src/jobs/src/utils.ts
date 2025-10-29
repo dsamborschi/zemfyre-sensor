@@ -83,8 +83,9 @@ export class ConfigUtils {
    * Validate jobs configuration
    */
   static validateJobsConfig(config: any): void {
-    if (!config.thingName || typeof config.thingName !== 'string') {
-      throw new Error('Jobs config must include a valid thingName');
+    // Check for deviceUuid (required field in JobsConfig interface)
+    if (!config.deviceUuid || typeof config.deviceUuid !== 'string') {
+      throw new Error('Jobs config must include a valid deviceUuid');
     }
 
     if (!config.handlerDirectory || typeof config.handlerDirectory !== 'string') {
