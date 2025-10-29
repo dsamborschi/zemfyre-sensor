@@ -27,7 +27,7 @@ import { ContainerLogMonitor } from './logging/monitor.js';
 import { AgentLogger } from './logging/agent-logger.js';
 import type { LogBackend } from './logging/types.js';
 import { SSHTunnelManager } from './remote-access/ssh-tunnel.js';
-import { EnhancedJobEngine } from './jobs/src/enhanced-job-engine.js';
+import { JobEngine } from './jobs/src/job-engine.js';
 import { CloudJobsAdapter } from './jobs/cloud-jobs-adapter.js';
 import { createJobsFeature, JobsFeature } from './jobs/src/index.js';
 import { JobsMqttConnectionAdapter } from './mqtt/mqtt-connection-adapter.js';
@@ -50,7 +50,7 @@ export default class DeviceAgent {
 	private logMonitor?: ContainerLogMonitor;
 	private agentLogger!: AgentLogger;  // Structured logging for agent-level events
 	private sshTunnel?: SSHTunnelManager;
-	private jobEngine?: EnhancedJobEngine;
+	private jobEngine?: JobEngine;
 	private cloudJobsAdapter?: CloudJobsAdapter;
 	private mqttJobsFeature?: JobsFeature;
 	private sensorPublish?: SensorPublishFeature;
@@ -625,13 +625,13 @@ export default class DeviceAgent {
 				},
 			};
 
-			this.jobEngine = new EnhancedJobEngine(jobLogger);
+			this.jobEngine = new JobEngine(jobLogger);
 
 			// Log job engine capabilities
-			this.agentLogger?.infoSync('Enhanced Job Engine initialized', {
+			this.agentLogger?.infoSync('Job Engine initialized', {
 				component: 'Agent',
-				supportedTypes: 'ONE_TIME, RECURRING, CONTINUOUS',
-				executionTypes: 'Sequential, Parallel',
+				supportedTypes: 'ONE_TIME',
+				executionTypes: 'Sequential',
 				handlerDirectory: './data/job-handlers (default)'
 			});
 			
@@ -1738,7 +1738,7 @@ export default class DeviceAgent {
 		return this.deviceAPI;
 	}
 
-	public getJobEngine(): EnhancedJobEngine | undefined {
+	public getJobEngine(): JobEngine | undefined {
 		return this.jobEngine;
 	}
 }

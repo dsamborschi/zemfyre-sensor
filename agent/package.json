@@ -44,7 +44,6 @@
   "dependencies": {
     "@kubernetes/client-node": "^1.4.0",
     "@types/mqtt": "^0.0.34",
-    "@types/node-cron": "^3.0.11",
     "@types/uuid": "^10.0.0",
     "axios": "^1.12.2",
     "blinking": "^1.0.1",
@@ -62,7 +61,6 @@
     "memoizee": "^0.4.17",
     "mqtt": "^5.14.1",
     "network-checker": "^1.0.6",
-    "node-cron": "^4.2.1",
     "sqlite3": "^5.1.6",
     "strict-event-emitter-types": "^2.0.0",
     "systeminformation": "^5.23.5",
