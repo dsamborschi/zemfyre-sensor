@@ -185,9 +185,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose,
           {(job.job_document || job.stdout || job.stderr) && (
             <div className="border-t pt-4">
               <Tabs defaultValue="steps" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="steps">Job Steps</TabsTrigger>
-                  <TabsTrigger value="output">Execution Output</TabsTrigger>
+                <TabsList className="w-full">
+                  <TabsTrigger value="steps" className="flex-1">Job Steps</TabsTrigger>
+                  <TabsTrigger value="output" className="flex-1">Execution Output</TabsTrigger>
                 </TabsList>
 
                 {/* Job Steps Tab */}
