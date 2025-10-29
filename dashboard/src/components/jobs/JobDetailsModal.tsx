@@ -7,6 +7,7 @@ import {
 } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Copy, CheckCircle2, Save } from 'lucide-react';
 import SaveTemplateModal from './SaveTemplateModal';
 
@@ -180,185 +181,204 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose,
             </div>
           )}
 
-          {/* Job Document */}
-          {job.job_document && (
+          {/* Tabbed Interface for Job Steps and Output */}
+          {(job.job_document || job.stdout || job.stderr) && (
             <div className="border-t pt-4">
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">Job Steps</h4>
-              
-              {/* Check if job_document has steps */}
-              {job.job_document.steps && job.job_document.steps.length > 0 ? (
-                <div className="space-y-3">
-                  {job.job_document.steps.map((step: any, index: number) => (
-                    <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start gap-3">
-                        {/* Step Number */}
-                        <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-semibold">
-                          {index + 1}
+              <Tabs defaultValue="steps" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="steps">Job Steps</TabsTrigger>
+                  <TabsTrigger value="output">Execution Output</TabsTrigger>
+                </TabsList>
+
+                {/* Job Steps Tab */}
+                <TabsContent value="steps" className="mt-4">
+                  {job.job_document ? (
+                    <>
+                      {/* Check if job_document has steps */}
+                      {job.job_document.steps && job.job_document.steps.length > 0 ? (
+                        <div className="space-y-3">
+                          {job.job_document.steps.map((step: any, index: number) => (
+                            <div key={index} className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                              <div className="flex items-start gap-3">
+                                {/* Step Number */}
+                                <div className="flex-shrink-0 w-8 h-8 bg-blue-600 text-white rounded-full flex items-center justify-center text-sm font-semibold">
+                                  {index + 1}
+                                </div>
+                                
+                                {/* Step Details */}
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <h5 className="text-sm font-semibold text-gray-900">{step.name}</h5>
+                                    <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">
+                                      {step.type}
+                                    </Badge>
+                                  </div>
+                                  
+                                  {/* Command or Input */}
+                                  {step.input && (
+                                    <div className="mt-2">
+                                      {step.input.command && (
+                                        <div className="bg-gray-900 rounded px-3 py-2">
+                                          <p className="text-xs text-green-400 font-mono">
+                                            {typeof step.input.command === 'string' 
+                                              ? step.input.command 
+                                              : Array.isArray(step.input.command) 
+                                                ? step.input.command.join(' ') 
+                                                : JSON.stringify(step.input.command)}
+                                          </p>
+                                        </div>
+                                      )}
+                                      
+                                      {/* Other input properties */}
+                                      {Object.keys(step.input).filter(key => key !== 'command').length > 0 && (
+                                        <div className="mt-2 space-y-1">
+                                          {Object.entries(step.input)
+                                            .filter(([key]) => key !== 'command')
+                                            .map(([key, value]) => (
+                                              <div key={key} className="flex gap-2 text-xs">
+                                                <span className="text-gray-600 font-medium capitalize">{key}:</span>
+                                                <span className="text-gray-900">{String(value)}</span>
+                                              </div>
+                                            ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  )}
+                                  
+                                  {/* Run as user */}
+                                  {step.runAsUser && (
+                                    <div className="mt-2 flex items-center gap-1 text-xs text-gray-600">
+                                      <span className="font-medium">Run as:</span>
+                                      <span className="font-mono bg-gray-200 px-1.5 py-0.5 rounded">{step.runAsUser}</span>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Timeout */}
+                                  {step.timeoutSeconds && (
+                                    <div className="mt-1 text-xs text-gray-600">
+                                      Timeout: {step.timeoutSeconds}s
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          ))}
                         </div>
-                        
-                        {/* Step Details */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-2">
-                            <h5 className="text-sm font-semibold text-gray-900">{step.name}</h5>
-                            <Badge variant="outline" className="text-xs bg-blue-50 text-blue-700 border-blue-300">
-                              {step.type}
-                            </Badge>
+                      ) : (
+                        <div className="bg-gray-50 rounded p-4">
+                          <p className="text-sm text-gray-600">No steps defined</p>
+                        </div>
+                      )}
+                      
+                      {/* Job Document Metadata */}
+                      {(job.job_document.version || job.job_document.includeStdOut !== undefined) && (
+                        <div className="mt-4 pt-3 border-t border-gray-200">
+                          <div className="flex gap-4 text-xs text-gray-600">
+                            {job.job_document.version && (
+                              <div>
+                                <span className="font-medium">Version:</span> {job.job_document.version}
+                              </div>
+                            )}
+                            {job.job_document.includeStdOut !== undefined && (
+                              <div>
+                                <span className="font-medium">Include Output:</span>{' '}
+                                <Badge variant="outline" className={`text-xs ${job.job_document.includeStdOut ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
+                                  {job.job_document.includeStdOut ? 'Yes' : 'No'}
+                                </Badge>
+                              </div>
+                            )}
                           </div>
-                          
-                          {/* Command or Input */}
-                          {step.input && (
-                            <div className="mt-2">
-                              {step.input.command && (
-                                <div className="bg-gray-900 rounded px-3 py-2">
-                                  <p className="text-xs text-green-400 font-mono">
-                                    {typeof step.input.command === 'string' 
-                                      ? step.input.command 
-                                      : Array.isArray(step.input.command) 
-                                        ? step.input.command.join(' ') 
-                                        : JSON.stringify(step.input.command)}
-                                  </p>
-                                </div>
-                              )}
-                              
-                              {/* Other input properties */}
-                              {Object.keys(step.input).filter(key => key !== 'command').length > 0 && (
-                                <div className="mt-2 space-y-1">
-                                  {Object.entries(step.input)
-                                    .filter(([key]) => key !== 'command')
-                                    .map(([key, value]) => (
-                                      <div key={key} className="flex gap-2 text-xs">
-                                        <span className="text-gray-600 font-medium capitalize">{key}:</span>
-                                        <span className="text-gray-900">{String(value)}</span>
-                                      </div>
-                                    ))}
-                                </div>
-                              )}
-                            </div>
-                          )}
-                          
-                          {/* Run as user */}
-                          {step.runAsUser && (
-                            <div className="mt-2 flex items-center gap-1 text-xs text-gray-600">
-                              <span className="font-medium">Run as:</span>
-                              <span className="font-mono bg-gray-200 px-1.5 py-0.5 rounded">{step.runAsUser}</span>
-                            </div>
-                          )}
-                          
-                          {/* Timeout */}
-                          {step.timeoutSeconds && (
-                            <div className="mt-1 text-xs text-gray-600">
-                              Timeout: {step.timeoutSeconds}s
-                            </div>
-                          )}
                         </div>
-                      </div>
+                      )}
+                    </>
+                  ) : (
+                    <div className="bg-gray-50 rounded p-4">
+                      <p className="text-sm text-gray-600">No job document available</p>
                     </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="bg-gray-50 rounded p-4">
-                  <p className="text-sm text-gray-600">No steps defined</p>
-                </div>
-              )}
-              
-              {/* Job Document Metadata */}
-              {(job.job_document.version || job.job_document.includeStdOut !== undefined) && (
-                <div className="mt-4 pt-3 border-t border-gray-200">
-                  <div className="flex gap-4 text-xs text-gray-600">
-                    {job.job_document.version && (
-                      <div>
-                        <span className="font-medium">Version:</span> {job.job_document.version}
-                      </div>
-                    )}
-                    {job.job_document.includeStdOut !== undefined && (
-                      <div>
-                        <span className="font-medium">Include Output:</span>{' '}
-                        <Badge variant="outline" className={`text-xs ${job.job_document.includeStdOut ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                          {job.job_document.includeStdOut ? 'Yes' : 'No'}
-                        </Badge>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-              
-            </div>
-          )}
+                  )}
+                </TabsContent>
 
-          {/* Execution Output */}
-          {(job.stdout || job.stderr) && (
-            <div className="border-t pt-4">
-              <h4 className="text-sm font-semibold text-gray-900 mb-3">Execution Output</h4>
-              
-              {/* Standard Output (stdout) */}
-              {job.stdout && (
-                <div className="mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-medium text-green-700 flex items-center gap-2">
-                      <span className="bg-green-100 px-2 py-0.5 rounded text-xs font-mono">stdout</span>
-                      Standard Output
-                    </label>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyToClipboard(job.stdout!, 'stdout')}
-                      className="h-7 text-xs"
-                    >
-                      {copiedStdout ? (
-                        <>
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3 mr-1" />
-                          Copy
-                        </>
+                {/* Execution Output Tab */}
+                <TabsContent value="output" className="mt-4">
+                  {(job.stdout || job.stderr) ? (
+                    <>
+                      {/* Standard Output (stdout) */}
+                      {job.stdout && (
+                        <div className="mb-4">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-green-700 flex items-center gap-2">
+                              <span className="bg-green-100 px-2 py-0.5 rounded text-xs font-mono">stdout</span>
+                              Standard Output
+                            </label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => copyToClipboard(job.stdout!, 'stdout')}
+                              className="h-7 text-xs"
+                            >
+                              {copiedStdout ? (
+                                <>
+                                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                                  Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3 mr-1" />
+                                  Copy
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto max-h-[300px] overflow-y-auto">
+                            <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap">
+                              {job.stdout}
+                            </pre>
+                          </div>
+                        </div>
                       )}
-                    </Button>
-                  </div>
-                  <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto max-h-[300px] overflow-y-auto">
-                    <pre className="text-xs font-mono text-green-400 whitespace-pre-wrap">
-                      {job.stdout}
-                    </pre>
-                  </div>
-                </div>
-              )}
 
-              {/* Standard Error (stderr) */}
-              {job.stderr && (
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-medium text-red-700 flex items-center gap-2">
-                      <span className="bg-red-100 px-2 py-0.5 rounded text-xs font-mono">stderr</span>
-                      Error Output
-                    </label>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => copyToClipboard(job.stderr!, 'stderr')}
-                      className="h-7 text-xs"
-                    >
-                      {copiedStderr ? (
-                        <>
-                          <CheckCircle2 className="w-3 h-3 mr-1" />
-                          Copied!
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3 h-3 mr-1" />
-                          Copy
-                        </>
+                      {/* Standard Error (stderr) */}
+                      {job.stderr && (
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-sm font-medium text-red-700 flex items-center gap-2">
+                              <span className="bg-red-100 px-2 py-0.5 rounded text-xs font-mono">stderr</span>
+                              Error Output
+                            </label>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => copyToClipboard(job.stderr!, 'stderr')}
+                              className="h-7 text-xs"
+                            >
+                              {copiedStderr ? (
+                                <>
+                                  <CheckCircle2 className="w-3 h-3 mr-1" />
+                                  Copied!
+                                </>
+                              ) : (
+                                <>
+                                  <Copy className="w-3 h-3 mr-1" />
+                                  Copy
+                                </>
+                              )}
+                            </Button>
+                          </div>
+                          <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto max-h-[300px] overflow-y-auto">
+                            <pre className="text-xs font-mono text-red-400 whitespace-pre-wrap">
+                              {job.stderr}
+                            </pre>
+                          </div>
+                        </div>
                       )}
-                    </Button>
-                  </div>
-                  <div className="bg-gray-900 rounded-lg p-4 overflow-x-auto max-h-[300px] overflow-y-auto">
-                    <pre className="text-xs font-mono text-red-400 whitespace-pre-wrap">
-                      {job.stderr}
-                    </pre>
-                  </div>
-                </div>
-              )}
+                    </>
+                  ) : (
+                    <div className="bg-gray-50 rounded p-4">
+                      <p className="text-sm text-gray-600">No execution output available</p>
+                    </div>
+                  )}
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </div>
