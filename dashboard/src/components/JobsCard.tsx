@@ -2,11 +2,41 @@ import React, { useEffect, useState } from 'react';
 import { Card } from './ui/card';
 import { Button } from './ui/button';
 import { Badge } from './ui/badge';
-import { Plus, RefreshCw, Trash2, XCircle, Eye, FileText } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, XCircle, Eye, FileText, AlertTriangle } from 'lucide-react';
 import { buildApiUrl } from '@/config/api';
 import AddJobModal from './jobs/AddJobModal';
 import JobDetailsModal from './jobs/JobDetailsModal';
 import AddTemplateModal from './jobs/AddTemplateModal';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from './ui/alert-dialog';
 
 interface Job {
   id: number;
