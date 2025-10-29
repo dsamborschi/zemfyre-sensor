@@ -824,6 +824,82 @@ router.post('/jobs/handlers', async (req: Request, res: Response) => {
 });
 
 // =============================================================================
+// Job Deletion
+// =============================================================================
+
+/**
+ * DELETE /api/v1/jobs/:jobId
+ * Delete a job and all its related data
+ */
+router.delete('/jobs/:jobId', async (req: Request, res: Response) => {
+  try {
+    const { jobId } = req.params;
+
+    // Check if job exists
+    const jobCheck = await pool.query(
+      'SELECT job_id, status FROM job_executions WHERE job_id = $1',
+      [jobId]
+    );
+
+    if (jobCheck.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Job not found',
+        message: `Job with ID ${jobId} does not exist`,
+      });
+    }
+
+    const job = jobCheck.rows[0];
+
+    // Prevent deletion of in-progress jobs
+    if (job.status === 'IN_PROGRESS') {
+      return res.status(400).json({
+        error: 'Cannot delete running job',
+        message: 'Job is currently in progress. Cancel it first before deleting.',
+      });
+    }
+
+    // Delete in transaction to ensure consistency
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      // Delete device job statuses first (foreign key constraint)
+      await client.query(
+        'DELETE FROM device_job_status WHERE job_id = $1',
+        [jobId]
+      );
+
+      // Delete the job execution
+      await client.query(
+        'DELETE FROM job_executions WHERE job_id = $1',
+        [jobId]
+      );
+
+      await client.query('COMMIT');
+
+      console.log(`[Jobs] Deleted job ${jobId}`);
+
+      return res.status(200).json({
+        success: true,
+        message: 'Job deleted successfully',
+        jobId,
+      });
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  } catch (error: any) {
+    console.error('[Jobs] Error deleting job:', error);
+    return res.status(500).json({
+      error: 'Failed to delete job',
+      message: error.message,
+    });
+  }
+});
+
+// =============================================================================
 // Helper Functions
 // =============================================================================
 
