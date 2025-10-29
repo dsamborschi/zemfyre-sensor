@@ -224,6 +224,17 @@ async function startServer() {
     // Don't exit - this is not critical for API operation
   }
 
+  // Initialize MQTT Jobs Subscriber (listens for job status updates from devices)
+  try {
+    const { getMqttJobsSubscriber } = await import('./services/mqtt-jobs-subscriber');
+    const subscriber = getMqttJobsSubscriber();
+    await subscriber.initialize();
+    console.log('✅ MQTT Jobs Subscriber started (listening for device job updates)');
+  } catch (error) {
+    console.error('⚠️  Failed to start MQTT Jobs Subscriber:', error);
+    // Don't exit - this is not critical for API operation
+  }
+
   // Initialize MQTT manager for device messages
   try {
     await initializeMqtt();
@@ -368,6 +379,16 @@ async function startServer() {
       // Ignore errors during shutdown
     }
     
+    // Stop MQTT Jobs Subscriber
+    try {
+      const { getMqttJobsSubscriber } = await import('./services/mqtt-jobs-subscriber');
+      const subscriber = getMqttJobsSubscriber();
+      await subscriber.stop();
+      console.log('✅ MQTT Jobs Subscriber stopped');
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
     server.close(() => {
       console.log('Server closed');
       process.exit(0);
@@ -427,6 +448,16 @@ async function startServer() {
     // Stop job scheduler
     try {
       jobScheduler.stop();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
+    // Stop MQTT Jobs Subscriber
+    try {
+      const { getMqttJobsSubscriber } = await import('./services/mqtt-jobs-subscriber');
+      const subscriber = getMqttJobsSubscriber();
+      await subscriber.stop();
+      console.log('✅ MQTT Jobs Subscriber stopped');
     } catch (error) {
       // Ignore errors during shutdown
     }

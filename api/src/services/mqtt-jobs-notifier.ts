@@ -24,6 +24,7 @@ export interface MqttJobNotification {
 export class MqttJobsNotifier {
   private mqttClient: mqtt.MqttClient | null = null;
   private isConnected = false;
+  private updateHandlers: Map<string, (update: any) => void> = new Map();
 
   constructor(
     private brokerUrl: string = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883',
@@ -49,6 +50,10 @@ export class MqttJobsNotifier {
       this.mqttClient.on('connect', () => {
         console.log('[MqttJobsNotifier] Connected to MQTT broker');
         this.isConnected = true;
+        
+        // Subscribe to job update topics for all devices
+        this.subscribeToJobUpdates();
+        
         resolve();
       });
 
@@ -76,6 +81,144 @@ export class MqttJobsNotifier {
           resolve();
         });
       });
+    }
+  }
+
+  /**
+   * Subscribe to job update topics
+   * Listens to: iot/device/+/jobs/+/update
+   */
+  private subscribeToJobUpdates(): void {
+    if (!this.mqttClient) {
+      return;
+    }
+
+    // Subscribe to all device job updates (wildcard topic)
+    const updateTopic = 'iot/device/+/jobs/+/update';
+    
+    this.mqttClient.subscribe(updateTopic, { qos: 1 }, (error) => {
+      if (error) {
+        console.error(`[MqttJobsNotifier] Failed to subscribe to ${updateTopic}:`, error);
+      } else {
+        console.log(`[MqttJobsNotifier] Subscribed to job updates: ${updateTopic}`);
+      }
+    });
+
+    // Also subscribe to start-next requests
+    const startNextTopic = 'iot/device/+/jobs/start-next';
+    
+    this.mqttClient.subscribe(startNextTopic, { qos: 1 }, (error) => {
+      if (error) {
+        console.error(`[MqttJobsNotifier] Failed to subscribe to ${startNextTopic}:`, error);
+      } else {
+        console.log(`[MqttJobsNotifier] Subscribed to start-next requests: ${startNextTopic}`);
+      }
+    });
+
+    // Handle incoming messages
+    this.mqttClient.on('message', (topic: string, payload: Buffer) => {
+      try {
+        const message = JSON.parse(payload.toString());
+        
+        // Handle job update messages
+        if (topic.includes('/jobs/') && topic.endsWith('/update')) {
+          this.handleJobUpdate(topic, message);
+        }
+        
+        // Handle start-next requests
+        if (topic.endsWith('/jobs/start-next')) {
+          this.handleStartNextRequest(topic, message);
+        }
+      } catch (error) {
+        console.error(`[MqttJobsNotifier] Failed to parse message on ${topic}:`, error);
+      }
+    });
+  }
+
+  /**
+   * Handle job status update from device
+   */
+  private handleJobUpdate(topic: string, message: any): void {
+    // Parse topic: iot/device/{deviceUuid}/jobs/{jobId}/update
+    const parts = topic.split('/');
+    const deviceUuid = parts[2];
+    const jobId = parts[4];
+
+    console.log(`[MqttJobsNotifier] Received job update for ${jobId} from device ${deviceUuid}:`, {
+      status: message.status,
+      hasStdout: !!message.statusDetails?.stdout,
+      hasStderr: !!message.statusDetails?.stderr,
+    });
+
+    // Trigger registered handlers
+    const handlerKey = `${deviceUuid}:${jobId}`;
+    const handler = this.updateHandlers.get(handlerKey);
+    
+    if (handler) {
+      handler(message);
+    }
+
+    // Also trigger wildcard handler
+    const wildcardHandler = this.updateHandlers.get('*');
+    if (wildcardHandler) {
+      wildcardHandler({ deviceUuid, jobId, ...message });
+    }
+
+    // Respond with update/accepted
+    this.publishUpdateAccepted(deviceUuid, jobId, message.status);
+  }
+
+  /**
+   * Handle start-next request from device
+   */
+  private handleStartNextRequest(topic: string, message: any): void {
+    // Parse topic: iot/device/{deviceUuid}/jobs/start-next
+    const parts = topic.split('/');
+    const deviceUuid = parts[2];
+
+    console.log(`[MqttJobsNotifier] Received start-next request from device ${deviceUuid}`);
+
+    // Trigger handler if registered
+    const handler = this.updateHandlers.get(`start-next:${deviceUuid}`);
+    if (handler) {
+      handler({ deviceUuid, clientToken: message.clientToken });
+    }
+  }
+
+  /**
+   * Register a handler for job updates
+   * @param deviceUuid - Specific device UUID or '*' for all devices
+   * @param jobId - Specific job ID (optional, only needed if not using wildcard)
+   * @param handler - Callback function to handle updates
+   */
+  onJobUpdate(deviceUuid: string, handler: (update: any) => void): void;
+  onJobUpdate(deviceUuid: string, jobId: string, handler: (update: any) => void): void;
+  onJobUpdate(deviceUuid: string, jobIdOrHandler: string | ((update: any) => void), handler?: (update: any) => void): void {
+    if (typeof jobIdOrHandler === 'function') {
+      // Wildcard handler for all jobs from this device
+      this.updateHandlers.set(deviceUuid, jobIdOrHandler);
+    } else if (handler) {
+      // Specific job handler
+      const handlerKey = `${deviceUuid}:${jobIdOrHandler}`;
+      this.updateHandlers.set(handlerKey, handler);
+    }
+  }
+
+  /**
+   * Register handler for start-next requests
+   */
+  onStartNextRequest(deviceUuid: string, handler: (request: any) => void): void {
+    this.updateHandlers.set(`start-next:${deviceUuid}`, handler);
+  }
+
+  /**
+   * Remove handler
+   */
+  removeHandler(deviceUuid: string, jobId?: string): void {
+    if (jobId) {
+      this.updateHandlers.delete(`${deviceUuid}:${jobId}`);
+    } else {
+      this.updateHandlers.delete(deviceUuid);
     }
   }
 
