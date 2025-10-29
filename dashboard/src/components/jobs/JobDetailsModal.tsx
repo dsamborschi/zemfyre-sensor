@@ -270,26 +270,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose,
                         </div>
                       )}
                       
-                      {/* Job Document Metadata */}
-                      {(job.job_document.version || job.job_document.includeStdOut !== undefined) && (
-                        <div className="mt-4 pt-3 border-t border-gray-200">
-                          <div className="flex gap-4 text-xs text-gray-600">
-                            {job.job_document.version && (
-                              <div>
-                                <span className="font-medium">Version:</span> {job.job_document.version}
-                              </div>
-                            )}
-                            {job.job_document.includeStdOut !== undefined && (
-                              <div>
-                                <span className="font-medium">Include Output:</span>{' '}
-                                <Badge variant="outline" className={`text-xs ${job.job_document.includeStdOut ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-700'}`}>
-                                  {job.job_document.includeStdOut ? 'Yes' : 'No'}
-                                </Badge>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
+          
                     </>
                   ) : (
                     <div className="bg-gray-50 rounded p-4">
