@@ -280,18 +280,6 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose,
                 </div>
               )}
               
-              {/* Raw JSON Toggle (Advanced) */}
-              <details className="mt-4">
-                <summary className="cursor-pointer text-xs text-gray-600 hover:text-gray-900 font-medium">
-                  View Raw JSON
-                </summary>
-                <div className="mt-2 bg-gray-900 rounded p-4 overflow-x-auto">
-                  <pre 
-                    className="text-xs font-mono whitespace-pre-wrap"
-                    dangerouslySetInnerHTML={{ __html: formatJsonWithSyntaxHighlight(job.job_document) }}
-                  />
-                </div>
-              </details>
             </div>
           )}
 
