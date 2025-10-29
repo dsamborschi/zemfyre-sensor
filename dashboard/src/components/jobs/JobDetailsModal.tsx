@@ -113,6 +113,9 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose,
           <DialogTitle className="flex items-center gap-2">
             Job Details: {job.job_name}
             {getStatusBadge(job.status)}
+            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-700 border-gray-300 capitalize">
+              {job.execution_type}
+            </Badge>
           </DialogTitle>
         </DialogHeader>
 
