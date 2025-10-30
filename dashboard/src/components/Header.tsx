@@ -54,7 +54,8 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
                   <Button 
                     onClick={onDeploy}
                     size="sm"
-                    className="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold"
+                    style={{ backgroundColor: '#ca8a04', color: 'white' }}
+                    className="!bg-yellow-600 hover:!bg-yellow-700 !text-white font-semibold shadow-md"
                   >
                     <RefreshCw className="w-4 h-4 mr-2" />
                     Deploy v{deploymentStatus.version + 1}
