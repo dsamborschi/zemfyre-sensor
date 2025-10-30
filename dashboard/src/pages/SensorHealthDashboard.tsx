@@ -54,14 +54,15 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
   }
 
   return (
-    <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="space-y-2">
-        <h1 className="text-3xl font-bold tracking-tight">Sensor Health Overview</h1>
-        <p className="text-muted-foreground">
-          Last updated: {new Date().toLocaleString()}
-        </p>
-      </div>
+    <div className="flex-1 bg-gray-50 overflow-auto">
+      <div className="p-4 md:p-6 lg:p-8 space-y-6">
+        {/* Header */}
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Sensor Health Overview</h1>
+          <p className="text-sm text-gray-600">
+            Last updated: {new Date().toLocaleString()}
+          </p>
+        </div>
 
       {/* Summary Cards */}
       <SensorSummaryCards summary={data.summary} />
@@ -95,6 +96,7 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
           )}
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 };
