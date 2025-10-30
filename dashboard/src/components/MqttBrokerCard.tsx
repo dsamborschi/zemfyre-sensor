@@ -433,7 +433,10 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
         selectedTopic && "md:grid-cols-2" // Only show 2-column layout when topic is selected
       )}>
         {/* Topic Tree */}
-        <div className="border border-gray-200 rounded-lg p-2 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-400 scrollbar-track-gray-100">
+        <div className="border border-gray-200 rounded-lg p-2 max-h-[500px] overflow-y-auto" style={{
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#9ca3af #f3f4f6'
+        }}>
           {loading ? (
             <div className="text-center py-8 text-gray-500">Loading topics...</div>
           ) : filteredTopics.length === 0 ? (
