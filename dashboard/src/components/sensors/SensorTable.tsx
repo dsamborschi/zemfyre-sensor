@@ -29,6 +29,7 @@ interface Sensor {
 
 interface SensorTableProps {
   sensors: Sensor[];
+  onViewDetails?: (sensorName: string) => void;
 }
 
 const StatusIcon: React.FC<{ status: string }> = ({ status }) => {
@@ -79,11 +80,11 @@ const formatTimeAgo = (timestamp: string): string => {
   return `${diffSecs}s ago`;
 };
 
-export const SensorTable: React.FC<SensorTableProps> = ({ sensors }) => {
+export const SensorTable: React.FC<SensorTableProps> = ({ sensors, onViewDetails }) => {
   const handleViewDetails = (sensorName: string) => {
-    // For now, could open a modal or expand row with details
-    console.log('View details for sensor:', sensorName);
-    // TODO: Add modal or navigation to sensor details
+    if (onViewDetails) {
+      onViewDetails(sensorName);
+    }
   };
 
   if (sensors.length === 0) {

@@ -4,9 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Activity, TrendingUp } from 'lucide-react';
+import { Activity, TrendingUp } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { SensorConnectionChart } from '@/components/sensors/SensorConnectionChart';
@@ -53,21 +52,41 @@ export const SensorDetailPage: React.FC<SensorDetailPageProps> = ({
       try {
         setLoading(true);
         
-        // Fetch current sensor status
-        const sensorsResponse = await fetch(`/api/v1/devices/${deviceUuid}/sensors`);
+        // Fetch current sensor status from device-health endpoint
+        const sensorsResponse = await fetch(`/api/v1/devices/${deviceUuid}/device-health`);
         const sensorsData = await sensorsResponse.json();
         const currentSensor = sensorsData.devices.find((d: any) => d.name === sensorName);
         
         if (currentSensor) {
-          setSensor(currentSensor);
-        }
+          setSensor({
+            name: currentSensor.name,
+            protocol: currentSensor.protocol,
+            status: currentSensor.status,
+            connected: currentSensor.connected,
+            lastPoll: currentSensor.lastPoll,
+            errorCount: currentSensor.errorCount,
+            lastError: currentSensor.lastError,
+            lastSeen: currentSensor.lastSeen
+          });
 
-        // Fetch 24-hour history
-        const historyResponse = await fetch(
-          `/api/v1/devices/${deviceUuid}/sensors/${sensorName}/history?hours=24`
-        );
-        const historyData = await historyResponse.json();
-        setHistory(historyData.history || []);
+          // Fetch 24-hour history from protocol adapter history
+          const historyResponse = await fetch(
+            `/api/v1/devices/${deviceUuid}/protocol-adapters/${currentSensor.protocol}/${sensorName}/history?hours=24`
+          );
+          
+          if (historyResponse.ok) {
+            const historyData = await historyResponse.json();
+            // Transform protocol adapter history to match expected format
+            const transformedHistory = (historyData.history || []).map((h: any) => ({
+              reported_at: h.timestamp,
+              connected: h.connected,
+              healthy: h.connected && h.error_count === 0,
+              error_count: h.error_count,
+              last_error: h.last_error
+            }));
+            setHistory(transformedHistory);
+          }
+        }
         
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load sensor data');
@@ -115,24 +134,13 @@ export const SensorDetailPage: React.FC<SensorDetailPageProps> = ({
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       {/* Header */}
-      <div className="space-y-4">
-        <Button 
-          variant="ghost" 
-          size="sm"
-          onClick={onClose}
-        >
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Sensors
-        </Button>
-        
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">{sensor.name}</h1>
-          <p className="text-muted-foreground">
-            {sensor.protocol.toUpperCase()} Protocol
-          </p>
-        </div>
+      <div className="space-y-2">
+        <h2 className="text-2xl font-bold tracking-tight">{sensor.name}</h2>
+        <p className="text-muted-foreground">
+          {sensor.protocol.toUpperCase()} Protocol
+        </p>
       </div>
 
       {/* Current Status Card */}
