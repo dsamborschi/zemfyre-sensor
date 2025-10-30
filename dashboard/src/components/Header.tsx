@@ -48,18 +48,22 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
         <div className="flex items-center gap-3">
           {isAuthenticated ? (
             <>
-              {/* Deploy Button - Shows when changes are pending */}
-              {deploymentStatus?.needsDeployment && (
-                <div className="flex items-center gap-2">
-                  <Button 
-                    onClick={onDeploy}
-                    size="sm"
-                    style={{ backgroundColor: '#ca8a04', color: 'white' }}
-                    className="!bg-yellow-600 hover:!bg-yellow-700 !text-white font-semibold shadow-md"
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Deploy v{deploymentStatus.version + 1}
-                  </Button>
+              {/* Deploy Button - Always visible, enabled when changes are pending */}
+              <div className="flex items-center gap-2">
+                <Button 
+                  onClick={onDeploy}
+                  size="sm"
+                  disabled={!deploymentStatus?.needsDeployment}
+                  style={{ 
+                    backgroundColor: deploymentStatus?.needsDeployment ? '#ca8a04' : '#9ca3af',
+                    color: 'white' 
+                  }}
+                  className="font-semibold shadow-md"
+                >
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Deploy v{deploymentStatus ? deploymentStatus.version + 1 : '...'}
+                </Button>
+                {deploymentStatus?.needsDeployment && (
                   <Button 
                     onClick={onCancelDeploy}
                     size="sm"
@@ -68,8 +72,8 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
                     <XCircle className="w-4 h-4 mr-2" />
                     Cancel
                   </Button>
-                </div>
-              )}
+                )}
+              </div>
 
               <Button
                 variant="ghost"
