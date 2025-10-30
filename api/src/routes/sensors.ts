@@ -59,11 +59,6 @@ router.get('/devices/:uuid/sensors', async (req, res) => {
       [uuid]
     );
     
-    // Create a map of reported sensor health
-    const reportedSensors = new Map(
-      sensorResult.rows.map((row: any) => [row.sensor_name, row])
-    );
-
     // Get protocol adapter device health (actual Modbus/CAN/OPC-UA devices)
     const adapterResult = await query(
       `SELECT 
@@ -80,28 +75,26 @@ router.get('/devices/:uuid/sensors', async (req, res) => {
       [uuid]
     );
 
-    // Merge configured sensors with reported health
-    const allPipelines = configuredSensors.map((configSensor: any) => {
-      const reported = reportedSensors.get(configSensor.name);
-      
-      if (reported) {
-        // Sensor has reported health
-        return {
-          name: reported.sensor_name,
-          state: reported.state,
-          healthy: reported.healthy,
-          messagesReceived: reported.messages_received,
-          messagesPublished: reported.messages_published,
-          lastActivity: reported.last_publish_time,
-          lastError: reported.last_error,
-          lastSeen: reported.reported_at,
-          configured: true,
-          addr: configSensor.addr,
-          protocolType: configSensor.protocolType
-        };
-      } else {
-        // Sensor configured but not yet reported (waiting for agent to start)
-        return {
+    // Build pipelines array: Start with ALL sensors from health table (agent-reported)
+    const allPipelines = sensorResult.rows.map((row: any) => ({
+      name: row.sensor_name,
+      state: row.state,
+      healthy: row.healthy,
+      messagesReceived: row.messages_received,
+      messagesPublished: row.messages_published,
+      lastActivity: row.last_publish_time,
+      lastError: row.last_error,
+      lastSeen: row.reported_at,
+      configured: true,
+      addr: row.addr,
+      protocolType: configuredSensors.find((cs: any) => cs.name === row.sensor_name)?.protocolType || null
+    }));
+
+    // Add any configured sensors that haven't reported health yet
+    const reportedNames = new Set(sensorResult.rows.map((r: any) => r.sensor_name));
+    for (const configSensor of configuredSensors) {
+      if (!reportedNames.has(configSensor.name)) {
+        allPipelines.push({
           name: configSensor.name,
           state: 'PENDING',
           healthy: false,
@@ -113,9 +106,9 @@ router.get('/devices/:uuid/sensors', async (req, res) => {
           configured: true,
           addr: configSensor.addr,
           protocolType: configSensor.protocolType
-        };
+        });
       }
-    });
+    }
 
     res.json({
       // Primary: Protocol adapter devices (what users care about)
