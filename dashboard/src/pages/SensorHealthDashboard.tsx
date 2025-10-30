@@ -38,10 +38,24 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
   // Handle adding new sensor pipeline
   const handleAddSensor = async (config: any) => {
     try {
-      // TODO: Implement API call to update target state with new sensor config
-      // For now, just show success message
-      console.log('Adding sensor pipeline:', config);
-      toast.success('Sensor pipeline added successfully');
+      const response = await fetch(`/api/v1/devices/${deviceUuid}/sensor-config`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to add sensor');
+      }
+
+      const result = await response.json();
+      console.log('Sensor pipeline added:', result);
+      
+      toast.success(`Sensor "${config.name}" added successfully`);
+      
       // Refresh sensor list
       refetch();
     } catch (error: any) {

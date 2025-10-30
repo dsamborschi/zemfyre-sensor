@@ -859,4 +859,304 @@ router.get('/devices/:uuid/processes/history', async (req, res) => {
   }
 });
 
+// ============================================================================
+// Sensor Configuration Management
+// ============================================================================
+
+/**
+ * Get sensor-publish configuration
+ * GET /api/v1/devices/:uuid/sensor-config
+ */
+router.get('/devices/:uuid/sensor-config', async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    
+    // Get current target state
+    const targetState = await DeviceTargetStateModel.get(uuid);
+    
+    if (!targetState) {
+      return res.json({
+        sensors: []
+      });
+    }
+
+    // Parse config to get sensors
+    const config = typeof targetState.config === 'string' 
+      ? JSON.parse(targetState.config) 
+      : targetState.config || {};
+
+    res.json({
+      sensors: config.sensors || []
+    });
+  } catch (error: any) {
+    console.error('Error getting sensor config:', error);
+    res.status(500).json({
+      error: 'Failed to get sensor configuration',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Add sensor to sensor-publish configuration
+ * POST /api/v1/devices/:uuid/sensor-config
+ */
+router.post('/devices/:uuid/sensor-config', deviceAuth, async (req, res) => {
+  try {
+    const { uuid } = req.params;
+    const sensorConfig = req.body;
+
+    // Validate required fields
+    if (!sensorConfig.name || !sensorConfig.addr || !sensorConfig.mqttTopic) {
+      return res.status(400).json({
+        error: 'Invalid sensor configuration',
+        message: 'Required fields: name, addr, mqttTopic'
+      });
+    }
+
+    // Get current target state
+    const currentState = await DeviceTargetStateModel.get(uuid);
+    
+    // Get current config or initialize empty
+    const config = currentState && currentState.config
+      ? (typeof currentState.config === 'string' 
+          ? JSON.parse(currentState.config) 
+          : currentState.config)
+      : {};
+
+    // Initialize sensors array if it doesn't exist
+    if (!config.sensors) {
+      config.sensors = [];
+    }
+
+    // Check if sensor with same name already exists
+    const existingIndex = config.sensors.findIndex((s: any) => s.name === sensorConfig.name);
+    if (existingIndex !== -1) {
+      return res.status(400).json({
+        error: 'Sensor already exists',
+        message: `A sensor with name "${sensorConfig.name}" already exists`
+      });
+    }
+
+    // Add new sensor to config
+    config.sensors.push(sensorConfig);
+
+    // Get current apps or initialize empty
+    const apps = currentState && currentState.apps
+      ? (typeof currentState.apps === 'string' 
+          ? JSON.parse(currentState.apps) 
+          : currentState.apps)
+      : {};
+
+    // Update target state with new sensor config
+    const targetState = await DeviceTargetStateModel.set(uuid, apps, config);
+
+    console.log(`📡 Added sensor "${sensorConfig.name}" to device ${uuid.substring(0, 8)}...`);
+    console.log(`   Socket/Pipe: ${sensorConfig.addr}`);
+    console.log(`   MQTT Topic: ${sensorConfig.mqttTopic}`);
+
+    // Publish event
+    await eventPublisher.publish(
+      'sensor_config.added',
+      'device',
+      uuid,
+      {
+        sensor: sensorConfig,
+        version: targetState.version
+      },
+      {
+        metadata: {
+          ip_address: req.ip,
+          user_agent: req.headers['user-agent'],
+          endpoint: '/devices/:uuid/sensor-config'
+        }
+      }
+    );
+
+    res.json({
+      status: 'ok',
+      message: 'Sensor configuration added',
+      sensor: sensorConfig,
+      version: targetState.version
+    });
+  } catch (error: any) {
+    console.error('Error adding sensor config:', error);
+    res.status(500).json({
+      error: 'Failed to add sensor configuration',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Update sensor configuration
+ * PUT /api/v1/devices/:uuid/sensor-config/:sensorName
+ */
+router.put('/devices/:uuid/sensor-config/:sensorName', deviceAuth, async (req, res) => {
+  try {
+    const { uuid, sensorName } = req.params;
+    const updatedConfig = req.body;
+
+    // Get current target state
+    const currentState = await DeviceTargetStateModel.get(uuid);
+    
+    if (!currentState || !currentState.config) {
+      return res.status(404).json({
+        error: 'Sensor not found',
+        message: `No sensor configuration found for "${sensorName}"`
+      });
+    }
+
+    const config = typeof currentState.config === 'string' 
+      ? JSON.parse(currentState.config) 
+      : currentState.config;
+
+    if (!config.sensors) {
+      return res.status(404).json({
+        error: 'Sensor not found',
+        message: `No sensor configuration found for "${sensorName}"`
+      });
+    }
+
+    // Find sensor by name
+    const sensorIndex = config.sensors.findIndex((s: any) => s.name === sensorName);
+    if (sensorIndex === -1) {
+      return res.status(404).json({
+        error: 'Sensor not found',
+        message: `Sensor "${sensorName}" not found`
+      });
+    }
+
+    // Update sensor config
+    config.sensors[sensorIndex] = { ...config.sensors[sensorIndex], ...updatedConfig };
+
+    // Get current apps
+    const apps = typeof currentState.apps === 'string' 
+      ? JSON.parse(currentState.apps) 
+      : currentState.apps || {};
+
+    // Update target state
+    const targetState = await DeviceTargetStateModel.set(uuid, apps, config);
+
+    console.log(`📡 Updated sensor "${sensorName}" on device ${uuid.substring(0, 8)}...`);
+
+    // Publish event
+    await eventPublisher.publish(
+      'sensor_config.updated',
+      'device',
+      uuid,
+      {
+        sensor_name: sensorName,
+        sensor: config.sensors[sensorIndex],
+        version: targetState.version
+      },
+      {
+        metadata: {
+          ip_address: req.ip,
+          user_agent: req.headers['user-agent'],
+          endpoint: '/devices/:uuid/sensor-config/:sensorName'
+        }
+      }
+    );
+
+    res.json({
+      status: 'ok',
+      message: 'Sensor configuration updated',
+      sensor: config.sensors[sensorIndex],
+      version: targetState.version
+    });
+  } catch (error: any) {
+    console.error('Error updating sensor config:', error);
+    res.status(500).json({
+      error: 'Failed to update sensor configuration',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * Delete sensor configuration
+ * DELETE /api/v1/devices/:uuid/sensor-config/:sensorName
+ */
+router.delete('/devices/:uuid/sensor-config/:sensorName', deviceAuth, async (req, res) => {
+  try {
+    const { uuid, sensorName } = req.params;
+
+    // Get current target state
+    const currentState = await DeviceTargetStateModel.get(uuid);
+    
+    if (!currentState || !currentState.config) {
+      return res.status(404).json({
+        error: 'Sensor not found',
+        message: `No sensor configuration found for "${sensorName}"`
+      });
+    }
+
+    const config = typeof currentState.config === 'string' 
+      ? JSON.parse(currentState.config) 
+      : currentState.config;
+
+    if (!config.sensors) {
+      return res.status(404).json({
+        error: 'Sensor not found',
+        message: `No sensor configuration found for "${sensorName}"`
+      });
+    }
+
+    // Find sensor by name
+    const sensorIndex = config.sensors.findIndex((s: any) => s.name === sensorName);
+    if (sensorIndex === -1) {
+      return res.status(404).json({
+        error: 'Sensor not found',
+        message: `Sensor "${sensorName}" not found`
+      });
+    }
+
+    // Remove sensor from config
+    const removedSensor = config.sensors.splice(sensorIndex, 1)[0];
+
+    // Get current apps
+    const apps = typeof currentState.apps === 'string' 
+      ? JSON.parse(currentState.apps) 
+      : currentState.apps || {};
+
+    // Update target state
+    const targetState = await DeviceTargetStateModel.set(uuid, apps, config);
+
+    console.log(`🗑️  Removed sensor "${sensorName}" from device ${uuid.substring(0, 8)}...`);
+
+    // Publish event
+    await eventPublisher.publish(
+      'sensor_config.deleted',
+      'device',
+      uuid,
+      {
+        sensor_name: sensorName,
+        sensor: removedSensor,
+        version: targetState.version
+      },
+      {
+        metadata: {
+          ip_address: req.ip,
+          user_agent: req.headers['user-agent'],
+          endpoint: '/devices/:uuid/sensor-config/:sensorName'
+        }
+      }
+    );
+
+    res.json({
+      status: 'ok',
+      message: 'Sensor configuration deleted',
+      sensor: removedSensor,
+      version: targetState.version
+    });
+  } catch (error: any) {
+    console.error('Error deleting sensor config:', error);
+    res.status(500).json({
+      error: 'Failed to delete sensor configuration',
+      message: error.message
+    });
+  }
+});
+
 export default router;
