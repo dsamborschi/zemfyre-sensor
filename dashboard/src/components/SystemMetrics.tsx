@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Cpu, HardDrive, MemoryStick, Activity, Wifi, Thermometer, Zap, Clock, Package } from "lucide-react";
+import { Cpu, HardDrive, MemoryStick, Package } from "lucide-react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
@@ -27,12 +27,8 @@ import { DeviceActions } from "./DeviceActions";
 import { ApplicationsCard, Application } from "./ApplicationsCard";
 import { NetworkingCard, NetworkInterface } from "./NetworkingCard";
 import { AnalyticsCard } from "./AnalyticsCard";
-import { MqttBrokerCard } from "./MqttBrokerCard";
 import { TimelineCard } from "./TimelineCard";
-import { MqttMetricsCard } from "./MqttMetricsCard";
-import { DeviceTimelineCard } from "./DeviceTimelineCard";
 import { GeneralInfoCard } from "./GeneralInfoCard";
-import JobsCard from "./JobsCard";
 import { buildApiUrl } from "@/config/api";
 
 interface SystemMetricsProps {
@@ -300,22 +296,6 @@ export function SystemMetrics({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => scrollToSection('mqtt-section')}
-                className="text-xs"
-              >
-                MQTT
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => scrollToSection('events-section')}
-                className="text-xs"
-              >
-                Events
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
                 onClick={() => scrollToSection('analytics-section')}
                 className="text-xs"
               >
@@ -422,9 +402,6 @@ export function SystemMetrics({
             );
           })}
         </div>
-
-        {/* Jobs Card */}
-        <JobsCard deviceUuid={device.deviceUuid} />
 
         {/* Charts */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
@@ -582,19 +559,6 @@ export function SystemMetrics({
 
           {/* Network Interfaces */}
           <NetworkingCard interfaces={networkInterfaces} />
-
-          {/* MQTT Broker */}
-          <div id="mqtt-section">
-            <MqttBrokerCard deviceId={device.deviceUuid} />
-          </div>
-
-          {/* MQTT Metrics */}
-          <MqttMetricsCard deviceId={device.deviceUuid} />
-
-          {/* Event Timeline */}
-
-           
-         
         </div>
 
         {/* Analytics Card */}
