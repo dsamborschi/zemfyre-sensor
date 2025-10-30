@@ -2,12 +2,14 @@ import { useState, useEffect, useRef, useMemo } from "react";
 import { DeviceSidebar, Device } from "./components/DeviceSidebar";
 import { AddEditDeviceDialog } from "./components/AddEditDeviceDialog";
 import { SystemMetrics } from "./components/SystemMetrics";
+import { MqttPage } from "./components/MqttPage";
+import { JobsPage } from "./components/JobsPage";
 import { Application } from "./components/ApplicationsCard";
 import { Toaster } from "./components/ui/sonner";
 import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { Menu, Activity, BarChart3 } from "lucide-react";
+import { Menu, Activity, BarChart3, Radio, CalendarClock } from "lucide-react";
 import { LoginPage } from "./components/LoginPage";
 import { buildApiUrl } from "./config/api";
 import { SensorHealthDashboard } from "./pages/SensorHealthDashboard";
@@ -1013,7 +1015,7 @@ export default function App() {
               size="sm"
               onClick={() => setCurrentView('mqtt')}
             >
-              <Activity className="w-4 h-4 mr-2" />
+              <Radio className="w-4 h-4 mr-2" />
               MQTT
             </Button>
             <Button
@@ -1021,31 +1023,38 @@ export default function App() {
               size="sm"
               onClick={() => setCurrentView('jobs')}
             >
-              <Activity className="w-4 h-4 mr-2" />
+              <CalendarClock className="w-4 h-4 mr-2" />
               Jobs
             </Button>
           </div>
 
           {/* Conditional Content */}
-          {currentView === 'metrics' ? (
+          {currentView === 'metrics' && (
             <SystemMetrics
-          device={selectedDevice}
-          cpuHistory={cpuHistory}
-          memoryHistory={memoryHistory}
-          networkHistory={networkHistory}
-          applications={deviceApplications}
-          onAddApplication={handleAddApplication}
-          onUpdateApplication={handleUpdateApplication}
-          onRemoveApplication={handleRemoveApplication}
-          onToggleAppStatus={handleToggleAppStatus}
-          onToggleServiceStatus={handleToggleServiceStatus}
-          networkInterfaces={networkInterfaces}
-          deploymentStatus={deploymentStatus[selectedDeviceId]}
-          onDeploy={handleDeployChanges}
-          onCancelDeploy={handleCancelDeploy}
-        />
-          ) : (
+              device={selectedDevice}
+              cpuHistory={cpuHistory}
+              memoryHistory={memoryHistory}
+              networkHistory={networkHistory}
+              applications={deviceApplications}
+              onAddApplication={handleAddApplication}
+              onUpdateApplication={handleUpdateApplication}
+              onRemoveApplication={handleRemoveApplication}
+              onToggleAppStatus={handleToggleAppStatus}
+              onToggleServiceStatus={handleToggleServiceStatus}
+              networkInterfaces={networkInterfaces}
+              deploymentStatus={deploymentStatus[selectedDeviceId]}
+              onDeploy={handleDeployChanges}
+              onCancelDeploy={handleCancelDeploy}
+            />
+          )}
+          {currentView === 'sensors' && (
             <SensorHealthDashboard deviceUuid={selectedDevice.deviceUuid} />
+          )}
+          {currentView === 'mqtt' && (
+            <MqttPage device={selectedDevice} />
+          )}
+          {currentView === 'jobs' && (
+            <JobsPage device={selectedDevice} />
           )}
             </>
           )}
