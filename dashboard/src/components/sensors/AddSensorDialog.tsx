@@ -175,30 +175,7 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({ open, onOpenCh
                   <SelectItem value="linux">Linux/Unix (Socket)</SelectItem>
                 </SelectContent>
               </Select>
-              <p className="text-xs text-gray-500">
-                Auto-generated path: {platform === 'windows' 
-                  ? `\\\\.\\pipe\\${name || 'sensor-name'}` 
-                  : `/tmp/${name || 'sensor-name'}.sock`}
-              </p>
             </div>
-
-            {/* Auto-generated MQTT Topic Info */}
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                <div className="space-y-1 text-sm">
-                  <div><strong>MQTT Topics:</strong></div>
-                  <div className="ml-4">
-                    <div className="text-xs font-mono text-gray-600">
-                      iot/device/&#123;deviceUuid&#125;/sensor/{protocolType}/{name || 'sensor-name'}
-                    </div>
-                    <div className="text-xs font-mono text-gray-600">
-                      iot/device/&#123;deviceUuid&#125;/sensor/{protocolType}/{name || 'sensor-name'}/heartbeat
-                    </div>
-                  </div>
-                </div>
-              </AlertDescription>
-            </Alert>
           </div>
 
           {/* Advanced Settings */}
