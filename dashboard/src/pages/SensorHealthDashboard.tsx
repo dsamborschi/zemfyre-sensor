@@ -126,8 +126,8 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
         </CardContent>
       </Card>
 
-      {/* Pipeline Infrastructure (Collapsed) */}
-      {/* <PipelineHealth pipelines={data.pipelines} /> */}
+      {/* Pipeline Infrastructure */}
+      <PipelineHealth pipelines={data.pipelines} />
 
       {/* Sensor Detail Modal */}
       <Dialog open={selectedSensor !== null} onOpenChange={(open) => !open && setSelectedSensor(null)}>
