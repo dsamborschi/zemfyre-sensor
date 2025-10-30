@@ -61,7 +61,7 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
                   className="font-semibold shadow-md"
                 >
                   <RefreshCw className="w-4 h-4 mr-2" />
-                  Deploy v{deploymentStatus ? deploymentStatus.version + 1 : '...'}
+                  Publish v{deploymentStatus ? deploymentStatus.version + 1 : '...'}
                 </Button>
                 {deploymentStatus?.needsDeployment && (
                   <Button 
