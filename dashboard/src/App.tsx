@@ -7,9 +7,10 @@ import { Toaster } from "./components/ui/sonner";
 import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { Menu } from "lucide-react";
+import { Menu, Activity, BarChart3 } from "lucide-react";
 import { LoginPage } from "./components/LoginPage";
 import { buildApiUrl } from "./config/api";
+import { SensorHealthDashboard } from "./pages/SensorHealthDashboard";
 
 import { toast } from "sonner";
 import { Header } from "./components/Header";
@@ -44,6 +45,7 @@ export default function App() {
   >({});
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
+  const [currentView, setCurrentView] = useState<'metrics' | 'sensors'>('metrics');
   
   // Memoize selected device to prevent unnecessary re-renders
   const selectedDevice = useMemo(() => {
@@ -988,8 +990,29 @@ export default function App() {
             </div>
           </div>
 
-          {/* System Metrics */}
-          <SystemMetrics
+          {/* View Toggle Buttons */}
+          <div className="bg-white border-b border-gray-200 px-6 py-3 flex gap-2">
+            <Button
+              variant={currentView === 'metrics' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('metrics')}
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              System Metrics
+            </Button>
+            <Button
+              variant={currentView === 'sensors' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('sensors')}
+            >
+              <Activity className="w-4 h-4 mr-2" />
+              Sensor Health
+            </Button>
+          </div>
+
+          {/* Conditional Content */}
+          {currentView === 'metrics' ? (
+            <SystemMetrics
           device={selectedDevice}
           cpuHistory={cpuHistory}
           memoryHistory={memoryHistory}
@@ -1005,6 +1028,9 @@ export default function App() {
           onDeploy={handleDeployChanges}
           onCancelDeploy={handleCancelDeploy}
         />
+          ) : (
+            <SensorHealthDashboard deviceUuid={selectedDevice.deviceUuid} />
+          )}
             </>
           )}
       </div>
