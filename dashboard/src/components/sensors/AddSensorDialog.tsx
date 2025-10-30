@@ -178,6 +178,8 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
       }
     };
 
+    console.log('💾 Saving protocol adapter device:', JSON.stringify(device, null, 2));
+
     try {
       setLoading(true);
       await onSaveDevice(device);

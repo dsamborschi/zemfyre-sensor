@@ -94,8 +94,12 @@ router.post('/devices/:uuid/protocol-devices', async (req, res) => {
     const { uuid } = req.params;
     const deviceConfig = req.body;
 
+    console.log(`📥 Received protocol device POST for device ${uuid}`);
+    console.log('📦 Device config:', JSON.stringify(deviceConfig, null, 2));
+
     // Validate required fields
     if (!deviceConfig.name || !deviceConfig.protocol || !deviceConfig.connection) {
+      console.error('❌ Validation failed - missing required fields');
       return res.status(400).json({
         error: 'Invalid device configuration',
         message: 'Required fields: name, protocol, connection'
@@ -150,7 +154,8 @@ router.post('/devices/:uuid/protocol-devices', async (req, res) => {
     // Update target state
     const targetState = await setTargetState(uuid, apps, config);
 
-    console.log(`📡 Added protocol adapter device "${completeDeviceConfig.name}" (${completeDeviceConfig.protocol}) to device ${uuid.substring(0, 8)}...`);
+    console.log(`✅ Added protocol adapter device "${completeDeviceConfig.name}" (${completeDeviceConfig.protocol}) to device ${uuid.substring(0, 8)}...`);
+    console.log(`📊 Total protocol devices in config: ${config.protocolAdapterDevices.length}`);
 
     // Publish event
     await eventPublisher.publish(

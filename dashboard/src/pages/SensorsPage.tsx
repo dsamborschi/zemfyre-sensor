@@ -112,6 +112,9 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
 
   const handleAddProtocolDevice = async (device: any) => {
     try {
+      console.log('📡 Sending protocol device to API:', `/api/v1/devices/${deviceUuid}/protocol-devices`);
+      console.log('📦 Device payload:', JSON.stringify(device, null, 2));
+
       const response = await fetch(`/api/v1/devices/${deviceUuid}/protocol-devices`, {
         method: 'POST',
         headers: {
@@ -122,8 +125,12 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
 
       if (!response.ok) {
         const error = await response.json();
+        console.error('❌ API error:', error);
         throw new Error(error.message || 'Failed to add protocol adapter device');
       }
+
+      const result = await response.json();
+      console.log('✅ API response:', result);
 
       toast.success(`Protocol device "${device.name}" added successfully`);
       fetchSensors();
