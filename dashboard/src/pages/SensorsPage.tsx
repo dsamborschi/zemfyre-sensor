@@ -201,7 +201,7 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
                         )}
                       </div>
                       
-                      <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
+                      <div className="flex flex-wrap gap-6 text-sm text-gray-600">
                         {sensor.type === 'pipeline' && (
                           <div>
                             <span className="font-medium">Messages Published:</span>{' '}
