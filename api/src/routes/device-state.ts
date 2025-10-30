@@ -901,7 +901,7 @@ router.get('/devices/:uuid/sensor-config', async (req, res) => {
  * Add sensor to sensor-publish configuration
  * POST /api/v1/devices/:uuid/sensor-config
  */
-router.post('/devices/:uuid/sensor-config', deviceAuth, async (req, res) => {
+router.post('/devices/:uuid/sensor-config', async (req, res) => {
   try {
     const { uuid } = req.params;
     const sensorConfig = req.body;
@@ -1017,7 +1017,7 @@ router.post('/devices/:uuid/sensor-config', deviceAuth, async (req, res) => {
  * Update sensor configuration
  * PUT /api/v1/devices/:uuid/sensor-config/:sensorName
  */
-router.put('/devices/:uuid/sensor-config/:sensorName', deviceAuth, async (req, res) => {
+router.put('/devices/:uuid/sensor-config/:sensorName', async (req, res) => {
   try {
     const { uuid, sensorName } = req.params;
     const updatedConfig = req.body;
@@ -1103,7 +1103,7 @@ router.put('/devices/:uuid/sensor-config/:sensorName', deviceAuth, async (req, r
  * Delete sensor configuration
  * DELETE /api/v1/devices/:uuid/sensor-config/:sensorName
  */
-router.delete('/devices/:uuid/sensor-config/:sensorName', deviceAuth, async (req, res) => {
+router.delete('/devices/:uuid/sensor-config/:sensorName', async (req, res) => {
   try {
     const { uuid, sensorName } = req.params;
 
