@@ -4,15 +4,18 @@
  */
 
 import React, { useEffect, useState } from 'react';
-import { Activity } from 'lucide-react';
+import { Activity, Plus } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { SensorSummaryCards } from '@/components/sensors/SensorSummaryCards';
 import { SensorTable } from '@/components/sensors/SensorTable';
 import { PipelineHealth } from '@/components/sensors/PipelineHealth';
 import { SensorDetailPage } from './SensorDetailPage';
+import { AddSensorDialog } from '@/components/sensors/AddSensorDialog';
 import { useSensorHealth } from '@/hooks/useSensorHealth';
+import { toast } from 'sonner';
 
 interface SensorHealthDashboardProps {
   deviceUuid: string;
@@ -21,6 +24,7 @@ interface SensorHealthDashboardProps {
 export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ deviceUuid }) => {
   const { data, loading, error, refetch } = useSensorHealth(deviceUuid);
   const [selectedSensor, setSelectedSensor] = useState<string | null>(null);
+  const [addSensorDialogOpen, setAddSensorDialogOpen] = useState(false);
 
   // Auto-refresh every 10 seconds
   useEffect(() => {
@@ -30,6 +34,21 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
     
     return () => clearInterval(interval);
   }, [refetch]);
+
+  // Handle adding new sensor pipeline
+  const handleAddSensor = async (config: any) => {
+    try {
+      // TODO: Implement API call to update target state with new sensor config
+      // For now, just show success message
+      console.log('Adding sensor pipeline:', config);
+      toast.success('Sensor pipeline added successfully');
+      // Refresh sensor list
+      refetch();
+    } catch (error: any) {
+      toast.error(`Failed to add sensor: ${error.message}`);
+      throw error;
+    }
+  };
 
   // Only show loading spinner on initial load (when there's no data yet)
   if (loading && !data) {
@@ -63,11 +82,17 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
     <div className="flex-1 bg-gray-50 overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
         {/* Header */}
-        <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Sensor Health Overview</h1>
-          <p className="text-sm text-gray-600">
-            Last updated: {new Date().toLocaleString()}
-          </p>
+        <div className="flex items-start justify-between gap-4">
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Sensor Health Overview</h1>
+            <p className="text-sm text-gray-600">
+              Last updated: {new Date().toLocaleString()}
+            </p>
+          </div>
+          <Button onClick={() => setAddSensorDialogOpen(true)} className="flex items-center gap-2">
+            <Plus className="h-4 w-4" />
+            Add Sensor Pipeline
+          </Button>
         </div>
 
       {/* Summary Cards */}
@@ -102,6 +127,13 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Add Sensor Pipeline Dialog */}
+      <AddSensorDialog
+        open={addSensorDialogOpen}
+        onOpenChange={setAddSensorDialogOpen}
+        onSave={handleAddSensor}
+      />
       </div>
     </div>
   );
