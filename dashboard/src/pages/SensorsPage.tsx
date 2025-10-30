@@ -53,6 +53,7 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
       const pipelines = (data.pipelines || []).map((p: any) => ({
         ...p,
         type: 'pipeline' as const,
+        protocol: p.protocolType, // Map protocolType to protocol for consistency
       }));
       
       const devices = (data.devices || []).map((d: any) => ({

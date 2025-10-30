@@ -926,6 +926,7 @@ router.post('/devices/:uuid/sensor-config', async (req, res) => {
     // Build complete sensor configuration
     const completeSensorConfig = {
       name: sensorConfig.name,
+      protocolType: sensorConfig.protocolType,
       enabled: sensorConfig.enabled !== undefined ? sensorConfig.enabled : true,
       addr,
       eomDelimiter: sensorConfig.eomDelimiter || '\\n',

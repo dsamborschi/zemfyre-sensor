@@ -96,7 +96,8 @@ router.get('/devices/:uuid/sensors', async (req, res) => {
           lastError: reported.last_error,
           lastSeen: reported.reported_at,
           configured: true,
-          addr: configSensor.addr
+          addr: configSensor.addr,
+          protocolType: configSensor.protocolType
         };
       } else {
         // Sensor configured but not yet reported (waiting for agent to start)
@@ -110,7 +111,8 @@ router.get('/devices/:uuid/sensors', async (req, res) => {
           lastError: 'Waiting for agent to start pipeline',
           lastSeen: null,
           configured: true,
-          addr: configSensor.addr
+          addr: configSensor.addr,
+          protocolType: configSensor.protocolType
         };
       }
     });
