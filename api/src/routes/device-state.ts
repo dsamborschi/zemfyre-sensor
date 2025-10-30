@@ -281,34 +281,43 @@ router.patch('/device/state', deviceAuthFromBody, async (req, res) => {
       }
 
       // Store sensor health data if provided
-      if (deviceState.sensor_health && Array.isArray(deviceState.sensor_health)) {
-        console.log(`📡 Recording sensor health for device ${uuid.substring(0, 8)}... (${deviceState.sensor_health.length} sensors)`);
+      // Agent sends sensor_health as an object: { sensorName: {...stats} }
+      if (deviceState.sensor_health && typeof deviceState.sensor_health === 'object') {
+        const sensorNames = Object.keys(deviceState.sensor_health);
+        console.log(`📡 Recording sensor health for device ${uuid.substring(0, 8)}... (${sensorNames.length} sensors)`);
         
-        for (const sensor of deviceState.sensor_health) {
+        for (const sensorName of sensorNames) {
+          const sensor = deviceState.sensor_health[sensorName];
           try {
             await query(
               `INSERT INTO sensor_health_history (
-                device_uuid, sensor_name, connected, healthy,
-                messages_received, messages_sent, bytes_received, bytes_sent,
-                reconnect_attempts, last_error, last_error_time, last_connected_time
-              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+                device_uuid, sensor_name, state, healthy, addr, enabled,
+                last_error, last_error_time, last_connected_time,
+                messages_received, messages_published, bytes_received, bytes_published,
+                reconnect_attempts, last_publish_time, last_heartbeat_time,
+                reported_at
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, NOW())`,
               [
                 uuid,
-                sensor.name,
-                sensor.connected || false,
+                sensorName,
+                sensor.state || 'UNKNOWN',
                 sensor.healthy !== false, // Default to true if not specified
-                sensor.messagesReceived || 0,
-                sensor.messagesSent || 0,
-                sensor.bytesReceived || 0,
-                sensor.bytesSent || 0,
-                sensor.reconnectAttempts || 0,
+                sensor.addr || null,
+                sensor.enabled !== false, // Default to true if not specified
                 sensor.lastError || null,
                 sensor.lastErrorTime || null,
-                sensor.lastConnectedTime || null
+                sensor.lastConnectedTime || null,
+                sensor.messagesReceived || 0,
+                sensor.messagesPublished || 0,
+                sensor.bytesReceived || 0,
+                sensor.bytesPublished || 0,
+                sensor.reconnectAttempts || 0,
+                sensor.lastPublishTime || null,
+                sensor.lastHeartbeatTime || null
               ]
             );
           } catch (error) {
-            console.error(`Failed to store sensor health for ${sensor.name}:`, error);
+            console.error(`Failed to store sensor health for ${sensorName}:`, error);
           }
         }
       }
