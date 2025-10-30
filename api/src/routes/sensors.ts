@@ -161,20 +161,20 @@ router.get('/sensors/unhealthy', async (req, res) => {
         s.device_uuid,
         d.device_name,
         s.sensor_name,
-        s.connected,
+        s.state,
         s.healthy,
         s.last_error,
         s.last_error_time,
         s.last_connected_time,
         s.reconnect_attempts,
-        s.last_seen,
-        EXTRACT(EPOCH FROM (NOW() - s.last_seen)) as seconds_since_report
+        s.reported_at as last_seen,
+        EXTRACT(EPOCH FROM (NOW() - s.reported_at)) as seconds_since_report
       FROM sensor_health_latest s
       JOIN devices d ON d.uuid = s.device_uuid
       WHERE s.healthy = false 
-         OR s.connected = false
-         OR s.last_seen < NOW() - INTERVAL '5 minutes'
-      ORDER BY s.last_seen DESC`
+         OR s.state != 'CONNECTED'
+         OR s.reported_at < NOW() - INTERVAL '5 minutes'
+      ORDER BY s.reported_at DESC`
     );
 
     res.json({
