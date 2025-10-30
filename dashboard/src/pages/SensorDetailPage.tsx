@@ -76,6 +76,8 @@ export const SensorDetailPage: React.FC<SensorDetailPageProps> = ({
           
           if (historyResponse.ok) {
             const historyData = await historyResponse.json();
+            console.log('📊 History data received:', historyData);
+            
             // Transform protocol adapter history to match expected format
             const transformedHistory = (historyData.history || []).map((h: any) => ({
               reported_at: h.timestamp,
@@ -84,7 +86,10 @@ export const SensorDetailPage: React.FC<SensorDetailPageProps> = ({
               error_count: h.error_count,
               last_error: h.last_error
             }));
+            console.log(`📈 Transformed ${transformedHistory.length} history points`);
             setHistory(transformedHistory);
+          } else {
+            console.warn('⚠️ History fetch failed:', historyResponse.status, historyResponse.statusText);
           }
         }
         

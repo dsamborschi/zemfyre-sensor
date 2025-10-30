@@ -41,8 +41,9 @@ export const SensorErrorChart: React.FC<SensorErrorChartProps> = ({ data }) => {
 
   if (chartData.length === 0) {
     return (
-      <div className="flex items-center justify-center h-64 text-muted-foreground">
-        No historical data available
+      <div className="flex flex-col items-center justify-center h-64 text-muted-foreground space-y-2">
+        <p className="font-medium">No historical data available</p>
+        <p className="text-sm">Error trends will appear here as data accumulates (24h history)</p>
       </div>
     );
   }
