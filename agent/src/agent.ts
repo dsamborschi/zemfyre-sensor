@@ -1244,21 +1244,32 @@ export default class DeviceAgent {
 					
 					// Sync each device to SQLite
 					for (const device of config.protocolAdapterDevices) {
-						const existing = await ProtocolAdapterDeviceModel.getByName(device.name);
+						// Normalize property names from cloud API (camelCase) to SQLite (snake_case)
+						const normalizedDevice = {
+							name: device.name,
+							protocol: device.protocol,
+							enabled: device.enabled !== undefined ? device.enabled : true,
+							poll_interval: (device as any).pollInterval || (device as any).poll_interval || 5000,
+							connection: device.connection,
+							registers: device.registers,
+							metadata: device.metadata
+						};
+						
+						const existing = await ProtocolAdapterDeviceModel.getByName(normalizedDevice.name);
 						
 						if (existing) {
-							await ProtocolAdapterDeviceModel.update(device.name, device);
+							await ProtocolAdapterDeviceModel.update(normalizedDevice.name, normalizedDevice);
 							this.agentLogger?.info('Updated protocol adapter device', {
 								category: 'Agent',
-								deviceName: device.name,
-								protocol: device.protocol
+								deviceName: normalizedDevice.name,
+								protocol: normalizedDevice.protocol
 							});
 						} else {
-							await ProtocolAdapterDeviceModel.create(device);
+							await ProtocolAdapterDeviceModel.create(normalizedDevice);
 							this.agentLogger?.info('Added protocol adapter device', {
 								category: 'Agent',
-								deviceName: device.name,
-								protocol: device.protocol
+								deviceName: normalizedDevice.name,
+								protocol: normalizedDevice.protocol
 							});
 						}
 					}
