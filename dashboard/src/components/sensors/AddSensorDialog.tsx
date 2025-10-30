@@ -186,9 +186,16 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({ open, onOpenCh
             <Alert>
               <Info className="h-4 w-4" />
               <AlertDescription>
-                <div className="space-y-1">
-                  <div><strong>MQTT Topic:</strong> <code className="text-xs">{protocolType}/data</code></div>
-                  <div><strong>Heartbeat:</strong> <code className="text-xs">{protocolType}/data/heartbeat</code></div>
+                <div className="space-y-1 text-sm">
+                  <div><strong>MQTT Topics:</strong></div>
+                  <div className="ml-4">
+                    <div className="text-xs font-mono text-gray-600">
+                      iot/device/&#123;deviceUuid&#125;/sensor/{protocolType}/data
+                    </div>
+                    <div className="text-xs font-mono text-gray-600">
+                      iot/device/&#123;deviceUuid&#125;/sensor/{protocolType}/data/heartbeat
+                    </div>
+                  </div>
                 </div>
               </AlertDescription>
             </Alert>

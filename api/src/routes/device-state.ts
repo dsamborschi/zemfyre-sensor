@@ -919,8 +919,8 @@ router.post('/devices/:uuid/sensor-config', deviceAuth, async (req, res) => {
       ? `\\\\.\\pipe\\${sensorConfig.name}`
       : `/tmp/${sensorConfig.name}.sock`;
 
-    // Auto-generate MQTT topic based on protocol type
-    const mqttTopic = `${sensorConfig.protocolType}/data`;
+    // Auto-generate MQTT topic based on protocol type and sensor name
+    const mqttTopic = `${sensorConfig.protocolType}/${sensorConfig.name}`;
     const mqttHeartbeatTopic = `${mqttTopic}/heartbeat`;
 
     // Build complete sensor configuration
