@@ -24,14 +24,14 @@ router.get('/devices/:uuid/sensors', async (req, res) => {
   try {
     const { uuid } = req.params;
 
-    // Get configured sensors from target state
-    const targetStateResult = await query(
-      `SELECT config FROM device_target_state WHERE device_uuid = $1`,
+    // Get configured sensors from CURRENT state (what's actually running on the device)
+    const currentStateResult = await query(
+      `SELECT config FROM device_current_state WHERE device_uuid = $1`,
       [uuid]
     );
     
-    const configuredSensors = targetStateResult.rows.length > 0 && targetStateResult.rows[0].config?.sensors
-      ? targetStateResult.rows[0].config.sensors
+    const configuredSensors = currentStateResult.rows.length > 0 && currentStateResult.rows[0].config?.sensors
+      ? currentStateResult.rows[0].config.sensors
       : [];
 
     // Get sensor pipeline health (named pipe connections - reported by agent)
