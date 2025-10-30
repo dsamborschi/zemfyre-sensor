@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Info, AlertCircle, Plus, Trash2 } from 'lucide-react';
+import { Info, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -102,18 +102,9 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
   const [deviceEnabled, setDeviceEnabled] = useState(true);
   const [devicePollInterval, setDevicePollInterval] = useState(5000);
   
-  // Modbus connection
-  const [modbusConnectionType, setModbusConnectionType] = useState<'tcp' | 'rtu'>('tcp');
-  const [modbusHost, setModbusHost] = useState('');
-  const [modbusPort, setModbusPort] = useState(502);
-  const [modbusUnitId, setModbusUnitId] = useState(1);
-  const [modbusSerialPort, setModbusSerialPort] = useState('COM1');
-  const [modbusBaudRate, setModbusBaudRate] = useState(9600);
-  
-  // Modbus registers
-  const [modbusRegisters, setModbusRegisters] = useState<ModbusRegister[]>([
-    { name: 'register1', address: 0, type: 'holding', dataType: 'int16' }
-  ]);
+  // JSON configuration (unified for all protocols)
+  const [connectionJson, setConnectionJson] = useState('{\n  "type": "tcp",\n  "host": "192.168.1.100",\n  "port": 502,\n  "unitId": 1\n}');
+  const [registersJson, setRegistersJson] = useState('[\n  {\n    "name": "temperature",\n    "address": 0,\n    "type": "holding",\n    "dataType": "float32",\n    "unit": "°C"\n  }\n]');
 
   const handleSavePipeline = async () => {
     setError(null);
@@ -156,16 +147,22 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
       return;
     }
 
-    // Validation based on protocol
-    if (deviceProtocol === 'modbus') {
-      if (modbusConnectionType === 'tcp' && !modbusHost.trim()) {
-        setError('Modbus host is required for TCP connection');
-        return;
-      }
-      if (modbusRegisters.length === 0) {
-        setError('At least one register is required');
-        return;
-      }
+    // Parse and validate JSON
+    let connection: any;
+    let registers: any;
+
+    try {
+      connection = JSON.parse(connectionJson);
+    } catch (err) {
+      setError('Invalid connection JSON: ' + (err as Error).message);
+      return;
+    }
+
+    try {
+      registers = JSON.parse(registersJson);
+    } catch (err) {
+      setError('Invalid registers/nodes JSON: ' + (err as Error).message);
+      return;
     }
 
     const device: ProtocolAdapterDevice = {
@@ -173,8 +170,8 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
       protocol: deviceProtocol,
       enabled: deviceEnabled,
       pollInterval: devicePollInterval,
-      connection: buildConnectionConfig(),
-      registers: deviceProtocol === 'modbus' ? modbusRegisters : undefined,
+      connection,
+      registers,
       metadata: {
         createdAt: new Date().toISOString(),
         createdBy: 'dashboard'
@@ -192,42 +189,30 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
     }
   };
 
-  const buildConnectionConfig = () => {
-    if (deviceProtocol === 'modbus') {
-      if (modbusConnectionType === 'tcp') {
+  const getProtocolExamples = () => {
+    switch (deviceProtocol) {
+      case 'modbus':
         return {
-          type: 'tcp',
-          host: modbusHost,
-          port: modbusPort,
-          unitId: modbusUnitId
+          connection: '{\n  "type": "tcp",\n  "host": "192.168.1.100",\n  "port": 502,\n  "unitId": 1\n}',
+          registers: '[\n  {\n    "name": "temperature",\n    "address": 0,\n    "type": "holding",\n    "dataType": "float32",\n    "unit": "°C"\n  }\n]'
         };
-      } else {
+      case 'can':
         return {
-          type: 'rtu',
-          port: modbusSerialPort,
-          baudRate: modbusBaudRate,
-          unitId: modbusUnitId
+          connection: '{\n  "interface": "can0",\n  "bitrate": 500000,\n  "protocol": "j1939"\n}',
+          registers: '[\n  {\n    "pgn": 61444,\n    "name": "engine_speed",\n    "spn": 190,\n    "type": "uint16",\n    "unit": "rpm"\n  }\n]'
         };
-      }
+      case 'opcua':
+        return {
+          connection: '{\n  "endpointUrl": "opc.tcp://192.168.1.50:4840",\n  "securityPolicy": "None",\n  "securityMode": "None"\n}',
+          registers: '[\n  {\n    "nodeId": "ns=2;s=Temperature",\n    "name": "temperature",\n    "type": "Double"\n  }\n]'
+        };
     }
-    return {};
   };
 
-  const addRegister = () => {
-    setModbusRegisters([
-      ...modbusRegisters,
-      { name: `register${modbusRegisters.length + 1}`, address: 0, type: 'holding', dataType: 'int16' }
-    ]);
-  };
-
-  const removeRegister = (index: number) => {
-    setModbusRegisters(modbusRegisters.filter((_, i) => i !== index));
-  };
-
-  const updateRegister = (index: number, field: keyof ModbusRegister, value: any) => {
-    const updated = [...modbusRegisters];
-    updated[index] = { ...updated[index], [field]: value };
-    setModbusRegisters(updated);
+  const loadProtocolExample = () => {
+    const examples = getProtocolExamples();
+    setConnectionJson(examples.connection);
+    setRegistersJson(examples.registers);
   };
 
   const handleClose = () => {
@@ -236,7 +221,8 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
     setError(null);
     setShowAdvanced(false);
     setActiveTab('device');
-    setModbusRegisters([{ name: 'register1', address: 0, type: 'holding', dataType: 'int16' }]);
+    setConnectionJson('{\n  "type": "tcp",\n  "host": "192.168.1.100",\n  "port": 502,\n  "unitId": 1\n}');
+    setRegistersJson('[\n  {\n    "name": "temperature",\n    "address": 0,\n    "type": "holding",\n    "dataType": "float32",\n    "unit": "°C"\n  }\n]');
     onOpenChange(false);
   };
 
@@ -323,189 +309,68 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
                 <p className="text-xs text-gray-500">How often to read data from the device</p>
               </div>
 
-              {/* Modbus-specific configuration */}
-              {deviceProtocol === 'modbus' && (
-                <Card className="p-4 space-y-4 bg-gray-50">
-                  <h4 className="font-medium">Modbus Connection</h4>
-                  
-                  {/* Connection Type */}
-                  <div className="space-y-2">
-                    <Label htmlFor="modbusConnectionType">Connection Type</Label>
-                    <Select value={modbusConnectionType} onValueChange={(value: any) => setModbusConnectionType(value)}>
-                      <SelectTrigger id="modbusConnectionType">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="tcp">Modbus TCP (Ethernet)</SelectItem>
-                        <SelectItem value="rtu">Modbus RTU (Serial)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+              {/* Protocol-specific configuration (JSON) */}
+              <Card className="p-4 space-y-4 bg-gray-50">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Configuration (JSON)</h4>
+                  <Button 
+                    type="button" 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={loadProtocolExample}
+                  >
+                    Load Example
+                  </Button>
+                </div>
 
-                  {modbusConnectionType === 'tcp' ? (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="modbusHost">Host/IP *</Label>
-                        <Input
-                          id="modbusHost"
-                          placeholder="192.168.1.100"
-                          value={modbusHost}
-                          onChange={(e) => setModbusHost(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="modbusPort">Port</Label>
-                        <Input
-                          id="modbusPort"
-                          type="number"
-                          value={modbusPort}
-                          onChange={(e) => setModbusPort(parseInt(e.target.value))}
-                        />
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="modbusSerialPort">Serial Port *</Label>
-                        <Input
-                          id="modbusSerialPort"
-                          placeholder="COM1 or /dev/ttyUSB0"
-                          value={modbusSerialPort}
-                          onChange={(e) => setModbusSerialPort(e.target.value)}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="modbusBaudRate">Baud Rate</Label>
-                        <Select 
-                          value={modbusBaudRate.toString()} 
-                          onValueChange={(value) => setModbusBaudRate(parseInt(value))}
-                        >
-                          <SelectTrigger id="modbusBaudRate">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="9600">9600</SelectItem>
-                            <SelectItem value="19200">19200</SelectItem>
-                            <SelectItem value="38400">38400</SelectItem>
-                            <SelectItem value="57600">57600</SelectItem>
-                            <SelectItem value="115200">115200</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                  )}
+                {/* Connection JSON */}
+                <div className="space-y-2">
+                  <Label htmlFor="connectionJson">Connection Configuration</Label>
+                  <textarea
+                    id="connectionJson"
+                    className="w-full h-32 p-3 border rounded-md font-mono text-sm"
+                    value={connectionJson}
+                    onChange={(e) => setConnectionJson(e.target.value)}
+                    placeholder="Enter connection configuration as JSON"
+                  />
+                  <p className="text-xs text-gray-500">
+                    {deviceProtocol === 'modbus' && 'Example: {"type": "tcp", "host": "192.168.1.100", "port": 502, "unitId": 1}'}
+                    {deviceProtocol === 'can' && 'Example: {"interface": "can0", "bitrate": 500000, "protocol": "j1939"}'}
+                    {deviceProtocol === 'opcua' && 'Example: {"endpointUrl": "opc.tcp://....", "securityPolicy": "None"}'}
+                  </p>
+                </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="modbusUnitId">Unit ID (Slave Address)</Label>
-                    <Input
-                      id="modbusUnitId"
-                      type="number"
-                      value={modbusUnitId}
-                      onChange={(e) => setModbusUnitId(parseInt(e.target.value))}
-                    />
-                  </div>
+                {/* Registers/Nodes JSON */}
+                <div className="space-y-2">
+                  <Label htmlFor="registersJson">
+                    {deviceProtocol === 'modbus' && 'Registers Configuration'}
+                    {deviceProtocol === 'can' && 'Messages Configuration'}
+                    {deviceProtocol === 'opcua' && 'Nodes Configuration'}
+                  </Label>
+                  <textarea
+                    id="registersJson"
+                    className="w-full h-48 p-3 border rounded-md font-mono text-sm"
+                    value={registersJson}
+                    onChange={(e) => setRegistersJson(e.target.value)}
+                    placeholder={`Enter ${deviceProtocol} configuration as JSON array`}
+                  />
+                  <p className="text-xs text-gray-500">
+                    {deviceProtocol === 'modbus' && 'Example: [{"name": "temperature", "address": 0, "type": "holding", "dataType": "float32"}]'}
+                    {deviceProtocol === 'can' && 'Example: [{"pgn": 61444, "name": "engine_speed", "type": "uint16"}]'}
+                    {deviceProtocol === 'opcua' && 'Example: [{"nodeId": "ns=2;s=Temperature", "name": "temp", "type": "Double"}]'}
+                  </p>
+                </div>
 
-                  {/* Registers */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <Label>Registers *</Label>
-                      <Button type="button" size="sm" variant="outline" onClick={addRegister}>
-                        <Plus className="h-4 w-4 mr-1" />
-                        Add Register
-                      </Button>
-                    </div>
-
-                    <div className="space-y-2">
-                      {modbusRegisters.map((register, index) => (
-                        <Card key={index} className="p-3 bg-white">
-                          <div className="grid grid-cols-6 gap-2">
-                            <div className="col-span-2">
-                              <Input
-                                placeholder="Name"
-                                value={register.name}
-                                onChange={(e) => updateRegister(index, 'name', e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <Input
-                                type="number"
-                                placeholder="Address"
-                                value={register.address}
-                                onChange={(e) => updateRegister(index, 'address', parseInt(e.target.value))}
-                              />
-                            </div>
-                            <div>
-                              <Select 
-                                value={register.type} 
-                                onValueChange={(value) => updateRegister(index, 'type', value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="coil">Coil</SelectItem>
-                                  <SelectItem value="discrete">Discrete</SelectItem>
-                                  <SelectItem value="holding">Holding</SelectItem>
-                                  <SelectItem value="input">Input</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div>
-                              <Select 
-                                value={register.dataType} 
-                                onValueChange={(value) => updateRegister(index, 'dataType', value)}
-                              >
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="int16">Int16</SelectItem>
-                                  <SelectItem value="uint16">UInt16</SelectItem>
-                                  <SelectItem value="int32">Int32</SelectItem>
-                                  <SelectItem value="uint32">UInt32</SelectItem>
-                                  <SelectItem value="float32">Float32</SelectItem>
-                                  <SelectItem value="float64">Float64</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="flex items-center">
-                              <Button 
-                                type="button" 
-                                size="sm" 
-                                variant="ghost" 
-                                onClick={() => removeRegister(index)}
-                                disabled={modbusRegisters.length === 1}
-                              >
-                                <Trash2 className="h-4 w-4 text-red-500" />
-                              </Button>
-                            </div>
-                          </div>
-                        </Card>
-                      ))}
-                    </div>
-                  </div>
-                </Card>
-              )}
-
-              {/* CAN Bus configuration */}
-              {deviceProtocol === 'can' && (
+                {/* Protocol hints */}
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription>
-                    CAN Bus configuration will be available soon. Contact support for early access.
+                    {deviceProtocol === 'modbus' && 'Modbus TCP/RTU protocol. Configure connection (TCP or serial) and register mappings.'}
+                    {deviceProtocol === 'can' && 'CAN Bus protocol (J1939, CANopen). Configure interface, bitrate, and message definitions.'}
+                    {deviceProtocol === 'opcua' && 'OPC-UA protocol. Configure endpoint URL, security settings, and node subscriptions.'}
                   </AlertDescription>
                 </Alert>
-              )}
-
-              {/* OPC-UA configuration */}
-              {deviceProtocol === 'opcua' && (
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertDescription>
-                    OPC-UA configuration will be available soon. Contact support for early access.
-                  </AlertDescription>
-                </Alert>
-              )}
+              </Card>
             </div>
           </TabsContent>
 
