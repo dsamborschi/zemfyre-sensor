@@ -94,9 +94,6 @@ export default class DeviceAgent {
 		const configFeatures = this.getConfigFeatures();
 		const configSettings = this.getConfigSettings();
 		const configLogging = this.getConfigLogging();
-
-			// 8. Initialize API Binder (if cloud endpoint configured)
-			await this.initializeApiBinder(configSettings);
 		
 		// Get feature flags from config with environment variable fallbacks for local development
 		const enableRemoteAccess = configFeatures.enableRemoteAccess ?? (process.env.ENABLE_REMOTE_ACCESS === 'true');
@@ -108,6 +105,9 @@ export default class DeviceAgent {
 		
 		// Get system settings from config (with defaults)
 		const reconciliationIntervalMs = configSettings.reconciliationIntervalMs || this.RECONCILIATION_INTERVAL;
+		const targetStatePollIntervalMs = configSettings.targetStatePollIntervalMs || parseInt(process.env.POLL_INTERVAL_MS || '60000', 10);
+		const deviceReportIntervalMs = configSettings.deviceReportIntervalMs || parseInt(process.env.REPORT_INTERVAL_MS || '60000', 10);
+		const metricsIntervalMs = configSettings.metricsIntervalMs || parseInt(process.env.METRICS_INTERVAL_MS || '300000', 10);
 		
 		// Get logging settings from config
 		const logLevel = configLogging.level || 'info';
@@ -162,6 +162,9 @@ export default class DeviceAgent {
 		if (enableProtocolAdapters) {
 			await this.initializeProtocolAdapters(configFeatures);
 		}
+
+		// 13. Initialize API Binder (AFTER features are initialized so it can access sensor health)
+		await this.initializeApiBinder(configSettings);
 
 		// 14. Initialize Sensor Config Handler (if Sensor Publish enabled)
 		await this.initializeSensorConfigHandler();

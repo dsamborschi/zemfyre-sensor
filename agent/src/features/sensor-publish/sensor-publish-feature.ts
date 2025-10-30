@@ -148,17 +148,28 @@ export class SensorPublishFeature extends BaseFeature {
    */
   public getStats(): Record<string, any> {
     const stats: Record<string, any> = {};
+    const now = Date.now();
     
     for (const sensor of this.sensors) {
       const config = this.config.sensors[this.sensors.indexOf(sensor)];
       const sensorStats = sensor.getStats();
       const sensorState = sensor.getState();
       
+      // Smart health check: Connected AND receiving recent data
+      // If no data in last 60 seconds, something is wrong upstream (protocol adapters)
+      const hasRecentData = sensorStats.lastPublishTime && 
+        (now - new Date(sensorStats.lastPublishTime).getTime()) < 60000; // 60 seconds
+      
+      // Healthy if: connected to pipe AND receiving data flow
+      // This catches protocol adapter failures even when pipe connection is healthy
+      const isHealthy = sensorState === 'CONNECTED' && 
+        (hasRecentData || sensorStats.messagesReceived === 0); // Allow startup period
+      
       stats[config.name!] = {
         state: sensorState,
         addr: config.addr,
         enabled: config.enabled !== false,
-        healthy: sensorState === 'CONNECTED', // Health flag for monitoring
+        healthy: isHealthy,
         lastError: sensorStats.lastError || null,
         lastErrorTime: sensorStats.lastErrorTime || null,
         ...sensorStats

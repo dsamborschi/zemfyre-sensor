@@ -196,7 +196,8 @@ export class Sensor extends EventEmitter {
     this.state = SensorState.CONNECTED;
     this.stats.reconnectAttempts = 0;
     this.stats.lastConnectedTime = new Date();
-    this.stats.lastError = undefined; // Clear error on successful connection
+    // Keep lastError for debugging - don't clear it on successful connection
+    // This allows us to see what errors occurred before connection succeeded
     
     // Start buffer timer if configured
     if (this.config.bufferTimeMs > 0) {
