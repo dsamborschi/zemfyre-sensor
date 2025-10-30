@@ -66,4 +66,4 @@ balena/
 /aws-iot-device-client
 
 # Agent database (local development data)
-agent/data/database.sqlite
+*.sqlite

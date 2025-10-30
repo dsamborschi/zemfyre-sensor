@@ -31,21 +31,27 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
     return () => clearInterval(interval);
   }, [refetch]);
 
-  if (loading) {
+  // Only show loading spinner on initial load (when there's no data yet)
+  if (loading && !data) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <Activity className="h-8 w-8 animate-spin text-muted-foreground" />
+      <div className="flex-1 bg-gray-50 overflow-auto">
+        <div className="flex items-center justify-center min-h-[400px]">
+          <Activity className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
       </div>
     );
   }
 
-  if (error) {
+  // Show error only if we have no data to display
+  if (error && !data) {
     return (
-      <Alert variant="destructive">
-        <AlertDescription>
-          Failed to load sensor health data: {error.message}
-        </AlertDescription>
-      </Alert>
+      <div className="flex-1 bg-gray-50 overflow-auto p-6">
+        <Alert variant="destructive">
+          <AlertDescription>
+            Failed to load sensor health data: {error.message}
+          </AlertDescription>
+        </Alert>
+      </div>
     );
   }
 

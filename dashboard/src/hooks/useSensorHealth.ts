@@ -46,9 +46,12 @@ export const useSensorHealth = (deviceUuid: string): UseSensorHealthResult => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<Error | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (isInitialLoad = false) => {
     try {
-      setLoading(true);
+      // Only show loading spinner on initial load, not on refresh
+      if (isInitialLoad) {
+        setLoading(true);
+      }
       setError(null);
 
       // Fetch device health (protocol adapters) for summary and devices
@@ -85,18 +88,20 @@ export const useSensorHealth = (deviceUuid: string): UseSensorHealthResult => {
     } catch (err) {
       setError(err instanceof Error ? err : new Error('Unknown error'));
     } finally {
-      setLoading(false);
+      if (isInitialLoad) {
+        setLoading(false);
+      }
     }
   }, [deviceUuid]);
 
   useEffect(() => {
-    fetchData();
+    fetchData(true); // Pass true for initial load
   }, [fetchData]);
 
   return {
     data,
     loading,
     error,
-    refetch: fetchData
+    refetch: () => fetchData(false) // Pass false for refresh (no loading state change)
   };
 };
