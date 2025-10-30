@@ -23,7 +23,7 @@ import { Header } from "./components/Header";
 // Initial mock applications for each device
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
   // Initialize selectedDeviceId from localStorage if available
@@ -930,7 +930,13 @@ export default function App() {
         onLogout={handleLogout}
         userEmail={userEmail}
         userName={userName}
-        deploymentStatus={selectedDeviceId ? deploymentStatus[selectedDeviceId] : undefined}
+        deploymentStatus={(() => {
+          const status = selectedDeviceId ? deploymentStatus[selectedDeviceId] : undefined;
+          console.log('App.tsx - selectedDeviceId:', selectedDeviceId);
+          console.log('App.tsx - deploymentStatus object:', deploymentStatus);
+          console.log('App.tsx - passing to Header:', status);
+          return status;
+        })()}
         onDeploy={handleDeployChanges}
         onCancelDeploy={handleCancelDeploy}
       />
