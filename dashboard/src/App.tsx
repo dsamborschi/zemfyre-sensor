@@ -45,7 +45,7 @@ export default function App() {
   >({});
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [currentView, setCurrentView] = useState<'metrics' | 'sensors'>('metrics');
+  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt'>('metrics');
   
   // Memoize selected device to prevent unnecessary re-renders
   const selectedDevice = useMemo(() => {
@@ -1007,6 +1007,14 @@ export default function App() {
             >
               <Activity className="w-4 h-4 mr-2" />
               Sensor Health
+            </Button>
+              <Button
+              variant={currentView === 'mqtt' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('mqtt')}
+            >
+              <Activity className="w-4 h-4 mr-2" />
+              MQTT
             </Button>
           </div>
 
