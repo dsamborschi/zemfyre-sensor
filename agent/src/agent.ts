@@ -1251,7 +1251,7 @@ export default class DeviceAgent {
 							enabled: device.enabled !== undefined ? device.enabled : true,
 							poll_interval: (device as any).pollInterval || (device as any).poll_interval || 5000,
 							connection: device.connection,
-							registers: device.registers,
+							data_points: (device as any).registers || (device as any).dataPoints || (device as any).data_points,
 							metadata: device.metadata
 						};
 						
@@ -1282,6 +1282,46 @@ export default class DeviceAgent {
 								category: 'Agent',
 								deviceName: currentDevice.name,
 								protocol: currentDevice.protocol
+							});
+						}
+					}
+					
+					// Ensure output configurations exist for each protocol
+					const protocols = new Set(config.protocolAdapterDevices.map((d: any) => d.protocol));
+					for (const protocol of protocols) {
+						const existingOutput = await ProtocolAdapterDeviceModel.getOutput(protocol);
+						
+						// Create default output configuration for this protocol
+						const defaultSocketPath = process.platform === 'win32' 
+							? `\\\\.\\pipe\\${protocol}-sensors`
+							: `/tmp/${protocol}-sensors.sock`;
+						
+						if (!existingOutput) {
+							// Create new output configuration
+							await ProtocolAdapterDeviceModel.setOutput({
+								protocol: protocol,
+								socket_path: defaultSocketPath,
+								data_format: 'json',
+								delimiter: '\n',
+								include_timestamp: true,
+								include_device_name: true
+							});
+							
+							this.agentLogger?.info('Created default output configuration', {
+								category: 'Agent',
+								protocol: protocol,
+								socketPath: defaultSocketPath
+							});
+						} else if (!existingOutput.delimiter || existingOutput.delimiter === '') {
+							// Fix existing output configuration with missing delimiter
+							await ProtocolAdapterDeviceModel.setOutput({
+								...existingOutput,
+								delimiter: '\n'
+							});
+							
+							this.agentLogger?.info('Fixed output configuration delimiter', {
+								category: 'Agent',
+								protocol: protocol
 							});
 						}
 					}

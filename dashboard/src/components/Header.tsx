@@ -1,4 +1,4 @@
-import { Server, User, LogIn, Settings, HelpCircle, LogOut } from "lucide-react";
+import { Server, User, LogIn, Settings, HelpCircle, LogOut, RefreshCw, XCircle } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
@@ -16,9 +16,17 @@ interface HeaderProps {
   onLogout?: () => void;
   userEmail?: string;
   userName?: string;
+  deploymentStatus?: {
+    needsDeployment: boolean;
+    version: number;
+    lastDeployedAt?: string;
+    deployedBy?: string;
+  };
+  onDeploy?: () => void;
+  onCancelDeploy?: () => void;
 }
 
-export function Header({  isAuthenticated = true, onLogout = () => {},userEmail = "john.doe@company.com",userName = "John Doe"}: HeaderProps) {
+export function Header({  isAuthenticated = true, onLogout = () => {},userEmail = "john.doe@company.com",userName = "John Doe", deploymentStatus, onDeploy = () => {}, onCancelDeploy = () => {}}: HeaderProps) {
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="px-4 md:px-6 py-3 flex items-center justify-between">
@@ -33,10 +41,34 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
           </div>
         </div>
 
-        {/* Right Side - Profile/Login */}
+        {/* Right Side - Deploy Button + Profile/Login */}
         <div className="flex items-center gap-3">
           {isAuthenticated ? (
             <>
+              {/* Deploy Button - Shows when changes are pending */}
+              {deploymentStatus?.needsDeployment && (
+                <div className="flex items-center gap-2">
+                  <Button 
+                    onClick={onCancelDeploy}
+                    size="sm"
+                    variant="outline"
+                    className="hidden sm:flex border-gray-300 hover:bg-gray-100 text-gray-700"
+                  >
+                    <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={onDeploy}
+                    size="sm"
+                    className="bg-yellow-600 hover:bg-yellow-700 border border-yellow-700 shadow-sm font-semibold text-white"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
+                    <span className="hidden sm:inline">Deploy v{deploymentStatus.version + 1}</span>
+                    <span className="sm:hidden">Deploy</span>
+                  </Button>
+                </div>
+              )}
+
               <Button
                 variant="ghost"
                 size="icon"

@@ -930,6 +930,9 @@ export default function App() {
         onLogout={handleLogout}
         userEmail={userEmail}
         userName={userName}
+        deploymentStatus={selectedDeviceId ? deploymentStatus[selectedDeviceId] : undefined}
+        onDeploy={handleDeployChanges}
+        onCancelDeploy={handleCancelDeploy}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -1053,9 +1056,6 @@ export default function App() {
               onToggleAppStatus={handleToggleAppStatus}
               onToggleServiceStatus={handleToggleServiceStatus}
               networkInterfaces={networkInterfaces}
-              deploymentStatus={deploymentStatus[selectedDeviceId]}
-              onDeploy={handleDeployChanges}
-              onCancelDeploy={handleCancelDeploy}
             />
           )}
           {currentView === 'sensors' && (

@@ -13,7 +13,7 @@ export interface ProtocolAdapterDevice {
   enabled: boolean;
   poll_interval: number;
   connection: Record<string, any>; // Connection config (host, port, serial, etc.)
-  registers?: any[]; // Modbus registers or data points
+  data_points?: any[]; // Protocol-agnostic: Modbus registers, OPC-UA nodes, CAN messages, etc.
   metadata?: Record<string, any>; // Additional protocol-specific config
   created_at?: Date;
   updated_at?: Date;
@@ -73,7 +73,7 @@ export class ProtocolAdapterDeviceModel {
     const [id] = await models(this.table).insert({
       ...device,
       connection: JSON.stringify(device.connection),
-      registers: device.registers ? JSON.stringify(device.registers) : null,
+      data_points: device.data_points ? JSON.stringify(device.data_points) : null,
       metadata: device.metadata ? JSON.stringify(device.metadata) : null,
     });
 
@@ -92,8 +92,8 @@ export class ProtocolAdapterDeviceModel {
     if (updates.connection) {
       updateData.connection = JSON.stringify(updates.connection);
     }
-    if (updates.registers) {
-      updateData.registers = JSON.stringify(updates.registers);
+    if (updates.data_points) {
+      updateData.data_points = JSON.stringify(updates.data_points);
     }
     if (updates.metadata) {
       updateData.metadata = JSON.stringify(updates.metadata);
@@ -179,7 +179,7 @@ export class ProtocolAdapterDeviceModel {
               enabled: device.enabled !== undefined ? device.enabled : true,
               poll_interval: device.pollInterval || 5000,
               connection: JSON.stringify(device.connection),
-              registers: device.registers ? JSON.stringify(device.registers) : null,
+              data_points: device.registers ? JSON.stringify(device.registers) : null,
               metadata: device.slaveId ? JSON.stringify({ slaveId: device.slaveId }) : null,
             });
           }

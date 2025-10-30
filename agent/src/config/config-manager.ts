@@ -17,7 +17,7 @@
  */
 
 import { EventEmitter } from 'events';
-import type { Logger } from '../logger/index.js';
+import type { AgentLogger } from '../logging/agent-logger.js';
 
 export interface ConfigChangeEvent {
 	key: string;
@@ -27,7 +27,7 @@ export interface ConfigChangeEvent {
 }
 
 export interface ConfigManagerOptions {
-	logger?: Logger;
+	logger?: AgentLogger;
 }
 
 /**
@@ -40,7 +40,7 @@ export interface ConfigManagerOptions {
  */
 export class ConfigManager extends EventEmitter {
 	private currentConfig: Record<string, any> = {};
-	private logger?: Logger;
+	private logger?: AgentLogger;
 
 	constructor(options: ConfigManagerOptions = {}) {
 		super();

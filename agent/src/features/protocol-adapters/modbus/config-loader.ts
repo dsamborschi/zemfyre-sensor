@@ -79,10 +79,10 @@ export class ConfigLoader {
         connection: typeof dbDevice.connection === 'string' 
           ? JSON.parse(dbDevice.connection) 
           : dbDevice.connection,
-        registers: dbDevice.registers 
-          ? (typeof dbDevice.registers === 'string' 
-              ? JSON.parse(dbDevice.registers) 
-              : dbDevice.registers)
+        registers: dbDevice.data_points 
+          ? (typeof dbDevice.data_points === 'string' 
+              ? JSON.parse(dbDevice.data_points) 
+              : dbDevice.data_points)
           : [],
         pollInterval: dbDevice.poll_interval,
         enabled: dbDevice.enabled

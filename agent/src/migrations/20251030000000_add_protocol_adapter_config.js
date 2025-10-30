@@ -12,7 +12,7 @@ exports.up = async function(knex) {
     table.boolean('enabled').notNullable().defaultTo(true);
     table.integer('poll_interval').notNullable().defaultTo(5000); // ms
     table.jsonb('connection').notNullable(); // Connection details (host, port, serial, etc.)
-    table.jsonb('registers'); // Modbus registers or data points
+    table.jsonb('registers'); // DEPRECATED: Use data_points (migration will rename this)
     table.jsonb('metadata'); // Additional protocol-specific config
     table.timestamp('created_at').notNullable().defaultTo(knex.fn.now());
     table.timestamp('updated_at').notNullable().defaultTo(knex.fn.now());

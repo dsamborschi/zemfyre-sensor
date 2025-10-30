@@ -5,12 +5,12 @@
  * Promotes consistent architecture across features.
  */
 
-import type { ConfigManager, ConfigChangeEvent } from './config-manager.js';
-import type { Logger } from '../logger/index.js';
+import type { ConfigManager, ConfigChangeEvent } from '../config-manager.js';
+import type { AgentLogger } from '../../logging/agent-logger.js';
 
 export interface ConfigHandlerOptions {
 	configManager: ConfigManager;
-	logger?: Logger;
+	logger?: AgentLogger;
 }
 
 /**
@@ -39,7 +39,7 @@ export interface IConfigHandler {
  */
 export abstract class BaseConfigHandler implements IConfigHandler {
 	protected configManager: ConfigManager;
-	protected logger?: Logger;
+	protected logger?: AgentLogger;
 	protected configKey: string;
 
 	constructor(configKey: string, options: ConfigHandlerOptions) {

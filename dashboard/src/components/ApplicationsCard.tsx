@@ -100,14 +100,6 @@ interface ApplicationsCardProps {
   onRemoveApplication: (appId: string) => void;
   onToggleStatus: (appId: string) => void;
   onToggleServiceStatus?: (appId: string, serviceId: number, action: "start" | "pause" | "stop") => void;
-  deploymentStatus?: {
-    needsDeployment: boolean;
-    version: number;
-    lastDeployedAt?: string;
-    deployedBy?: string;
-  };
-  onDeploy?: () => void;
-  onCancelDeploy?: () => void;
 }
 
 const statusColors = {
@@ -132,17 +124,12 @@ const syncStatusIcons = {
 };
 
 export function ApplicationsCard({
-  deviceId,
   deviceUuid,
   applications,
   onAddApplication,
   onUpdateApplication = () => {},
   onRemoveApplication,
-  onToggleStatus,
   onToggleServiceStatus = () => {},
-  deploymentStatus,
-  onDeploy = () => {},
-  onCancelDeploy = () => {},
 }: ApplicationsCardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
@@ -447,43 +434,6 @@ export function ApplicationsCard({
           </div>
           <p className="text-sm text-gray-600">Docker containers and services</p>
         </div>
-
-        {/* Deployment Status Banner */}
-        {deploymentStatus?.needsDeployment && (
-          <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-yellow-600" />
-                <div>
-                  <p className="text-sm font-medium text-yellow-900">Changes Pending Deployment</p>
-                  <p className="text-xs text-yellow-700 mt-0.5">
-                    Will deploy as version {deploymentStatus.version + 1} • Changes saved but not deployed yet
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2 flex-shrink-0">
-                <Button 
-                  onClick={onCancelDeploy}
-                  size="sm"
-                  variant="outline"
-                  className="border-gray-300 hover:bg-gray-100 text-gray-700"
-                >
-                  <XCircle className="w-3.5 h-3.5 mr-1.5" />
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={onDeploy}
-                  size="sm"
-                  className="flex-shrink-0 bg-yellow-600 hover:bg-yellow-700 border border-yellow-700 shadow-sm px-4 py-2 rounded-md font-semibold"
-                  style={{ color: '#ffffff', backgroundColor: '#ca8a04', borderColor: '#a16207' }}
-                >
-                  <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                  Deploy
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {applications.length === 0 ? (
           <div className="text-center py-8 text-gray-500">
