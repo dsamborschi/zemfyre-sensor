@@ -51,7 +51,7 @@ export const useSensorHealth = (deviceUuid: string): UseSensorHealthResult => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/v1/devices/${deviceUuid}/sensors`);
+      const response = await fetch(`/api/v1/devices/${deviceUuid}/device-health`);
       
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -67,7 +67,7 @@ export const useSensorHealth = (deviceUuid: string): UseSensorHealthResult => {
             ? device.status 
             : 'offline' // Default to offline if status is invalid
         })),
-        pipelines: jsonData.pipelines || [],
+        pipelines: [], // device-health endpoint doesn't include pipelines
         summary: jsonData.summary || {
           total: 0,
           online: 0,
