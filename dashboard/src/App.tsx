@@ -4,12 +4,13 @@ import { AddEditDeviceDialog } from "./components/AddEditDeviceDialog";
 import { SystemMetrics } from "./components/SystemMetrics";
 import { MqttPage } from "./components/MqttPage";
 import { JobsPage } from "./components/JobsPage";
+import { TimelinePage } from "./components/TimelinePage";
 import { Application } from "./components/ApplicationsCard";
 import { Toaster } from "./components/ui/sonner";
 import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { Menu, Activity, BarChart3, Radio, CalendarClock } from "lucide-react";
+import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock } from "lucide-react";
 import { LoginPage } from "./components/LoginPage";
 import { buildApiUrl } from "./config/api";
 import { SensorHealthDashboard } from "./pages/SensorHealthDashboard";
@@ -47,7 +48,7 @@ export default function App() {
   >({});
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs'>('metrics');
+  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'timeline'>('metrics');
   
   // Memoize selected device to prevent unnecessary re-renders
   const selectedDevice = useMemo(() => {
@@ -1026,6 +1027,14 @@ export default function App() {
               <CalendarClock className="w-4 h-4 mr-2" />
               Jobs
             </Button>
+            <Button
+              variant={currentView === 'timeline' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('timeline')}
+            >
+              <Clock className="w-4 h-4 mr-2" />
+              Timeline
+            </Button>
           </div>
 
           {/* Conditional Content */}
@@ -1055,6 +1064,9 @@ export default function App() {
           )}
           {currentView === 'jobs' && (
             <JobsPage device={selectedDevice} />
+          )}
+          {currentView === 'timeline' && (
+            <TimelinePage device={selectedDevice} />
           )}
             </>
           )}

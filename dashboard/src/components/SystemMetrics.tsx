@@ -27,7 +27,6 @@ import { DeviceActions } from "./DeviceActions";
 import { ApplicationsCard, Application } from "./ApplicationsCard";
 import { NetworkingCard, NetworkInterface } from "./NetworkingCard";
 import { AnalyticsCard } from "./AnalyticsCard";
-import { TimelineCard } from "./TimelineCard";
 import { GeneralInfoCard } from "./GeneralInfoCard";
 import { buildApiUrl } from "@/config/api";
 
@@ -624,13 +623,6 @@ export function SystemMetrics({
             </div>
           )}
         </Card>
-
-          <TimelineCard
-              deviceId={device.deviceUuid}
-              limit={5}
-              autoRefresh={true}
-              refreshInterval={30000}
-            />
       </div>
     </div>
   );
