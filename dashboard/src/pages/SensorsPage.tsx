@@ -26,6 +26,9 @@ interface Sensor {
   lastActivity: string | null;
   lastError: string | null;
   configured: boolean;
+  type?: 'pipeline' | 'device'; // pipeline = sensor publish, device = protocol adapter
+  protocol?: string;
+  connected?: boolean;
 }
 
 export const SensorsPage: React.FC<SensorsPageProps> = ({ 
@@ -45,7 +48,27 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
       const data = await response.json();
-      setSensors(data.pipelines || []);
+      
+      // Merge pipelines and protocol adapter devices
+      const pipelines = (data.pipelines || []).map((p: any) => ({
+        ...p,
+        type: 'pipeline' as const,
+      }));
+      
+      const devices = (data.devices || []).map((d: any) => ({
+        name: d.name,
+        state: d.connected ? 'CONNECTED' : 'DISCONNECTED',
+        healthy: d.connected,
+        messagesPublished: 0, // Protocol adapters don't track messages
+        lastActivity: d.lastSeen,
+        lastError: d.lastError,
+        configured: true,
+        type: 'device' as const,
+        protocol: d.protocol,
+        connected: d.connected,
+      }));
+      
+      setSensors([...pipelines, ...devices]);
       setError(null);
     } catch (err: any) {
       setError(err.message);
@@ -171,13 +194,26 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-lg font-semibold text-gray-900">{sensor.name}</h3>
                         {getStatusBadge(sensor)}
+                        {sensor.protocol && (
+                          <Badge variant="outline" className="text-xs">
+                            {sensor.protocol.toUpperCase()}
+                          </Badge>
+                        )}
                       </div>
                       
                       <div className="grid grid-cols-2 gap-4 text-sm text-gray-600">
-                        <div>
-                          <span className="font-medium">Messages Published:</span>{' '}
-                          {sensor.messagesPublished.toLocaleString()}
-                        </div>
+                        {sensor.type === 'pipeline' && (
+                          <div>
+                            <span className="font-medium">Messages Published:</span>{' '}
+                            {sensor.messagesPublished.toLocaleString()}
+                          </div>
+                        )}
+                        {sensor.type === 'device' && (
+                          <div>
+                            <span className="font-medium">Type:</span>{' '}
+                            {sensor.protocol ? `${sensor.protocol.toUpperCase()} Device` : 'Device'}
+                          </div>
+                        )}
                         <div>
                           <span className="font-medium">Last Activity:</span>{' '}
                           {sensor.lastActivity 
