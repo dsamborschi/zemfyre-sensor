@@ -1011,7 +1011,7 @@ export default function App() {
               onClick={() => setCurrentView('sensors')}
             >
               <Activity className="w-4 h-4 mr-2" />
-              Sensor Health
+              Sensor Monitor
             </Button>
               <Button
               variant={currentView === 'mqtt' ? 'default' : 'outline'}
