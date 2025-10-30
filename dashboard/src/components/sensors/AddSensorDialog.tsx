@@ -108,7 +108,7 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({ open, onOpenCh
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add Sensor Pipeline</DialogTitle>
+          <DialogTitle>Add Sensor</DialogTitle>
           <DialogDescription>
             Add a sensor pipeline by specifying the name, protocol, and platform. Paths and topics are auto-generated.
           </DialogDescription>

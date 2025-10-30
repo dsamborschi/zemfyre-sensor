@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { AddSensorDialog } from '@/components/sensors/AddSensorDialog';
+import { SensorSummaryCards } from '@/components/sensors/SensorSummaryCards';
 import { toast } from 'sonner';
 
 interface SensorsPageProps {
@@ -165,6 +166,18 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
           <Alert variant="destructive">
             <AlertDescription>Failed to load sensors: {error}</AlertDescription>
           </Alert>
+        )}
+
+        {/* Summary Cards */}
+        {sensors.length > 0 && (
+          <SensorSummaryCards 
+            summary={{
+              total: sensors.length,
+              online: sensors.filter(s => s.state === 'CONNECTED' && s.healthy).length,
+              offline: sensors.filter(s => s.state === 'DISCONNECTED' || s.state === 'PENDING').length,
+              errors: sensors.filter(s => s.lastError && s.state !== 'PENDING').length,
+            }}
+          />
         )}
 
         {/* Sensors List */}
