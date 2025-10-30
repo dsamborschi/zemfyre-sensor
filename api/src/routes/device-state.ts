@@ -279,6 +279,71 @@ router.patch('/device/state', deviceAuthFromBody, async (req, res) => {
           );
         }
       }
+
+      // Store sensor health data if provided
+      if (deviceState.sensor_health && Array.isArray(deviceState.sensor_health)) {
+        console.log(`📡 Recording sensor health for device ${uuid.substring(0, 8)}... (${deviceState.sensor_health.length} sensors)`);
+        
+        for (const sensor of deviceState.sensor_health) {
+          try {
+            await query(
+              `INSERT INTO sensor_health_history (
+                device_uuid, sensor_name, connected, healthy,
+                messages_received, messages_sent, bytes_received, bytes_sent,
+                reconnect_attempts, last_error, last_error_time, last_connected_time
+              ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)`,
+              [
+                uuid,
+                sensor.name,
+                sensor.connected || false,
+                sensor.healthy !== false, // Default to true if not specified
+                sensor.messagesReceived || 0,
+                sensor.messagesSent || 0,
+                sensor.bytesReceived || 0,
+                sensor.bytesSent || 0,
+                sensor.reconnectAttempts || 0,
+                sensor.lastError || null,
+                sensor.lastErrorTime || null,
+                sensor.lastConnectedTime || null
+              ]
+            );
+          } catch (error) {
+            console.error(`Failed to store sensor health for ${sensor.name}:`, error);
+          }
+        }
+      }
+
+      // Store protocol adapter health data if provided
+      if (deviceState.protocol_adapters_health) {
+        console.log(`🔌 Recording protocol adapter health for device ${uuid.substring(0, 8)}...`);
+        
+        // protocol_adapters_health is a map: { modbus: [...devices], can: [...devices] }
+        for (const [protocolType, devices] of Object.entries(deviceState.protocol_adapters_health)) {
+          if (!Array.isArray(devices)) continue;
+          
+          for (const device of devices) {
+            try {
+              await query(
+                `INSERT INTO protocol_adapter_health_history (
+                  device_uuid, protocol_type, device_name, connected,
+                  last_poll, error_count, last_error
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+                [
+                  uuid,
+                  protocolType,
+                  device.deviceName,
+                  device.connected || false,
+                  device.lastPoll || null,
+                  device.errorCount || 0,
+                  device.lastError || null
+                ]
+              );
+            } catch (error) {
+              console.error(`Failed to store protocol adapter health for ${protocolType}/${device.deviceName}:`, error);
+            }
+          }
+        }
+      }
     }
 
     res.json({ status: 'ok' });

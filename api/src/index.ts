@@ -22,6 +22,7 @@ import digitalTwinRoutes from './routes/digital-twin';
 import mqttMonitorRoutes from './routes/mqtt-monitor';
 import eventsRoutes from './routes/events';
 import mqttBrokerRoutes from './routes/mqtt-broker';
+import sensorsRoutes from './routes/sensors';
 
 // Import entity/graph routes
 import { createEntitiesRouter } from './routes/entities';
@@ -123,6 +124,7 @@ app.use(API_BASE, digitalTwinRoutes);
 app.use(`${API_BASE}/mqtt-monitor`, mqttMonitorRoutes);
 app.use(API_BASE, eventsRoutes);
 app.use(`${API_BASE}/mqtt`, mqttBrokerRoutes);
+app.use(API_BASE, sensorsRoutes);
 
 // Mount entity/graph routes
 app.use(`${API_BASE}/entities`, createEntitiesRouter(poolWrapper.pool));

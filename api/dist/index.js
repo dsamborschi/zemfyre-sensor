@@ -54,6 +54,7 @@ const digital_twin_1 = __importDefault(require("./routes/digital-twin"));
 const mqtt_monitor_1 = __importDefault(require("./routes/mqtt-monitor"));
 const events_1 = __importDefault(require("./routes/events"));
 const mqtt_broker_1 = __importDefault(require("./routes/mqtt-broker"));
+const sensors_1 = __importDefault(require("./routes/sensors"));
 const entities_1 = require("./routes/entities");
 const relationships_1 = require("./routes/relationships");
 const graph_1 = require("./routes/graph");
@@ -131,6 +132,7 @@ app.use(API_BASE, digital_twin_1.default);
 app.use(`${API_BASE}/mqtt-monitor`, mqtt_monitor_1.default);
 app.use(API_BASE, events_1.default);
 app.use(`${API_BASE}/mqtt`, mqtt_broker_1.default);
+app.use(API_BASE, sensors_1.default);
 app.use(`${API_BASE}/entities`, (0, entities_1.createEntitiesRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/relationships`, (0, relationships_1.createRelationshipsRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/graph`, (0, graph_1.createGraphRouter)(connection_1.default.pool));
@@ -196,6 +198,15 @@ async function startServer() {
     }
     catch (error) {
         console.error('⚠️  Failed to start job scheduler:', error);
+    }
+    try {
+        const { getMqttJobsSubscriber } = await Promise.resolve().then(() => __importStar(require('./services/mqtt-jobs-subscriber')));
+        const subscriber = getMqttJobsSubscriber();
+        await subscriber.initialize();
+        console.log('✅ MQTT Jobs Subscriber started (listening for device job updates)');
+    }
+    catch (error) {
+        console.error('⚠️  Failed to start MQTT Jobs Subscriber:', error);
     }
     try {
         await (0, mqtt_1.initializeMqtt)();
@@ -304,6 +315,14 @@ async function startServer() {
         }
         catch (error) {
         }
+        try {
+            const { getMqttJobsSubscriber } = await Promise.resolve().then(() => __importStar(require('./services/mqtt-jobs-subscriber')));
+            const subscriber = getMqttJobsSubscriber();
+            await subscriber.stop();
+            console.log('✅ MQTT Jobs Subscriber stopped');
+        }
+        catch (error) {
+        }
         server.close(() => {
             console.log('Server closed');
             process.exit(0);
@@ -348,6 +367,14 @@ async function startServer() {
         }
         try {
             job_scheduler_1.jobScheduler.stop();
+        }
+        catch (error) {
+        }
+        try {
+            const { getMqttJobsSubscriber } = await Promise.resolve().then(() => __importStar(require('./services/mqtt-jobs-subscriber')));
+            const subscriber = getMqttJobsSubscriber();
+            await subscriber.stop();
+            console.log('✅ MQTT Jobs Subscriber stopped');
         }
         catch (error) {
         }
