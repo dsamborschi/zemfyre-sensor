@@ -98,14 +98,14 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Sensor Health Overview</h1>
+            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Sensors</h1>
             <p className="text-sm text-gray-600">
-              Last updated: {new Date().toLocaleString()}
+              Monitor and manage your connected sensors
             </p>
           </div>
           <Button onClick={() => setAddSensorDialogOpen(true)} className="flex items-center gap-2">
             <Plus className="h-4 w-4" />
-            Add Sensor Pipeline
+            Add Sensor
           </Button>
         </div>
 

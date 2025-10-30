@@ -14,6 +14,7 @@ import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock } from "lucide-r
 import { LoginPage } from "./components/LoginPage";
 import { buildApiUrl } from "./config/api";
 import { SensorHealthDashboard } from "./pages/SensorHealthDashboard";
+import { SensorsPage } from "./pages/SensorsPage";
 
 import { toast } from "sonner";
 import { Header } from "./components/Header";
@@ -49,6 +50,7 @@ export default function App() {
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'timeline'>('metrics');
+  const [debugMode, setDebugMode] = useState(false);
   
   // Memoize selected device to prevent unnecessary re-renders
   const selectedDevice = useMemo(() => {
@@ -1035,6 +1037,16 @@ export default function App() {
               <Clock className="w-4 h-4 mr-2" />
               Timeline
             </Button>
+            {currentView === 'sensors' && (
+              <Button
+                variant={debugMode ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDebugMode(!debugMode)}
+                title="Toggle debug mode"
+              >
+                {debugMode ? '🔧 Debug' : '👤 User'}
+              </Button>
+            )}
           </div>
 
           {/* Conditional Content */}
@@ -1057,7 +1069,9 @@ export default function App() {
             />
           )}
           {currentView === 'sensors' && (
-            <SensorHealthDashboard deviceUuid={selectedDevice.deviceUuid} />
+            debugMode 
+              ? <SensorHealthDashboard deviceUuid={selectedDevice.deviceUuid} />
+              : <SensorsPage deviceUuid={selectedDevice.deviceUuid} />
           )}
           {currentView === 'mqtt' && (
             <MqttPage device={selectedDevice} />
