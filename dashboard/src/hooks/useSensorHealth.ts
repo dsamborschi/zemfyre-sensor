@@ -51,24 +51,29 @@ export const useSensorHealth = (deviceUuid: string): UseSensorHealthResult => {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/v1/devices/${deviceUuid}/device-health`);
+      // Fetch device health (protocol adapters) for summary and devices
+      const healthResponse = await fetch(`/api/v1/devices/${deviceUuid}/device-health`);
       
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      if (!healthResponse.ok) {
+        throw new Error(`HTTP ${healthResponse.status}: ${healthResponse.statusText}`);
       }
 
-      const jsonData = await response.json();
+      const healthData = await healthResponse.json();
+      
+      // Fetch sensor pipeline data
+      const sensorsResponse = await fetch(`/api/v1/devices/${deviceUuid}/sensors`);
+      const sensorsData = sensorsResponse.ok ? await sensorsResponse.json() : { pipelines: [] };
       
       // Transform data to match expected format
       const transformedData: SensorHealthData = {
-        devices: (jsonData.devices || []).map((device: any) => ({
+        devices: (healthData.devices || []).map((device: any) => ({
           ...device,
           status: (device.status === 'online' || device.status === 'offline' || device.status === 'error') 
             ? device.status 
             : 'offline' // Default to offline if status is invalid
         })),
-        pipelines: [], // device-health endpoint doesn't include pipelines
-        summary: jsonData.summary || {
+        pipelines: sensorsData.pipelines || [],
+        summary: healthData.summary || {
           total: 0,
           online: 0,
           offline: 0,
