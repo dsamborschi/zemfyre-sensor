@@ -52,22 +52,20 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
               {deploymentStatus?.needsDeployment && (
                 <div className="flex items-center gap-2">
                   <Button 
+                    onClick={onDeploy}
+                    size="sm"
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white font-semibold"
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Deploy v{deploymentStatus.version + 1}
+                  </Button>
+                  <Button 
                     onClick={onCancelDeploy}
                     size="sm"
                     variant="outline"
-                    className="hidden sm:flex border-gray-300 hover:bg-gray-100 text-gray-700"
                   >
-                    <XCircle className="w-3.5 h-3.5 mr-1.5" />
+                    <XCircle className="w-4 h-4 mr-2" />
                     Cancel
-                  </Button>
-                  <Button 
-                    onClick={onDeploy}
-                    size="sm"
-                    className="bg-yellow-600 hover:bg-yellow-700 border border-yellow-700 shadow-sm font-semibold text-white"
-                  >
-                    <RefreshCw className="w-3.5 h-3.5 mr-1.5" />
-                    <span className="hidden sm:inline">Deploy v{deploymentStatus.version + 1}</span>
-                    <span className="sm:hidden">Deploy</span>
                   </Button>
                 </div>
               )}
