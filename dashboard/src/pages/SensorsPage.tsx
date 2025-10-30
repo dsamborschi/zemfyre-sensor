@@ -208,12 +208,6 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
                             {sensor.messagesPublished.toLocaleString()}
                           </div>
                         )}
-                        {sensor.type === 'device' && (
-                          <div>
-                            <span className="font-medium">Type:</span>{' '}
-                            {sensor.protocol ? `${sensor.protocol.toUpperCase()} Device` : 'Device'}
-                          </div>
-                        )}
                         <div>
                           <span className="font-medium">Last Activity:</span>{' '}
                           {sensor.lastActivity 
