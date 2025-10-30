@@ -907,12 +907,37 @@ router.post('/devices/:uuid/sensor-config', deviceAuth, async (req, res) => {
     const sensorConfig = req.body;
 
     // Validate required fields
-    if (!sensorConfig.name || !sensorConfig.addr || !sensorConfig.mqttTopic) {
+    if (!sensorConfig.name || !sensorConfig.protocolType || !sensorConfig.platform) {
       return res.status(400).json({
         error: 'Invalid sensor configuration',
-        message: 'Required fields: name, addr, mqttTopic'
+        message: 'Required fields: name, protocolType, platform'
       });
     }
+
+    // Auto-generate socket/pipe path based on platform and sensor name
+    const addr = sensorConfig.platform === 'windows'
+      ? `\\\\.\\pipe\\${sensorConfig.name}`
+      : `/tmp/${sensorConfig.name}.sock`;
+
+    // Auto-generate MQTT topic based on protocol type
+    const mqttTopic = `${sensorConfig.protocolType}/data`;
+    const mqttHeartbeatTopic = `${mqttTopic}/heartbeat`;
+
+    // Build complete sensor configuration
+    const completeSensorConfig = {
+      name: sensorConfig.name,
+      enabled: sensorConfig.enabled !== undefined ? sensorConfig.enabled : true,
+      addr,
+      eomDelimiter: sensorConfig.eomDelimiter || '\\n',
+      mqttTopic,
+      mqttHeartbeatTopic,
+      bufferCapacity: sensorConfig.bufferCapacity || 8192,
+      publishInterval: sensorConfig.publishInterval || 30000,
+      bufferTimeMs: sensorConfig.bufferTimeMs || 5000,
+      bufferSize: sensorConfig.bufferSize || 10,
+      addrPollSec: sensorConfig.addrPollSec || 10,
+      heartbeatTimeSec: sensorConfig.heartbeatTimeSec || 300,
+    };
 
     // Get current target state
     const currentState = await DeviceTargetStateModel.get(uuid);
@@ -930,16 +955,16 @@ router.post('/devices/:uuid/sensor-config', deviceAuth, async (req, res) => {
     }
 
     // Check if sensor with same name already exists
-    const existingIndex = config.sensors.findIndex((s: any) => s.name === sensorConfig.name);
+    const existingIndex = config.sensors.findIndex((s: any) => s.name === completeSensorConfig.name);
     if (existingIndex !== -1) {
       return res.status(400).json({
         error: 'Sensor already exists',
-        message: `A sensor with name "${sensorConfig.name}" already exists`
+        message: `A sensor with name "${completeSensorConfig.name}" already exists`
       });
     }
 
     // Add new sensor to config
-    config.sensors.push(sensorConfig);
+    config.sensors.push(completeSensorConfig);
 
     // Get current apps or initialize empty
     const apps = currentState && currentState.apps
@@ -951,9 +976,9 @@ router.post('/devices/:uuid/sensor-config', deviceAuth, async (req, res) => {
     // Update target state with new sensor config
     const targetState = await DeviceTargetStateModel.set(uuid, apps, config);
 
-    console.log(`📡 Added sensor "${sensorConfig.name}" to device ${uuid.substring(0, 8)}...`);
-    console.log(`   Socket/Pipe: ${sensorConfig.addr}`);
-    console.log(`   MQTT Topic: ${sensorConfig.mqttTopic}`);
+    console.log(`📡 Added sensor "${completeSensorConfig.name}" to device ${uuid.substring(0, 8)}...`);
+    console.log(`   Socket/Pipe: ${completeSensorConfig.addr}`);
+    console.log(`   MQTT Topic: ${completeSensorConfig.mqttTopic}`);
 
     // Publish event
     await eventPublisher.publish(
@@ -961,7 +986,7 @@ router.post('/devices/:uuid/sensor-config', deviceAuth, async (req, res) => {
       'device',
       uuid,
       {
-        sensor: sensorConfig,
+        sensor: completeSensorConfig,
         version: targetState.version
       },
       {
@@ -976,7 +1001,7 @@ router.post('/devices/:uuid/sensor-config', deviceAuth, async (req, res) => {
     res.json({
       status: 'ok',
       message: 'Sensor configuration added',
-      sensor: sensorConfig,
+      sensor: completeSensorConfig,
       version: targetState.version
     });
   } catch (error: any) {

@@ -54,28 +54,12 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({ open, onOpenCh
   const [name, setName] = useState('');
   const [protocolType, setProtocolType] = useState<'modbus' | 'can' | 'opcua' | 'custom'>('modbus');
   const [platform, setPlatform] = useState<'windows' | 'linux'>('windows');
-  const [socketPath, setSocketPath] = useState('');
-  const [mqttTopic, setMqttTopic] = useState('');
   const [bufferCapacity, setBufferCapacity] = useState(DEFAULT_CONFIG.bufferCapacity!);
   const [publishInterval, setPublishInterval] = useState(DEFAULT_CONFIG.publishInterval!);
   const [bufferTimeMs, setBufferTimeMs] = useState(DEFAULT_CONFIG.bufferTimeMs!);
   const [bufferSize, setBufferSize] = useState(DEFAULT_CONFIG.bufferSize!);
   const [addrPollSec, setAddrPollSec] = useState(DEFAULT_CONFIG.addrPollSec!);
   const [heartbeatTimeSec, setHeartbeatTimeSec] = useState(DEFAULT_CONFIG.heartbeatTimeSec!);
-
-  // Auto-generate default values based on selections
-  React.useEffect(() => {
-    if (name && protocolType && platform) {
-      // Auto-generate socket path
-      const defaultSocketPath = platform === 'windows'
-        ? `\\\\.\\pipe\\${name}`
-        : `/tmp/${name}.sock`;
-      setSocketPath(defaultSocketPath);
-
-      // Auto-generate MQTT topic
-      setMqttTopic(`${protocolType}/data`);
-    }
-  }, [name, protocolType, platform]);
 
   const handleSave = async () => {
     setError(null);
@@ -85,28 +69,20 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({ open, onOpenCh
       setError('Sensor name is required');
       return;
     }
-    if (!socketPath.trim()) {
-      setError('Socket/pipe path is required');
-      return;
-    }
-    if (!mqttTopic.trim()) {
-      setError('MQTT topic is required');
-      return;
-    }
 
-    const config: SensorPipelineConfig = {
+    // Send minimal config - API will auto-generate paths and topics
+    const config: any = {
       name: name.trim(),
+      protocolType,
+      platform,
       enabled: true,
-      addr: socketPath.trim(),
       eomDelimiter: DEFAULT_CONFIG.eomDelimiter!,
-      mqttTopic: mqttTopic.trim(),
       bufferCapacity,
       publishInterval,
       bufferTimeMs,
       bufferSize,
       addrPollSec,
       heartbeatTimeSec,
-      mqttHeartbeatTopic: `${mqttTopic}/heartbeat`,
     };
 
     try {
@@ -123,8 +99,6 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({ open, onOpenCh
 
   const handleClose = () => {
     setName('');
-    setSocketPath('');
-    setMqttTopic('');
     setError(null);
     setShowAdvanced(false);
     onOpenChange(false);
@@ -136,7 +110,7 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({ open, onOpenCh
         <DialogHeader>
           <DialogTitle>Add Sensor Pipeline</DialogTitle>
           <DialogDescription>
-            Configure a sensor-publish pipeline to read data from a socket/pipe and publish to MQTT
+            Add a sensor pipeline by specifying the name, protocol, and platform. Paths and topics are auto-generated.
           </DialogDescription>
         </DialogHeader>
 
@@ -145,7 +119,7 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({ open, onOpenCh
           <Alert>
             <Info className="h-4 w-4" />
             <AlertDescription>
-              This configures the data pipeline. Make sure the protocol adapter (e.g., Modbus) is writing to the specified socket/pipe.
+              The socket/pipe path and MQTT topics are automatically generated based on your sensor name and protocol type.
             </AlertDescription>
           </Alert>
 
@@ -201,38 +175,23 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({ open, onOpenCh
                   <SelectItem value="linux">Linux/Unix (Socket)</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            {/* Socket/Pipe Path */}
-            <div className="space-y-2">
-              <Label htmlFor="socketPath">Socket/Pipe Path *</Label>
-              <Input
-                id="socketPath"
-                placeholder={platform === 'windows' ? '\\\\.\\pipe\\sensor-name' : '/tmp/sensor-name.sock'}
-                value={socketPath}
-                onChange={(e) => setSocketPath(e.target.value)}
-                className="font-mono text-sm"
-              />
               <p className="text-xs text-gray-500">
-                {platform === 'windows' 
-                  ? 'Windows Named Pipe path (e.g., \\\\.\\pipe\\modbus-sensors)'
-                  : 'Unix domain socket path (e.g., /tmp/modbus.sock)'}
+                Auto-generated path: {platform === 'windows' 
+                  ? `\\\\.\\pipe\\${name || 'sensor-name'}` 
+                  : `/tmp/${name || 'sensor-name'}.sock`}
               </p>
             </div>
 
-            {/* MQTT Topic */}
-            <div className="space-y-2">
-              <Label htmlFor="mqttTopic">MQTT Topic *</Label>
-              <Input
-                id="mqttTopic"
-                placeholder="e.g., modbus/data, sensors/temperature"
-                value={mqttTopic}
-                onChange={(e) => setMqttTopic(e.target.value)}
-              />
-              <p className="text-xs text-gray-500">
-                Topic where sensor data will be published
-              </p>
-            </div>
+            {/* Auto-generated MQTT Topic Info */}
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                <div className="space-y-1">
+                  <div><strong>MQTT Topic:</strong> <code className="text-xs">{protocolType}/data</code></div>
+                  <div><strong>Heartbeat:</strong> <code className="text-xs">{protocolType}/data/heartbeat</code></div>
+                </div>
+              </AlertDescription>
+            </Alert>
           </div>
 
           {/* Advanced Settings */}

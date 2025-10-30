@@ -649,36 +649,84 @@ export default class DeviceAgent {
 		this.agentLogger?.infoSync('Initializing Sensor Publish Feature', { component: 'Agent' });
 
 		try {
-			// Parse sensor configuration from environment
+			// Parse sensor configuration from environment (fallback)
+			let envSensors: any[] = [];
 			const sensorConfigStr = process.env.SENSOR_PUBLISH_CONFIG;
-			if (!sensorConfigStr) {
-				this.agentLogger?.warnSync('No SENSOR_PUBLISH_CONFIG environment variable found', {
-					component: 'Agent',
-					note: 'Set SENSOR_PUBLISH_CONFIG with JSON configuration'
-				});
-				return;
+			if (sensorConfigStr) {
+				try {
+					const envConfig = JSON.parse(sensorConfigStr);
+					envSensors = envConfig.sensors || [];
+					this.agentLogger?.debugSync('Loaded sensor config from environment variable', {
+						component: 'Agent',
+						sensorCount: envSensors.length
+					});
+				} catch (error) {
+					this.agentLogger?.errorSync('Failed to parse SENSOR_PUBLISH_CONFIG', error instanceof Error ? error : new Error(String(error)), {
+						component: 'Agent'
+					});
+				}
 			}
 
-			let sensorConfig;
+			// Get sensor configuration from target state (takes precedence)
+			let targetStateSensors: any[] = [];
 			try {
-				sensorConfig = JSON.parse(sensorConfigStr);
+				const targetState = this.containerManager?.getTargetState();
+				if (targetState?.config?.sensors && Array.isArray(targetState.config.sensors)) {
+					targetStateSensors = targetState.config.sensors;
+					this.agentLogger?.debugSync('Loaded sensor config from target state', {
+						component: 'Agent',
+						sensorCount: targetStateSensors.length
+					});
+				}
 			} catch (error) {
-				this.agentLogger?.errorSync('Failed to parse SENSOR_PUBLISH_CONFIG', error instanceof Error ? error : new Error(String(error)), {
-					component: 'Agent'
+				this.agentLogger?.debugSync('Could not load sensors from target state', {
+					component: 'Agent',
+					error: error instanceof Error ? error.message : String(error)
+				});
+			}
+
+			// Merge configurations: env sensors as base, target state sensors override/add
+			const mergedSensors = [...envSensors];
+			for (const targetSensor of targetStateSensors) {
+				const existingIndex = mergedSensors.findIndex((s: any) => s.name === targetSensor.name);
+				if (existingIndex >= 0) {
+					// Override existing sensor from env with target state config
+					mergedSensors[existingIndex] = targetSensor;
+				} else {
+					// Add new sensor from target state
+					mergedSensors.push(targetSensor);
+				}
+			}
+
+			// If no sensors configured at all, log warning and skip initialization
+			if (mergedSensors.length === 0) {
+				this.agentLogger?.warnSync('No sensor configurations found', {
+					component: 'Agent',
+					note: 'Add sensors via dashboard or set SENSOR_PUBLISH_CONFIG environment variable'
 				});
 				return;
 			}
 
-		// Create and start sensor publish feature
-		this.sensorPublish = new SensorPublishFeature(
-			sensorConfig,
-			this.agentLogger!,
-			this.deviceInfo.uuid
-		);
+			// Build final configuration
+			const sensorConfig = {
+				enabled: true,
+				sensors: mergedSensors
+			};
 
-		await this.sensorPublish.start();			this.agentLogger?.infoSync('Sensor Publish Feature initialized', {
+			// Create and start sensor publish feature
+			this.sensorPublish = new SensorPublishFeature(
+				sensorConfig as any,
+				this.agentLogger!,
+				this.deviceInfo.uuid
+			);
+
+			await this.sensorPublish.start();
+			
+			this.agentLogger?.infoSync('Sensor Publish Feature initialized', {
 				component: 'Agent',
-				sensorsConfigured: sensorConfig.sensors?.length || 0,
+				sensorsConfigured: mergedSensors.length,
+				fromEnv: envSensors.length,
+				fromTargetState: targetStateSensors.length,
 				mqttTopicPattern: 'iot/device/{deviceUuid}/sensor/{topic}'
 			});
 		} catch (error) {
@@ -1103,6 +1151,65 @@ export default class DeviceAgent {
 					this.agentLogger?.debugSync('Health checks configured', {
 						category: 'Agent',
 						enabled: features.enableHealthChecks
+					});
+				}
+			}
+
+			// Sensors Config - Update sensor configurations dynamically
+			if (config.sensors && Array.isArray(config.sensors) && this.sensorPublish) {
+				this.agentLogger?.debug('Sensor configuration detected', { 
+					category: 'Agent',
+					sensorCount: config.sensors.length
+				});
+				
+				try {
+					// Get current sensor config
+					const currentConfig = (this.sensorPublish as any).config;
+					
+					// Merge target state sensors with existing sensors from env var
+					// Target state sensors take precedence
+					const existingSensors: any[] = currentConfig.sensors || [];
+					const targetSensors: any[] = config.sensors;
+					
+					// Combine: start with existing, then add/override with target state
+					const mergedSensors = [...existingSensors];
+					
+					// Add or update sensors from target state
+					for (const targetSensor of targetSensors) {
+						const existingIndex = mergedSensors.findIndex((s: any) => s.name === targetSensor.name);
+						if (existingIndex >= 0) {
+							// Update existing sensor
+							mergedSensors[existingIndex] = targetSensor;
+							this.agentLogger?.debug('Updated sensor configuration', {
+								category: 'Agent',
+								sensorName: targetSensor.name
+							});
+						} else {
+							// Add new sensor
+							mergedSensors.push(targetSensor);
+							this.agentLogger?.info('Added new sensor configuration', {
+								category: 'Agent',
+								sensorName: targetSensor.name,
+								addr: targetSensor.addr
+							});
+						}
+					}
+					
+					// Update the sensor publish feature configuration
+					currentConfig.sensors = mergedSensors;
+					
+					// Restart sensor publish to apply changes
+					await this.sensorPublish.stop();
+					await this.sensorPublish.start();
+					
+					this.agentLogger?.info('Sensor configuration updated successfully', {
+						category: 'Agent',
+						totalSensors: mergedSensors.length,
+						targetStateSensors: targetSensors.length
+					});
+				} catch (error) {
+					this.agentLogger?.errorSync('Failed to update sensor configuration', error instanceof Error ? error : new Error(String(error)), {
+						category: 'Agent'
 					});
 				}
 			}
