@@ -14,6 +14,8 @@ import { toast } from 'sonner';
 
 interface SensorsPageProps {
   deviceUuid: string;
+  debugMode?: boolean;
+  onDebugModeChange?: (enabled: boolean) => void;
 }
 
 interface Sensor {
@@ -26,7 +28,11 @@ interface Sensor {
   configured: boolean;
 }
 
-export const SensorsPage: React.FC<SensorsPageProps> = ({ deviceUuid }) => {
+export const SensorsPage: React.FC<SensorsPageProps> = ({ 
+  deviceUuid, 
+  debugMode = false, 
+  onDebugModeChange 
+}) => {
   const [sensors, setSensors] = useState<Sensor[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -113,10 +119,21 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({ deviceUuid }) => {
               Configure and monitor your connected sensors
             </p>
           </div>
-          <Button onClick={() => setAddSensorDialogOpen(true)} className="flex items-center gap-2">
-            <Plus className="h-4 w-4" />
-            Add Sensor
-          </Button>
+          <div className="flex items-center gap-2">
+            {onDebugModeChange && (
+              <Button 
+                variant={debugMode ? 'default' : 'outline'}
+                onClick={() => onDebugModeChange(!debugMode)}
+                className="flex items-center gap-2"
+              >
+                Debug
+              </Button>
+            )}
+            <Button onClick={() => setAddSensorDialogOpen(true)} className="flex items-center gap-2">
+              <Plus className="h-4 w-4" />
+              Add Sensor
+            </Button>
+          </div>
         </div>
 
         {/* Error Alert */}

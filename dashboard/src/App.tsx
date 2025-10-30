@@ -1037,16 +1037,6 @@ export default function App() {
               <Clock className="w-4 h-4 mr-2" />
               Timeline
             </Button>
-            {currentView === 'sensors' && (
-              <Button
-                variant={debugMode ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDebugMode(!debugMode)}
-                title="Toggle debug mode"
-              >
-                {debugMode ? '🔧 Debug' : '👤 User'}
-              </Button>
-            )}
           </div>
 
           {/* Conditional Content */}
@@ -1071,7 +1061,11 @@ export default function App() {
           {currentView === 'sensors' && (
             debugMode 
               ? <SensorHealthDashboard deviceUuid={selectedDevice.deviceUuid} />
-              : <SensorsPage deviceUuid={selectedDevice.deviceUuid} />
+              : <SensorsPage 
+                  deviceUuid={selectedDevice.deviceUuid} 
+                  debugMode={debugMode}
+                  onDebugModeChange={setDebugMode}
+                />
           )}
           {currentView === 'mqtt' && (
             <MqttPage device={selectedDevice} />
