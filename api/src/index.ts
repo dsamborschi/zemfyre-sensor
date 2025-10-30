@@ -23,6 +23,7 @@ import mqttMonitorRoutes from './routes/mqtt-monitor';
 import eventsRoutes from './routes/events';
 import mqttBrokerRoutes from './routes/mqtt-broker';
 import sensorsRoutes from './routes/sensors';
+import { router as protocolDevicesRoutes } from './routes/protocol-devices';
 
 // Import entity/graph routes
 import { createEntitiesRouter } from './routes/entities';
@@ -125,6 +126,7 @@ app.use(`${API_BASE}/mqtt-monitor`, mqttMonitorRoutes);
 app.use(API_BASE, eventsRoutes);
 app.use(`${API_BASE}/mqtt`, mqttBrokerRoutes);
 app.use(API_BASE, sensorsRoutes);
+app.use(API_BASE, protocolDevicesRoutes);
 
 // Mount entity/graph routes
 app.use(`${API_BASE}/entities`, createEntitiesRouter(poolWrapper.pool));

@@ -36,7 +36,7 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
   }, [refetch]);
 
   // Handle adding new sensor pipeline
-  const handleAddSensor = async (config: any) => {
+  const handleAddSensorPipeline = async (config: any) => {
     try {
       const response = await fetch(`/api/v1/devices/${deviceUuid}/sensor-config`, {
         method: 'POST',
@@ -48,18 +48,46 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to add sensor');
+        throw new Error(error.message || 'Failed to add sensor pipeline');
       }
 
       const result = await response.json();
       console.log('Sensor pipeline added:', result);
       
-      toast.success(`Sensor "${config.name}" added successfully`);
+      toast.success(`Sensor pipeline "${config.name}" added successfully`);
       
       // Refresh sensor list
       refetch();
     } catch (error: any) {
-      toast.error(`Failed to add sensor: ${error.message}`);
+      toast.error(`Failed to add sensor pipeline: ${error.message}`);
+      throw error;
+    }
+  };
+
+  const handleAddProtocolDevice = async (device: any) => {
+    try {
+      const response = await fetch(`/api/v1/devices/${deviceUuid}/protocol-devices`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(device),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to add protocol adapter device');
+      }
+
+      const result = await response.json();
+      console.log('Protocol device added:', result);
+      
+      toast.success(`Protocol device "${device.name}" added successfully`);
+      
+      // Refresh sensor list
+      refetch();
+    } catch (error: any) {
+      toast.error(`Failed to add protocol device: ${error.message}`);
       throw error;
     }
   };
@@ -142,11 +170,13 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
         </DialogContent>
       </Dialog>
 
-      {/* Add Sensor Pipeline Dialog */}
+      {/* Add Sensor Dialog - Unified */}
       <AddSensorDialog
         open={addSensorDialogOpen}
         onOpenChange={setAddSensorDialogOpen}
-        onSave={handleAddSensor}
+        onSavePipeline={handleAddSensorPipeline}
+        onSaveDevice={handleAddProtocolDevice}
+        deviceUuid={deviceUuid}
       />
       </div>
     </div>

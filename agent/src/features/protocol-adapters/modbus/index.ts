@@ -58,12 +58,19 @@ async function main() {
       process.exit(0);
     }
 
-    // Load configuration
+    // Load configuration - priority: CLI arg > Database > Environment
     let config;
     if (argv.config) {
       config = ConfigLoader.loadFromFile(argv.config);
     } else {
-      config = ConfigLoader.loadFromEnv();
+      // Try loading from database first
+      try {
+        config = await ConfigLoader.loadFromDatabase();
+        console.log('✅ Loaded configuration from SQLite database');
+      } catch (dbError: any) {
+        console.log(`ℹ️  Database config not available (${dbError.message}), trying environment...`);
+        config = ConfigLoader.loadFromEnv();
+      }
     }
 
     // Create logger

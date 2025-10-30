@@ -87,7 +87,7 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
     return () => clearInterval(interval);
   }, [deviceUuid]);
 
-  const handleAddSensor = async (config: any) => {
+  const handleAddSensorPipeline = async (config: any) => {
     try {
       const response = await fetch(`/api/v1/devices/${deviceUuid}/sensor-config`, {
         method: 'POST',
@@ -99,13 +99,36 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.message || 'Failed to add sensor');
+        throw new Error(error.message || 'Failed to add sensor pipeline');
       }
 
-      toast.success(`Sensor "${config.name}" added successfully`);
+      toast.success(`Sensor pipeline "${config.name}" added successfully`);
       fetchSensors();
     } catch (error: any) {
-      toast.error(`Failed to add sensor: ${error.message}`);
+      toast.error(`Failed to add sensor pipeline: ${error.message}`);
+      throw error;
+    }
+  };
+
+  const handleAddProtocolDevice = async (device: any) => {
+    try {
+      const response = await fetch(`/api/v1/devices/${deviceUuid}/protocol-devices`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(device),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to add protocol adapter device');
+      }
+
+      toast.success(`Protocol device "${device.name}" added successfully`);
+      fetchSensors();
+    } catch (error: any) {
+      toast.error(`Failed to add protocol device: ${error.message}`);
       throw error;
     }
   };
@@ -253,7 +276,9 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
         <AddSensorDialog
           open={addSensorDialogOpen}
           onOpenChange={setAddSensorDialogOpen}
-          onSave={handleAddSensor}
+          onSavePipeline={handleAddSensorPipeline}
+          onSaveDevice={handleAddProtocolDevice}
+          deviceUuid={deviceUuid}
         />
       </div>
     </div>

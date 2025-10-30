@@ -56,6 +56,70 @@ export class ConfigLoader {
   }
 
   /**
+   * Load configuration from SQLite database
+   */
+  static async loadFromDatabase(): Promise<ModbusAdapterConfig> {
+    try {
+      const { ProtocolAdapterDeviceModel } = await import('../../../models/protocol-adapter-device.model.js');
+      
+      // Get all Modbus devices from database
+      const dbDevices = await ProtocolAdapterDeviceModel.getAll('modbus');
+      
+      // Get output configuration
+      const dbOutput = await ProtocolAdapterDeviceModel.getOutput('modbus');
+      
+      if (!dbOutput) {
+        throw new Error('Modbus output configuration not found in database');
+      }
+
+      // Convert database records to ModbusAdapterConfig format
+      const devices = dbDevices.map((dbDevice: any) => ({
+        name: dbDevice.name,
+        slaveId: dbDevice.metadata?.slaveId || 1,
+        connection: typeof dbDevice.connection === 'string' 
+          ? JSON.parse(dbDevice.connection) 
+          : dbDevice.connection,
+        registers: dbDevice.registers 
+          ? (typeof dbDevice.registers === 'string' 
+              ? JSON.parse(dbDevice.registers) 
+              : dbDevice.registers)
+          : [],
+        pollInterval: dbDevice.poll_interval,
+        enabled: dbDevice.enabled
+      }));
+
+      const config: ModbusAdapterConfig = {
+        devices,
+        output: {
+          socketPath: dbOutput.socket_path,
+          dataFormat: dbOutput.data_format as any,
+          delimiter: dbOutput.delimiter,
+          includeTimestamp: dbOutput.include_timestamp,
+          includeDeviceName: dbOutput.include_device_name
+        },
+        logging: dbOutput.logging 
+          ? (typeof dbOutput.logging === 'string' 
+              ? JSON.parse(dbOutput.logging) 
+              : dbOutput.logging)
+          : {
+              level: 'info' as any,
+              enableConsole: true,
+              enableFile: false
+            }
+      };
+
+      // Validate configuration
+      return ModbusAdapterConfigSchema.parse(config);
+      
+    } catch (error) {
+      if (error instanceof Error) {
+        throw new Error(`Failed to load configuration from database: ${error.message}`);
+      }
+      throw new Error(`Failed to load configuration from database: ${String(error)}`);
+    }
+  }
+
+  /**
    * Create example configuration
    */
   static createExampleConfig(): ModbusAdapterConfig {

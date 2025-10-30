@@ -45,28 +45,12 @@
       "skipFiles": ["<node_internals>/**"],
       "restart": true,
       "sourceMaps": true,
+      "envFile": "${workspaceFolder}/agent/.env",
       
       "resolveSourceMapLocations": [
         "${workspaceFolder}/**",
         "!**/node_modules/**"
-      ],
-      "env": {
-        "CLOUD_API_ENDPOINT": "http://7f05d0d2.localhost/api",
-        "LOG_COMPRESSION": "true",
-        "ENABLE_SENSOR_PUBLISH": "true",  
-        "ENABLE_JOB_ENGINE": "true",
-        "ENABLE_SHADOW": "true",
-        "PROVISIONING_API_KEY": "92ab6f76ca53cb18326abb439323cdb423217fad59f5a7bd202c288d045bd2e3",
-        "SENSOR_PUBLISH_CONFIG": "{\"sensors\":[{\"name\":\"modbus-sensors\",\"enabled\":true,\"addr\":\"\\\\\\\\.\\\\pipe\\\\modbus-sensors\",\"eomDelimiter\":\"\\\\n\",\"mqttTopic\":\"modbus/data\",\"bufferCapacity\":8192}]}",
-        "ENABLE_CLOUD_JOBS": "true",
-        "ENABLE_DIGITAL_TWIN": "true",
-        "TWIN_UPDATE_INTERVAL": "30000",
-        "ENABLE_PROTOCOL_ADAPTERS": "true",
-        "PROTOCOL_ADAPTERS_CONFIG": "{\"modbus\": {\"enabled\": true,\"configPath\": \"src/features/protocol-adapters/modbus/config/windows.json\"}}",
-        "MQTT_BROKER": "mqtt://localhost:31898",
-        "MQTT_USERNAME": "device-5c629f26-8495-4747-86e3-c2d98851aa62",
-        "MQTT_PASSWORD": "NEED_TO_SET_THIS"
-      }
+      ]
     },
     {
       "name": "Debug API",

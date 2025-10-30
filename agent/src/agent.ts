@@ -216,6 +216,17 @@ export default class DeviceAgent {
 	private async initializeDatabase(): Promise<void> {
 		await db.initialized();
 		this.agentLogger.infoSync('Database initialized', { component: 'Agent' });
+		
+		// Import protocol adapter config from JSON files (one-time migration)
+		try {
+			const { importProtocolAdapterConfig } = await import('./config/import-protocol-config.js');
+			await importProtocolAdapterConfig();
+		} catch (error: any) {
+			this.agentLogger.warnSync('Protocol adapter config import skipped', {
+				component: 'Agent',
+				error: error.message
+			});
+		}
 	}
 
 	private async initializeDeviceManager(): Promise<void> {
@@ -1209,6 +1220,69 @@ export default class DeviceAgent {
 					});
 				} catch (error) {
 					this.agentLogger?.errorSync('Failed to update sensor configuration', error instanceof Error ? error : new Error(String(error)), {
+						category: 'Agent'
+					});
+				}
+			}
+
+			// Protocol Adapter Devices - Update device configurations dynamically
+			if (config.protocolAdapterDevices && Array.isArray(config.protocolAdapterDevices)) {
+				this.agentLogger?.debug('Protocol adapter device configuration detected', { 
+					category: 'Agent',
+					deviceCount: config.protocolAdapterDevices.length
+				});
+				
+				try {
+					const { ProtocolAdapterDeviceModel } = await import('./models/protocol-adapter-device.model.js');
+					
+					// Get current devices from SQLite to detect deletions
+					const currentDevices = await ProtocolAdapterDeviceModel.getAll();
+					const targetDeviceNames = new Set(config.protocolAdapterDevices.map(d => d.name));
+					
+					// Sync each device to SQLite
+					for (const device of config.protocolAdapterDevices) {
+						const existing = await ProtocolAdapterDeviceModel.getByName(device.name);
+						
+						if (existing) {
+							await ProtocolAdapterDeviceModel.update(device.name, device);
+							this.agentLogger?.info('Updated protocol adapter device', {
+								category: 'Agent',
+								deviceName: device.name,
+								protocol: device.protocol
+							});
+						} else {
+							await ProtocolAdapterDeviceModel.create(device);
+							this.agentLogger?.info('Added protocol adapter device', {
+								category: 'Agent',
+								deviceName: device.name,
+								protocol: device.protocol
+							});
+						}
+					}
+					
+					// Delete devices that are no longer in target state
+					for (const currentDevice of currentDevices) {
+						if (!targetDeviceNames.has(currentDevice.name)) {
+							await ProtocolAdapterDeviceModel.delete(currentDevice.name);
+							this.agentLogger?.info('Removed protocol adapter device', {
+								category: 'Agent',
+								deviceName: currentDevice.name,
+								protocol: currentDevice.protocol
+							});
+						}
+					}
+					
+					// Restart protocol adapters to apply changes
+					if (this.protocolAdapters) {
+						this.agentLogger?.info('Restarting protocol adapters to apply configuration changes', {
+							category: 'Agent'
+						});
+						await this.protocolAdapters.stop();
+						await this.initializeProtocolAdapters(this.getConfigFeatures());
+					}
+					
+				} catch (error) {
+					this.agentLogger?.errorSync('Failed to sync protocol adapter devices', error instanceof Error ? error : new Error(String(error)), {
 						category: 'Agent'
 					});
 				}
