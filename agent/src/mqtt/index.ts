@@ -8,10 +8,14 @@
  * 
  * Exports:
  * - MqttManager: Singleton MQTT connection manager
- * - JobsMqttConnectionAdapter: Adapter for Jobs feature
- * - ShadowMqttConnectionAdapter: Adapter for Shadow feature
+ * 
+ * Usage:
+ * ```typescript
+ * import { MqttManager } from './mqtt';
+ * 
+ * const mqttManager = MqttManager.getInstance();
+ * await mqttManager.publish(topic, payload, { qos: 1 });
+ * ```
  */
 
 export { MqttManager } from './mqtt-manager';
-export { JobsMqttConnectionAdapter, ShadowMqttConnectionAdapter } from './mqtt-connection-adapter';
-export type { JobsMqttConnection, ShadowMqttConnection } from './mqtt-connection-adapter';

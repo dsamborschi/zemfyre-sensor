@@ -18,7 +18,7 @@ import { DeviceAPI } from './device-api/index.js';
 import { router as v1Router } from './device-api/v1.js';
 import { router as v2Router } from './device-api/v2.js';
 import * as deviceActions from './device-api/actions.js';
-import { ApiBinder } from './api-binder.js';
+import { ApiBinder } from './sync-state.js';
 import * as db from './db.js';
 import { LocalLogBackend } from './logging/local-backend.js';
 import { MqttLogBackend } from './logging/mqtt-backend.js';
@@ -26,14 +26,12 @@ import { CloudLogBackend } from './logging/cloud-backend.js';
 import { ContainerLogMonitor } from './logging/monitor.js';
 import { AgentLogger } from './logging/agent-logger.js';
 import type { LogBackend } from './logging/types.js';
-import { SSHTunnelManager } from './remote-access/ssh-tunnel.js';
-import { JobsFeature } from './jobs/src/jobs-feature.js';
-import { SensorPublishFeature } from './sensor-publish/index.js';
-import { SensorConfigHandler } from './sensor-publish/config-handler.js';
-import { ShadowFeature, ShadowConfig } from './shadow/index.js';
+import { SSHTunnelManager } from './features/remote-access/ssh-tunnel.js';
+import { JobsFeature } from './features/jobs/src/jobs-feature.js';
+import { SensorPublishFeature } from './features/sensor-publish/index.js';
+import { SensorConfigHandler } from './features/sensor-publish/config-handler.js';
 import { MqttManager } from './mqtt/mqtt-manager.js';
-import { TwinStateManager } from './digital-twin/twin-state-manager.js';
-import { ProtocolAdaptersFeature, ProtocolAdaptersConfig } from './adapters/index.js';
+import { ProtocolAdaptersFeature, ProtocolAdaptersConfig } from './features/protocol-adapters/index.js';
 
 export default class DeviceAgent {
 	private orchestratorDriver!: IOrchestratorDriver;
@@ -50,10 +48,10 @@ export default class DeviceAgent {
 	private jobs?: JobsFeature;
 	private sensorPublish?: SensorPublishFeature;
 	private protocolAdapters?: ProtocolAdaptersFeature;
-	private shadowFeature?: ShadowFeature;
 	private sensorConfigHandler?: SensorConfigHandler;
-	private twinStateManager?: TwinStateManager;
-	private mqttConnectionMonitor?: NodeJS.Timeout; // For coordinating MQTT/HTTP fallback
+
+	// Cached target state (updated when target state changes)
+	private cachedTargetState: any = null;
 	
 	// System settings (config-driven with env var defaults)
 	private reconciliationIntervalMs: number;
@@ -76,8 +74,6 @@ export default class DeviceAgent {
 			// 1. Initialize logging FIRST (so all other components can use agentLogger)
 			await this.initializeLogging();
 
-			this.agentLogger.infoSync('Initializing Device Agent', { component: 'Agent' });
-
 			// 2. Initialize database
 			await this.initializeDatabase();
 
@@ -93,15 +89,14 @@ export default class DeviceAgent {
 			// 6. Initialize device API
 			await this.initializeDeviceAPI();
 
-			// 7. Initialize API Binder (if cloud endpoint configured)
-			await this.initializeApiBinder();
-
-		// 8. Check config from target state BEFORE initializing features
+		// 7. Load config from cached target state (set during container manager init)
 		//    Config-driven feature management with env var fallbacks for local dev
-		const targetState = this.containerManager.getTargetState();
-		const configFeatures = targetState?.config?.features || {};
-		const configSettings = targetState?.config?.settings || {};
-		const configLogging = targetState?.config?.logging || {};
+		const configFeatures = this.getConfigFeatures();
+		const configSettings = this.getConfigSettings();
+		const configLogging = this.getConfigLogging();
+
+			// 8. Initialize API Binder (if cloud endpoint configured)
+			await this.initializeApiBinder(configSettings);
 		
 		// Get feature flags from config with environment variable fallbacks for local development
 		const enableRemoteAccess = configFeatures.enableRemoteAccess ?? (process.env.ENABLE_REMOTE_ACCESS === 'true');
@@ -155,7 +150,7 @@ export default class DeviceAgent {
 			
 		// 10. Initialize Jobs Feature (MQTT primary + HTTP fallback)
 		if (enableCloudJobs && enableJobEngine) {
-			await this.initializeJobs();
+			await this.initializeJobs(configSettings);
 		}
 
 		// 11. Initialize Sensor Publish Feature (if enabled by config)
@@ -165,24 +160,17 @@ export default class DeviceAgent {
 
 		// 12. Initialize Protocol Adapters Feature (if enabled by config)
 		if (enableProtocolAdapters) {
-			await this.initializeProtocolAdapters();
+			await this.initializeProtocolAdapters(configFeatures);
 		}
 
-		// 13. Initialize Shadow Feature (if enabled by config)
-		if (enableShadow) {
-			await this.initializeShadowFeature();
-		}
-
-		// 14. Initialize Sensor Config Handler (if both Shadow and Sensor Publish enabled)
+		// 14. Initialize Sensor Config Handler (if Sensor Publish enabled)
 		await this.initializeSensorConfigHandler();
 
-		// 15. Initialize Digital Twin State Manager (if Shadow enabled)
-		if (enableShadow) {
-     		await this.initializeDigitalTwin();
-		}
-
 		// 16. Start auto-reconciliation
-		this.startAutoReconciliation();			this.agentLogger.infoSync('Device Agent initialized successfully', {
+		this.startAutoReconciliation();		
+		
+		//Final words
+		this.agentLogger.infoSync('Device Agent initialized successfully', {
 				component: 'Agent',
 				deviceApiPort: this.DEVICE_API_PORT,
 				reconciliationInterval: this.reconciliationIntervalMs,
@@ -212,7 +200,7 @@ export default class DeviceAgent {
 		this.logBackends.push(this.logBackend);
 	
 		// Create AgentLogger for structured agent-level logging
-		// Note: We create this BEFORE other backends so all initialization can use it
+
 		this.agentLogger = new AgentLogger(this.logBackends);
 		
 		// We'll set device ID after device manager initialization
@@ -456,12 +444,19 @@ export default class DeviceAgent {
 			}
 		}
 
-		// Watch for target state changes to dynamically update config
+		// Watch for target state changes to dynamically update config and cache
 		this.orchestratorDriver.on('target-state-changed', (newState: any) => {
+			// Update cached target state
+			this.updateCachedTargetState();
+			
+			// Handle config updates
 			if (newState.config) {
 				this.handleConfigUpdate(newState.config);
 			}
 		});
+
+		// Initialize cache with current target state
+		this.updateCachedTargetState();
 
 		this.agentLogger?.infoSync('Orchestrator driver initialized', {
 			component: 'Agent',
@@ -502,7 +497,7 @@ export default class DeviceAgent {
 		});
 	}
 
-	private async initializeApiBinder(): Promise<void> {
+	private async initializeApiBinder(configSettings: Record<string, any>): Promise<void> {
 		if (!this.CLOUD_API_ENDPOINT) {
 			this.agentLogger?.warnSync('Cloud API endpoint not configured - running in standalone mode', {
 				component: 'Agent',
@@ -516,9 +511,7 @@ export default class DeviceAgent {
 			cloudApiEndpoint: this.CLOUD_API_ENDPOINT
 		});
 		
-		// Get intervals from config if available
-		const targetState = this.containerManager.getTargetState();
-		const configSettings = targetState?.config?.settings || {};
+		// Get intervals from config (passed as parameter during init)
 		const targetStatePollIntervalMs = configSettings.targetStatePollIntervalMs || parseInt(process.env.POLL_INTERVAL_MS || '60000', 10);
 		const deviceReportIntervalMs = configSettings.deviceReportIntervalMs || parseInt(process.env.REPORT_INTERVAL_MS || '60000', 10);
 		const metricsIntervalMs = configSettings.metricsIntervalMs || parseInt(process.env.METRICS_INTERVAL_MS || '300000', 10);
@@ -532,7 +525,9 @@ export default class DeviceAgent {
 				reportInterval: deviceReportIntervalMs, // Use config value or default 60s
 				metricsInterval: metricsIntervalMs, // Use config value or default 5min
 			},
-			this.agentLogger  // Pass the agent logger
+			this.agentLogger,  // Pass the agent logger
+			this.sensorPublish,  // Pass sensor-publish for health reporting
+			this.protocolAdapters  // Pass protocol-adapters for health reporting
 		);
 		
 		// Reinitialize device actions with apiBinder for connection health endpoint
@@ -597,7 +592,7 @@ export default class DeviceAgent {
 		}
 	}
 
-	private async initializeJobs(): Promise<void> {
+	private async initializeJobs(configSettings: Record<string, any>): Promise<void> {
 		try {
 			// Get cloud API URL from environment
 			const cloudApiUrl = process.env.CLOUD_API_URL || this.CLOUD_API_ENDPOINT;
@@ -609,9 +604,7 @@ export default class DeviceAgent {
 				return;
 			}
 
-			// Get polling interval from config or environment (default: 30 seconds)
-			const targetState = this.containerManager.getTargetState();
-			const configSettings = targetState?.config?.settings || {};
+			// Get polling interval from config (passed as parameter during init)
 			const pollingIntervalMs = configSettings.cloudJobsPollingIntervalMs || 
 				parseInt(process.env.CLOUD_JOBS_POLLING_INTERVAL || '30000', 10);
 
@@ -694,11 +687,9 @@ export default class DeviceAgent {
 		}
 	}
 
-	private async initializeProtocolAdapters(): Promise<void> {
+	private async initializeProtocolAdapters(configFeatures: Record<string, any>): Promise<void> {
 		try {
-			// Get protocol adapters configuration from target state or environment
-			const targetState = this.containerManager.getTargetState();
-			const configFeatures = targetState?.config?.features || {};
+			// Get protocol adapters configuration (passed as parameter during init)
 			const protocolAdaptersConfig: ProtocolAdaptersConfig = {
 				enabled: true,
 				...configFeatures.protocolAdapters
@@ -751,110 +742,25 @@ export default class DeviceAgent {
 		}
 	}
 
-	private async initializeShadowFeature(): Promise<void> {
-		try {
-			// Get shadow publish interval from config or environment
-			const targetState = this.containerManager.getTargetState();
-			const configSettings = targetState?.config?.settings || {};
-			const shadowPublishIntervalMs = configSettings.shadowPublishIntervalMs !== undefined
-				? configSettings.shadowPublishIntervalMs
-				: (process.env.SHADOW_PUBLISH_INTERVAL 
-					? parseInt(process.env.SHADOW_PUBLISH_INTERVAL, 10) 
-					: undefined);
-			
-			// Parse shadow configuration from environment
-			const shadowConfig: ShadowConfig = {
-				enabled: true,
-				shadowName: process.env.SHADOW_NAME || 'device-state',
-				inputFile: process.env.SHADOW_INPUT_FILE,
-				outputFile: process.env.SHADOW_OUTPUT_FILE || `${process.env.DATA_DIR || '/app/data'}/shadow-document.json`,
-				syncOnDelta: process.env.SHADOW_SYNC_ON_DELTA !== 'false',
-				enableFileMonitor: process.env.SHADOW_FILE_MONITOR === 'true',
-				publishInterval: shadowPublishIntervalMs,
-			};
-
-			// Check MQTT availability
-			const mqttBrokerUrl = this.deviceInfo.mqttBrokerUrl || process.env.MQTT_BROKER;
-			if (!mqttBrokerUrl) {
-				this.agentLogger?.warnSync('MQTT broker URL not available - Shadow feature disabled', {
-					component: 'Agent',
-					note: 'Device not provisioned and MQTT_BROKER not set'
-				});
-				return;
-			}
-
-			// Create and start shadow feature using BaseFeature pattern
-			this.shadowFeature = new ShadowFeature(
-				shadowConfig,
-				this.agentLogger,
-				this.deviceInfo.uuid
-			);
-
-			// Set up event handlers
-			this.shadowFeature.on('update-accepted', (response) => {
-				if (process.env.SHADOW_DEBUG === 'true') {
-					this.agentLogger?.debugSync(`Update accepted (version: ${response.version})`, { component: 'Shadow' });
-				}
-			});
-
-			this.shadowFeature.on('update-rejected', (error) => {
-				this.agentLogger?.errorSync(`Update rejected: ${error.message} (code: ${error.code})`, new Error(error.message), {
-					component: 'Shadow',
-					errorCode: error.code
-				});
-			});
-
-			this.shadowFeature.on('delta-updated', (event) => {
-				this.agentLogger?.infoSync(`Delta received (version: ${event.version})`, {
-					component: 'Shadow',
-					version: event.version
-				});
-				if (process.env.SHADOW_DEBUG === 'true') {
-					this.agentLogger?.debugSync('Delta state', {
-						component: 'Shadow',
-						state: event.state
-					});
-				}
-			});
-
-			this.shadowFeature.on('error', (error) => {
-				this.agentLogger?.errorSync(`Shadow error: ${error.message}`, error instanceof Error ? error : new Error(String(error)), {
-					component: 'Shadow'
-				});
-			});
-
-			await this.shadowFeature.start();
-
-		} catch (error) {
-			this.agentLogger?.errorSync('Failed to initialize Shadow Feature', error instanceof Error ? error : new Error(String(error)), {
-				component: 'Agent',
-				note: 'Continuing without Shadow Feature'
-			});
-			this.shadowFeature = undefined;
-		}
-	}
 
 	private async initializeSensorConfigHandler(): Promise<void> {
-		// Only initialize if both Shadow and Sensor Publish are enabled
-		if (!this.shadowFeature || !this.sensorPublish) {
+		// Only initialize if Sensor Publish is enabled
+		if (!this.sensorPublish) {
 			return;
 		}
 
 		this.agentLogger?.infoSync('Initializing Sensor Config Handler', { component: 'Agent' });
 
 		try {
-			const configLogger = this.createFeatureLogger('SensorConfig', 'SENSOR_CONFIG_DEBUG');
-
 			// Create sensor config handler
 			this.sensorConfigHandler = new SensorConfigHandler(
-				this.shadowFeature,
 				this.sensorPublish
 			);
 
 			// Start listening for delta events
 			this.sensorConfigHandler.start();
 
-			// Report initial sensor state to shadow
+			// Report initial sensor state
 			try {
 				const sensors = this.sensorPublish.getSensors();
 				const sensorStates: Record<string, any> = {};
@@ -888,33 +794,12 @@ export default class DeviceAgent {
 						});
 					});
 				}
-				
-				const initialState = {
-					sensors: sensorStates,
-					metrics: {
-						totalSensors: sensors.length,
-						enabledSensors: sensors.filter(s => s.enabled).length,
-						mqttConnected: this.sensorPublish.isMqttConnected()
-					}
-				};
-
-				await this.shadowFeature.updateShadow(initialState, true);
-				this.agentLogger?.infoSync('Reported initial sensor state to shadow', {
-					component: 'SensorConfig',
-					sensorCount: sensors.length
-				});
 			} catch (error) {
-				this.agentLogger?.errorSync('Failed to report initial sensor state to shadow', error instanceof Error ? error : new Error(String(error)), {
-					component: 'SensorConfig'
+				this.agentLogger?.errorSync('Failed to report initial sensor state', error instanceof Error ? error : new Error(String(error)), {
+					component: 'Agent'
 				});
-				// Don't fail initialization if this fails
 			}
-
-			this.agentLogger?.infoSync('Sensor Config Handler initialized', {
-				component: 'Agent',
-				remoteConfiguration: 'Enabled',
-				shadowName: process.env.SHADOW_NAME || 'device-config'
-			});
+				
 		} catch (error) {
 			this.agentLogger?.errorSync('Failed to initialize Sensor Config Handler', error instanceof Error ? error : new Error(String(error)), {
 				component: 'Agent',
@@ -924,70 +809,6 @@ export default class DeviceAgent {
 		}
 	}
 
-	private async initializeDigitalTwin(): Promise<void> {
-		if (!this.shadowFeature) {
-			this.agentLogger?.warnSync('Shadow Feature not available, cannot initialize Digital Twin', {
-				component: 'Agent'
-			});
-			return;
-		}
-
-		try {
-			// Get configuration from environment
-			const updateInterval = parseInt(process.env.TWIN_UPDATE_INTERVAL || '60000', 10);
-			const enableReadings = process.env.TWIN_ENABLE_READINGS !== 'false';
-			const enableHealth = process.env.TWIN_ENABLE_HEALTH !== 'false';
-			const enableSystem = process.env.TWIN_ENABLE_SYSTEM !== 'false';
-			const enableConnectivity = process.env.TWIN_ENABLE_CONNECTIVITY !== 'false';
-
-			// Create twin state manager
-			this.twinStateManager = new TwinStateManager(
-				this.shadowFeature,
-				this.deviceManager,
-				{
-					updateInterval,
-					enableReadings,
-					enableHealth,
-					enableSystem,
-					enableConnectivity,
-				}
-			);
-
-			// Set references to other features
-			if (this.sensorPublish) {
-				this.twinStateManager.setSensorPublish(this.sensorPublish);
-			}
-
-			// Find MQTT backend if available
-			const mqttBackend = this.logBackends.find(b => b.constructor.name === 'MqttLogBackend');
-			if (mqttBackend) {
-				this.twinStateManager.setMqttBackend(mqttBackend);
-			}
-
-			// Start periodic updates
-			this.twinStateManager.start();
-
-			const enabledFeatures = [
-				enableReadings && 'readings',
-				enableHealth && 'health',
-				enableSystem && 'system',
-				enableConnectivity && 'connectivity'
-			].filter(Boolean).join(', ');
-
-			this.agentLogger?.infoSync('Digital Twin State Manager initialized', {
-				component: 'Agent',
-				updateIntervalMs: updateInterval,
-				updateIntervalSec: updateInterval / 1000,
-				features: enabledFeatures
-			});
-		} catch (error) {
-			this.agentLogger?.errorSync('Failed to initialize Digital Twin', error instanceof Error ? error : new Error(String(error)), {
-				component: 'Agent',
-				note: 'Continuing without Digital Twin state updates'
-			});
-			this.twinStateManager = undefined;
-		}
-	}
 
 	private startAutoReconciliation(): void {
 		this.containerManager.startAutoReconciliation(this.reconciliationIntervalMs);
@@ -995,38 +816,6 @@ export default class DeviceAgent {
 			component: 'Agent',
 			intervalMs: this.reconciliationIntervalMs
 		});
-	}
-
-	/**
-	 * Load initial configuration from target state at startup
-	 */
-	private async loadInitialConfig(): Promise<void> {
-		try {
-			this.agentLogger?.infoSync('Loading initial configuration from target state', {
-				component: 'Agent'
-			});
-			
-			// Get current target state from container manager
-			const targetState = this.containerManager.getTargetState();
-			
-			if (targetState && targetState.config && Object.keys(targetState.config).length > 0) {
-				this.agentLogger?.infoSync('Found config in target state', {
-					component: 'Agent',
-					sectionCount: Object.keys(targetState.config).length
-				});
-				await this.handleConfigUpdate(targetState.config);
-			} else {
-				this.agentLogger?.infoSync('No config found in target state', {
-					component: 'Agent'
-				});
-			}
-		} catch (error) {
-			this.agentLogger?.warnSync('Failed to load initial config', {
-				component: 'Agent',
-				error: error instanceof Error ? error.message : String(error),
-				note: 'Continuing with default configuration'
-			});
-		}
 	}
 
 	/**
@@ -1207,31 +996,8 @@ export default class DeviceAgent {
 						intervalMs: newInterval
 					});
 				}
-			}				// Update shadow publish interval
-				if (settings.shadowPublishIntervalMs !== undefined && this.shadowFeature) {
-					const newInterval = settings.shadowPublishIntervalMs;
-					const currentInterval = (this.shadowFeature as any).config?.publishInterval;
-					
-					if (newInterval !== currentInterval) {
-						this.agentLogger?.debug('Updating shadow publish interval', {
-							category: 'Agent',
-							fromMs: currentInterval,
-							toMs: newInterval
-						});
-						
-						// Update the shadow feature's publish interval
-						(this.shadowFeature as any).config.publishInterval = newInterval;
-						
-						// Restart shadow to apply new interval
-						await this.shadowFeature.stop();
-						await this.shadowFeature.start();
-						
-						this.agentLogger?.debug('Shadow publish interval updated successfully', {
-							category: 'Agent',
-							intervalMs: newInterval
-						});
-					}
-				}
+			}
+			
 			}
 			
 			// Features Config - Enable/disable features dynamically
@@ -1273,7 +1039,7 @@ export default class DeviceAgent {
 						});
 					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
 						this.agentLogger?.debug('Enabling Jobs', { category: 'Agent' });
-						await this.initializeJobs();
+						await this.initializeJobs(this.getConfigSettings());
 					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
 						this.agentLogger?.debug('Disabling Jobs', { category: 'Agent' });
 						await this.jobs!.stop();
@@ -1313,7 +1079,7 @@ export default class DeviceAgent {
 						});
 					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
 						this.agentLogger?.infoSync('Enabling Protocol Adapters', { category: 'Agent' });
-						await this.initializeProtocolAdapters();
+						await this.initializeProtocolAdapters(this.getConfigFeatures());
 					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
 						this.agentLogger?.infoSync('Disabling Protocol Adapters', { category: 'Agent' });
 						await this.protocolAdapters!.stop();
@@ -1322,26 +1088,6 @@ export default class DeviceAgent {
 					}
 				}
 
-				// Enable/disable Shadow Feature dynamically
-				if (features.enableShadow !== undefined) {
-					const isCurrentlyEnabled = !!this.shadowFeature;
-					const shouldBeEnabled = features.enableShadow;
-					
-					if (shouldBeEnabled === isCurrentlyEnabled) {
-						this.agentLogger?.debugSync('Shadow Feature already in desired state', {
-							category: 'Agent',
-							enabled: shouldBeEnabled
-						});
-					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
-						this.agentLogger?.infoSync('Enabling Shadow Feature', { category: 'Agent' });
-						await this.initializeShadowFeature();
-					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
-						this.agentLogger?.infoSync('Disabling Shadow Feature', { category: 'Agent' });
-						await this.shadowFeature!.stop();
-						this.shadowFeature = undefined;
-						this.agentLogger?.infoSync('Shadow Feature disabled successfully', { category: 'Agent' });
-					}
-				}
 
 				// Log other feature flags for future implementation
 				if (features.pollingIntervalMs !== undefined) {
@@ -1372,18 +1118,7 @@ export default class DeviceAgent {
 		this.agentLogger?.infoSync('Stopping Device Agent', { component: 'Agent' });
 
 		try {
-			// Stop Digital Twin State Manager
-			if (this.twinStateManager) {
-				this.twinStateManager.stop();
-				this.agentLogger?.infoSync('Digital Twin State Manager stopped', { component: 'Agent' });
-			}
-
-			// Stop Shadow Feature
-			if (this.shadowFeature) {
-				await this.shadowFeature.stop();
-				this.agentLogger?.infoSync('Shadow Feature stopped', { component: 'Agent' });
-			}
-
+		
 			// Stop Sensor Publish
 			if (this.sensorPublish) {
 				await this.sensorPublish.stop();
@@ -1465,26 +1200,32 @@ export default class DeviceAgent {
 	}
 
 	/**
-	 * Create a feature-specific logger wrapper
+	 * Update cached target state
+	 * Called when target state changes to keep cache in sync
 	 */
-	private createFeatureLogger(featureName: string, debugEnvVar?: string): any {
-		return {
-			info: (message: string) => this.agentLogger?.infoSync(message, { component: featureName }),
-			warn: (message: string) => this.agentLogger?.warnSync(message, { component: featureName }),
-			error: (message: string, error?: any) => {
-				this.agentLogger?.errorSync(
-					message,
-					error instanceof Error ? error : new Error(String(error)),
-					{ component: featureName }
-				);
-			},
-			debug: (message: string, ...args: any[]) => {
-				const envVar = debugEnvVar || 'DEBUG';
-				if (process.env[envVar] === 'true') {
-					this.agentLogger?.debugSync(message, { component: featureName, args });
-				}
-			}
-		};
+	private updateCachedTargetState(): void {
+		this.cachedTargetState = this.containerManager.getTargetState();
+	}
+
+	/**
+	 * Get config features from cached target state
+	 */
+	private getConfigFeatures(): Record<string, any> {
+		return this.cachedTargetState?.config?.features || {};
+	}
+
+	/**
+	 * Get config settings from cached target state
+	 */
+	private getConfigSettings(): Record<string, any> {
+		return this.cachedTargetState?.config?.settings || {};
+	}
+
+	/**
+	 * Get config logging from cached target state
+	 */
+	private getConfigLogging(): Record<string, any> {
+		return this.cachedTargetState?.config?.logging || {};
 	}
 
 	// Getters for external access (if needed)

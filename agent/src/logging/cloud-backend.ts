@@ -16,6 +16,7 @@
 import { Writable } from 'stream';
 import zlib from 'zlib';
 import type { LogBackend, LogMessage, LogFilter } from './types';
+import { buildApiEndpoint } from '../utils/api-utils';
 
 /**
  * Cloud Log Backend Configuration
@@ -175,12 +176,7 @@ export class CloudLogBackend implements LogBackend {
 	}
 	
 	private async sendLogs(logs: LogMessage[]): Promise<void> {
-		const apiVersion = process.env.API_VERSION || 'v1';
-		// Normalize endpoint - avoid double /api if endpoint already includes it
-		const normalizedEndpoint = this.config.cloudEndpoint.endsWith('/api')
-			? this.config.cloudEndpoint
-			: `${this.config.cloudEndpoint}/api`;
-		const endpoint = `${normalizedEndpoint}/${apiVersion}/device/${this.config.deviceUuid}/logs`;
+		const endpoint = buildApiEndpoint(this.config.cloudEndpoint, `/device/${this.config.deviceUuid}/logs`);
 		
 		// Convert to NDJSON (newline-delimited JSON)
 		const ndjson = logs.map(log => JSON.stringify(log)).join('\n') + '\n';

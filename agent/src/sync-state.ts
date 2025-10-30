@@ -26,6 +26,7 @@ import * as systemMetrics from './system-metrics';
 import { ConnectionMonitor } from './connection-monitor';
 import { OfflineQueue } from './offline-queue';
 import type { AgentLogger } from './logging/agent-logger';
+import { buildDeviceEndpoint, buildApiEndpoint } from './utils/api-utils';
 
 const gzipAsync = promisify(gzip);
 
@@ -119,17 +120,23 @@ export class ApiBinder extends EventEmitter {
 	private connectionMonitor: ConnectionMonitor;
 	private reportQueue: OfflineQueue<DeviceStateReport>;
 	private logger?: AgentLogger;
+	private sensorPublish?: any; // Optional sensor-publish feature for health reporting
+	private protocolAdapters?: any; // Optional protocol-adapters feature for health reporting
 	
 	constructor(
 		containerManager: ContainerManager,
 		deviceManager: DeviceManager,
 		config: ApiBinderConfig,
 		logger?: AgentLogger,
+		sensorPublish?: any,
+		protocolAdapters?: any
 	) {
 		super();
 		this.containerManager = containerManager;
 		this.deviceManager = deviceManager;
 		this.logger = logger;
+		this.sensorPublish = sensorPublish;
+		this.protocolAdapters = protocolAdapters;
 		
 		// Set defaults
 		this.config = {
@@ -156,12 +163,12 @@ export class ApiBinder extends EventEmitter {
 	private setupConnectionEventListeners(): void {
 		this.connectionMonitor.on('online', () => {
 			this.logger?.infoSync('Connection restored - flushing offline queue', { 
-				component: 'ApiBinder',
+				component: 'Synch',
 				queueSize: this.reportQueue.size()
 			});
 			this.flushOfflineQueue().catch(error => {
 				this.logger?.errorSync('Failed to flush offline queue', error instanceof Error ? error : new Error(String(error)), {
-					component: 'ApiBinder'
+					component: 'Sync'
 				});
 			});
 		});
@@ -169,7 +176,7 @@ export class ApiBinder extends EventEmitter {
 		this.connectionMonitor.on('offline', () => {
 			const health = this.connectionMonitor.getHealth();
 			this.logger?.errorSync('Connection lost', undefined, {
-				component: 'ApiBinder',
+				component: 'Sync',
 				offlineDurationSeconds: Math.floor(health.offlineDuration / 1000),
 				status: health.status,
 				pollSuccessRate: health.pollSuccessRate,
@@ -180,7 +187,7 @@ export class ApiBinder extends EventEmitter {
 		
 		this.connectionMonitor.on('degraded', () => {
 			this.logger?.warnSync('Connection degraded (experiencing failures)', {
-				component: 'ApiBinder'
+				component: 'Sync'
 			});
 		});
 	}
@@ -190,7 +197,7 @@ export class ApiBinder extends EventEmitter {
 	 */
 	public async startPoll(): Promise<void> {
 		if (this.isPolling) {
-			this.logger?.warnSync('API Binder already polling', { component: 'ApiBinder' });
+			this.logger?.warnSync('API Binder already polling', { component: 'Sync' });
 			return;
 		}
 		
@@ -199,7 +206,7 @@ export class ApiBinder extends EventEmitter {
 		
 		this.isPolling = true;
 		this.logger?.infoSync('Starting target state polling', {
-			component: 'ApiBinder',
+			component: 'Sync',
 			endpoint: this.config.cloudApiEndpoint,
 			intervalMs: this.config.pollInterval
 		});
@@ -213,13 +220,13 @@ export class ApiBinder extends EventEmitter {
 	 */
 	public async startReporting(): Promise<void> {
 		if (this.isReporting) {
-			this.logger?.warnSync('API Binder already reporting', { component: 'ApiBinder' });
+			this.logger?.warnSync('API Binder already reporting', { component: 'Sync' });
 			return;
 		}
 		
 		this.isReporting = true;
 		this.logger?.infoSync('Starting state reporting', {
-			component: 'ApiBinder',
+			component: 'Sync',
 			endpoint: this.config.cloudApiEndpoint,
 			intervalMs: this.config.reportInterval
 		});
@@ -237,7 +244,7 @@ export class ApiBinder extends EventEmitter {
 	 * Stop polling and reporting
 	 */
 	public async stop(): Promise<void> {
-		this.logger?.infoSync('Stopping API Binder', { component: 'ApiBinder' });
+		this.logger?.infoSync('Stopping API Binder', { component: 'Sync' });
 		
 		this.isPolling = false;
 		this.isReporting = false;
@@ -290,7 +297,7 @@ export class ApiBinder extends EventEmitter {
 			this.pollErrors++;
 			this.connectionMonitor.markFailure('poll', error as Error); // Track failure
 			this.logger?.errorSync('Failed to poll target state', error instanceof Error ? error : new Error(String(error)), {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'poll',
 				errorCount: this.pollErrors
 			});
@@ -308,7 +315,7 @@ export class ApiBinder extends EventEmitter {
 			interval = Math.floor(backoffWithoutJitter * (1 + jitter));
 			
 			this.logger?.debugSync('Poll backing off due to errors', {
-				component: 'ApiBinder',
+				component: 'Sync',
 				backoffSeconds: Math.floor(interval / 1000),
 				attempt: this.pollErrors
 			});
@@ -325,22 +332,17 @@ export class ApiBinder extends EventEmitter {
 		
 		if (!deviceInfo.provisioned) {
 			this.logger?.debugSync('Device not provisioned, skipping target state poll', {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'poll'
 			});
 			return;
 		}
 		
-		const apiVersion = process.env.API_VERSION || 'v1';
-		// Normalize API endpoint - avoid double /api if endpoint already includes it
-		const normalizedEndpoint = this.config.cloudApiEndpoint.endsWith('/api')
-			? this.config.cloudApiEndpoint
-			: `${this.config.cloudApiEndpoint}/api`;
-		const endpoint = `${normalizedEndpoint}/${apiVersion}/device/${deviceInfo.uuid}/state`;
+		const endpoint = buildDeviceEndpoint(this.config.cloudApiEndpoint, deviceInfo.uuid, '/state');
 		
 		try {
 			this.logger?.debugSync('Polling target state', {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'poll',
 				endpoint,
 				currentETag: this.targetStateETag || 'none'
@@ -357,7 +359,7 @@ export class ApiBinder extends EventEmitter {
 		});
 		
 		this.logger?.debugSync('Poll response received', {
-			component: 'ApiBinder',
+			component: 'Sync',
 			operation: 'poll',
 			status: response.status
 		});
@@ -374,7 +376,7 @@ export class ApiBinder extends EventEmitter {
 		// Get ETag for next request
 		const etag = response.headers.get('etag');
 		this.logger?.debugSync('ETag received from server', {
-			component: 'ApiBinder',
+			component: 'Sync',
 			operation: 'poll',
 			etag: etag || 'none'
 		});
@@ -389,7 +391,7 @@ export class ApiBinder extends EventEmitter {
 		
 		if (!deviceState) {
 			this.logger?.warnSync('No target state for this device in response', {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'poll',
 				deviceUuid: deviceInfo.uuid,
 				availableUUIDs: Object.keys(targetStateResponse)
@@ -405,7 +407,7 @@ export class ApiBinder extends EventEmitter {
 		this.currentVersion = targetVersion;
 		
 		this.logger?.infoSync('Version tracking update', {
-			component: 'ApiBinder',
+			component: 'Sync',
 			operation: 'poll',
 			targetVersion: targetVersion,
 			currentVersion: this.currentVersion,
@@ -424,7 +426,7 @@ export class ApiBinder extends EventEmitter {
 		
 		if (currentStateStr !== newStateStr) {
 			this.logger?.infoSync('New target state received from cloud', {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'poll',
 				version: targetVersion,
 				appCount: Object.keys(newTargetState.apps).length,
@@ -441,13 +443,13 @@ export class ApiBinder extends EventEmitter {
 			this.emit('target-state-changed', this.targetState);
 			
 			this.logger?.infoSync('Target state applied', {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'apply-state',
 				version: this.currentVersion
 			});
 		} else {
 			this.logger?.debugSync('Target state fetched (no changes)', {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'poll',
 				version: this.currentVersion
 			});
@@ -481,7 +483,7 @@ export class ApiBinder extends EventEmitter {
 			this.reportErrors++;
 			this.connectionMonitor.markFailure('report', error as Error); // Track failure
 			this.logger?.errorSync('Failed to report current state', error instanceof Error ? error : new Error(String(error)), {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'report',
 				errorCount: this.reportErrors
 			});
@@ -499,7 +501,7 @@ export class ApiBinder extends EventEmitter {
 			interval = Math.floor(backoffWithoutJitter * (1 + jitter));
 			
 			this.logger?.debugSync('Report backing off due to errors', {
-				component: 'ApiBinder',
+				component: 'Sync',
 				backoffSeconds: Math.floor(interval / 1000),
 				attempt: this.reportErrors
 			});
@@ -614,7 +616,7 @@ export class ApiBinder extends EventEmitter {
 		
 		if (!deviceInfo.provisioned) {
 			this.logger?.debugSync('Device not provisioned, skipping state report', {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'report'
 			});
 			return;
@@ -687,10 +689,44 @@ export class ApiBinder extends EventEmitter {
 			this.lastMetricsTime = now;
 		} catch (error) {
 			this.logger?.warnSync('Failed to collect metrics', {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'collect-metrics',
 				error: error instanceof Error ? error.message : String(error)
 			});
+		}
+		
+		// Add sensor health stats (if sensor-publish is enabled)
+		if (this.sensorPublish) {
+			try {
+				const sensorStats = this.sensorPublish.getStats();
+				(stateReport[deviceInfo.uuid] as any).sensor_health = sensorStats;
+			} catch (error) {
+				this.logger?.warnSync('Failed to collect sensor stats', {
+					component: 'Sync',
+					operation: 'collect-sensor-stats',
+					error: error instanceof Error ? error.message : String(error)
+				});
+			}
+		}
+		
+		// Add protocol adapter health stats (if protocol-adapters is enabled)
+		if (this.protocolAdapters) {
+			try {
+				const adapterStatuses = this.protocolAdapters.getAllDeviceStatuses();
+				if (adapterStatuses && adapterStatuses.size > 0) {
+					const protocolHealth: any = {};
+					adapterStatuses.forEach((devices: any, protocolType: string) => {
+						protocolHealth[protocolType] = devices;
+					});
+					(stateReport[deviceInfo.uuid] as any).protocol_adapters_health = protocolHealth;
+				}
+			} catch (error) {
+				this.logger?.warnSync('Failed to collect protocol adapter stats', {
+					component: 'Sync',
+					operation: 'collect-adapter-stats',
+					error: error instanceof Error ? error.message : String(error)
+				});
+			}
 		}
 	}	// Build state-only report for diff comparison (without metrics)
 	const stateOnlyReport: DeviceStateReport = {
@@ -732,7 +768,7 @@ export class ApiBinder extends EventEmitter {
 			
 			// Log with bandwidth optimization details
 			const optimizationDetails: any = {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'report',
 				includeMetrics,
 				version: this.currentVersion, // Show which version we're reporting
@@ -757,7 +793,7 @@ export class ApiBinder extends EventEmitter {
 			// Failed to send - queue for later if offline
 			const isOnline = this.connectionMonitor.isOnline();
 			this.logger?.debugSync('Report failed, checking connection status', {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'report',
 				isOnline,
 				queueSize: this.reportQueue.size()
@@ -772,7 +808,7 @@ export class ApiBinder extends EventEmitter {
 				const savingsPercent = ((savings / originalSize) * 100).toFixed(1);
 				
 				this.logger?.infoSync('Queueing report for later (offline)', {
-					component: 'ApiBinder',
+					component: 'Sync',
 					operation: 'queue-report',
 					originalBytes: originalSize,
 					strippedBytes: strippedSize,
@@ -781,7 +817,7 @@ export class ApiBinder extends EventEmitter {
 				
 				await this.reportQueue.enqueue(strippedReport);
 				this.logger?.debugSync('Report queued', {
-					component: 'ApiBinder',
+					component: 'Sync',
 					queueSize: this.reportQueue.size()
 				});
 			}
@@ -794,12 +830,7 @@ export class ApiBinder extends EventEmitter {
 	 */
 	private async sendReport(report: DeviceStateReport): Promise<void> {
 		const deviceInfo = this.deviceManager.getDeviceInfo();
-		const apiVersion = process.env.API_VERSION || 'v1';
-		// Normalize API endpoint - avoid double /api if endpoint already includes it
-		const normalizedEndpoint = this.config.cloudApiEndpoint.endsWith('/api')
-			? this.config.cloudApiEndpoint
-			: `${this.config.cloudApiEndpoint}/api`;
-		const endpoint = `${normalizedEndpoint}/${apiVersion}/device/state`;
+		const endpoint = buildApiEndpoint(this.config.cloudApiEndpoint, '/device/state');
 		
 		// Convert to JSON
 		const jsonPayload = JSON.stringify(report);
@@ -813,7 +844,7 @@ export class ApiBinder extends EventEmitter {
 		const compressionRatio = ((1 - compressedSize / uncompressedSize) * 100).toFixed(1);
 		
 		this.logger?.debugSync('Sending compressed state report', {
-			component: 'ApiBinder',
+			component: 'Sync',
 			operation: 'compress',
 			uncompressedBytes: uncompressedSize,
 			compressedBytes: compressedSize,
@@ -847,7 +878,7 @@ export class ApiBinder extends EventEmitter {
 		
 		const queueSize = this.reportQueue.size();
 		this.logger?.infoSync('Flushing offline queue', {
-			component: 'ApiBinder',
+			component: 'Sync',
 			operation: 'flush-queue',
 			queueSize
 		});
@@ -859,7 +890,7 @@ export class ApiBinder extends EventEmitter {
 		
 		if (sentCount > 0) {
 			this.logger?.infoSync('Successfully flushed queued reports', {
-				component: 'ApiBinder',
+				component: 'Sync',
 				operation: 'flush-queue',
 				sentCount,
 				totalCount: queueSize

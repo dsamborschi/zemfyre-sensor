@@ -71,6 +71,9 @@ export interface SensorStats {
   reconnectAttempts: number;
   lastPublishTime?: Date;
   lastHeartbeatTime?: Date;
+  lastError?: string;
+  lastErrorTime?: Date;
+  lastConnectedTime?: Date;
 }
 
 /**

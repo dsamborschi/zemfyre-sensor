@@ -1,4 +1,3 @@
-import { ShadowFeature } from '../shadow';
 import { SensorPublishFeature } from './sensor-publish-feature';
 
 // Simple logger interface
@@ -39,7 +38,6 @@ export class SensorConfigHandler {
   private logger: SimpleLogger = consoleLogger;
 
   constructor(
-    private shadowFeature: ShadowFeature,
     private sensorPublishFeature: SensorPublishFeature
   ) {}
   
@@ -47,9 +45,7 @@ export class SensorConfigHandler {
    * Start listening for delta events
    */
   public start(): void {
-    this.shadowFeature.on('delta-updated', async (event) => {
-      await this.handleDelta(event.state);
-    });
+
     
     this.logger.info(`${SensorConfigHandler.TAG}: Started listening for sensor config updates`);
   }
@@ -76,20 +72,12 @@ export class SensorConfigHandler {
       
       // Report back actual state
       const currentConfig = await this.getCurrentSensorConfig();
-      await this.shadowFeature.updateShadow(currentConfig, true);
       
       this.logger.info(`${SensorConfigHandler.TAG}: ✅ Sensor configuration applied and reported`);
       
     } catch (error) {
       this.logger.error(`${SensorConfigHandler.TAG}: ❌ Failed to apply sensor configuration:`, error);
       
-      // Report error back to cloud
-      await this.shadowFeature.updateShadow({
-        error: {
-          message: error instanceof Error ? error.message : String(error),
-          timestamp: new Date().toISOString()
-        }
-      }, true);
     }
   }
   

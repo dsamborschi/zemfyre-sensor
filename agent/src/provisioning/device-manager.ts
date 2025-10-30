@@ -20,6 +20,7 @@ import type {
 	KeyExchangeResponse 
 } from './types';
 import mqtt from 'mqtt';
+import { buildApiEndpoint } from '../utils/api-utils';
 
 // Dynamic import for uuid (ESM module)
 let uuidv4: () => string;
@@ -278,12 +279,7 @@ export class DeviceManager {
 			throw new Error('Device manager not initialized');
 		}
 
-		const apiVersion = process.env.API_VERSION || 'v1';
-		// Normalize API endpoint - avoid double /api if endpoint already includes it
-		const normalizedEndpoint = apiEndpoint.endsWith('/api') 
-			? apiEndpoint 
-			: `${apiEndpoint}/api`;
-		const url = `${normalizedEndpoint}/${apiVersion}/device/register`;
+		const url = buildApiEndpoint(apiEndpoint, '/device/register');
 		
 		console.log('📡 Registering device with API:', url);
 		console.log('   UUID:', provisionRequest.uuid);
@@ -319,12 +315,7 @@ export class DeviceManager {
 	 * POST /api/${API_VERSION}/device/:uuid/key-exchange
 	 */
 	async exchangeKeys(apiEndpoint: string, uuid: string, deviceApiKey: string): Promise<void> {
-		const apiVersion = process.env.API_VERSION || 'v1';
-		// Normalize API endpoint - avoid double /api if endpoint already includes it
-		const normalizedEndpoint = apiEndpoint.endsWith('/api') 
-			? apiEndpoint 
-			: `${apiEndpoint}/api`;
-		const url = `${normalizedEndpoint}/${apiVersion}/device/${uuid}/key-exchange`;
+		const url = buildApiEndpoint(apiEndpoint, `/device/${uuid}/key-exchange`);
 		
 		console.log('🔑 Exchanging keys for device:', uuid);
 
@@ -359,8 +350,7 @@ export class DeviceManager {
 	 * GET /api/${API_VERSION}/device/:uuid
 	 */
 	async fetchDevice(apiEndpoint: string, uuid: string, apiKey: string): Promise<any> {
-		const apiVersion = process.env.API_VERSION || 'v1';
-		const url = `${apiEndpoint}/api/${apiVersion}/devices/${uuid}`;
+		const url = buildApiEndpoint(apiEndpoint, `/devices/${uuid}`);
 		
 		try {
 			const response = await fetch(url, {

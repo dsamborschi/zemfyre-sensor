@@ -39,7 +39,10 @@ export class Sensor extends EventEmitter {
     messagesPublished: 0,
     bytesReceived: 0,
     bytesPublished: 0,
-    reconnectAttempts: 0
+    reconnectAttempts: 0,
+    lastError: undefined,
+    lastErrorTime: undefined,
+    lastConnectedTime: undefined
   };
   
   private delimiterRegex: RegExp;
@@ -192,6 +195,8 @@ export class Sensor extends EventEmitter {
     this.logger.info(`${Sensor.TAG}: Connected to sensor '${this.getSensorName()}'`);
     this.state = SensorState.CONNECTED;
     this.stats.reconnectAttempts = 0;
+    this.stats.lastConnectedTime = new Date();
+    this.stats.lastError = undefined; // Clear error on successful connection
     
     // Start buffer timer if configured
     if (this.config.bufferTimeMs > 0) {
@@ -328,7 +333,10 @@ export class Sensor extends EventEmitter {
   private onError(error: Error): void {
     this.logger.error(`${Sensor.TAG}: Socket error for sensor '${this.getSensorName()}': ${error.message}`);
     this.state = SensorState.ERROR;
+    this.stats.lastError = error.message;
+    this.stats.lastErrorTime = new Date();
     this.emit('error', error);
+    // Note: Don't schedule reconnect here - onClose() will be called next and handle reconnection
   }
 
   /**

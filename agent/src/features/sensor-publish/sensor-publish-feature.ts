@@ -1,10 +1,10 @@
-import { BaseFeature } from '../features/index.js';
-import { AgentLogger } from '../logging/agent-logger.js';
+import { BaseFeature } from '../index.js';
+import { AgentLogger } from '../../logging/agent-logger.js';
 import {
   SensorPublishConfig,
   SensorConfig
-} from './types';
-import { Sensor } from './sensor';
+} from './types.js';
+import { Sensor } from './sensor.js';
 
 /**
  * SensorPublishFeature - Manages multiple sensors and publishes data to MQTT
@@ -144,16 +144,24 @@ export class SensorPublishFeature extends BaseFeature {
   }
 
   /**
-   * Get statistics for all sensors
+   * Get statistics for all sensors (includes health status)
    */
   public getStats(): Record<string, any> {
     const stats: Record<string, any> = {};
     
     for (const sensor of this.sensors) {
       const config = this.config.sensors[this.sensors.indexOf(sensor)];
+      const sensorStats = sensor.getStats();
+      const sensorState = sensor.getState();
+      
       stats[config.name!] = {
-        state: sensor.getState(),
-        ...sensor.getStats()
+        state: sensorState,
+        addr: config.addr,
+        enabled: config.enabled !== false,
+        healthy: sensorState === 'CONNECTED', // Health flag for monitoring
+        lastError: sensorStats.lastError || null,
+        lastErrorTime: sensorStats.lastErrorTime || null,
+        ...sensorStats
       };
     }
     

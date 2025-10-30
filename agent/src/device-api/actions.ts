@@ -5,7 +5,7 @@
 
 import type ContainerManager from '../compose/container-manager';
 import type { DeviceManager } from '../provisioning';
-import type { ApiBinder } from '../api-binder';
+import type { ApiBinder } from '../sync-state';
 
 let containerManager: ContainerManager;
 let deviceManager: DeviceManager;

@@ -8,7 +8,7 @@ type DBTransactionCallback = (trx: Knex.Transaction) => void;
 export type Transaction = Knex.Transaction;
 
 // Database path - will be created in the current directory or use env variable
-const databasePath = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'database.sqlite');
+const databasePath = process.env.DATABASE_PATH || path.join(process.cwd(), 'data', 'device.sqlite');
 
 // Ensure the data directory exists
 const dataDir = path.dirname(databasePath);
