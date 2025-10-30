@@ -24,7 +24,17 @@ router.get('/devices/:uuid/sensors', async (req, res) => {
   try {
     const { uuid } = req.params;
 
-    // Get sensor pipeline health (named pipe connections)
+    // Get configured sensors from target state
+    const targetStateResult = await query(
+      `SELECT config FROM device_target_state WHERE device_uuid = $1`,
+      [uuid]
+    );
+    
+    const configuredSensors = targetStateResult.rows.length > 0 && targetStateResult.rows[0].config?.sensors
+      ? targetStateResult.rows[0].config.sensors
+      : [];
+
+    // Get sensor pipeline health (named pipe connections - reported by agent)
     const sensorResult = await query(
       `SELECT 
         device_uuid,
@@ -48,6 +58,11 @@ router.get('/devices/:uuid/sensors', async (req, res) => {
       ORDER BY sensor_name`,
       [uuid]
     );
+    
+    // Create a map of reported sensor health
+    const reportedSensors = new Map(
+      sensorResult.rows.map((row: any) => [row.sensor_name, row])
+    );
 
     // Get protocol adapter device health (actual Modbus/CAN/OPC-UA devices)
     const adapterResult = await query(
@@ -65,6 +80,41 @@ router.get('/devices/:uuid/sensors', async (req, res) => {
       [uuid]
     );
 
+    // Merge configured sensors with reported health
+    const allPipelines = configuredSensors.map((configSensor: any) => {
+      const reported = reportedSensors.get(configSensor.name);
+      
+      if (reported) {
+        // Sensor has reported health
+        return {
+          name: reported.sensor_name,
+          state: reported.state,
+          healthy: reported.healthy,
+          messagesReceived: reported.messages_received,
+          messagesPublished: reported.messages_published,
+          lastActivity: reported.last_publish_time,
+          lastError: reported.last_error,
+          lastSeen: reported.reported_at,
+          configured: true,
+          addr: configSensor.addr
+        };
+      } else {
+        // Sensor configured but not yet reported (waiting for agent to start)
+        return {
+          name: configSensor.name,
+          state: 'PENDING',
+          healthy: false,
+          messagesReceived: 0,
+          messagesPublished: 0,
+          lastActivity: null,
+          lastError: 'Waiting for agent to start pipeline',
+          lastSeen: null,
+          configured: true,
+          addr: configSensor.addr
+        };
+      }
+    });
+
     res.json({
       // Primary: Protocol adapter devices (what users care about)
       devices: adapterResult.rows.map((row: any) => ({
@@ -76,22 +126,13 @@ router.get('/devices/:uuid/sensors', async (req, res) => {
         lastError: row.last_error,
         lastSeen: row.reported_at
       })),
-      // Secondary: Sensor pipeline infrastructure
-      pipelines: sensorResult.rows.map((row: any) => ({
-        name: row.sensor_name,
-        state: row.state,
-        healthy: row.healthy,
-        messagesReceived: row.messages_received,
-        messagesPublished: row.messages_published,
-        lastActivity: row.last_publish_time,
-        lastError: row.last_error,
-        lastSeen: row.reported_at
-      })),
+      // Secondary: Sensor pipeline infrastructure (merged from config + health)
+      pipelines: allPipelines,
       summary: {
         totalDevices: adapterResult.rows.length,
         connectedDevices: adapterResult.rows.filter((r: any) => r.connected).length,
-        pipelinesHealthy: sensorResult.rows.filter((r: any) => r.healthy).length,
-        totalPipelines: sensorResult.rows.length
+        pipelinesHealthy: allPipelines.filter((p: any) => p.healthy).length,
+        totalPipelines: allPipelines.length
       }
     });
   } catch (error: any) {
