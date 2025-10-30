@@ -269,7 +269,7 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({ open, onOpenCh
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={loading}>
-            {loading ? 'Saving...' : 'Add Sensor Pipeline'}
+            {loading ? 'Saving...' : 'Save'}
           </Button>
         </DialogFooter>
       </DialogContent>
