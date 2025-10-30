@@ -885,10 +885,12 @@ export default class DeviceAgent {
 	 * This is called whenever config changes in device_target_state
 	 */
 	private async handleConfigUpdate(config: Record<string, any>): Promise<void> {
-		this.agentLogger?.debug('Processing configuration update', {
+		this.agentLogger?.info('📋 Processing configuration update', {
 			category: 'Agent',
 			configKeys: Object.keys(config).length,
-			keys: Object.keys(config)
+			keys: Object.keys(config),
+			hasProtocolAdapterDevices: !!config.protocolAdapterDevices,
+			protocolDeviceCount: config.protocolAdapterDevices?.length || 0
 		});
 
 		try {
@@ -1227,9 +1229,10 @@ export default class DeviceAgent {
 
 			// Protocol Adapter Devices - Update device configurations dynamically
 			if (config.protocolAdapterDevices && Array.isArray(config.protocolAdapterDevices)) {
-				this.agentLogger?.debug('Protocol adapter device configuration detected', { 
+				this.agentLogger?.info('📥 Protocol adapter device configuration detected', { 
 					category: 'Agent',
-					deviceCount: config.protocolAdapterDevices.length
+					deviceCount: config.protocolAdapterDevices.length,
+					devices: config.protocolAdapterDevices.map((d: any) => `${d.name} (${d.protocol})`).join(', ')
 				});
 				
 				try {
