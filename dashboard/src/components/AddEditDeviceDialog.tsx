@@ -280,7 +280,7 @@ export function AddEditDeviceDialog({
           )}
     
 
-          {!isEditMode && (
+          {(!isEditMode || formData.status === "pending") && (
             <div className="space-y-4 pt-4 border-t border-gray-200">
               <div className="space-y-2">
                 <Label htmlFor="provisioning-key" className="text-sm font-semibold text-gray-900">Provisioning Key</Label>
