@@ -13,9 +13,13 @@ import { AddSensorDialog } from '@/components/sensors/AddSensorDialog';
 import { SensorSummaryCards } from '@/components/sensors/SensorSummaryCards';
 import { toast } from 'sonner';
 import { buildApiUrl } from '@/config/api';
+import { canPerformDeviceActions } from "@/utils/devicePermissions";
+import { Device } from "../components/DeviceSidebar";
+
 
 interface SensorsPageProps {
   deviceUuid: string;
+  deviceStatus?: Device['status']; // Add device status for permission checks
   debugMode?: boolean;
   onDebugModeChange?: (enabled: boolean) => void;
 }
@@ -35,6 +39,7 @@ interface Sensor {
 
 export const SensorsPage: React.FC<SensorsPageProps> = ({ 
   deviceUuid, 
+  deviceStatus,
   debugMode = false, 
   onDebugModeChange 
 }) => {
@@ -42,6 +47,7 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [addSensorDialogOpen, setAddSensorDialogOpen] = useState(false);
+  const canAddApp = canPerformDeviceActions(deviceStatus);
 
   const fetchSensors = async () => {
     try {
@@ -184,16 +190,10 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {onDebugModeChange && (
-              <Button 
-                variant={debugMode ? 'default' : 'outline'}
-                onClick={() => onDebugModeChange(!debugMode)}
-                className="flex items-center gap-2"
-              >
-                Debug
-              </Button>
-            )}
-            <Button onClick={() => setAddSensorDialogOpen(true)} className="flex items-center gap-2">
+            
+            <Button onClick={() => setAddSensorDialogOpen(true)} 
+            disabled={!canAddApp}
+            className="flex items-center gap-2">
               <Plus className="h-4 w-4" />
               Add Sensor
             </Button>

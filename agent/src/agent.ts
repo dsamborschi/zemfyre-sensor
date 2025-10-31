@@ -61,7 +61,7 @@ export default class DeviceAgent {
 		process.env.RECONCILIATION_INTERVAL_MS || '30000',
 		10
 	);
-	private readonly CLOUD_API_ENDPOINT = process.env.CLOUD_API_ENDPOINT || 'https://90bd9cd2-1a3d-44d4-8625-ec5fb7411bfb.mock.pstmn.io';
+	private readonly CLOUD_API_ENDPOINT = process.env.CLOUD_API_ENDPOINT || 'http://localhost:4002';
 
 	constructor() {
 		// Initialize with default from env var

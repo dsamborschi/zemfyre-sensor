@@ -24,7 +24,7 @@ export function JobsPage({ device }: JobsPageProps) {
         </div>
 
         {/* Jobs Card */}
-        <JobsCard deviceUuid={device.deviceUuid} />
+        <JobsCard deviceUuid={device.deviceUuid} deviceStatus={device.status} />
       </div>
     </div>
   );

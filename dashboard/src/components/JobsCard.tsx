@@ -4,6 +4,8 @@ import { Button } from './ui/button';
 import { Badge } from './ui/badge';
 import { Plus, RefreshCw, Trash2, XCircle, Eye, FileText, AlertTriangle } from 'lucide-react';
 import { buildApiUrl } from '@/config/api';
+import { Device } from './DeviceSidebar';
+import { canPerformDeviceActions, getDisabledActionMessage } from '@/utils/devicePermissions';
 import AddJobModal from './jobs/AddJobModal';
 import JobDetailsModal from './jobs/JobDetailsModal';
 import AddTemplateModal from './jobs/AddTemplateModal';
@@ -39,12 +41,17 @@ interface Job {
 
 interface JobsCardProps {
   deviceUuid: string;
+  deviceStatus?: Device['status']; // Add device status for permission checks
 }
 
-export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
+export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid, deviceStatus }) => {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
+  
+  // Check if device actions are allowed
+  const canAddApp = canPerformDeviceActions(deviceStatus);
+  const disabledMessage = getDisabledActionMessage(deviceStatus);
   const [showAddTemplateModal, setShowAddTemplateModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null);
@@ -244,6 +251,8 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
           </Button>
           <Button
             onClick={() => setShowModal(true)}
+            disabled={!canAddApp}
+            title={!canAddApp ? disabledMessage : undefined}
             className="flex items-center gap-2"
           >
             <Plus className="w-4 h-4" /> Add Job

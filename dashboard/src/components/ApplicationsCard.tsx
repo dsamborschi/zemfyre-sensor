@@ -34,6 +34,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Textarea } from "./ui/textarea";
 import { toast } from "sonner";
 import { buildApiUrl } from "@/config/api";
+import { Device } from "./DeviceSidebar";
+import { canPerformDeviceActions, getDisabledActionMessage } from "@/utils/devicePermissions";
 
 // Popular Docker images sorted alphabetically
 const popularDockerImages = [
@@ -73,7 +75,7 @@ export interface Service {
     labels?: Record<string, string>;
     [key: string]: any;
   };
-  status?: "running" | "stopped" | "paused" | "syncing";
+  status?: "running" | "stopped" | "paused" | "syncing" | "pending";
   state?: "running" | "stopped" | "paused"; // Target state for agent
   uptime?: string;
 }
@@ -94,6 +96,7 @@ export interface Application {
 interface ApplicationsCardProps {
   deviceId: string;
   deviceUuid: string; // Add deviceUuid for API calls
+  deviceStatus?: Device['status']; // Add device status for permission checks
   applications: Application[];
   onAddApplication: (app: Omit<Application, "id">) => void;
   onUpdateApplication?: (app: Application) => void;
@@ -107,6 +110,7 @@ const statusColors = {
   stopped: "bg-gray-100 text-gray-700 border-gray-200",
   paused: "bg-yellow-100 text-yellow-700 border-yellow-200",
   syncing: "bg-blue-100 text-blue-700 border-blue-200",
+  pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
 };
 
 const syncStatusColors = {
@@ -125,6 +129,7 @@ const syncStatusIcons = {
 
 export function ApplicationsCard({
   deviceUuid,
+  deviceStatus,
   applications,
   onAddApplication,
   onUpdateApplication = () => {},
@@ -133,6 +138,10 @@ export function ApplicationsCard({
 }: ApplicationsCardProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
+  
+  // Check if device actions are allowed
+  const canAddApp = canPerformDeviceActions(deviceStatus);
+  const disabledMessage = getDisabledActionMessage(deviceStatus);
   const [newApp, setNewApp] = useState({
     appId: "",
     appName: "",
@@ -427,7 +436,13 @@ export function ApplicationsCard({
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg text-gray-900 font-medium">Applications</h3>
-            <Button onClick={openAddAppModal} size="sm" className="flex-shrink-0">
+            <Button 
+              onClick={openAddAppModal} 
+              size="sm" 
+              className="flex-shrink-0"
+              disabled={!canAddApp}
+              title={!canAddApp ? disabledMessage : undefined}
+            >
               <Plus className="w-4 h-4 mr-2" />
               Add App
             </Button>
@@ -489,13 +504,7 @@ export function ApplicationsCard({
                           </button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
-                          <DropdownMenuItem
-                            onClick={() => handleSyncApplication(app)}
-                            disabled={app.syncStatus === "syncing"}
-                          >
-                            <RefreshCw className={`w-4 h-4 mr-2 ${app.syncStatus === "syncing" ? "animate-spin" : ""}`} />
-                            Deploy App
-                          </DropdownMenuItem>
+                    
                           <DropdownMenuItem
                             onClick={() => openServiceModal(app)}
                           >
@@ -510,13 +519,7 @@ export function ApplicationsCard({
                             <Pen className="w-4 h-4 mr-2" />
                             Edit {(app.syncStatus === "syncing" || app.syncStatus === "pending") && "(locked during sync)"}
                           </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onClick={() => {
-                              toast.info(`Viewing logs for ${app.appName || app.name}`);
-                            }}
-                          >
-                            View Logs
-                          </DropdownMenuItem>
+                        
                           <DropdownMenuSeparator />
                           <DropdownMenuItem
                             className="text-red-600"
@@ -557,15 +560,14 @@ export function ApplicationsCard({
                                   size="sm"
                                   onClick={() => {
                                     onToggleServiceStatus(app.id, service.serviceId, "start");
-                                    toast.info(`Starting ${service.serviceName}`);
                                   }}
-                                  disabled={service.status === "running" || service.status === "syncing"}
+                                  disabled={service.status === "running" || service.status === "syncing" || app.syncStatus === "pending" || app.syncStatus === "syncing"}
                                   className={`h-8 w-8 p-0 ${
-                                    service.status === "running" || service.status === "syncing"
+                                    service.status === "running" || service.status === "syncing" || app.syncStatus === "pending" || app.syncStatus === "syncing"
                                       ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
                                       : "border-green-300 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-400"
                                   }`}
-                                  title="Start (unpause or start stopped service)"
+                                  title={app.syncStatus === "pending" || app.syncStatus === "syncing" ? "Cannot start while app is pending or syncing deployment" : "Start (unpause or start stopped service)"}
                                 >
                                   <Play className="w-4 h-4" />
                                 </Button>
@@ -574,15 +576,14 @@ export function ApplicationsCard({
                                   size="sm"
                                   onClick={() => {
                                     onToggleServiceStatus(app.id, service.serviceId, "pause");
-                                    toast.info(`Pausing ${service.serviceName}`);
                                   }}
-                                  disabled={service.status === "paused" || service.status === "stopped" || service.status === "syncing" || !service.status}
+                                  disabled={service.status === "paused" || service.status === "stopped" || service.status === "syncing" || !service.status || app.syncStatus === "pending" || app.syncStatus === "syncing"}
                                   className={`h-8 w-8 p-0 ${
-                                    service.status === "paused" || service.status === "stopped" || service.status === "syncing" || !service.status
+                                    service.status === "paused" || service.status === "stopped" || service.status === "syncing" || !service.status || app.syncStatus === "pending" || app.syncStatus === "syncing"
                                       ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
                                       : "border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 hover:border-yellow-400"
                                   }`}
-                                  title="Pause"
+                                  title={app.syncStatus === "pending" || app.syncStatus === "syncing" ? "Cannot pause while app is pending or syncing deployment" : "Pause"}
                                 >
                                   <Pause className="w-4 h-4" />
                                 </Button>

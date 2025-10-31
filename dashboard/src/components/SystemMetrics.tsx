@@ -492,6 +492,7 @@ export function SystemMetrics({
             <ApplicationsCard
               deviceId={device.id}
               deviceUuid={device.deviceUuid}
+              deviceStatus={device.status}
               applications={applications}
               onAddApplication={onAddApplication}
               onUpdateApplication={onUpdateApplication}

@@ -201,35 +201,53 @@ export default function App() {
         if (appsSource) {
           const transformedApps: Application[] = [];
 
-          // Apps is an object where keys are appIds
+          // For pending detection, get current_state services for comparison
+          const currentAppsSource = data.current_state?.apps || {};
+
+
           Object.entries(appsSource).forEach(([appId, appData]: [string, any]) => {
             const services = appData.services || [];
-            
-            // Transform services array with full Service interface
-            const transformedServices = services.map((service: any) => ({
-              // Properties expected by ApplicationsCard
-              serviceId: service.serviceId || 0,
-              serviceName: service.serviceName || 'Unknown Service',
-              imageName: service.imageName || 'unknown:latest',
-              appId: parseInt(appId) || 0,
-              appName: appData.appName || `App ${appId}`,
-              config: {
+            // For this app, get current_state services by serviceId
+            const currentServicesMap: Record<string, any> = {};
+            if (currentAppsSource[appId]?.services) {
+              for (const s of currentAppsSource[appId].services) {
+                currentServicesMap[s.serviceId] = s;
+              }
+            }
+            // Determine app syncStatus for this app
+            const appSyncStatus = actualSyncStatus;
+            const transformedServices = services.map((service: any) => {
+              // If app is pending and state/status differs from current_state, show pending
+              let showPending = false;
+              if (appSyncStatus === 'pending' && currentServicesMap[service.serviceId]) {
+                const current = currentServicesMap[service.serviceId];
+                if ((service.state && current.state && service.state !== current.state) ||
+                    (service.status && current.status && service.status !== current.status)) {
+                  showPending = true;
+                }
+              }
+              return {
+                serviceId: service.serviceId || 0,
+                serviceName: service.serviceName || 'Unknown Service',
+                imageName: service.imageName || 'unknown:latest',
+                appId: parseInt(appId) || 0,
+                appName: appData.appName || `App ${appId}`,
+                config: {
+                  image: service.imageName || 'unknown:latest',
+                  ports: service.config?.ports || [],
+                  environment: service.config?.environment || {},
+                  volumes: service.config?.volumes || [],
+                  labels: service.config?.labels || {},
+                },
+                status: showPending ? 'pending' : (service.status || service.state || 'stopped'),
+                uptime: service.uptime || '0m',
+                id: service.serviceId?.toString() || service.serviceName || `service-${Date.now()}`,
+                name: service.serviceName || 'Unknown Service',
                 image: service.imageName || 'unknown:latest',
-                ports: service.config?.ports || [],
-                environment: service.config?.environment || {},
-                volumes: service.config?.volumes || [],
-                labels: service.config?.labels || {},
-              },
-              // Runtime status properties - use actual status when synced, otherwise default
-              status: showCurrentState ? (service.status || 'stopped') : 'stopped',
-              uptime: service.uptime || '0m',
-              // Legacy properties for backward compatibility
-              id: service.serviceId?.toString() || service.serviceName || `service-${Date.now()}`,
-              name: service.serviceName || 'Unknown Service',
-              image: service.imageName || 'unknown:latest',
-              state: service.state || 'running',
-              health: showCurrentState ? (service.health || 'unknown') : 'unknown',
-            }));
+                state: service.state || 'running',
+                health: showCurrentState ? (service.health || 'unknown') : 'unknown',
+              };
+            });
 
             transformedApps.push({
               id: appId,
@@ -237,8 +255,8 @@ export default function App() {
               appName: appData.appName || `App ${appId}`,
               name: appData.appName || `App ${appId}`,
               image: transformedServices.length > 0 ? transformedServices[0].image : 'unknown:latest',
-              status: 'stopped', // Stopped until manually deployed
-              syncStatus: actualSyncStatus,
+              status: 'stopped',
+              syncStatus: appSyncStatus,
               services: transformedServices,
             });
           });
@@ -248,9 +266,7 @@ export default function App() {
             [selectedDeviceId]: transformedApps,
           }));
 
-
         } else {
-          // No apps, set empty array
           setApplications(prev => ({
             ...prev,
             [selectedDeviceId]: [],
@@ -870,7 +886,7 @@ export default function App() {
         "stop": "stopped"
       };
       
-      toast.success(`Service ${actionText} successfully`);
+  toast.info(`Service will be marked as ${actionText}. Changes will take effect after deployment.`);
       
       // Update local service status immediately for better UX
       setApplications(prev => ({
@@ -881,7 +897,7 @@ export default function App() {
                 ...a,
                 services: a.services.map(s => 
                   s.serviceId === serviceId
-                    ? { ...s, status: statusMap[action], state: stateMap[action] as "running" | "stopped" | "paused" }
+                    ? { ...s, status: action === "start" || action === "pause" ? "pending" : statusMap[action], state: stateMap[action] as "running" | "stopped" | "paused" }
                     : s
                 )
               }
@@ -1068,7 +1084,8 @@ export default function App() {
             debugMode 
               ? <SensorHealthDashboard deviceUuid={selectedDevice.deviceUuid} />
               : <SensorsPage 
-                  deviceUuid={selectedDevice.deviceUuid} 
+                  deviceUuid={selectedDevice.deviceUuid}
+                  deviceStatus={selectedDevice.status}
                   debugMode={debugMode}
                   onDebugModeChange={setDebugMode}
                 />

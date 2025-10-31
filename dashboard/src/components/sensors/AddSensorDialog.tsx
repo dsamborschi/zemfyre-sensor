@@ -15,6 +15,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Info, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
+import { canPerformDeviceActions, getDisabledActionMessage } from "@/utils/devicePermissions";
+
 
 interface ModbusRegister {
   name: string;
@@ -46,12 +48,14 @@ interface AddSensorDialogProps {
 export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({ 
   open, 
   onOpenChange, 
+
   onSaveDevice
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Device form state
+
   const [deviceName, setDeviceName] = useState('');
   const [deviceProtocol, setDeviceProtocol] = useState<'modbus' | 'can' | 'opcua'>('modbus');
   const [deviceEnabled, setDeviceEnabled] = useState(true);
