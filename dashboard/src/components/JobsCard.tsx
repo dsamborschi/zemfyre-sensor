@@ -212,45 +212,46 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid }) => {
 
   return (
     <>
-      <Card className="p-4 md:p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h3 className="text-lg text-gray-900 font-medium mb-1">Jobs</h3>
-            <p className="text-sm text-gray-600">
-              Job executions on this device
-              {lastRefresh && (
-                <span className="text-xs text-gray-400 ml-2">
-                  • Last updated {lastRefresh.toLocaleTimeString()}
-                </span>
-              )}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleRefresh}
-              disabled={loading}
-              title="Refresh jobs"
-            >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowAddTemplateModal(true)}
-            >
-              <FileText className="w-4 h-4 mr-2" /> Add Template
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowModal(true)}
-            >
-              <Plus className="w-4 h-4 mr-2" /> Add Job 
-            </Button>
-          </div>
+      {/* Header with Buttons - Outside Card */}
+      <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Jobs</h1>
+          <p className="text-sm text-gray-600">
+            Job executions on this device
+            {lastRefresh && (
+              <span className="text-xs text-gray-400 ml-2">
+                • Last updated {lastRefresh.toLocaleTimeString()}
+              </span>
+            )}
+          </p>
         </div>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={loading}
+            title="Refresh jobs"
+          >
+            <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAddTemplateModal(true)}
+          >
+            <FileText className="w-4 h-4 mr-2" /> Add Template
+          </Button>
+          <Button
+            onClick={() => setShowModal(true)}
+            className="flex items-center gap-2"
+          >
+            <Plus className="w-4 h-4" /> Add Job
+          </Button>
+        </div>
+      </div>
+
+      <Card className="p-4 md:p-6">
 
         {loading && jobs.length === 0 ? (
           <div className="text-center py-8 text-gray-500">Loading jobs...</div>

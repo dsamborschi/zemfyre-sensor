@@ -14,25 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Info, AlertCircle } from 'lucide-react';
 import { Card } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Checkbox } from '@/components/ui/checkbox';
-
-interface SensorPipelineConfig {
-  name: string;
-  enabled: boolean;
-  addr: string;
-  eomDelimiter: string;
-  mqttTopic: string;
-  bufferCapacity: number;
-  publishInterval?: number;
-  bufferTimeMs?: number;
-  bufferSize?: number;
-  addrPollSec?: number;
-  heartbeatTimeSec?: number;
-  mqttHeartbeatTopic?: string;
-  protocolType?: string;
-  platform?: string;
-}
 
 interface ModbusRegister {
   name: string;
@@ -57,46 +39,19 @@ interface ProtocolAdapterDevice {
 interface AddSensorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSavePipeline: (config: SensorPipelineConfig) => Promise<void>;
   onSaveDevice: (device: ProtocolAdapterDevice) => Promise<void>;
   deviceUuid: string;
 }
 
-const DEFAULT_PIPELINE_CONFIG: Partial<SensorPipelineConfig> = {
-  enabled: true,
-  eomDelimiter: '\\n',
-  bufferCapacity: 8192,
-  publishInterval: 30000,
-  bufferTimeMs: 5000,
-  bufferSize: 10,
-  addrPollSec: 10,
-  heartbeatTimeSec: 300,
-};
-
 export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({ 
   open, 
   onOpenChange, 
-  onSavePipeline, 
-  onSaveDevice,
-  deviceUuid 
+  onSaveDevice
 }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [activeTab, setActiveTab] = useState<'device' | 'pipeline'>('device');
   
-  // Pipeline form state
-  const [pipelineName, setPipelineName] = useState('');
-  const [protocolType, setProtocolType] = useState<'modbus' | 'can' | 'opcua' | 'custom'>('modbus');
-  const [platform, setPlatform] = useState<'windows' | 'linux'>('windows');
-  const [bufferCapacity, setBufferCapacity] = useState(DEFAULT_PIPELINE_CONFIG.bufferCapacity!);
-  const [publishInterval, setPublishInterval] = useState(DEFAULT_PIPELINE_CONFIG.publishInterval!);
-  const [bufferTimeMs, setBufferTimeMs] = useState(DEFAULT_PIPELINE_CONFIG.bufferTimeMs!);
-  const [bufferSize, setBufferSize] = useState(DEFAULT_PIPELINE_CONFIG.bufferSize!);
-  const [addrPollSec, setAddrPollSec] = useState(DEFAULT_PIPELINE_CONFIG.addrPollSec!);
-  const [heartbeatTimeSec, setHeartbeatTimeSec] = useState(DEFAULT_PIPELINE_CONFIG.heartbeatTimeSec!);
-
-  // Protocol adapter device form state
+  // Device form state
   const [deviceName, setDeviceName] = useState('');
   const [deviceProtocol, setDeviceProtocol] = useState<'modbus' | 'can' | 'opcua'>('modbus');
   const [deviceEnabled, setDeviceEnabled] = useState(true);
@@ -105,39 +60,6 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
   // JSON configuration (unified for all protocols)
   const [connectionJson, setConnectionJson] = useState('{\n  "type": "tcp",\n  "host": "192.168.1.100",\n  "port": 502,\n  "unitId": 1\n}');
   const [registersJson, setRegistersJson] = useState('[\n  {\n    "name": "temperature",\n    "address": 0,\n    "type": "holding",\n    "dataType": "float32",\n    "unit": "°C"\n  }\n]');
-
-  const handleSavePipeline = async () => {
-    setError(null);
-
-    if (!pipelineName.trim()) {
-      setError('Sensor name is required');
-      return;
-    }
-
-    const config: any = {
-      name: pipelineName.trim(),
-      protocolType,
-      platform,
-      enabled: true,
-      eomDelimiter: DEFAULT_PIPELINE_CONFIG.eomDelimiter!,
-      bufferCapacity,
-      publishInterval,
-      bufferTimeMs,
-      bufferSize,
-      addrPollSec,
-      heartbeatTimeSec,
-    };
-
-    try {
-      setLoading(true);
-      await onSavePipeline(config);
-      handleClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to save sensor pipeline');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSaveDevice = async () => {
     setError(null);
@@ -218,11 +140,8 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
   };
 
   const handleClose = () => {
-    setPipelineName('');
     setDeviceName('');
     setError(null);
-    setShowAdvanced(false);
-    setActiveTab('device');
     setConnectionJson('{\n  "type": "tcp",\n  "host": "192.168.1.100",\n  "port": 502,\n  "unitId": 1\n}');
     setRegistersJson('[\n  {\n    "name": "temperature",\n    "address": 0,\n    "type": "holding",\n    "dataType": "float32",\n    "unit": "°C"\n  }\n]');
     onOpenChange(false);
@@ -234,18 +153,11 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
         <DialogHeader>
           <DialogTitle>Add Sensor</DialogTitle>
           <DialogDescription>
-            Add a hardware sensor device (Modbus, CAN, OPC-UA) or a sensor pipeline (local data collection).
+            Configure a hardware sensor device (Modbus RTU/TCP, CAN Bus, OPC-UA). The device will be polled automatically.
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="device">Hardware Sensor Device</TabsTrigger>
-            <TabsTrigger value="pipeline">Sensor Pipeline</TabsTrigger>
-          </TabsList>
-
-          {/* Hardware Sensor Device Tab */}
-          <TabsContent value="device" className="space-y-4 py-4">
+        <div className="space-y-4 py-4">
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -374,149 +286,14 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
                 </Alert>
               </Card>
             </div>
-          </TabsContent>
-
-          {/* Sensor Pipeline Tab */}
-          <TabsContent value="pipeline" className="space-y-4 py-4">
-            {error && (
-              <Alert variant="destructive">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{error}</AlertDescription>
-              </Alert>
-            )}
-
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                Configure a local data collection pipeline. Data is read from a socket/pipe and published to MQTT.
-              </AlertDescription>
-            </Alert>
-
-            <div className="space-y-4">
-              {/* Sensor Name */}
-              <div className="space-y-2">
-                <Label htmlFor="pipelineName">Pipeline Name *</Label>
-                <Input
-                  id="pipelineName"
-                  placeholder="e.g., modbus-sensors, can-sensors"
-                  value={pipelineName}
-                  onChange={(e) => setPipelineName(e.target.value)}
-                />
-              </div>
-
-              {/* Protocol Type */}
-              <div className="space-y-2">
-                <Label htmlFor="protocol">Protocol Type</Label>
-                <Select value={protocolType} onValueChange={(value: any) => setProtocolType(value)}>
-                  <SelectTrigger id="protocol">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="modbus">Modbus</SelectItem>
-                    <SelectItem value="can">CAN Bus</SelectItem>
-                    <SelectItem value="opcua">OPC-UA</SelectItem>
-                    <SelectItem value="custom">Custom</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Platform */}
-              <div className="space-y-2">
-                <Label htmlFor="platform">Platform</Label>
-                <Select value={platform} onValueChange={(value: any) => setPlatform(value)}>
-                  <SelectTrigger id="platform">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="windows">Windows (Named Pipe)</SelectItem>
-                    <SelectItem value="linux">Linux/Unix (Socket)</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Advanced Settings */}
-              <div className="space-y-4">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAdvanced(!showAdvanced)}
-                  className="w-full"
-                >
-                  {showAdvanced ? 'Hide' : 'Show'} Advanced Settings
-                </Button>
-
-                {showAdvanced && (
-                  <Card className="p-4 space-y-4 bg-gray-50">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="bufferCapacity">Buffer Capacity (bytes)</Label>
-                        <Input
-                          id="bufferCapacity"
-                          type="number"
-                          value={bufferCapacity}
-                          onChange={(e) => setBufferCapacity(parseInt(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="publishInterval">Publish Interval (ms)</Label>
-                        <Input
-                          id="publishInterval"
-                          type="number"
-                          value={publishInterval}
-                          onChange={(e) => setPublishInterval(parseInt(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="bufferTimeMs">Buffer Time (ms)</Label>
-                        <Input
-                          id="bufferTimeMs"
-                          type="number"
-                          value={bufferTimeMs}
-                          onChange={(e) => setBufferTimeMs(parseInt(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="bufferSize">Buffer Size (messages)</Label>
-                        <Input
-                          id="bufferSize"
-                          type="number"
-                          value={bufferSize}
-                          onChange={(e) => setBufferSize(parseInt(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="addrPollSec">Address Poll (sec)</Label>
-                        <Input
-                          id="addrPollSec"
-                          type="number"
-                          value={addrPollSec}
-                          onChange={(e) => setAddrPollSec(parseInt(e.target.value))}
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="heartbeatTimeSec">Heartbeat (sec)</Label>
-                        <Input
-                          id="heartbeatTimeSec"
-                          type="number"
-                          value={heartbeatTimeSec}
-                          onChange={(e) => setHeartbeatTimeSec(parseInt(e.target.value))}
-                        />
-                      </div>
-                    </div>
-                  </Card>
-                )}
-              </div>
-            </div>
-          </TabsContent>
-        </Tabs>
+          </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={handleClose} disabled={loading}>
             Cancel
           </Button>
           <Button 
-            onClick={activeTab === 'device' ? handleSaveDevice : handleSavePipeline} 
+            onClick={handleSaveDevice} 
             disabled={loading}
           >
             {loading ? 'Saving...' : 'Save'}

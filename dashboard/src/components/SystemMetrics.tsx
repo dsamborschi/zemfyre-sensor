@@ -369,28 +369,36 @@ export function SystemMetrics({
             </div>
 
             {selectedMetric === 'cpu' && (
-              <ResponsiveContainer width="100%" height={250}>
-                <AreaChart data={cpuHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                  <defs>
-                    <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                  <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Area
-                    type="monotone"
-                    dataKey="value"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    fillOpacity={1}
-                    fill="url(#colorCpu)"
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <>
+                {cpuHistory.length === 0 ? (
+                  <div className="flex items-center justify-center h-[250px] text-gray-500">
+                    No CPU data available
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <AreaChart data={cpuHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                      <defs>
+                        <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                          <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
+                      <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
+                      <Tooltip />
+                      <Area
+                        type="monotone"
+                        dataKey="value"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        fillOpacity={1}
+                        fill="url(#colorCpu)"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
+              </>
             )}
 
             {selectedMetric === 'memory' && (
@@ -442,29 +450,37 @@ export function SystemMetrics({
             )}
 
             {selectedMetric === 'network' && (
-              <ResponsiveContainer width="100%" height={250}>
-                <LineChart data={networkHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                  <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
-                  <Tooltip />
-                  <Legend />
-                  <Line
-                    type="monotone"
-                    dataKey="download"
-                    stroke="#3b82f6"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                  <Line
-                    type="monotone"
-                    dataKey="upload"
-                    stroke="#10b981"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
+              <>
+                {networkHistory.length === 0 ? (
+                  <div className="flex items-center justify-center h-[250px] text-gray-500">
+                    No network data available
+                  </div>
+                ) : (
+                  <ResponsiveContainer width="100%" height={250}>
+                    <LineChart data={networkHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                      <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
+                      <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
+                      <Tooltip />
+                      <Legend />
+                      <Line
+                        type="monotone"
+                        dataKey="download"
+                        stroke="#3b82f6"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                      <Line
+                        type="monotone"
+                        dataKey="upload"
+                        stroke="#10b981"
+                        strokeWidth={2}
+                        dot={false}
+                      />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </>
             )}
           </Card>
 

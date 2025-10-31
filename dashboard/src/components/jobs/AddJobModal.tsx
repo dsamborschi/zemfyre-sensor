@@ -334,22 +334,14 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
                 ))}
               </select>
             )}
-            {templateId && templates.find((t) => t.id === parseInt(templateId))?.description && (
-              <p className="mt-1 text-xs text-gray-500">
-                {templates.find((t) => t.id === parseInt(templateId))?.description}
-              </p>
-            )}
+         
           </div>
 
           {/* Template Variables */}
           {requiredVariables.length > 0 && (
             <div className="border border-blue-200 bg-blue-50 rounded-md p-4">
-              <h4 className="text-sm font-semibold text-blue-900 mb-3">
-                Template Parameters
-              </h4>
-              <p className="text-xs text-blue-700 mb-3">
-                This template requires the following parameters to be filled in:
-              </p>
+           
+          
               <div className="space-y-3">
                 {requiredVariables.map((varName) => (
                   <div key={varName}>

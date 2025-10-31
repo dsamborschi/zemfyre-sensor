@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge';
 import { AddSensorDialog } from '@/components/sensors/AddSensorDialog';
 import { SensorSummaryCards } from '@/components/sensors/SensorSummaryCards';
 import { toast } from 'sonner';
+import { buildApiUrl } from '@/config/api';
 
 interface SensorsPageProps {
   deviceUuid: string;
@@ -44,9 +45,17 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
 
   const fetchSensors = async () => {
     try {
-      const response = await fetch(`/api/v1/devices/${deviceUuid}/sensors`);
+      const response = await fetch(buildApiUrl(`/api/v1/devices/${deviceUuid}/sensors`));
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        const text = await response.text();
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        try {
+          const errorJson = JSON.parse(text);
+          errorMessage = errorJson.message || errorMessage;
+        } catch {
+          // If not JSON, use the status text
+        }
+        throw new Error(errorMessage);
       }
       const data = await response.json();
       
@@ -89,7 +98,7 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
 
   const handleAddSensorPipeline = async (config: any) => {
     try {
-      const response = await fetch(`/api/v1/devices/${deviceUuid}/sensor-config`, {
+      const response = await fetch(buildApiUrl(`/api/v1/devices/${deviceUuid}/sensor-config`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -112,10 +121,10 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
 
   const handleAddProtocolDevice = async (device: any) => {
     try {
-      console.log('📡 Sending protocol device to API:', `/api/v1/devices/${deviceUuid}/protocol-devices`);
+      console.log('📡 Sending protocol device to API:', buildApiUrl(`/api/v1/devices/${deviceUuid}/protocol-devices`));
       console.log('📦 Device payload:', JSON.stringify(device, null, 2));
 
-      const response = await fetch(`/api/v1/devices/${deviceUuid}/protocol-devices`, {
+      const response = await fetch(buildApiUrl(`/api/v1/devices/${deviceUuid}/protocol-devices`), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
