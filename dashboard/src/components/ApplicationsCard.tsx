@@ -307,8 +307,8 @@ export function ApplicationsCard({
           volumes: newService.volumes ? newService.volumes.split("\n").filter(v => v.trim()) : [],
           labels: newService.labels ? JSON.parse(newService.labels) : {},
         },
-        status: "stopped",
-        uptime: "0m",
+        status: editingService?.status ?? "stopped",
+        uptime: editingService?.uptime ?? "0m",
       };
 
       if (editingService) {
@@ -340,7 +340,7 @@ export function ApplicationsCard({
         volumes: "",
         labels: "",
       });
-      toast.success(editingService ? "Service updated successfully" : "Service added successfully");
+  // Success toast handled by parent (App.tsx) to avoid duplicate messages
     } catch (error) {
       console.error("Error saving service:", error);
       toast.error("Invalid JSON in environment or labels");
