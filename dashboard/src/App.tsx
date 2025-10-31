@@ -6,12 +6,14 @@ import { MqttPage } from "./components/MqttPage";
 import { JobsPage } from "./components/JobsPage";
 import { ApplicationsPage } from "./components/ApplicationsPage";
 import { TimelinePage } from "./components/TimelinePage";
+import { UsagePage } from "./components/UsagePage";
+import { AnalyticsPage } from "./components/AnalyticsPage";
 import { Application } from "./components/ApplicationsCard";
 import { Toaster } from "./components/ui/sonner";
 import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock, Package } from "lucide-react";
+import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock, Package, TrendingUp, LineChart } from "lucide-react";
 import { LoginPage } from "./components/LoginPage";
 import { buildApiUrl } from "./config/api";
 import { SensorHealthDashboard } from "./pages/SensorHealthDashboard";
@@ -20,6 +22,8 @@ import { SensorsPage } from "./pages/SensorsPage";
 import { toast } from "sonner";
 import { Header } from "./components/Header";
 
+// Initialize API traffic tracking
+import "./lib/apiInterceptor";
 
 // Initial mock applications for each device
 
@@ -50,7 +54,7 @@ export default function App() {
   >({});
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline'>('metrics');
+  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics'>('metrics');
   const [debugMode, setDebugMode] = useState(false);
   
   // Memoize selected device to prevent unnecessary re-renders
@@ -1073,6 +1077,22 @@ export default function App() {
               <Clock className="w-4 h-4 mr-2" />
               Timeline
             </Button>
+            <Button
+              variant={currentView === 'usage' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('usage')}
+            >
+              <TrendingUp className="w-4 h-4 mr-2" />
+              API Usage
+            </Button>
+            <Button
+              variant={currentView === 'analytics' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('analytics')}
+            >
+              <LineChart className="w-4 h-4 mr-2" />
+              Analytics
+            </Button>
           </div>
 
           {/* Conditional Content */}
@@ -1116,6 +1136,12 @@ export default function App() {
           )}
           {currentView === 'timeline' && (
             <TimelinePage device={selectedDevice} />
+          )}
+          {currentView === 'usage' && (
+            <UsagePage />
+          )}
+          {currentView === 'analytics' && (
+            <AnalyticsPage />
           )}
             </>
           )}

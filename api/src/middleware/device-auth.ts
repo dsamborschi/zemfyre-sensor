@@ -121,6 +121,8 @@ export async function deviceAuth(
       fleetId: device.fleet_id
     };
 
+    
+
     // Proceed to route handler
     next();
 

@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Monitor, Smartphone, Server, Laptop, Search, Plus,Filter, Edit, X } from "lucide-react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { ScrollArea } from "./ui/scroll-area";
 import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 import {
@@ -97,12 +96,12 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
     return matchesSearch && matchesStatus && matchesType;
   });
 
-  const hasActiveFilters = statusFilters.length < 3 || typeFilters.length < 10 || searchQuery.length > 0;
+  const hasActiveFilters = statusFilters.length < 4 || typeFilters.length < 11 || searchQuery.length > 0;
 
   const clearFilters = () => {
     setSearchQuery("");
     setStatusFilters(["online", "offline", "warning", "pending"]);
-    setTypeFilters(["gateway", "edge-device", "iot-hub", "plc", "controller", "sensor-node", "standalone"]);
+    setTypeFilters(["desktop", "laptop", "mobile", "server", "gateway", "edge-device", "iot-hub", "plc", "controller", "sensor-node", "standalone"]);
   };
 
   return (
@@ -201,6 +200,48 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
                 onCheckedChange={() => toggleTypeFilter("mobile")}
               >
                 Mobile
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={typeFilters.includes("gateway")}
+                onCheckedChange={() => toggleTypeFilter("gateway")}
+              >
+                Gateway
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={typeFilters.includes("edge-device")}
+                onCheckedChange={() => toggleTypeFilter("edge-device")}
+              >
+                Edge Device
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={typeFilters.includes("iot-hub")}
+                onCheckedChange={() => toggleTypeFilter("iot-hub")}
+              >
+                IoT Hub
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={typeFilters.includes("plc")}
+                onCheckedChange={() => toggleTypeFilter("plc")}
+              >
+                PLC
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={typeFilters.includes("controller")}
+                onCheckedChange={() => toggleTypeFilter("controller")}
+              >
+                Controller
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={typeFilters.includes("sensor-node")}
+                onCheckedChange={() => toggleTypeFilter("sensor-node")}
+              >
+                Sensor Node
+              </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem
+                checked={typeFilters.includes("standalone")}
+                onCheckedChange={() => toggleTypeFilter("standalone")}
+              >
+                Standalone
               </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -188,12 +188,12 @@ export function SystemMetrics({
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
 
         {/* Quick Metrics */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {metrics.map((metric, index) => {
             const Icon = metric.icon;
-            
+
             const getProgressColors = (color: string) => {
-              switch(color) {
+              switch (color) {
                 case 'blue':
                   return { bg: '#dbeafe', bar: '#2563eb' }; // blue-100, blue-600
                 case 'purple':
@@ -208,37 +208,46 @@ export function SystemMetrics({
             };
 
             const colors = getProgressColors(metric.color);
+            
+            const borderColors = {
+              blue: 'border-blue-200',
+              purple: 'border-purple-200',
+              green: 'border-green-200',
+              orange: 'border-orange-200',
+            };
 
             return (
-              <Card key={index} className="p-4 md:p-6">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-gray-600 mb-2">{metric.label}</p>
-                    <p className="text-2xl font-bold text-gray-900 mb-2">{metric.value}</p>
+              <Card key={index} className={`border-2 ${metric.bgColor} ${borderColors[metric.color as keyof typeof borderColors]}`}>
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-muted-foreground">{metric.label}</p>
+                      <p className="text-3xl font-bold">{metric.value}</p>
+                    </div>
+                    <div className={`h-12 w-12 ${metric.iconColor}`}>
+                      <Icon className="h-full w-full" />
+                    </div>
                   </div>
-                  <div className={`w-10 h-10 ${metric.bgColor} rounded-lg flex items-center justify-center flex-shrink-0`}>
-                    <Icon className={`w-5 h-5 ${metric.iconColor}`} />
-                  </div>
-                </div>
-                <div 
-                  className="relative h-2 w-full overflow-hidden rounded-full"
-                  style={{ backgroundColor: colors.bg }}
-                >
                   <div 
-                    className="h-full transition-all"
-                    style={{ 
-                      width: `${metric.progress}%`,
-                      backgroundColor: colors.bar
-                    }}
-                  />
+                    className="relative h-2 w-full overflow-hidden rounded-full"
+                    style={{ backgroundColor: colors.bg }}
+                  >
+                    <div 
+                      className="h-full transition-all"
+                      style={{ 
+                        width: `${metric.progress}%`,
+                        backgroundColor: colors.bar
+                      }}
+                    />
+                  </div>
                 </div>
               </Card>
             );
           })}
         </div>
 
-        {/* Charts */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
+        {/* Cards in 2-Column Layout */}
+        <div className="grid gap-6 lg:grid-cols-2">
           {/* Telemetry Chart - Combined CPU, Memory, and Network */}
           <Card className="p-4 md:p-6">
             <div className="mb-4 space-y-3">

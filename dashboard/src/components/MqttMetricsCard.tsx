@@ -1,6 +1,5 @@
 import { Card } from "@/components/ui/card";
-import { Activity } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
 import {
   AreaChart,
   Area,
@@ -37,9 +36,8 @@ interface MqttMetricsCardProps {
   deviceId: string;
 }
 
-export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
+export function MqttMetricsCard() {
   const [brokerStats, setBrokerStats] = useState<BrokerStats | null>(null);
-  const [loading, setLoading] = useState(true);
   const [messageRateHistory, setMessageRateHistory] = useState<Array<{time: string; published: number; received: number}>>([]);
   const [throughputHistory, setThroughputHistory] = useState<Array<{time: string; inbound: number; outbound: number}>>([]);
   const [connectionHistory, setConnectionHistory] = useState<Array<{time: string; clients: number; subscriptions: number}>>([]);
@@ -110,8 +108,6 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
         }
       } catch (error) {
         console.error('Failed to fetch broker stats:', error);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -121,25 +117,6 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate current stats
-  const currentStats = useMemo(() => {
-    if (!brokerStats) {
-      return {
-        messagesPerSec: 0,
-        throughputKBps: 0,
-        activeClients: 0,
-        activeSubscriptions: 0,
-      };
-    }
-
-    return {
-      messagesPerSec: Math.round((brokerStats.messageRatePublished || 0) + (brokerStats.messageRateReceived || 0)),
-      throughputKBps: Math.round(((brokerStats.throughputInbound || 0) + (brokerStats.throughputOutbound || 0)) / 1024),
-      activeClients: brokerStats.connectedClients || 0,
-      activeSubscriptions: brokerStats.subscriptions || 0,
-    };
-  }, [brokerStats]);
-
   return (
     <Card className="p-4 md:p-6">
       <div className="mb-6">
@@ -148,26 +125,6 @@ export function MqttMetricsCard({ deviceId }: MqttMetricsCardProps) {
           <h3 className="text-lg text-gray-900 font-medium mb-1">MQTT Metrics</h3>
         </div>
         <p className="text-gray-600 text-sm">Real-time broker statistics and performance</p>
-      </div>
-
-      {/* Current Stats Summary */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-blue-50 rounded-lg p-3">
-          <div className="text-blue-600 text-sm font-medium mb-1">Messages/sec</div>
-          <div className="text-2xl font-bold text-blue-900">{currentStats.messagesPerSec}</div>
-        </div>
-        <div className="bg-green-50 rounded-lg p-3">
-          <div className="text-green-600 text-sm font-medium mb-1">Throughput</div>
-          <div className="text-2xl font-bold text-green-900">{currentStats.throughputKBps} KB/s</div>
-        </div>
-        <div className="bg-purple-50 rounded-lg p-3">
-          <div className="text-purple-600 text-sm font-medium mb-1">Clients</div>
-          <div className="text-2xl font-bold text-purple-900">{currentStats.activeClients}</div>
-        </div>
-        <div className="bg-orange-50 rounded-lg p-3">
-          <div className="text-orange-600 text-sm font-medium mb-1">Subscriptions</div>
-          <div className="text-2xl font-bold text-orange-900">{currentStats.activeSubscriptions}</div>
-        </div>
       </div>
 
       {/* Charts Grid */}

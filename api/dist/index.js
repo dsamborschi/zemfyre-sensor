@@ -55,6 +55,8 @@ const mqtt_monitor_1 = __importDefault(require("./routes/mqtt-monitor"));
 const events_1 = __importDefault(require("./routes/events"));
 const mqtt_broker_1 = __importDefault(require("./routes/mqtt-broker"));
 const sensors_1 = __importDefault(require("./routes/sensors"));
+const protocol_devices_1 = require("./routes/protocol-devices");
+const traffic_logger_1 = require("./middleware/traffic-logger");
 const entities_1 = require("./routes/entities");
 const relationships_1 = require("./routes/relationships");
 const graph_1 = require("./routes/graph");
@@ -84,6 +86,7 @@ app.use(express_1.default.urlencoded({
     extended: true,
     inflate: true
 }));
+app.use(traffic_logger_1.trafficLogger);
 app.use((req, res, next) => {
     const startTime = Date.now();
     const timestamp = new Date().toISOString();
@@ -133,6 +136,7 @@ app.use(`${API_BASE}/mqtt-monitor`, mqtt_monitor_1.default);
 app.use(API_BASE, events_1.default);
 app.use(`${API_BASE}/mqtt`, mqtt_broker_1.default);
 app.use(API_BASE, sensors_1.default);
+app.use(API_BASE, protocol_devices_1.router);
 app.use(`${API_BASE}/entities`, (0, entities_1.createEntitiesRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/relationships`, (0, relationships_1.createRelationshipsRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/graph`, (0, graph_1.createGraphRouter)(connection_1.default.pool));
