@@ -188,7 +188,7 @@ export function SystemMetrics({
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
 
         {/* Quick Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric, index) => {
             const Icon = metric.icon;
 
@@ -217,6 +217,7 @@ export function SystemMetrics({
             };
 
             return (
+              
               <Card key={index} className={`border-2 ${metric.bgColor} ${borderColors[metric.color as keyof typeof borderColors]}`}>
                 <div className="p-6">
                   <div className="flex items-center justify-between mb-3">

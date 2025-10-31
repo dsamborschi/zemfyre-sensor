@@ -136,7 +136,8 @@ export function AnalyticsPage() {
         </div>
 
         {/* Traffic Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-2">
+     
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           <Card className="border-2 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">

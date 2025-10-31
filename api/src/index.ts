@@ -26,6 +26,7 @@ import sensorsRoutes from './routes/sensors';
 import { router as protocolDevicesRoutes } from './routes/protocol-devices';
 import { router as trafficRoutes } from './routes/traffic';
 import { trafficLogger} from "./middleware/traffic-logger";
+import { startTrafficFlushService, stopTrafficFlushService } from './services/traffic-flush.service';
 // Import entity/graph routes
 import { createEntitiesRouter } from './routes/entities';
 import { createRelationshipsRouter } from './routes/relationships';
@@ -236,6 +237,15 @@ async function startServer() {
     // Don't exit - this is not critical for API operation
   }
 
+  // Start traffic flush service (persists device traffic metrics to database)
+  try {
+    startTrafficFlushService();
+    console.log('✅ Traffic flush service started');
+  } catch (error) {
+    console.error('⚠️  Failed to start traffic flush service:', error);
+    // Don't exit - this is not critical for API operation
+  }
+
   // Initialize MQTT Jobs Subscriber (listens for job status updates from devices)
   try {
     const { getMqttJobsSubscriber } = await import('./services/mqtt-jobs-subscriber');
@@ -401,6 +411,14 @@ async function startServer() {
       // Ignore errors during shutdown
     }
     
+    // Stop traffic flush service (final flush to database)
+    try {
+      await stopTrafficFlushService();
+      console.log('✅ Traffic flush service stopped');
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
     server.close(() => {
       console.log('Server closed');
       process.exit(0);
@@ -470,6 +488,14 @@ async function startServer() {
       const subscriber = getMqttJobsSubscriber();
       await subscriber.stop();
       console.log('✅ MQTT Jobs Subscriber stopped');
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
+    // Stop traffic flush service (final flush to database)
+    try {
+      await stopTrafficFlushService();
+      console.log('✅ Traffic flush service stopped');
     } catch (error) {
       // Ignore errors during shutdown
     }
