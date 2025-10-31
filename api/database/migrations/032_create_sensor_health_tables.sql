@@ -138,9 +138,5 @@ COMMENT ON VIEW protocol_adapter_health_latest IS 'Latest protocol adapter healt
 -- ============================================================================
 -- Grant permissions
 -- ============================================================================
-GRANT SELECT, INSERT ON sensor_health_history TO iotistic;
-GRANT SELECT, INSERT ON protocol_adapter_health_history TO iotistic;
-GRANT SELECT ON sensor_health_latest TO iotistic;
-GRANT SELECT ON protocol_adapter_health_latest TO iotistic;
-GRANT USAGE, SELECT ON SEQUENCE sensor_health_history_id_seq TO iotistic;
-GRANT USAGE, SELECT ON SEQUENCE protocol_adapter_health_history_id_seq TO iotistic;
+-- Note: Grants moved to migration 033 with conditional logic to handle missing role
+-- This allows migration to work on both local (no iotistic role) and production (with role)

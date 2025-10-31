@@ -52,15 +52,17 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
               <div className="flex items-center gap-2">
                 <Button 
                   onClick={onDeploy}
-                  size="sm"
+                  size="lg"
                   disabled={!deploymentStatus?.needsDeployment}
                   style={{ 
                     backgroundColor: deploymentStatus?.needsDeployment ? '#ca8a04' : '#9ca3af',
-                    color: 'white' 
+                    color: 'white',
+                    padding: '0.75rem 1.5rem',
+                    fontSize: '1rem'
                   }}
                   className="font-semibold shadow-md"
                 >
-                  <RefreshCw className="w-6 h-4 mr-2" />
+                  <RefreshCw className="w-6 h-6 mr-2" />
                   Publish v{deploymentStatus ? deploymentStatus.version + 1 : '...'}
                 </Button>
                 {deploymentStatus?.needsDeployment && (

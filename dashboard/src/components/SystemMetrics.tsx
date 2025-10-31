@@ -246,63 +246,6 @@ export function SystemMetrics({
   return (
     <div className="flex-1 bg-gray-50 overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
-        {/* Header - Hidden on mobile (shown in sticky header instead) */}
-        <div className="hidden lg:block space-y-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <h1 className="text-gray-900 mb-2">{device.name}</h1>
-              <div className="flex items-center gap-3">
-                <Badge
-                  variant="outline"
-                  className={
-                    device.status === "online"
-                      ? "bg-green-100 text-green-700 border-green-200"
-                      : device.status === "warning"
-                      ? "bg-yellow-100 text-yellow-700 border-yellow-200"
-                      : "bg-gray-100 text-gray-700 border-gray-200"
-                  }
-                >
-                  {device.status}
-                </Badge>
-                <span className="text-gray-600">{device.type}</span>
-                <span className="text-gray-600">•</span>
-                <span className="text-gray-600">{device.ipAddress}</span>
-              </div>
-            </div>
-
-            {/* Quick Navigation Links */}
-            <div className="hidden lg:flex items-center gap-2 flex-shrink-0">
-              <span className="text-xs text-gray-500 mr-2">Jump to:</span>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => scrollToSection('applications-section')}
-                className="text-xs"
-              >
-                Applications
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => scrollToSection('analytics-section')}
-                className="text-xs"
-              >
-                Analytics
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => scrollToSection('processes-section')}
-                className="text-xs"
-              >
-                Processes
-              </Button>
-            </div>
-          </div>
-          
-          {/* Device Actions */}
-          <DeviceActions deviceName={device.name} deviceId={device.id} />
-        </div>
 
         {/* Quick Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">

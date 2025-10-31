@@ -54,12 +54,12 @@ export function AddEditDeviceDialog({
   const [isLoadingKey, setIsLoadingKey] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
-    type: "server" as "desktop" | "laptop" | "mobile" | "server",
+    type: "server" as Device['type'],
     description: "",
     ipAddress: "",
     macAddress: "",
     lastSeen: "Never",
-    status: "offline" as "online" | "offline" | "warning",
+    status: "offline" as Device['status'],
     cpu: 0,
     memory: 0,
     disk: 0,
@@ -137,23 +137,32 @@ export function AddEditDeviceDialog({
   }, [device, open]);
 
   const handleSave = () => {
-    if (!formData.name || !formData.ipAddress || !formData.macAddress) {
+    // Required field validation
+    if (!formData.name) {
       toast.error("Please fill in all required fields");
       return;
     }
 
-    // Validate IP address format
-    const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
-    if (!ipRegex.test(formData.ipAddress)) {
-      toast.error("Please enter a valid IP address");
-      return;
-    }
+    // IP/MAC validation only required in edit mode (when fields are visible)
+    if (isEditMode) {
+      if (!formData.ipAddress || !formData.macAddress) {
+        toast.error("Please fill in all required fields");
+        return;
+      }
 
-    // Validate MAC address format
-    const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
-    if (!macRegex.test(formData.macAddress)) {
-      toast.error("Please enter a valid MAC address (e.g., 00:1B:44:11:3A:B7)");
-      return;
+      // Validate IP address format
+      const ipRegex = /^(\d{1,3}\.){3}\d{1,3}$/;
+      if (!ipRegex.test(formData.ipAddress)) {
+        toast.error("Please enter a valid IP address");
+        return;
+      }
+
+      // Validate MAC address format
+      const macRegex = /^([0-9A-Fa-f]{2}[:-]){5}([0-9A-Fa-f]{2})$/;
+      if (!macRegex.test(formData.macAddress)) {
+        toast.error("Please enter a valid MAC address (e.g., 00:1B:44:11:3A:B7)");
+        return;
+      }
     }
 
     onSave({
@@ -194,8 +203,8 @@ export function AddEditDeviceDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+      <DialogContent className="max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
+        <DialogHeader className="flex-shrink-0">
           <DialogTitle>{isEditMode ? "Edit Device" : "Add New Device"}</DialogTitle>
           <DialogDescription>
             {isEditMode
@@ -275,33 +284,31 @@ export function AddEditDeviceDialog({
             <div className="space-y-4 pt-4 border-t border-gray-200">
               <div className="space-y-2">
                 <Label htmlFor="provisioning-key" className="text-sm font-semibold text-gray-900">Provisioning Key</Label>
-                <div className="relative">
-                  <div className="flex items-start gap-2 bg-gray-50 border border-gray-200 rounded-md px-3 py-2.5">
-                    <code className="flex-1 font-mono text-xs text-gray-900 select-all break-all leading-relaxed">
-                      {isLoadingKey ? "Generating..." : (provisioningKey || "Loading...")}
-                    </code>
-                    <div className="flex gap-1 ml-2 flex-shrink-0">
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 hover:bg-gray-200"
-                        onClick={copyProvisioningKey}
-                        disabled={isLoadingKey || !provisioningKey}
-                      >
-                        {copiedKey ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-600" />}
-                      </Button>
-                      <Button
-                        type="button"
-                        size="icon"
-                        variant="ghost"
-                        className="h-8 w-8 hover:bg-gray-200"
-                        onClick={regenerateProvisioningKey}
-                        disabled={isLoadingKey}
-                      >
-                        <RefreshCw className={`w-4 h-4 text-gray-600 ${isLoadingKey ? 'animate-spin' : ''}`} />
-                      </Button>
-                    </div>
+                <div className="relative bg-gray-50 border border-gray-200 rounded-md px-3 py-2.5">
+                  <code className="block font-mono text-xs text-gray-900 select-all break-all leading-relaxed pr-20">
+                    {isLoadingKey ? "Generating..." : (provisioningKey || "Loading...")}
+                  </code>
+                  <div className="absolute top-2 right-2 flex gap-1">
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 hover:bg-gray-200"
+                      onClick={copyProvisioningKey}
+                      disabled={isLoadingKey || !provisioningKey}
+                    >
+                      {copiedKey ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-600" />}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-8 w-8 hover:bg-gray-200"
+                      onClick={regenerateProvisioningKey}
+                      disabled={isLoadingKey}
+                    >
+                      <RefreshCw className={`w-4 h-4 text-gray-600 ${isLoadingKey ? 'animate-spin' : ''}`} />
+                    </Button>
                   </div>
                 </div>
                 <p className="text-xs text-gray-500">
