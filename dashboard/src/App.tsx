@@ -4,13 +4,14 @@ import { AddEditDeviceDialog } from "./components/AddEditDeviceDialog";
 import { SystemMetrics } from "./components/SystemMetrics";
 import { MqttPage } from "./components/MqttPage";
 import { JobsPage } from "./components/JobsPage";
+import { ApplicationsPage } from "./components/ApplicationsPage";
 import { TimelinePage } from "./components/TimelinePage";
 import { Application } from "./components/ApplicationsCard";
 import { Toaster } from "./components/ui/sonner";
 import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock } from "lucide-react";
+import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock, Package } from "lucide-react";
 import { LoginPage } from "./components/LoginPage";
 import { buildApiUrl } from "./config/api";
 import { SensorHealthDashboard } from "./pages/SensorHealthDashboard";
@@ -49,7 +50,7 @@ export default function App() {
   >({});
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'timeline'>('metrics');
+  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline'>('metrics');
   const [debugMode, setDebugMode] = useState(false);
   
   // Memoize selected device to prevent unnecessary re-renders
@@ -128,6 +129,8 @@ export default function App() {
         }
       } catch (error) {
         console.error('Error fetching devices:', error);
+        // Set all devices to offline if API is unreachable
+        setDevices((prev) => prev.map(device => ({ ...device, status: 'offline' })));
       } finally {
         setIsLoadingDevices(false);
       }
@@ -1038,7 +1041,7 @@ export default function App() {
               <Activity className="w-4 h-4 mr-2" />
               Sensor Monitor
             </Button>
-              <Button
+            <Button
               variant={currentView === 'mqtt' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setCurrentView('mqtt')}
@@ -1053,6 +1056,14 @@ export default function App() {
             >
               <CalendarClock className="w-4 h-4 mr-2" />
               Jobs
+            </Button>
+            <Button
+              variant={currentView === 'applications' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('applications')}
+            >
+              <Package className="w-4 h-4 mr-2" />
+              Applications
             </Button>
             <Button
               variant={currentView === 'timeline' ? 'default' : 'outline'}
@@ -1071,13 +1082,20 @@ export default function App() {
               cpuHistory={cpuHistory}
               memoryHistory={memoryHistory}
               networkHistory={networkHistory}
+              networkInterfaces={networkInterfaces}
+            />
+          )}
+          {currentView === 'applications' && (
+            <ApplicationsPage
+              device={selectedDevice}
               applications={deviceApplications}
               onAddApplication={handleAddApplication}
               onUpdateApplication={handleUpdateApplication}
               onRemoveApplication={handleRemoveApplication}
               onToggleAppStatus={handleToggleAppStatus}
               onToggleServiceStatus={handleToggleServiceStatus}
-              networkInterfaces={networkInterfaces}
+              deploymentStatus={deploymentStatus[selectedDeviceId]}
+              setDeploymentStatus={setDeploymentStatus}
             />
           )}
           {currentView === 'sensors' && (
