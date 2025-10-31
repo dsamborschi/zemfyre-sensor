@@ -458,6 +458,7 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
                         >
                           Edit
                         </Button>
+                        
                         <Button
                           type="button"
                           size="sm"
@@ -636,6 +637,7 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
                     >
                       Cancel
                     </Button>
+                  
                     <Button
                       type="button"
                       size="sm"
@@ -674,8 +676,9 @@ export const AddJobModal: React.FC<AddJobModalProps> = ({
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
+
           <Button 
-            className="bg-black hover:bg-gray-900 text-white"
+          
             onClick={handleSave} 
             disabled={saving || !templateId || loadingTemplates}
           >

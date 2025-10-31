@@ -4,6 +4,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter
 } from '../ui/dialog';
 import { Button } from '../ui/button';
 import { Badge } from '../ui/badge';
@@ -509,15 +510,21 @@ export const AddTemplateModal: React.FC<AddTemplateModalProps> = ({ open, onClos
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 pt-4 border-t">
+        <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={saving}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : 'Create Template'}
+
+          <Button 
+          
+            onClick={handleSave}  
+            disabled={saving}
+          >
+            {saving ? 'Creating...' : 'Create Template'}
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
+       
     </Dialog>
   );
 };
