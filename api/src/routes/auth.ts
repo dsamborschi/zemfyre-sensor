@@ -298,4 +298,448 @@ router.get('/me', jwtAuth, async (req: Request, res: Response) => {
   }
 });
 
+// ============================================================================
+// MQTT USERS & ACL MANAGEMENT
+// ============================================================================
+
+/**
+ * GET /auth/mqtt-users
+ * 
+ * Get all MQTT users with their ACLs
+ * Requires JWT authentication
+ * 
+ * Returns: { users: [{ id, username, is_superuser, is_active, acls: [] }] }
+ */
+router.get('/mqtt-users', jwtAuth, async (req: Request, res: Response) => {
+  try {
+    const { query } = await import('../db/connection');
+    
+    // Get all MQTT users
+    const usersResult = await query(
+      `SELECT id, username, is_superuser, is_active, created_at, updated_at 
+       FROM mqtt_users 
+       ORDER BY created_at DESC`
+    );
+    
+    // Get ACLs for each user
+    const users = await Promise.all(
+      usersResult.rows.map(async (user) => {
+        const aclsResult = await query(
+          `SELECT id, topic, access, priority, created_at 
+           FROM mqtt_acls 
+           WHERE username = $1 
+           ORDER BY priority DESC, topic ASC`,
+          [user.username]
+        );
+        
+        return {
+          ...user,
+          acls: aclsResult.rows
+        };
+      })
+    );
+    
+    res.status(200).json({
+      success: true,
+      users
+    });
+  } catch (error: any) {
+    console.error('Get MQTT users error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to fetch MQTT users'
+    });
+  }
+});
+
+/**
+ * POST /auth/mqtt-users
+ * 
+ * Create a new MQTT user
+ * Requires JWT authentication
+ * 
+ * Body:
+ *   - username: string (required)
+ *   - password: string (required)
+ *   - is_superuser: boolean (optional, default false)
+ *   - is_active: boolean (optional, default true)
+ * 
+ * Returns: { user }
+ */
+router.post('/mqtt-users', jwtAuth, async (req: Request, res: Response) => {
+  try {
+    const { username, password, is_superuser = false, is_active = true } = req.body;
+    
+    if (!username || !password) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Username and password are required'
+      });
+      return;
+    }
+    
+    const { query } = await import('../db/connection');
+    const bcrypt = await import('bcrypt');
+    
+    // Hash password with bcrypt (mosquitto-go-auth compatible)
+    const passwordHash = await bcrypt.hash(password, 10);
+    
+    const result = await query(
+      `INSERT INTO mqtt_users (username, password_hash, is_superuser, is_active)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, username, is_superuser, is_active, created_at`,
+      [username, passwordHash, is_superuser, is_active]
+    );
+    
+    res.status(201).json({
+      success: true,
+      message: 'MQTT user created successfully',
+      user: result.rows[0]
+    });
+  } catch (error: any) {
+    console.error('Create MQTT user error:', error);
+    
+    if (error.message?.includes('duplicate') || error.code === '23505') {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Username already exists'
+      });
+      return;
+    }
+    
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to create MQTT user'
+    });
+  }
+});
+
+/**
+ * PUT /auth/mqtt-users/:id
+ * 
+ * Update an MQTT user
+ * Requires JWT authentication
+ * 
+ * Body:
+ *   - password: string (optional)
+ *   - is_superuser: boolean (optional)
+ *   - is_active: boolean (optional)
+ * 
+ * Returns: { user }
+ */
+router.put('/mqtt-users/:id', jwtAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { password, is_superuser, is_active } = req.body;
+    
+    const { query } = await import('../db/connection');
+    
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+    
+    if (password) {
+      const bcrypt = await import('bcrypt');
+      const passwordHash = await bcrypt.hash(password, 10);
+      updates.push(`password_hash = $${paramIndex++}`);
+      values.push(passwordHash);
+    }
+    
+    if (is_superuser !== undefined) {
+      updates.push(`is_superuser = $${paramIndex++}`);
+      values.push(is_superuser);
+    }
+    
+    if (is_active !== undefined) {
+      updates.push(`is_active = $${paramIndex++}`);
+      values.push(is_active);
+    }
+    
+    if (updates.length === 0) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'No fields to update'
+      });
+      return;
+    }
+    
+    updates.push(`updated_at = CURRENT_TIMESTAMP`);
+    values.push(id);
+    
+    const result = await query(
+      `UPDATE mqtt_users 
+       SET ${updates.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING id, username, is_superuser, is_active, updated_at`,
+      values
+    );
+    
+    if (result.rows.length === 0) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'MQTT user not found'
+      });
+      return;
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'MQTT user updated successfully',
+      user: result.rows[0]
+    });
+  } catch (error: any) {
+    console.error('Update MQTT user error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to update MQTT user'
+    });
+  }
+});
+
+/**
+ * DELETE /auth/mqtt-users/:id
+ * 
+ * Delete an MQTT user and their ACLs
+ * Requires JWT authentication
+ * 
+ * Returns: { message }
+ */
+router.delete('/mqtt-users/:id', jwtAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { query } = await import('../db/connection');
+    
+    // Get username before deleting
+    const userResult = await query(
+      'SELECT username FROM mqtt_users WHERE id = $1',
+      [id]
+    );
+    
+    if (userResult.rows.length === 0) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'MQTT user not found'
+      });
+      return;
+    }
+    
+    const username = userResult.rows[0].username;
+    
+    // Delete ACLs first
+    await query('DELETE FROM mqtt_acls WHERE username = $1', [username]);
+    
+    // Delete user
+    await query('DELETE FROM mqtt_users WHERE id = $1', [id]);
+    
+    res.status(200).json({
+      success: true,
+      message: 'MQTT user deleted successfully'
+    });
+  } catch (error: any) {
+    console.error('Delete MQTT user error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to delete MQTT user'
+    });
+  }
+});
+
+/**
+ * POST /auth/mqtt-users/:id/acls
+ * 
+ * Add ACL rule for an MQTT user
+ * Requires JWT authentication
+ * 
+ * Body:
+ *   - topic: string (required, supports wildcards: +, #)
+ *   - access: number (required, 1=read/subscribe, 2=write/publish, 3=read+write)
+ *   - priority: number (optional, default 0)
+ * 
+ * Returns: { acl }
+ */
+router.post('/mqtt-users/:id/acls', jwtAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { topic, access, priority = 0 } = req.body;
+    
+    if (!topic || access === undefined) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Topic and access are required'
+      });
+      return;
+    }
+    
+    if (![1, 2, 3].includes(access)) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'Access must be 1 (read), 2 (write), or 3 (read+write)'
+      });
+      return;
+    }
+    
+    const { query } = await import('../db/connection');
+    
+    // Get username
+    const userResult = await query(
+      'SELECT username FROM mqtt_users WHERE id = $1',
+      [id]
+    );
+    
+    if (userResult.rows.length === 0) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'MQTT user not found'
+      });
+      return;
+    }
+    
+    const username = userResult.rows[0].username;
+    
+    const result = await query(
+      `INSERT INTO mqtt_acls (username, topic, access, priority)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, username, topic, access, priority, created_at`,
+      [username, topic, access, priority]
+    );
+    
+    res.status(201).json({
+      success: true,
+      message: 'ACL rule created successfully',
+      acl: result.rows[0]
+    });
+  } catch (error: any) {
+    console.error('Create ACL error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to create ACL rule'
+    });
+  }
+});
+
+/**
+ * PUT /auth/mqtt-acls/:id
+ * 
+ * Update an ACL rule
+ * Requires JWT authentication
+ * 
+ * Body:
+ *   - topic: string (optional)
+ *   - access: number (optional)
+ *   - priority: number (optional)
+ * 
+ * Returns: { acl }
+ */
+router.put('/mqtt-acls/:id', jwtAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { topic, access, priority } = req.body;
+    
+    const { query } = await import('../db/connection');
+    
+    const updates: string[] = [];
+    const values: any[] = [];
+    let paramIndex = 1;
+    
+    if (topic) {
+      updates.push(`topic = $${paramIndex++}`);
+      values.push(topic);
+    }
+    
+    if (access !== undefined) {
+      if (![1, 2, 3].includes(access)) {
+        res.status(400).json({
+          error: 'Bad Request',
+          message: 'Access must be 1 (read), 2 (write), or 3 (read+write)'
+        });
+        return;
+      }
+      updates.push(`access = $${paramIndex++}`);
+      values.push(access);
+    }
+    
+    if (priority !== undefined) {
+      updates.push(`priority = $${paramIndex++}`);
+      values.push(priority);
+    }
+    
+    if (updates.length === 0) {
+      res.status(400).json({
+        error: 'Bad Request',
+        message: 'No fields to update'
+      });
+      return;
+    }
+    
+    values.push(id);
+    
+    const result = await query(
+      `UPDATE mqtt_acls 
+       SET ${updates.join(', ')}
+       WHERE id = $${paramIndex}
+       RETURNING id, username, topic, access, priority`,
+      values
+    );
+    
+    if (result.rows.length === 0) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'ACL rule not found'
+      });
+      return;
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'ACL rule updated successfully',
+      acl: result.rows[0]
+    });
+  } catch (error: any) {
+    console.error('Update ACL error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to update ACL rule'
+    });
+  }
+});
+
+/**
+ * DELETE /auth/mqtt-acls/:id
+ * 
+ * Delete an ACL rule
+ * Requires JWT authentication
+ * 
+ * Returns: { message }
+ */
+router.delete('/mqtt-acls/:id', jwtAuth, async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const { query } = await import('../db/connection');
+    
+    const result = await query(
+      'DELETE FROM mqtt_acls WHERE id = $1 RETURNING id',
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      res.status(404).json({
+        error: 'Not Found',
+        message: 'ACL rule not found'
+      });
+      return;
+    }
+    
+    res.status(200).json({
+      success: true,
+      message: 'ACL rule deleted successfully'
+    });
+  } catch (error: any) {
+    console.error('Delete ACL error:', error);
+    res.status(500).json({
+      error: 'Internal Server Error',
+      message: 'Failed to delete ACL rule'
+    });
+  }
+});
+
 export default router;

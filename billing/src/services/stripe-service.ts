@@ -118,6 +118,171 @@ export class StripeService {
   }
 
   /**
+   * Handle subscription created (IMPORTANT: Supports Stripe Dashboard-created customers!)
+   * This method handles subscriptions created via:
+   * 1. Checkout flow (customer exists in DB)
+   * 2. Stripe Dashboard (customer may NOT exist in DB yet)
+   */
+  static async handleSubscriptionCreated(
+    subscription: Stripe.Subscription
+  ): Promise<void> {
+    const stripeCustomerId = typeof subscription.customer === 'string' 
+      ? subscription.customer 
+      : subscription.customer.id;
+
+    console.log(`🔍 Processing subscription created: ${subscription.id}`);
+    console.log(`   Stripe Customer: ${stripeCustomerId}`);
+    
+    // Check if customer already exists in our database
+    let customer = await CustomerModel.getByStripeCustomerId(stripeCustomerId);
+    
+    // If customer doesn't exist, this is a Stripe Dashboard-created customer!
+    if (!customer) {
+      console.log(`📋 Customer not found in database - fetching from Stripe...`);
+      
+      // Fetch full customer details from Stripe
+      const stripeCustomer = await stripe.customers.retrieve(stripeCustomerId) as Stripe.Customer;
+      
+      if (!stripeCustomer.email) {
+        console.error(`❌ Cannot create customer without email! Stripe Customer: ${stripeCustomerId}`);
+        console.error(`   Please add an email to this customer in Stripe Dashboard.`);
+        return;
+      }
+
+      console.log(`✨ Creating new customer from Stripe Dashboard data...`);
+      console.log(`   Email: ${stripeCustomer.email}`);
+      console.log(`   Name: ${stripeCustomer.name || 'N/A'}`);
+      
+      // Create customer in our database
+      customer = await CustomerModel.create({
+        email: stripeCustomer.email,
+        companyName: stripeCustomer.metadata?.company_name || stripeCustomer.name || undefined,
+        fullName: stripeCustomer.name || undefined,
+        passwordHash: undefined, // No password for Dashboard-created customers
+      });
+
+      // Link to Stripe customer
+      await CustomerModel.update(customer.customer_id, {
+        stripe_customer_id: stripeCustomerId,
+      });
+
+      console.log(`✅ Customer created: ${customer.customer_id}`);
+      console.log(`   Company: ${customer.company_name || 'N/A'}`);
+    } else {
+      console.log(`✅ Customer found: ${customer.customer_id}`);
+    }
+
+    // Determine plan from price ID
+    const priceId = subscription.items.data[0]?.price.id;
+    let plan: 'starter' | 'professional' | 'enterprise' = 'starter';
+    
+    if (priceId === process.env.STRIPE_PRICE_STARTER) plan = 'starter';
+    else if (priceId === process.env.STRIPE_PRICE_PROFESSIONAL) plan = 'professional';
+    else if (priceId === process.env.STRIPE_PRICE_ENTERPRISE) plan = 'enterprise';
+    else {
+      console.warn(`⚠️  Unknown price ID: ${priceId} - defaulting to starter plan`);
+    }
+
+    console.log(`📦 Plan detected: ${plan}`);
+
+    // Check if subscription already exists (idempotency)
+    const existingSubscription = await SubscriptionModel.getByStripeId(subscription.id);
+    if (existingSubscription) {
+      console.log(`ℹ️  Subscription already exists in database - updating instead`);
+      await this.handleSubscriptionUpdated(subscription);
+      return;
+    }
+
+    // Check if customer has an existing subscription (e.g., canceled one)
+    const customerSubscription = await SubscriptionModel.getByCustomerId(customer.customer_id);
+    if (customerSubscription) {
+      console.log(`ℹ️  Customer has existing subscription (${customerSubscription.status}) - updating to new subscription`);
+      await SubscriptionModel.update(customer.customer_id, {
+        stripe_subscription_id: subscription.id,
+        plan,
+        status: 'active',
+        current_period_start: new Date(subscription.current_period_start * 1000),
+        current_period_ends_at: new Date(subscription.current_period_end * 1000),
+        trial_ends_at: null, // Clear trial if any
+      });
+      console.log(`✅ Subscription updated for customer ${customer.customer_id} (${plan})`);
+    } else {
+      // Create new subscription
+      await SubscriptionModel.createPaid(
+        customer.customer_id,
+        plan,
+        subscription.id,
+        new Date(subscription.current_period_end * 1000),
+        new Date(subscription.current_period_start * 1000)
+      );
+      console.log(`✅ Subscription created for customer ${customer.customer_id} (${plan})`);
+    }
+
+    // Reactivate customer if they were deactivated (subscription canceled then re-subscribed)
+    const isReactivation = !customer.instance_namespace || customer.deployment_status === 'failed';
+    if (isReactivation) {
+      console.log(`🔄 Reactivating customer ${customer.customer_id} (re-subscription)...`);
+      await pool.query(
+        `UPDATE customers 
+         SET is_active = true, 
+             deleted_at = NULL,
+             deployment_status = NULL,
+             deployment_error = NULL,
+             updated_at = NOW()
+         WHERE customer_id = $1`,
+        [customer.customer_id]
+      );
+      console.log(`✅ Customer ${customer.customer_id} reactivated`);
+    }
+
+    // Trigger K8s deployment (if not already deployed or if re-subscribing)
+    if (!customer.instance_namespace && customer.deployment_status !== 'provisioning') {
+      console.log(`🚀 Triggering K8s deployment for customer ${customer.customer_id}...`);
+      
+      try {
+        const { deploymentQueue } = await import('../services/deployment-queue');
+        const { LicenseGenerator } = await import('./license-generator');
+        const { SubscriptionModel } = await import('../db/subscription-model');
+        
+        // Get subscription for license generation
+        const customerSubscription = await SubscriptionModel.getByCustomerId(customer.customer_id);
+        
+        if (!customerSubscription) {
+          console.error(`❌ Cannot generate license - subscription not found for ${customer.customer_id}`);
+          return;
+        }
+        
+        // Generate license for deployment
+        const licenseKey = await LicenseGenerator.generateLicense(
+          customer,
+          customerSubscription
+        );
+        
+        await deploymentQueue.add('deploy-customer-stack', {
+          customerId: customer.customer_id,
+          email: customer.email,
+          companyName: customer.company_name || customer.full_name || 'Customer',
+          licenseKey,
+          namespace: `customer-${customer.customer_id.substring(5, 13)}`,
+        }, {
+          attempts: 3,
+          backoff: {
+            type: 'exponential',
+            delay: 5000,
+          },
+        });
+
+        console.log(`✅ Deployment job queued for ${customer.customer_id}`);
+      } catch (error) {
+        console.error(`❌ Failed to queue deployment:`, error);
+        // Don't throw - subscription was created successfully, deployment can be retried
+      }
+    } else {
+      console.log(`ℹ️  Customer already has deployment (status: ${customer.deployment_status})`);
+    }
+  }
+
+  /**
    * Handle subscription updated
    */
   static async handleSubscriptionUpdated(
@@ -186,6 +351,7 @@ export class StripeService {
 
   /**
    * Handle subscription deleted/canceled
+   * Triggers customer deactivation and K8s cleanup
    */
   static async handleSubscriptionDeleted(
     subscription: Stripe.Subscription
@@ -196,8 +362,40 @@ export class StripeService {
       return;
     }
 
-    await SubscriptionModel.cancel(dbSubscription.customer_id);
-    console.log(`✅ Subscription canceled for customer ${dbSubscription.customer_id}`);
+    const customerId = dbSubscription.customer_id;
+
+    // Update subscription status to canceled
+    await SubscriptionModel.cancel(customerId);
+    console.log(`✅ Subscription canceled for customer ${customerId}`);
+
+    // Queue K8s namespace cleanup job
+    // Use dynamic import to avoid circular dependency
+    const { deploymentQueue } = await import('./deployment-queue');
+    
+    await deploymentQueue.add('delete-customer-stack', {
+      customerId,
+      namespace: `customer-${customerId.substring(5, 13)}`, // Extract sanitized ID
+      reason: 'subscription_deleted',
+    }, {
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 5000 },
+    });
+
+    console.log(`🗑️  K8s cleanup job queued for customer ${customerId}`);
+
+    // Update customer status (use direct query as these fields aren't in the update method)
+    const customer = await CustomerModel.getById(customerId);
+    if (customer) {
+      await pool.query(
+        `UPDATE customers 
+         SET is_active = false, 
+             deleted_at = NOW(),
+             updated_at = NOW()
+         WHERE customer_id = $1`,
+        [customerId]
+      );
+      console.log(`✅ Customer ${customerId} deactivated`);
+    }
   }
 
   /**

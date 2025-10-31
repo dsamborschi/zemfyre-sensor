@@ -65,3 +65,67 @@ router.get("/traffic-stats/devices/:uuid", async (req, res) => {
   });
 });
 
+/**
+ * Get MQTT traffic statistics (incoming messages per topic)
+ * GET /api/v1/traffic-stats/mqtt
+ * Query params:
+ *   - limit: Number of topics to return (default: 20)
+ *   - sortBy: Sort field - 'messageCount', 'bytesReceived', 'avgMessageSize' (default: 'bytesReceived')
+ */
+router.get("/traffic-stats/mqtt", async (req, res) => {
+  try {
+    const { query } = await import('../db/connection');
+    
+    const limit = req.query.limit ? parseInt(req.query.limit as string) : 20;
+    const sortBy = req.query.sortBy as string || 'bytes_received';
+    
+    // Validate sortBy parameter
+    const validSortFields = ['message_count', 'bytes_received', 'avg_message_size'];
+    const sortField = validSortFields.includes(sortBy) ? sortBy : 'bytes_received';
+    
+    // Aggregate MQTT topic metrics from the last 24 hours
+    const result = await query(`
+      SELECT 
+        topic,
+        SUM(message_count) as message_count,
+        SUM(bytes_received) as bytes_received,
+        AVG(avg_message_size)::INTEGER as avg_message_size,
+        MAX(timestamp) as last_activity
+      FROM mqtt_topic_metrics
+      WHERE timestamp > NOW() - INTERVAL '24 hours'
+      GROUP BY topic
+      ORDER BY ${sortField} DESC
+      LIMIT $1
+    `, [limit]);
+    
+    // Calculate totals
+    const totalMessages = result.rows.reduce((sum: number, row: any) => sum + parseInt(row.message_count || 0), 0);
+    const totalBytes = result.rows.reduce((sum: number, row: any) => sum + parseInt(row.bytes_received || 0), 0);
+    
+    res.json({
+      success: true,
+      timeWindow: '24h',
+      summary: {
+        totalTopics: result.rows.length,
+        totalMessages,
+        totalBytes,
+        avgMessageSize: totalMessages > 0 ? Math.round(totalBytes / totalMessages) : 0
+      },
+      topics: result.rows.map((row: any) => ({
+        topic: row.topic,
+        messageCount: parseInt(row.message_count || 0),
+        bytesReceived: parseInt(row.bytes_received || 0),
+        avgMessageSize: parseInt(row.avg_message_size || 0),
+        lastActivity: row.last_activity
+      }))
+    });
+  } catch (error: any) {
+    console.error('Error fetching MQTT traffic stats:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch MQTT traffic statistics',
+      message: error.message
+    });
+  }
+});
+

@@ -36,7 +36,8 @@ router.post('/stripe', async (req, res) => {
 
       case 'customer.subscription.created':
         console.log('✅ Subscription created');
-        await StripeService.handleSubscriptionUpdated(event.data.object);
+        // This handles BOTH: checkout-based AND Stripe Dashboard-created subscriptions
+        await StripeService.handleSubscriptionCreated(event.data.object);
         break;
 
       case 'customer.subscription.updated':

@@ -74,6 +74,8 @@ export class CloudLogBackend implements LogBackend {
 		// Add to buffer
 		this.buffer.push(logMessage);
 		
+		console.log(`📝 Buffered log (${this.buffer.length} in buffer): ${logMessage.serviceName} - ${logMessage.message.substring(0, 50)}...`);
+		
 		// Schedule flush if not already scheduled
 		if (!this.flushTimer) {
 			this.flushTimer = setTimeout(() => {
@@ -178,6 +180,8 @@ export class CloudLogBackend implements LogBackend {
 	private async sendLogs(logs: LogMessage[]): Promise<void> {
 		const endpoint = buildApiEndpoint(this.config.cloudEndpoint, `/device/${this.config.deviceUuid}/logs`);
 		
+		console.log(`📤 Sending ${logs.length} logs to cloud: ${endpoint}`);
+		
 		// Convert to NDJSON (newline-delimited JSON)
 		const ndjson = logs.map(log => JSON.stringify(log)).join('\n') + '\n';
 		
@@ -208,6 +212,7 @@ export class CloudLogBackend implements LogBackend {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 		}
 		
+		console.log(`✅ Successfully sent ${logs.length} logs to cloud (${response.status})`);
 	}
 	
 	private async compress(data: string): Promise<Buffer> {

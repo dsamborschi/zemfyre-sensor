@@ -66,7 +66,6 @@ export function trafficLogger(req: Request, res: Response, next: NextFunction) {
 
   res.on("finish", () => {
     const duration = performance.now() - start;
-    const size = parseInt(res.getHeader("Content-Length") as string) || 0;
     const endpoint = req.path;
     const method = req.method;
     const status = res.statusCode;
@@ -76,6 +75,20 @@ export function trafficLogger(req: Request, res: Response, next: NextFunction) {
     // Skip if we couldn't extract device UUID
     if (!deviceUuid) {
       return;
+    }
+
+    // For 304 Not Modified: use X-Content-Length if available (original resource size)
+    // Otherwise use Content-Length (actual bytes transmitted)
+    const is304 = status === 304;
+    let size: number;
+    
+    if (is304) {
+      // For 304: check X-Content-Length header (set by endpoints to track original size)
+      const xContentLength = res.getHeader("X-Content-Length") as string;
+      size = parseInt(xContentLength) || 0;
+    } else {
+      // For all other responses: use actual Content-Length
+      size = parseInt(res.getHeader("Content-Length") as string) || 0;
     }
 
     const key = `${deviceUuid}:${method}:${endpoint}`;
@@ -104,7 +117,8 @@ export function trafficLogger(req: Request, res: Response, next: NextFunction) {
 
     entry.statuses[status] = (entry.statuses[status] || 0) + 1;
 
-    if (status >= 200 && status < 300) entry.success++;
+    // 304 Not Modified is considered successful (cache hit)
+    if ((status >= 200 && status < 300) || is304) entry.success++;
     else entry.failed++;
 
     deviceTrafficStats.set(key, entry);

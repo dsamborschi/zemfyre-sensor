@@ -3,6 +3,7 @@ import { Device } from "./DeviceSidebar";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Package, Layers, Activity, AlertCircle } from "lucide-react";
+import { ContainerLogsCard } from "./ContainerLogsCard";
 
 interface ApplicationsPageProps {
   device: Device;
@@ -138,18 +139,28 @@ export function ApplicationsPage({
           })}
         </div>
 
-        {/* Applications Card */}
-        <ApplicationsCard
-          deviceId={device.id}
-          deviceUuid={device.deviceUuid}
-          deviceStatus={device.status}
-          applications={applications}
-          onAddApplication={onAddApplication}
-          onUpdateApplication={onUpdateApplication}
-          onRemoveApplication={onRemoveApplication}
-          onToggleStatus={onToggleAppStatus}
-          onToggleServiceStatus={onToggleServiceStatus}
-        />
+        {/* Applications and Logs Side by Side */}
+        
+        <div className="grid gap-6 lg:grid-cols-2">
+          {/* Applications Card */}
+          <ApplicationsCard
+            deviceId={device.id}
+            deviceUuid={device.deviceUuid}
+            deviceStatus={device.status}
+            applications={applications}
+            onAddApplication={onAddApplication}
+            onUpdateApplication={onUpdateApplication}
+            onRemoveApplication={onRemoveApplication}
+            onToggleStatus={onToggleAppStatus}
+            onToggleServiceStatus={onToggleServiceStatus}
+          />
+
+          {/* Container Logs Card */}
+          <ContainerLogsCard
+            deviceUuid={device.deviceUuid}
+            applications={applications}
+          />
+        </div>
       </div>
     </div>
   );

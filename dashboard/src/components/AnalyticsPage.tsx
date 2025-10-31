@@ -10,7 +10,7 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Smartphone, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { Smartphone, ArrowDownToLine, ArrowUpFromLine, Radio } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { buildApiUrl } from "@/config/api";
 
@@ -28,9 +28,37 @@ interface DeviceTrafficStats {
   statuses: Record<number, number>;
 }
 
-export function AnalyticsPage() {
+interface MqttTopicStats {
+  topic: string;
+  messageCount: number;
+  bytesReceived: number;
+  avgMessageSize: number;
+  lastActivity: string;
+}
+
+interface Device {
+  id: string;
+  deviceUuid: string;
+  name: string;
+  status: string;
+}
+
+interface AnalyticsPageProps {
+  device?: Device;
+}
+
+export function AnalyticsPage({ device }: AnalyticsPageProps) {
   const [deviceTraffic, setDeviceTraffic] = useState<DeviceTrafficStats[]>([]);
-  const [selectedDevice, setSelectedDevice] = useState<string>("all");
+  // Default to selected device's UUID if available, otherwise "all"
+  const [selectedDevice, setSelectedDevice] = useState<string>(device?.deviceUuid || "all");
+  const [mqttTopics, setMqttTopics] = useState<MqttTopicStats[]>([]);
+
+  // Update selectedDevice when the device prop changes
+  useEffect(() => {
+    if (device?.deviceUuid) {
+      setSelectedDevice(device.deviceUuid);
+    }
+  }, [device?.deviceUuid]);
 
   useEffect(() => {
     // Fetch device traffic stats
@@ -49,8 +77,31 @@ export function AnalyticsPage() {
       }
     };
 
+    // Fetch MQTT traffic stats
+    const fetchMqttTraffic = async () => {
+      try {
+        const response = await fetch(buildApiUrl('/api/v1/traffic-stats/mqtt?limit=20&sortBy=bytes_received'));
+        if (response.ok) {
+          const data = await response.json();
+          console.log('MQTT traffic data:', data);
+          if (data.success) {
+            setMqttTopics(data.topics || []);
+          }
+        } else {
+          console.error('Failed to fetch MQTT traffic:', response.status, await response.text());
+        }
+      } catch (error) {
+        console.error('Failed to fetch MQTT traffic:', error);
+      }
+    };
+
     fetchDeviceTraffic();
-    const interval = setInterval(fetchDeviceTraffic, 30000); // Refresh every 30s
+    fetchMqttTraffic();
+    
+    const interval = setInterval(() => {
+      fetchDeviceTraffic();
+      fetchMqttTraffic();
+    }, 30000); // Refresh every 30s
     
     return () => {
       clearInterval(interval);
@@ -64,6 +115,22 @@ export function AnalyticsPage() {
   const filteredDeviceTraffic = selectedDevice === "all" 
     ? deviceTraffic 
     : deviceTraffic.filter(t => t.deviceId === selectedDevice);
+
+  // Filter MQTT topics by device (if topic contains device ID)
+  const filteredMqttTopics = selectedDevice === "all"
+    ? mqttTopics
+    : mqttTopics.filter(t => t.topic.includes(selectedDevice));
+
+  // Always recalculate MQTT summary for filtered topics (even for "all")
+  const totalMessages = filteredMqttTopics.reduce((sum, t) => sum + t.messageCount, 0);
+  const totalBytes = filteredMqttTopics.reduce((sum, t) => sum + t.bytesReceived, 0);
+  
+  const filteredMqttSummary = {
+    totalTopics: filteredMqttTopics.length,
+    totalMessages,
+    totalBytes,
+    avgMessageSize: totalMessages > 0 ? Math.round(totalBytes / totalMessages) : 0
+  };
 
   // Calculate totals for inbound and outbound traffic
   const inboundTraffic = filteredDeviceTraffic.filter(t => t.method === 'GET');
@@ -133,16 +200,34 @@ export function AnalyticsPage() {
               Monitor device traffic patterns and endpoint usage
             </p>
           </div>
+          
+          {/* Device Filter */}
+          <div className="flex items-center gap-3 min-w-[280px]">
+            <Smartphone className="h-5 w-5 text-muted-foreground flex-shrink-0" />
+            <Select value={selectedDevice} onValueChange={setSelectedDevice}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Filter by device" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Devices</SelectItem>
+                {uniqueDevices.map((deviceId) => (
+                  <SelectItem key={deviceId} value={deviceId}>
+                    {deviceId.substring(0, 8)}...{deviceId.substring(deviceId.length - 4)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         {/* Traffic Summary Cards */}
-     
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+          {/* HTTP API Traffic */}
           <Card className="border-2 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Inbound Traffic</p>
+                  <p className="text-sm font-medium text-muted-foreground">HTTP Inbound</p>
                   <p className="text-3xl font-bold">{formatBytes(totalInbound)}</p>
                   <p className="text-xs text-muted-foreground">Avg: {formatBytes(avgInbound)}</p>
                 </div>
@@ -157,7 +242,7 @@ export function AnalyticsPage() {
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Outbound Traffic</p>
+                  <p className="text-sm font-medium text-muted-foreground">HTTP Outbound</p>
                   <p className="text-3xl font-bold">{formatBytes(totalOutbound)}</p>
                   <p className="text-xs text-muted-foreground">Avg: {formatBytes(avgOutbound)}</p>
                 </div>
@@ -167,35 +252,130 @@ export function AnalyticsPage() {
               </div>
             </CardContent>
           </Card>
+
+          {/* MQTT Traffic */}
+          <Card className="border-2 bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">MQTT Inbound</p>
+                  <p className="text-3xl font-bold">{formatBytes(filteredMqttSummary.totalBytes)}</p>
+                  <p className="text-xs text-muted-foreground">Avg: {formatBytes(filteredMqttSummary.avgMessageSize)}</p>
+                </div>
+                <div className="h-12 w-12 text-purple-600 dark:text-purple-400">
+                  <Radio className="h-full w-full" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card className="border-2 bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800">
+            <CardContent className="p-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-muted-foreground">MQTT Messages</p>
+                  <p className="text-3xl font-bold">{filteredMqttSummary.totalMessages.toLocaleString()}</p>
+                  <p className="text-xs text-muted-foreground">{filteredMqttSummary.totalTopics} topics</p>
+                </div>
+                <div className="h-12 w-12 text-orange-600 dark:text-orange-400">
+                  <Radio className="h-full w-full" />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
         </div>
+
+        {/* MQTT Topics Table */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>MQTT Topic Traffic</CardTitle>
+                <CardDescription>
+                  {filteredMqttTopics.length === 0 
+                    ? selectedDevice === "all" 
+                      ? 'No MQTT traffic tracked yet' 
+                      : 'No MQTT topics found for this device'
+                    : `Showing ${filteredMqttTopics.length} topics by incoming traffic (last 24 hours)`}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Radio className="h-5 w-5 text-purple-600" />
+                <span className="text-sm font-medium text-muted-foreground">MQTT</span>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {filteredMqttTopics.length === 0 ? (
+              <div className="text-center py-12 text-gray-500">
+                <Radio className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-lg font-medium mb-2">
+                  {selectedDevice === "all" ? 'No MQTT data yet' : 'No MQTT topics for this device'}
+                </p>
+                <p className="text-sm mb-2">
+                  {selectedDevice === "all" 
+                    ? 'MQTT topic traffic will appear here when messages are published'
+                    : 'This device has no MQTT topics containing its ID'}
+                </p>
+                <p className="text-xs text-gray-400">
+                  Data is collected from mqtt_topic_metrics table
+                </p>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Topic</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Messages</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Total Bytes</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Avg Size</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Last Activity</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredMqttTopics.map((topic) => (
+                      <tr 
+                        key={topic.topic}
+                        className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                      >
+                        <td className="py-3 px-4 font-mono text-sm text-gray-700 max-w-md" title={topic.topic}>
+                          {topic.topic}
+                        </td>
+                        <td className="py-3 px-4 text-right text-gray-700">
+                          {topic.messageCount.toLocaleString()}
+                        </td>
+                        <td className="py-3 px-4 text-right text-gray-700 font-medium">
+                          {formatBytes(topic.bytesReceived)}
+                        </td>
+                        <td className="py-3 px-4 text-right text-gray-600">
+                          {formatBytes(topic.avgMessageSize)}
+                        </td>
+                        <td className="py-3 px-4 text-right text-xs text-gray-500">
+                          {new Date(topic.lastActivity).toLocaleString()}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
         {/* Device Traffic Table */}
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <CardTitle>Device Traffic Details</CardTitle>
+                <CardTitle>HTTP Device Traffic Details</CardTitle>
                 <CardDescription>
                   {deviceTraffic.length === 0 
                     ? 'No device traffic tracked yet' 
-                    : `Showing ${filteredDeviceTraffic.length} endpoints`}
+                    : selectedDevice === "all"
+                      ? `Showing ${filteredDeviceTraffic.length} endpoints across all devices`
+                      : `Showing ${filteredDeviceTraffic.length} endpoints for selected device`}
                 </CardDescription>
-              </div>
-              <div className="flex items-center gap-3">
-                <Smartphone className="h-5 w-5 text-muted-foreground" />
-                <Select value={selectedDevice} onValueChange={setSelectedDevice}>
-                  <SelectTrigger className="w-[250px]">
-                    <SelectValue placeholder="Filter by device" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Devices</SelectItem>
-                    {uniqueDevices.map((deviceId) => (
-                      <SelectItem key={deviceId} value={deviceId}>
-                        {deviceId.substring(0, 8)}...{deviceId.substring(deviceId.length - 4)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
               </div>
             </div>
           </CardHeader>

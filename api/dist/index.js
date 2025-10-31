@@ -56,7 +56,9 @@ const events_1 = __importDefault(require("./routes/events"));
 const mqtt_broker_1 = __importDefault(require("./routes/mqtt-broker"));
 const sensors_1 = __importDefault(require("./routes/sensors"));
 const protocol_devices_1 = require("./routes/protocol-devices");
+const traffic_1 = require("./routes/traffic");
 const traffic_logger_1 = require("./middleware/traffic-logger");
+const traffic_flush_service_1 = require("./services/traffic-flush.service");
 const entities_1 = require("./routes/entities");
 const relationships_1 = require("./routes/relationships");
 const graph_1 = require("./routes/graph");
@@ -137,6 +139,7 @@ app.use(API_BASE, events_1.default);
 app.use(`${API_BASE}/mqtt`, mqtt_broker_1.default);
 app.use(API_BASE, sensors_1.default);
 app.use(API_BASE, protocol_devices_1.router);
+app.use(API_BASE, traffic_1.router);
 app.use(`${API_BASE}/entities`, (0, entities_1.createEntitiesRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/relationships`, (0, relationships_1.createRelationshipsRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/graph`, (0, graph_1.createGraphRouter)(connection_1.default.pool));
@@ -202,6 +205,13 @@ async function startServer() {
     }
     catch (error) {
         console.error('⚠️  Failed to start job scheduler:', error);
+    }
+    try {
+        (0, traffic_flush_service_1.startTrafficFlushService)();
+        console.log('✅ Traffic flush service started');
+    }
+    catch (error) {
+        console.error('⚠️  Failed to start traffic flush service:', error);
     }
     try {
         const { getMqttJobsSubscriber } = await Promise.resolve().then(() => __importStar(require('./services/mqtt-jobs-subscriber')));
@@ -327,6 +337,12 @@ async function startServer() {
         }
         catch (error) {
         }
+        try {
+            await (0, traffic_flush_service_1.stopTrafficFlushService)();
+            console.log('✅ Traffic flush service stopped');
+        }
+        catch (error) {
+        }
         server.close(() => {
             console.log('Server closed');
             process.exit(0);
@@ -379,6 +395,12 @@ async function startServer() {
             const subscriber = getMqttJobsSubscriber();
             await subscriber.stop();
             console.log('✅ MQTT Jobs Subscriber stopped');
+        }
+        catch (error) {
+        }
+        try {
+            await (0, traffic_flush_service_1.stopTrafficFlushService)();
+            console.log('✅ Traffic flush service stopped');
         }
         catch (error) {
         }

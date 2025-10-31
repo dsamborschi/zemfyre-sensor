@@ -80,22 +80,7 @@ router.get('/device/:uuid/state', deviceAuth, async (req, res) => {
     console.log(`   Apps in DB: ${JSON.stringify(Object.keys(targetState.apps || {}))}`);
     console.log(`   Needs Deployment: ${targetState.needs_deployment || false}`);
 
-    // Check if changes are pending deployment
-    // If needs_deployment is true, return 304 to prevent agent from syncing
-    if (targetState.needs_deployment) {
-      console.log('   ⏸️  Changes pending deployment - returning 304 to block sync');
-      return res.status(304).end();
-    }
-
-    // Check if client has current version
-    if (ifNoneMatch && ifNoneMatch === etag) {
-      console.log('   ✅ ETags match - returning 304 Not Modified');
-      return res.status(304).end();
-    }
-    
-    console.log('   🎯 ETags differ - sending new state');
-
-    // Return target state (including config, version, and deployment status)
+    // Prepare response payload (we'll use this for both 200 and 304 size tracking)
     const response = {
       [uuid]: {
         apps: typeof targetState.apps === 'string' 
@@ -110,6 +95,25 @@ router.get('/device/:uuid/state', deviceAuth, async (req, res) => {
       }
     };
 
+    // Calculate content size for traffic tracking (even for 304 responses)
+    const contentSize = Buffer.byteLength(JSON.stringify(response), 'utf8');
+
+    // Check if changes are pending deployment
+    // If needs_deployment is true, return 304 to prevent agent from syncing
+    if (targetState.needs_deployment) {
+      console.log('   ⏸️  Changes pending deployment - returning 304 to block sync');
+      return res.set('X-Content-Length', contentSize.toString()).status(304).end();
+    }
+
+    // Check if client has current version
+    if (ifNoneMatch && ifNoneMatch === etag) {
+      console.log('   ✅ ETags match - returning 304 Not Modified');
+      return res.set('X-Content-Length', contentSize.toString()).status(304).end();
+    }
+    
+    console.log('   🎯 ETags differ - sending new state');
+
+    // Return target state
     res.set('ETag', etag).json(response);
   } catch (error: any) {
     console.error('Error getting device state:', error);
@@ -130,19 +134,23 @@ router.post('/device/:uuid/logs', deviceAuth, async (req, res) => {
     const logs = req.body;
 
     console.log(`📥 Received logs from device ${uuid.substring(0, 8)}...`);
+    console.log(`   Type: ${typeof logs}, Is Array: ${Array.isArray(logs)}, Length: ${logs?.length}`);
+    console.log(`   First log:`, logs?.[0]);
 
     // Ensure device exists
     await DeviceModel.getOrCreate(uuid);
 
     // Store logs
-    if (Array.isArray(logs)) {
+    if (Array.isArray(logs) && logs.length > 0) {
       await DeviceLogsModel.store(uuid, logs);
-      console.log(`   Stored ${logs.length} log entries`);
+      console.log(`   ✅ Stored ${logs.length} log entries`);
+    } else {
+      console.log(`   ⚠️  No logs to store or invalid format`);
     }
 
-    res.json({ status: 'ok', received: logs.length || 0 });
+    res.json({ status: 'ok', received: Array.isArray(logs) ? logs.length : 0 });
   } catch (error: any) {
-    console.error('Error storing logs:', error);
+    console.error('❌ Error storing logs:', error);
     res.status(500).json({
       error: 'Failed to process logs',
       message: error.message
@@ -660,7 +668,7 @@ router.delete('/devices/:uuid/target-state', deviceAuth, async (req, res) => {
  * Get device logs
  * GET /api/v1/devices/:uuid/logs
  */
-router.get('/devices/:uuid/logs', deviceAuth, async (req, res) => {
+router.get('/devices/:uuid/logs', async (req, res) => {
   try {
     const { uuid } = req.params;
     const serviceName = req.query.service as string | undefined;

@@ -1141,7 +1141,7 @@ export default function App() {
             <UsagePage />
           )}
           {currentView === 'analytics' && (
-            <AnalyticsPage />
+            <AnalyticsPage device={selectedDevice} />
           )}
             </>
           )}
