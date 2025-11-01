@@ -14,11 +14,12 @@ import { Toaster } from "./components/ui/sonner";
 import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock, Package, TrendingUp, LineChart, Shield } from "lucide-react";
+import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock, Package, TrendingUp, LineChart, Shield, Settings } from "lucide-react";
 import { LoginPage } from "./components/LoginPage";
 import { buildApiUrl } from "./config/api";
 import { SensorHealthDashboard } from "./pages/SensorHealthDashboard";
 import { SensorsPage } from "./pages/SensorsPage";
+import HousekeeperPage from "./pages/HousekeeperPage";
 
 import { toast } from "sonner";
 import { Header } from "./components/Header";
@@ -55,7 +56,7 @@ export default function App() {
   >({});
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security'>('metrics');
+  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security' | 'settings'>('metrics');
   const [debugMode, setDebugMode] = useState(false);
   
   // Memoize selected device to prevent unnecessary re-renders
@@ -1102,6 +1103,14 @@ export default function App() {
               <Shield className="w-4 h-4 mr-2" />
               Security
             </Button>
+            <Button
+              variant={currentView === 'settings' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('settings')}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Settings
+            </Button>
           </div>
 
           {/* Conditional Content */}
@@ -1155,6 +1164,11 @@ export default function App() {
           {currentView === 'security' && (
             <div className="flex-1 bg-gray-50 overflow-auto p-6">
               <SecurityPage />
+            </div>
+          )}
+          {currentView === 'settings' && (
+            <div className="flex-1 bg-gray-50 overflow-auto p-6">
+              <HousekeeperPage />
             </div>
           )}
             </>

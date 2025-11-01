@@ -9,6 +9,7 @@
  */
 
 import { CronJob } from 'cron';
+import { pool } from '../db/connection';
 
 export interface HousekeeperTask {
   name: string;
@@ -44,7 +45,7 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
   /**
    * Run a single task
    */
-  async function runTask(task: RegisteredTask): Promise<void> {
+  async function runTask(task: RegisteredTask, triggeredBy: string = 'scheduler'): Promise<void> {
     // Prevent concurrent runs of same task
     if (runningTasks.has(task.name)) {
       console.warn(`Task '${task.name}' is already running, skipping`);
@@ -55,19 +56,69 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
     console.log(`🧹 Running housekeeper task: '${task.name}'`);
     
     const startTime = Date.now();
+    let runId: number | null = null;
+    let capturedOutput: string[] = [];
+    let capturedError: string | null = null;
+
+    // Capture console output
+    const originalLog = console.log;
+    const originalError = console.error;
+    console.log = (...args: any[]) => {
+      capturedOutput.push(args.map(a => String(a)).join(' '));
+      originalLog.apply(console, args);
+    };
+    console.error = (...args: any[]) => {
+      capturedOutput.push(`ERROR: ${args.map(a => String(a)).join(' ')}`);
+      originalError.apply(console, args);
+    };
 
     try {
+      // Create execution record
+      const result = await pool.query(
+        `INSERT INTO housekeeper_runs (task_name, started_at, status, triggered_by) 
+         VALUES ($1, NOW(), 'running', $2) 
+         RETURNING id`,
+        [task.name, triggeredBy]
+      );
+      runId = result.rows[0].id;
+
       await task.run();
       
       const duration = Date.now() - startTime;
+      
+      // Update execution record with success
+      if (runId) {
+        await pool.query(
+          `UPDATE housekeeper_runs 
+           SET completed_at = NOW(), status = 'success', duration_ms = $1, output = $2
+           WHERE id = $3`,
+          [duration, capturedOutput.join('\n'), runId]
+        );
+      }
+      
       console.log(`✅ Completed task '${task.name}' in ${duration}ms`);
     } catch (error: any) {
       const duration = Date.now() - startTime;
       const errorMessage = `Error running task '${task.name}' after ${duration}ms: ${error.message}`;
+      capturedError = `${error.message}\n${error.stack}`;
+      
+      // Update execution record with error
+      if (runId) {
+        await pool.query(
+          `UPDATE housekeeper_runs 
+           SET completed_at = NOW(), status = 'error', duration_ms = $1, output = $2, error = $3
+           WHERE id = $4`,
+          [duration, capturedOutput.join('\n'), capturedError, runId]
+        );
+      }
       
       console.error(`❌ ${errorMessage}`);
       console.error(error.stack);
     } finally {
+      // Restore console
+      console.log = originalLog;
+      console.error = originalError;
+      
       runningTasks.delete(task.name);
     }
   }
@@ -131,7 +182,62 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
       throw new Error(`Task '${name}' not found`);
     }
 
-    await runTask(task);
+    await runTask(task, 'manual');
+  }
+
+  /**
+   * Get all registered tasks
+   */
+  function getAllTasks() {
+    return Array.from(tasks.values()).map(task => ({
+      name: task.name,
+      schedule: task.schedule,
+      startup: task.startup,
+      isRunning: runningTasks.has(task.name)
+    }));
+  }
+
+  /**
+   * Get task by name
+   */
+  function getTask(name: string) {
+    const task = tasks.get(name);
+    if (!task) return null;
+    
+    return {
+      name: task.name,
+      schedule: task.schedule,
+      startup: task.startup,
+      isRunning: runningTasks.has(task.name)
+    };
+  }
+
+  /**
+   * Enable/disable a task
+   */
+  async function toggleTask(name: string, enabled: boolean): Promise<void> {
+    const task = tasks.get(name);
+    if (!task) {
+      throw new Error(`Task '${name}' not found`);
+    }
+
+    // Update database config
+    await pool.query(
+      `INSERT INTO housekeeper_config (task_name, enabled, schedule)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (task_name) 
+       DO UPDATE SET enabled = $2, last_modified_at = NOW()`,
+      [name, enabled, task.schedule]
+    );
+
+    // Stop or start the cron job
+    if (task.job) {
+      if (enabled) {
+        task.job.start();
+      } else {
+        task.job.stop();
+      }
+    }
   }
 
   /**
@@ -199,13 +305,13 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
     for (const task of tasks.values()) {
       if (task.startup === true) {
         // Run immediately on startup
-        runTask(task).catch(err => {
+        runTask(task, 'startup').catch(err => {
           console.error(`Startup task '${task.name}' failed:`, err);
         });
       } else if (typeof task.startup === 'number') {
         // Run after delay
         const timeout = setTimeout(
-          () => runTask(task).catch(err => {
+          () => runTask(task, 'startup').catch(err => {
             console.error(`Delayed startup task '${task.name}' failed:`, err);
           }),
           task.startup
@@ -261,7 +367,10 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
     unregisterTask,
     runTaskManually,
     getTaskStatus,
-    listTasks
+    listTasks,
+    getAllTasks,
+    getTask,
+    toggleTask
   };
 }
 

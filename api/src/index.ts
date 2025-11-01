@@ -26,6 +26,7 @@ import mqttBrokerRoutes from './routes/mqtt-broker';
 import sensorsRoutes from './routes/sensors';
 import { router as protocolDevicesRoutes } from './routes/protocol-devices';
 import { router as trafficRoutes } from './routes/traffic';
+import housekeeperRoutes, { setHousekeeperInstance } from './routes/housekeeper';
 import { trafficLogger} from "./middleware/traffic-logger";
 import { startTrafficFlushService, stopTrafficFlushService } from './services/traffic-flush-service';
 // Import entity/graph routes
@@ -58,11 +59,13 @@ const housekeeper = createHousekeeper();
 
 // Middleware
 app.use(cors({
-  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4002'],
+  origin: ['http://localhost:5173', 'http://localhost:3001', 'http://localhost:3000', 'http://localhost:4002'],
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-API-Key']
 }));
+
+app.options('*', cors());
 
 // Support compressed (gzip) request bodies
 app.use(express.json({ 
@@ -145,6 +148,7 @@ app.use(`${API_BASE}/mqtt`, mqttBrokerRoutes);
 app.use(API_BASE, sensorsRoutes);
 app.use(API_BASE, protocolDevicesRoutes);
 app.use(API_BASE, trafficRoutes);
+app.use(`${API_BASE}/housekeeper`, housekeeperRoutes);
 
 // Mount entity/graph routes
 app.use(`${API_BASE}/entities`, createEntitiesRouter(poolWrapper.pool));
@@ -249,6 +253,7 @@ async function startServer() {
   // Start housekeeper for maintenance tasks
   try {
     await housekeeper.initialize();
+    setHousekeeperInstance(housekeeper);
   } catch (error) {
     console.error('⚠️  Failed to start housekeeper:', error);
     // Don't exit - this is not critical for API operation
@@ -293,13 +298,13 @@ async function startServer() {
   }
 
   // Initialize shadow history retention scheduler
-  try {
-    startRetentionScheduler();
-    console.log('✅ Shadow history retention scheduler started');
-  } catch (error) {
-    console.error('⚠️  Failed to start retention scheduler:', error);
-    // Don't exit - this is not critical for API operation
-  }
+  // try {
+  //   startRetentionScheduler();
+  //   console.log('✅ Shadow history retention scheduler started');
+  // } catch (error) {
+  //   console.error('⚠️  Failed to start retention scheduler:', error);
+  //   // Don't exit - this is not critical for API operation
+  // }
 
   // Initialize MQTT Monitor Service
   let mqttDbService: MQTTDatabaseService | null = null;
