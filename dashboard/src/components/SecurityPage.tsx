@@ -1,10 +1,10 @@
 /**
- * Security Page - MQTT Users & ACLs Management
+ * Security Page - Security Management
  * 
  * Provides interface to:
- * - View all MQTT users
- * - Create/edit/delete MQTT users
- * - Manage ACL rules per user (topic-level access control)
+ * - Manage MQTT users and ACLs
+ * - Manage regular users and roles
+ * - Manage API keys
  */
 
 import { useEffect, useState } from "react";
@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { 
   Dialog, 
   DialogContent, 
@@ -42,7 +43,11 @@ import {
   Lock,
   Unlock,
   Key,
-  AlertTriangle
+  AlertTriangle,
+  Users,
+  Copy,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { buildApiUrl } from "@/config/api";
 import { toast } from "sonner";
@@ -65,10 +70,40 @@ interface MqttUser {
   acls: MqttAcl[];
 }
 
+interface RegularUser {
+  id: number;
+  username: string;
+  email: string;
+  role: string;
+  is_active: boolean;
+  created_at: string;
+  last_login_at: string | null;
+}
+
+interface ApiKey {
+  id: number;
+  name: string;
+  key_prefix: string;
+  key: string;
+  created_at: string;
+  expires_at: string | null;
+  last_used_at: string | null;
+  is_active: boolean;
+}
+
 export function SecurityPage() {
-  const { toast } = useToast();
-  const [users, setUsers] = useState<MqttUser[]>([]);
-  const [loading, setLoading] = useState(true);
+  // MQTT Users state
+  const [mqttUsers, setMqttUsers] = useState<MqttUser[]>([]);
+  const [loadingMqtt, setLoadingMqtt] = useState(true);
+  
+  // Regular Users state
+  const [regularUsers, setRegularUsers] = useState<RegularUser[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(true);
+  
+  // API Keys state
+  const [apiKeys, setApiKeys] = useState<ApiKey[]>([]);
+  const [loadingApiKeys, setLoadingApiKeys] = useState(true);
+  const [showApiKey, setShowApiKey] = useState<{[key: number]: boolean}>({});
   
   // User dialog state
   const [userDialogOpen, setUserDialogOpen] = useState(false);
@@ -95,10 +130,12 @@ export function SecurityPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ type: 'user' | 'acl', id: number } | null>(null);
 
   useEffect(() => {
-    fetchUsers();
+    fetchMqttUsers();
+    fetchRegularUsers();
+    fetchApiKeys();
   }, []);
 
-  const fetchUsers = async () => {
+  const fetchMqttUsers = async () => {
     try {
       const response = await fetch(buildApiUrl('/api/v1/auth/mqtt-users'), {
         credentials: 'include'
@@ -106,24 +143,38 @@ export function SecurityPage() {
       
       if (response.ok) {
         const data = await response.json();
-        setUsers(data.users || []);
+        setMqttUsers(data.users || []);
       } else {
         console.error('Failed to fetch MQTT users:', response.status);
-        toast({
-          title: "Error",
-          description: "Failed to fetch MQTT users",
-          variant: "destructive"
-        });
+        toast.error("Failed to fetch MQTT users");
       }
     } catch (error) {
       console.error('Failed to fetch MQTT users:', error);
-      toast({
-        title: "Error",
-        description: "Network error while fetching users",
-        variant: "destructive"
-      });
+      toast.error("Network error while fetching users");
     } finally {
-      setLoading(false);
+      setLoadingMqtt(false);
+    }
+  };
+
+  const fetchRegularUsers = async () => {
+    try {
+      // Placeholder - implement when backend endpoint exists
+      setRegularUsers([]);
+    } catch (error) {
+      console.error('Failed to fetch users:', error);
+    } finally {
+      setLoadingUsers(false);
+    }
+  };
+
+  const fetchApiKeys = async () => {
+    try {
+      // Placeholder - implement when backend endpoint exists
+      setApiKeys([]);
+    } catch (error) {
+      console.error('Failed to fetch API keys:', error);
+    } finally {
+      setLoadingApiKeys(false);
     }
   };
 
@@ -178,27 +229,16 @@ export function SecurityPage() {
       });
       
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: `MQTT user ${editingUser ? 'updated' : 'created'} successfully`
-        });
+        toast.success(`MQTT user ${editingUser ? 'updated' : 'created'} successfully`);
         setUserDialogOpen(false);
-        fetchUsers();
+        fetchMqttUsers();
       } else {
         const data = await response.json();
-        toast({
-          title: "Error",
-          description: data.message || `Failed to ${editingUser ? 'update' : 'create'} user`,
-          variant: "destructive"
-        });
+        toast.error(data.message || `Failed to ${editingUser ? 'update' : 'create'} user`);
       }
     } catch (error) {
       console.error('Save user error:', error);
-      toast({
-        title: "Error",
-        description: "Network error while saving user",
-        variant: "destructive"
-      });
+      toast.error("Network error while saving user");
     }
   };
 
@@ -215,25 +255,14 @@ export function SecurityPage() {
       );
       
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "MQTT user deleted successfully"
-        });
-        fetchUsers();
+        toast.success("MQTT user deleted successfully");
+        fetchMqttUsers();
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to delete user",
-          variant: "destructive"
-        });
+        toast.error("Failed to delete user");
       }
     } catch (error) {
       console.error('Delete user error:', error);
-      toast({
-        title: "Error",
-        description: "Network error while deleting user",
-        variant: "destructive"
-      });
+      toast.error("Network error while deleting user");
     } finally {
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
@@ -280,27 +309,16 @@ export function SecurityPage() {
       });
       
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: `ACL rule ${editingAcl ? 'updated' : 'created'} successfully`
-        });
+        toast.success(`ACL rule ${editingAcl ? 'updated' : 'created'} successfully`);
         setAclDialogOpen(false);
-        fetchUsers();
+        fetchMqttUsers();
       } else {
         const data = await response.json();
-        toast({
-          title: "Error",
-          description: data.message || `Failed to ${editingAcl ? 'update' : 'create'} ACL rule`,
-          variant: "destructive"
-        });
+        toast.error(data.message || `Failed to ${editingAcl ? 'update' : 'create'} ACL rule`);
       }
     } catch (error) {
       console.error('Save ACL error:', error);
-      toast({
-        title: "Error",
-        description: "Network error while saving ACL rule",
-        variant: "destructive"
-      });
+      toast.error("Network error while saving ACL rule");
     }
   };
 
@@ -317,25 +335,14 @@ export function SecurityPage() {
       );
       
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "ACL rule deleted successfully"
-        });
-        fetchUsers();
+        toast.success("ACL rule deleted successfully");
+        fetchMqttUsers();
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to delete ACL rule",
-          variant: "destructive"
-        });
+        toast.error("Failed to delete ACL rule");
       }
     } catch (error) {
       console.error('Delete ACL error:', error);
-      toast({
-        title: "Error",
-        description: "Network error while deleting ACL rule",
-        variant: "destructive"
-      });
+      toast.error("Network error while deleting ACL rule");
     } finally {
       setDeleteDialogOpen(false);
       setDeleteTarget(null);
@@ -360,35 +367,50 @@ export function SecurityPage() {
     }
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <p className="text-gray-500">Loading MQTT users...</p>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Shield className="w-6 h-6" />
-            Security & Access Control
-          </h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Manage MQTT users and their topic-level access permissions
-          </p>
-        </div>
-        <Button onClick={handleAddUser}>
-          <UserPlus className="w-4 h-4 mr-2" />
-          Add MQTT User
-        </Button>
+      <div>
+        <h2 className="text-2xl font-bold flex items-center gap-2">
+          <Shield className="w-6 h-6" />
+          Security & Access Control
+        </h2>
+        <p className="text-sm text-gray-600 mt-1">
+          Manage MQTT users, regular users, and API keys
+        </p>
       </div>
 
-      {/* Users List */}
-      {users.length === 0 ? (
+      {/* Tabs */}
+      <Tabs defaultValue="mqtt" className="space-y-6">
+        <TabsList>
+          <TabsTrigger value="mqtt">
+            <Key className="w-4 h-4 mr-2" />
+            MQTT Users
+          </TabsTrigger>
+          <TabsTrigger value="users">
+            <Users className="w-4 h-4 mr-2" />
+            Users & Roles
+          </TabsTrigger>
+          <TabsTrigger value="api-keys">
+            <Shield className="w-4 h-4 mr-2" />
+            API Keys
+          </TabsTrigger>
+        </TabsList>
+
+        {/* MQTT Users Tab */}
+        <TabsContent value="mqtt" className="space-y-4">
+          <div className="flex justify-end">
+            <Button onClick={handleAddUser}>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add MQTT User
+            </Button>
+          </div>
+
+          {loadingMqtt ? (
+            <div className="flex items-center justify-center h-64">
+              <p className="text-gray-500">Loading MQTT users...</p>
+            </div>
+          ) : mqttUsers.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Shield className="w-12 h-12 mx-auto text-gray-400 mb-4" />
@@ -400,8 +422,8 @@ export function SecurityPage() {
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-4">
-          {users.map((user) => (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {mqttUsers.map((user) => (
             <Card key={user.id}>
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -531,8 +553,183 @@ export function SecurityPage() {
           ))}
         </div>
       )}
+        </TabsContent>
 
-      {/* User Dialog */}
+        {/* Users & Roles Tab */}
+        <TabsContent value="users" className="space-y-4">
+          <div className="flex justify-end">
+            <Button>
+              <UserPlus className="w-4 h-4 mr-2" />
+              Add User
+            </Button>
+          </div>
+
+          {loadingUsers ? (
+            <div className="flex items-center justify-center h-64">
+              <p className="text-gray-500">Loading users...</p>
+            </div>
+          ) : regularUsers.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Users className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                <p className="text-gray-600 mb-4">No users configured</p>
+                <Button>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Your First User
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {regularUsers.map((user) => (
+                <Card key={user.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${user.is_active ? 'bg-green-100' : 'bg-gray-100'}`}>
+                          <Users className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">{user.username}</CardTitle>
+                          <CardDescription>{user.email}</CardDescription>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Role:</span>
+                        <Badge>{user.role}</Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Status:</span>
+                        <Badge variant={user.is_active ? "default" : "secondary"}>
+                          {user.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Last Login:</span>
+                        <span>{user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Created:</span>
+                        <span>{new Date(user.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* API Keys Tab */}
+        <TabsContent value="api-keys" className="space-y-4">
+          <div className="flex justify-end">
+            <Button>
+              <Plus className="w-4 h-4 mr-2" />
+              Generate API Key
+            </Button>
+          </div>
+
+          {loadingApiKeys ? (
+            <div className="flex items-center justify-center h-64">
+              <p className="text-gray-500">Loading API keys...</p>
+            </div>
+          ) : apiKeys.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Key className="w-12 h-12 mx-auto text-gray-400 mb-4" />
+                <p className="text-gray-600 mb-4">No API keys configured</p>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Generate Your First API Key
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {apiKeys.map((key) => (
+                <Card key={key.id}>
+                  <CardHeader>
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-lg ${key.is_active ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                          <Key className="w-5 h-5 text-blue-600" />
+                        </div>
+                        <div>
+                          <CardTitle className="text-lg">{key.name}</CardTitle>
+                          <CardDescription>{key.key_prefix}...</CardDescription>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setShowApiKey(prev => ({ ...prev, [key.id]: !prev[key.id] }))}
+                        >
+                          {showApiKey[key.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            navigator.clipboard.writeText(key.key);
+                            toast.success("API key copied to clipboard");
+                          }}
+                        >
+                          <Copy className="w-4 h-4" />
+                        </Button>
+                        <Button variant="outline" size="sm">
+                          <Trash2 className="w-4 h-4 text-red-600" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    {showApiKey[key.id] && (
+                      <div className="mb-4 p-2 bg-gray-50 rounded font-mono text-xs break-all">
+                        {key.key}
+                      </div>
+                    )}
+                    <div className="space-y-2 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Status:</span>
+                        <Badge variant={key.is_active ? "default" : "secondary"}>
+                          {key.is_active ? 'Active' : 'Inactive'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Last Used:</span>
+                        <span>{key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Never'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Expires:</span>
+                        <span>{key.expires_at ? new Date(key.expires_at).toLocaleDateString() : 'Never'}</span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-600">Created:</span>
+                        <span>{new Date(key.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+      </Tabs>
+
+      {/* MQTT User Dialog */}
       <Dialog open={userDialogOpen} onOpenChange={setUserDialogOpen}>
         <DialogContent>
           <DialogHeader>

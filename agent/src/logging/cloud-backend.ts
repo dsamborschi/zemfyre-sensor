@@ -180,7 +180,7 @@ export class CloudLogBackend implements LogBackend {
 	private async sendLogs(logs: LogMessage[]): Promise<void> {
 		const endpoint = buildApiEndpoint(this.config.cloudEndpoint, `/device/${this.config.deviceUuid}/logs`);
 		
-		console.log(`📤 Sending ${logs.length} logs to cloud: ${endpoint}`);
+		console.log(`🚀 Sending ${logs.length} logs to cloud: ${endpoint}`);
 		
 		// Convert to NDJSON (newline-delimited JSON)
 		const ndjson = logs.map(log => JSON.stringify(log)).join('\n') + '\n';
@@ -209,6 +209,9 @@ export class CloudLogBackend implements LogBackend {
 		});
 		
 		if (!response.ok) {
+			const responseText = await response.text();
+			console.error(`❌ HTTP ${response.status}: ${response.statusText}`);
+			console.error(`   Response: ${responseText.substring(0, 200)}`);
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 		}
 		

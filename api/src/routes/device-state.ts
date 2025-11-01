@@ -127,22 +127,65 @@ router.get('/device/:uuid/state', deviceAuth, async (req, res) => {
 /**
  * Device uploads logs
  * POST /api/v1/device/:uuid/logs
+ * 
+ * Accepts both JSON array and NDJSON (newline-delimited JSON) formats
  */
-router.post('/device/:uuid/logs', deviceAuth, async (req, res) => {
+router.post('/device/:uuid/logs', deviceAuth, express.text({ type: 'application/x-ndjson' }), async (req, res) => {
+  console.log(`🔵 POST /device/:uuid/logs endpoint hit! UUID: ${req.params.uuid}`);
   try {
     const { uuid } = req.params;
-    const logs = req.body;
+    let logs: any[];
 
-    console.log(`📥 Received logs from device ${uuid.substring(0, 8)}...`);
+    // Check Content-Type to determine format
+    const contentType = req.headers['content-type'] || '';
+    
+    if (contentType.includes('application/x-ndjson') || contentType.includes('text/plain')) {
+      // Parse NDJSON format (newline-delimited JSON)
+      const ndjsonText = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
+      logs = ndjsonText
+        .split('\n')
+        .filter(line => line.trim().length > 0)
+        .map(line => {
+          try {
+            return JSON.parse(line);
+          } catch (e) {
+            console.warn(`⚠️  Failed to parse NDJSON line: ${line.substring(0, 100)}`);
+            return null;
+          }
+        })
+        .filter(log => log !== null);
+      
+      console.log(`📥 Received logs from device ${uuid.substring(0, 8)}... (NDJSON format)`);
+      console.log(`   Parsed ${logs.length} log entries from NDJSON`);
+    } else {
+      // Standard JSON array format
+      logs = req.body;
+      console.log(`📥 Received logs from device ${uuid.substring(0, 8)}... (JSON array format)`);
+    }
+
     console.log(`   Type: ${typeof logs}, Is Array: ${Array.isArray(logs)}, Length: ${logs?.length}`);
-    console.log(`   First log:`, logs?.[0]);
+    if (logs && logs.length > 0) {
+      console.log(`   First log:`, JSON.stringify(logs[0], null, 2));
+      console.log(`   First log keys:`, Object.keys(logs[0]));
+    }
 
     // Ensure device exists
     await DeviceModel.getOrCreate(uuid);
 
     // Store logs
     if (Array.isArray(logs) && logs.length > 0) {
-      await DeviceLogsModel.store(uuid, logs);
+      console.log(`   📝 About to store ${logs.length} logs...`);
+      
+      // Transform agent log format to API format
+      const transformedLogs = logs.map((log: any) => ({
+        serviceName: log.serviceName || log.source?.name || null,
+        timestamp: log.timestamp ? new Date(log.timestamp) : new Date(),
+        message: log.message,
+        isSystem: log.isSystem || false,
+        isStderr: log.isStderr || log.isStdErr || false // Handle both field names
+      }));
+      
+      await DeviceLogsModel.store(uuid, transformedLogs);
       console.log(`   ✅ Stored ${logs.length} log entries`);
     } else {
       console.log(`   ⚠️  No logs to store or invalid format`);

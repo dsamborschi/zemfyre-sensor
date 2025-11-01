@@ -8,12 +8,13 @@ import { ApplicationsPage } from "./components/ApplicationsPage";
 import { TimelinePage } from "./components/TimelinePage";
 import { UsagePage } from "./components/UsagePage";
 import { AnalyticsPage } from "./components/AnalyticsPage";
+import { SecurityPage } from "./components/SecurityPage";
 import { Application } from "./components/ApplicationsCard";
 import { Toaster } from "./components/ui/sonner";
 import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock, Package, TrendingUp, LineChart } from "lucide-react";
+import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock, Package, TrendingUp, LineChart, Shield } from "lucide-react";
 import { LoginPage } from "./components/LoginPage";
 import { buildApiUrl } from "./config/api";
 import { SensorHealthDashboard } from "./pages/SensorHealthDashboard";
@@ -54,7 +55,7 @@ export default function App() {
   >({});
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics'>('metrics');
+  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security'>('metrics');
   const [debugMode, setDebugMode] = useState(false);
   
   // Memoize selected device to prevent unnecessary re-renders
@@ -1091,7 +1092,15 @@ export default function App() {
               onClick={() => setCurrentView('analytics')}
             >
               <LineChart className="w-4 h-4 mr-2" />
-              Analytics
+              Traffic Monitor
+            </Button>
+            <Button
+              variant={currentView === 'security' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('security')}
+            >
+              <Shield className="w-4 h-4 mr-2" />
+              Security
             </Button>
           </div>
 
@@ -1142,6 +1151,11 @@ export default function App() {
           )}
           {currentView === 'analytics' && (
             <AnalyticsPage device={selectedDevice} />
+          )}
+          {currentView === 'security' && (
+            <div className="flex-1 bg-gray-50 overflow-auto p-6">
+              <SecurityPage />
+            </div>
           )}
             </>
           )}

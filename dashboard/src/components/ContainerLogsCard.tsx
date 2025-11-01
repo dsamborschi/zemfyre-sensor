@@ -260,17 +260,18 @@ export function ContainerLogsCard({ deviceUuid, applications }: ContainerLogsCar
             <div 
               key={log.id || index}
               className="mb-1 hover:bg-gray-800 px-2 py-0.5 rounded"
+              style={{ color: '#fff' }}
             >
-              <span className="text-gray-500 select-none">
+              <span className="select-none" style={{ color: '#9ca3af' }}>
                 [{formatTimestamp(log.timestamp)}]
               </span>
               {log.is_stderr && (
-                <span className="text-red-400 ml-2 font-semibold">ERROR</span>
+                <span className="ml-2 font-semibold" style={{ color: '#f87171' }}>ERROR</span>
               )}
               {log.is_system && (
-                <span className="text-blue-400 ml-2 font-semibold">SYSTEM</span>
+                <span className="ml-2 font-semibold" style={{ color: '#60a5fa' }}>SYSTEM</span>
               )}
-              <span className={`ml-2 ${log.is_stderr ? 'text-red-300' : 'text-green-300'}`}>
+              <span className="ml-2" style={{ color: log.is_stderr ? '#fca5a5' : '#86efac' }}>
                 {log.message}
               </span>
             </div>

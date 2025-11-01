@@ -7,6 +7,7 @@ import cors from 'cors';
 
 // Import route modules
 import authRoutes from './routes/auth';
+import usersRoutes from './routes/users';
 import deviceStateRoutes from './routes/device-state';
 import provisioningRoutes from './routes/provisioning';
 import devicesRoutes from './routes/devices';
@@ -54,7 +55,12 @@ const app = express();
 const PORT = process.env.PORT || 3002;
 
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4002'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-API-Key']
+}));
 
 // Support compressed (gzip) request bodies
 app.use(express.json({ 
@@ -116,6 +122,7 @@ setupApiDocs(app, API_BASE);
 
 // Mount route modules - All routes now use centralized versioning via API_BASE
 app.use(`${API_BASE}/auth`, authRoutes);
+app.use(`${API_BASE}/users`, usersRoutes);
 app.use(API_BASE, licenseRoutes);
 app.use(`${API_BASE}/billing`, billingRoutes);
 app.use(API_BASE, provisioningRoutes);
