@@ -23,7 +23,6 @@ interface RegisteredTask extends HousekeeperTask {
 
 export interface HousekeeperConfig {
   enabled?: boolean;
-  sentryEnabled?: boolean;
   timezone?: string;
 }
 
@@ -37,82 +36,10 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
 
   const {
     enabled = true,
-    sentryEnabled = false,
     timezone = 'Etc/UTC'
   } = config;
 
-  /**
-   * Report task start to monitoring (Sentry, etc.)
-   */
-  function reportTaskStart(name: string, schedule?: string): string | undefined {
-    if (!sentryEnabled) return undefined;
 
-    try {
-      // Sentry integration if available
-      const { captureCheckIn } = require('@sentry/node');
-      return captureCheckIn({
-        monitorSlug: name,
-        status: 'in_progress'
-      }, {
-        schedule: schedule ? {
-          type: 'crontab',
-          value: schedule
-        } : undefined,
-        checkinMargin: 5,
-        maxRuntime: 5,
-        timezone
-      });
-    } catch (error) {
-      console.warn('Failed to report task start to monitoring:', error);
-      return undefined;
-    }
-  }
-
-  /**
-   * Report task completion
-   */
-  function reportTaskComplete(checkInId: string | undefined, name: string): void {
-    if (!sentryEnabled || !checkInId) return;
-
-    try {
-      const { captureCheckIn } = require('@sentry/node');
-      captureCheckIn({
-        checkInId,
-        monitorSlug: name,
-        status: 'ok'
-      });
-    } catch (error) {
-      console.warn('Failed to report task completion:', error);
-    }
-  }
-
-  /**
-   * Report task failure
-   */
-  function reportTaskFailure(
-    checkInId: string | undefined,
-    name: string,
-    errorMessage: string
-  ): void {
-    if (!sentryEnabled) return;
-
-    try {
-      const { captureCheckIn, captureException } = require('@sentry/node');
-      
-      if (checkInId) {
-        captureCheckIn({
-          checkInId,
-          monitorSlug: name,
-          status: 'error',
-          errorMessage
-        });
-      }
-
-      captureException(new Error(errorMessage));
-    } catch (error) {
-      console.warn('Failed to report task failure:', error);
-    }
-  }
 
   /**
    * Run a single task
@@ -128,23 +55,18 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
     console.log(`🧹 Running housekeeper task: '${task.name}'`);
     
     const startTime = Date.now();
-    const checkInId = reportTaskStart(task.name, task.schedule);
 
     try {
       await task.run();
       
       const duration = Date.now() - startTime;
       console.log(`✅ Completed task '${task.name}' in ${duration}ms`);
-      
-      reportTaskComplete(checkInId, task.name);
     } catch (error: any) {
       const duration = Date.now() - startTime;
       const errorMessage = `Error running task '${task.name}' after ${duration}ms: ${error.message}`;
       
       console.error(`❌ ${errorMessage}`);
       console.error(error.stack);
-      
-      reportTaskFailure(checkInId, task.name, errorMessage);
     } finally {
       runningTasks.delete(task.name);
     }
@@ -258,9 +180,10 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
 
     // Register built-in tasks
     const tasksToRegister = [
-      await import('./tasks/cleanup-expired-tokens'),
       await import('./tasks/cleanup-old-logs'),
       await import('./tasks/database-vacuum'),
+      await import('./tasks/device-logs-retention'),
+      await import('./tasks/device-logs-partition-maintenance'),
       // Add more tasks here
     ];
 

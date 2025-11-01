@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, CheckCircle2, XCircle, Clock, Play, Pause, MoreVertical, Pen, RefreshCw, Trash2 } from "lucide-react";
+import { Plus, CheckCircle2, XCircle, Clock, Play, Pause, MoreVertical, Pen,  Trash2 } from "lucide-react";
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
@@ -36,30 +36,7 @@ import { toast } from "sonner";
 import { buildApiUrl } from "@/config/api";
 import { Device } from "./DeviceSidebar";
 import { canPerformDeviceActions, getDisabledActionMessage } from "@/utils/devicePermissions";
-
-// Popular Docker images sorted alphabetically
-const popularDockerImages = [
-  { value: "nginx:latest", label: "nginx:latest - Web server" },
-  { value: "nginx:alpine", label: "nginx:alpine - Lightweight web server" },
-  { value: "postgres:16", label: "postgres:16 - PostgreSQL database" },
-  { value: "postgres:14", label: "postgres:14 - PostgreSQL 14" },
-  { value: "mysql:8", label: "mysql:8 - MySQL database" },
-  { value: "redis:latest", label: "redis:latest - Redis cache" },
-  { value: "redis:alpine", label: "redis:alpine - Lightweight Redis" },
-  { value: "mongo:7", label: "mongo:7 - MongoDB database" },
-  { value: "mongo:6", label: "mongo:6 - MongoDB 6" },
-  { value: "node:20", label: "node:20 - Node.js runtime" },
-  { value: "node:18-alpine", label: "node:18-alpine - Lightweight Node.js" },
-  { value: "python:3.12", label: "python:3.12 - Python runtime" },
-  { value: "python:3.11-slim", label: "python:3.11-slim - Lightweight Python" },
-  { value: "traefik:latest", label: "traefik:latest - Reverse proxy" },
-  { value: "caddy:latest", label: "caddy:latest - Web server with HTTPS" },
-  { value: "rabbitmq:3-management", label: "rabbitmq:3-management - Message broker" },
-  { value: "elasticsearch:8.11.0", label: "elasticsearch:8.11.0 - Search engine" },
-  { value: "grafana/grafana:latest", label: "grafana/grafana:latest - Analytics" },
-  { value: "prom/prometheus:latest", label: "prom/prometheus:latest - Monitoring" },
-  { value: "jenkins/jenkins:lts", label: "jenkins/jenkins:lts - CI/CD" },
-];
+import { useEffect } from "react";
 
 export interface Service {
   serviceId: number;
@@ -113,12 +90,6 @@ const statusColors = {
   pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
 };
 
-const syncStatusColors = {
-  synced: "bg-green-100 text-green-700 border-green-200",
-  syncing: "bg-blue-100 text-blue-700 border-blue-200",
-  error: "bg-red-100 text-red-700 border-red-200",
-  pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
-};
 
 const syncStatusIcons = {
   synced: CheckCircle2,
@@ -164,6 +135,58 @@ export function ApplicationsCard({
     volumes: "",
     labels: "",
   });
+
+  // State for available Docker images from database
+  const [availableImages, setAvailableImages] = useState<Array<{ value: string; label: string }>>([]);
+  const [loadingImages, setLoadingImages] = useState(true);
+
+  // Fetch available images from API on component mount
+  useEffect(() => {
+    const fetchImages = async () => {
+      try {
+        const response = await fetch(buildApiUrl('/api/v1/images?status=approved'));
+        if (response.ok) {
+          const data = await response.json();
+          
+          // Transform API response to dropdown format
+          const imageOptions: Array<{ value: string; label: string }> = [];
+          
+          for (const image of data.images) {
+            // Fetch tags for each image
+            const tagsResponse = await fetch(buildApiUrl(`/api/v1/images/${image.id}`));
+            if (tagsResponse.ok) {
+              const imageData = await tagsResponse.json();
+              const tags = imageData.tags || [];
+              
+              // Create option for each tag
+              tags.forEach((tag: any) => {
+                const fullImageName = image.namespace 
+                  ? `${image.namespace}/${image.image_name}:${tag.tag}`
+                  : `${image.image_name}:${tag.tag}`;
+                
+                const label = `${fullImageName}${image.description ? ' - ' + image.description : ''}`;
+                imageOptions.push({ value: fullImageName, label });
+              });
+            }
+          }
+          
+          // Sort alphabetically
+          imageOptions.sort((a, b) => a.value.localeCompare(b.value));
+          setAvailableImages(imageOptions);
+        } else {
+          console.error('Failed to fetch images:', response.status);
+          toast.error('Failed to load available images');
+        }
+      } catch (error) {
+        console.error('Error fetching images:', error);
+        toast.error('Error loading images');
+      } finally {
+        setLoadingImages(false);
+      }
+    };
+
+    fetchImages();
+  }, []);
 
   const handleAddApplication = async () => {
     if (!newApp.appName) {
@@ -347,46 +370,6 @@ export function ApplicationsCard({
     }
   };
 
-  const handleSyncApplication = async (app: Application) => {
-    try {
-      // Update app to syncing status
-      const updatedApp = { ...app, syncStatus: "syncing" as const };
-      onUpdateApplication(updatedApp);
-      toast.loading(`Deploying ${app.appName || app.name}...`, { id: `deploy-${app.appId}` });
-
-      // Call API to deploy this specific app
-      const response = await fetch(
-        buildApiUrl(`/api/v1/devices/${deviceUuid}/apps/${app.appId}/deploy`),
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            deployedBy: 'dashboard'
-          })
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to deploy application');
-      }
-
-      const result = await response.json();
-      
-      // Update to synced status
-      const syncedApp = { ...app, syncStatus: "synced" as const };
-      onUpdateApplication(syncedApp);
-      toast.success(`${app.appName || app.name} deployed successfully! (v${result.version})`, { id: `deploy-${app.appId}` });
-
-    } catch (error: any) {
-      console.error('Error deploying app:', error);
-      const errorApp = { ...app, syncStatus: "error" as const };
-      onUpdateApplication(errorApp);
-      toast.error(`Failed to deploy ${app.appName || app.name}: ${error.message}`, { id: `deploy-${app.appId}` });
-    }
-  };
 
   const handleDeleteService = () => {
     if (!selectedAppForService || !editingService) {
@@ -692,16 +675,27 @@ export function ApplicationsCard({
                   <Select
                     value={newService.imageName}
                     onValueChange={(value) => setNewService({ ...newService, imageName: value })}
+                    disabled={loadingImages}
                   >
-                    <SelectTrigger id="app-image">
-                      <SelectValue placeholder="Select a Docker image" />
+                    <SelectTrigger>
+                      <SelectValue placeholder={loadingImages ? "Loading images..." : "Select a Docker image"} />
                     </SelectTrigger>
                     <SelectContent>
-                      {popularDockerImages.map((img) => (
-                        <SelectItem key={img.value} value={img.value}>
-                          {img.label}
-                        </SelectItem>
-                      ))}
+                      {loadingImages ? (
+                        <div className="p-4 text-center text-sm text-muted-foreground">
+                          Loading available images...
+                        </div>
+                      ) : availableImages.length === 0 ? (
+                        <div className="p-4 text-center text-sm text-muted-foreground">
+                          No approved images available
+                        </div>
+                      ) : (
+                        availableImages.map((img) => (
+                          <SelectItem key={img.value} value={img.value}>
+                            {img.label}
+                          </SelectItem>
+                        ))
+                      )}
                     </SelectContent>
                   </Select>
                   <Button

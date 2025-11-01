@@ -7,7 +7,6 @@
 
 export * from './types';
 export { LocalLogBackend } from './local-backend';
-export { MqttLogBackend } from './mqtt-backend';
 export { ContainerLogMonitor } from './monitor';
 export { AgentLogger } from './agent-logger';
 

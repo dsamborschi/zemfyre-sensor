@@ -256,26 +256,48 @@ export function ContainerLogsCard({ deviceUuid, applications }: ContainerLogsCar
             </div>
           )}
           
-          {logs.map((log, index) => (
-            <div 
-              key={log.id || index}
-              className="mb-1 hover:bg-gray-800 px-2 py-0.5 rounded"
-              style={{ color: '#fff' }}
-            >
-              <span className="select-none" style={{ color: '#9ca3af' }}>
-                [{formatTimestamp(log.timestamp)}]
-              </span>
-              {log.is_stderr && (
-                <span className="ml-2 font-semibold" style={{ color: '#f87171' }}>ERROR</span>
-              )}
-              {log.is_system && (
-                <span className="ml-2 font-semibold" style={{ color: '#60a5fa' }}>SYSTEM</span>
-              )}
-              <span className="ml-2" style={{ color: log.is_stderr ? '#fca5a5' : '#86efac' }}>
-                {log.message}
-              </span>
-            </div>
-          ))}
+          {logs.map((log, index) => {
+            // Parse log level from message content (not just stderr flag)
+            const isActualError = /\[error\]|\[crit\]|\[alert\]|\[emerg\]|ERROR|FATAL|CRITICAL/i.test(log.message);
+            const isWarning = /\[warn\]|WARNING/i.test(log.message);
+            const isNotice = /\[notice\]|INFO/i.test(log.message);
+            
+            // Determine color and badge based on actual log level
+            let messageColor = '#9ca3af'; // gray default
+            let levelBadge = null;
+            
+            if (isActualError) {
+              messageColor = '#fca5a5'; // red
+              levelBadge = <span className="ml-2 font-semibold" style={{ color: '#f87171' }}>ERROR</span>;
+            } else if (isWarning) {
+              messageColor = '#fcd34d'; // yellow
+              levelBadge = <span className="ml-2 font-semibold" style={{ color: '#fbbf24' }}>WARN</span>;
+            } else if (isNotice) {
+              messageColor = '#93c5fd'; // blue
+              levelBadge = <span className="ml-2 font-semibold" style={{ color: '#60a5fa' }}>INFO</span>;
+            } else if (!log.is_stderr) {
+              messageColor = '#86efac'; // green for stdout
+            }
+            
+            return (
+              <div 
+                key={log.id || index}
+                className="mb-1 hover:bg-gray-800 px-2 py-0.5 rounded"
+                style={{ color: '#fff' }}
+              >
+                <span className="select-none" style={{ color: '#9ca3af' }}>
+                  [{formatTimestamp(log.timestamp)}]
+                </span>
+                {levelBadge}
+                {log.is_system && (
+                  <span className="ml-2 font-semibold" style={{ color: '#a78bfa' }}>SYSTEM</span>
+                )}
+                <span className="ml-2" style={{ color: messageColor }}>
+                  {log.message}
+                </span>
+              </div>
+            );
+          })}
           
           {isLoading && logs.length === 0 && (
             <div className="text-gray-500 text-center py-8">

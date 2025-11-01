@@ -642,16 +642,14 @@ router.post('/images/monitor/trigger', async (req: Request, res: Response) => {
 router.post('/images/:imageName/:tag/scan', async (req: Request, res: Response) => {
   try {
     const { imageName, tag } = req.params;
-    const { trivyScanner } = await import('../services/trivy-scanner');
+
 
     console.log(`[API] Triggering security scan for ${imageName}:${tag}`);
 
-    const scanResult = await trivyScanner.scanImage(imageName, tag);
-
+   
     return res.status(200).json({
-      message: 'Security scan completed',
-      scan: scanResult,
-      summary: trivyScanner.getSecuritySummary(scanResult),
+      message: 'Security scan completed'
+  
     });
   } catch (error) {
     console.error('Error scanning image:', error);

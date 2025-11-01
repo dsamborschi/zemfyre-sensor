@@ -39,6 +39,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const auth_1 = __importDefault(require("./routes/auth"));
+const users_1 = __importDefault(require("./routes/users"));
 const device_state_1 = __importDefault(require("./routes/device-state"));
 const provisioning_1 = __importDefault(require("./routes/provisioning"));
 const devices_1 = __importDefault(require("./routes/devices"));
@@ -78,7 +79,12 @@ const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE = `/api/${API_VERSION}`;
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3002;
-app.use((0, cors_1.default)());
+app.use((0, cors_1.default)({
+    origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4002'],
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-API-Key']
+}));
 app.use(express_1.default.json({
     limit: '10mb',
     inflate: true
@@ -120,6 +126,7 @@ app.get('/health', (req, res) => {
 const docs_1 = require("./docs");
 (0, docs_1.setupApiDocs)(app, API_BASE);
 app.use(`${API_BASE}/auth`, auth_1.default);
+app.use(`${API_BASE}/users`, users_1.default);
 app.use(API_BASE, license_1.default);
 app.use(`${API_BASE}/billing`, billing_1.default);
 app.use(API_BASE, provisioning_1.default);

@@ -32,6 +32,13 @@ interface CloudLogBackendConfig {
 	flushInterval?: number;
 	reconnectInterval?: number;
 	maxReconnectInterval?: number;
+	// Sampling configuration (reduce log volume)
+	samplingRates?: {
+		error?: number;   // Default: 1.0 (100% - all errors)
+		warn?: number;    // Default: 1.0 (100% - all warnings)
+		info?: number;    // Default: 0.1 (10% - sample info logs)
+		debug?: number;   // Default: 0.01 (1% - sample debug logs)
+	};
 }
 
 export class CloudLogBackend implements LogBackend {
@@ -42,6 +49,9 @@ export class CloudLogBackend implements LogBackend {
 	private abortController?: AbortController;
 	private flushTimer?: NodeJS.Timeout;
 	private reconnectTimer?: NodeJS.Timeout;
+	private samplingRates: Required<NonNullable<CloudLogBackendConfig['samplingRates']>>;
+	private sampledLogCount: number = 0;
+	private totalLogCount: number = 0;
 	
 	constructor(config: CloudLogBackendConfig) {
 		this.config = {
@@ -56,6 +66,14 @@ export class CloudLogBackend implements LogBackend {
 			reconnectInterval: config.reconnectInterval ?? 5000, // 5s
 			maxReconnectInterval: config.maxReconnectInterval ?? 300000, // 5min
 		};
+		
+		// Initialize sampling rates with defaults
+		this.samplingRates = {
+			error: config.samplingRates?.error ?? 1.0,   // 100% - all errors
+			warn: config.samplingRates?.warn ?? 1.0,     // 100% - all warnings
+			info: config.samplingRates?.info ?? 0.1,     // 10% - sample info logs
+			debug: config.samplingRates?.debug ?? 0.01,  // 1% - sample debug logs
+		};
 	}
 	
 	async initialize(): Promise<void> {
@@ -63,6 +81,11 @@ export class CloudLogBackend implements LogBackend {
 		console.log(`   Endpoint: ${this.config.cloudEndpoint}`);
 		console.log(`   Device: ${this.config.deviceUuid}`);
 		console.log(`   Compression: ${this.config.compression ? 'Enabled' : 'Disabled'}`);
+		console.log(`   Sampling Rates:`);
+		console.log(`     - ERROR: ${(this.samplingRates.error * 100).toFixed(0)}%`);
+		console.log(`     - WARN:  ${(this.samplingRates.warn * 100).toFixed(0)}%`);
+		console.log(`     - INFO:  ${(this.samplingRates.info * 100).toFixed(0)}%`);
+		console.log(`     - DEBUG: ${(this.samplingRates.debug * 100).toFixed(1)}%`);
 		
 		// Start streaming
 		await this.connect();
@@ -71,10 +94,20 @@ export class CloudLogBackend implements LogBackend {
 	}
 	
 	async log(logMessage: LogMessage): Promise<void> {
+		this.totalLogCount++;
+		
+		// Apply sampling based on log level
+		if (!this.shouldSample(logMessage)) {
+			// Log sampled out
+			return;
+		}
+		
+		this.sampledLogCount++;
+		
 		// Add to buffer
 		this.buffer.push(logMessage);
 		
-		console.log(`📝 Buffered log (${this.buffer.length} in buffer): ${logMessage.serviceName} - ${logMessage.message.substring(0, 50)}...`);
+		console.log(`📝 Buffered log (${this.buffer.length} in buffer, ${this.sampledLogCount}/${this.totalLogCount} sampled): ${logMessage.serviceName} - ${logMessage.message.substring(0, 50)}...`);
 		
 		// Schedule flush if not already scheduled
 		if (!this.flushTimer) {
@@ -247,5 +280,50 @@ export class CloudLogBackend implements LogBackend {
 			this.reconnectTimer = undefined;
 			this.flush();
 		}, delay);
+	}
+	
+	/**
+	 * Determine if a log should be sampled (kept) or discarded
+	 * Based on log level and configured sampling rates
+	 */
+	private shouldSample(logMessage: LogMessage): boolean {
+		// Detect log level from message content
+		const level = this.detectLogLevel(logMessage);
+		
+		// Get sampling rate for this level
+		const rate = this.samplingRates[level] ?? 1.0;
+		
+		// Sample: keep if random value is less than rate
+		// Examples:
+		//   rate = 1.0 → always keep (100%)
+		//   rate = 0.1 → keep 10%
+		//   rate = 0.01 → keep 1%
+		return Math.random() < rate;
+	}
+	
+	/**
+	 * Detect log level from message content
+	 * Uses regex patterns similar to dashboard display logic
+	 */
+	private detectLogLevel(logMessage: LogMessage): 'error' | 'warn' | 'info' | 'debug' {
+		const msg = logMessage.message.toLowerCase();
+		
+		// Error patterns
+		if (/\[error\]|\[crit\]|\[alert\]|\[emerg\]|error|fatal|critical/.test(msg)) {
+			return 'error';
+		}
+		
+		// Warning patterns
+		if (/\[warn\]|warning/.test(msg)) {
+			return 'warn';
+		}
+		
+		// Debug patterns
+		if (/\[debug\]|debug|trace/.test(msg)) {
+			return 'debug';
+		}
+		
+		// Default to info
+		return 'info';
 	}
 }
