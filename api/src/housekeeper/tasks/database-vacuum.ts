@@ -5,7 +5,7 @@
  */
 
 import { HousekeeperTask } from '../index';
-import { query } from '../../src/db/connection';
+import { query } from '../../db/connection';
 
 const task: HousekeeperTask = {
   name: 'database-vacuum',

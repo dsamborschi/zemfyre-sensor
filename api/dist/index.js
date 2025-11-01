@@ -59,7 +59,7 @@ const sensors_1 = __importDefault(require("./routes/sensors"));
 const protocol_devices_1 = require("./routes/protocol-devices");
 const traffic_1 = require("./routes/traffic");
 const traffic_logger_1 = require("./middleware/traffic-logger");
-const traffic_flush_service_1 = require("./services/traffic-flush.service");
+const traffic_flush_service_1 = require("./services/traffic-flush-service");
 const entities_1 = require("./routes/entities");
 const relationships_1 = require("./routes/relationships");
 const graph_1 = require("./routes/graph");
@@ -69,9 +69,10 @@ const connection_1 = __importDefault(require("./db/connection"));
 const mqtt_1 = require("./mqtt");
 const rotation_scheduler_1 = require("./services/rotation-scheduler");
 const shadow_retention_1 = require("./services/shadow-retention");
+const housekeeper_1 = require("./housekeeper");
 const mqtt_monitor_2 = require("./routes/mqtt-monitor");
 const mqtt_monitor_3 = require("./services/mqtt-monitor");
-const mqtt_database_service_1 = require("./services/mqtt-database.service");
+const mqtt_database_service_1 = require("./services/mqtt-database-service");
 const license_validator_1 = require("./services/license-validator");
 const license_1 = __importDefault(require("./routes/license"));
 const billing_1 = __importDefault(require("./routes/billing"));
@@ -79,6 +80,7 @@ const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE = `/api/${API_VERSION}`;
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3002;
+const housekeeper = (0, housekeeper_1.createHousekeeper)();
 app.use((0, cors_1.default)({
     origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4002'],
     credentials: true,
@@ -214,6 +216,12 @@ async function startServer() {
         console.error('⚠️  Failed to start job scheduler:', error);
     }
     try {
+        await housekeeper.initialize();
+    }
+    catch (error) {
+        console.error('⚠️  Failed to start housekeeper:', error);
+    }
+    try {
         (0, traffic_flush_service_1.startTrafficFlushService)();
         console.log('✅ Traffic flush service started');
     }
@@ -320,6 +328,11 @@ async function startServer() {
         catch (error) {
         }
         try {
+            await housekeeper.shutdown();
+        }
+        catch (error) {
+        }
+        try {
             const heartbeatMonitor = await Promise.resolve().then(() => __importStar(require('./services/heartbeat-monitor')));
             heartbeatMonitor.default.stop();
         }
@@ -377,6 +390,11 @@ async function startServer() {
         }
         try {
             (0, shadow_retention_1.stopRetentionScheduler)();
+        }
+        catch (error) {
+        }
+        try {
+            await housekeeper.shutdown();
         }
         catch (error) {
         }

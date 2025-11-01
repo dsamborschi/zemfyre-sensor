@@ -27,7 +27,7 @@ import sensorsRoutes from './routes/sensors';
 import { router as protocolDevicesRoutes } from './routes/protocol-devices';
 import { router as trafficRoutes } from './routes/traffic';
 import { trafficLogger} from "./middleware/traffic-logger";
-import { startTrafficFlushService, stopTrafficFlushService } from './services/traffic-flush.service';
+import { startTrafficFlushService, stopTrafficFlushService } from './services/traffic-flush-service';
 // Import entity/graph routes
 import { createEntitiesRouter } from './routes/entities';
 import { createRelationshipsRouter } from './routes/relationships';
@@ -40,9 +40,10 @@ import poolWrapper from './db/connection';
 import { initializeMqtt, shutdownMqtt } from './mqtt';
 import { initializeSchedulers, shutdownSchedulers } from './services/rotation-scheduler';
 import { startRetentionScheduler, stopRetentionScheduler } from './services/shadow-retention';
+import { createHousekeeper } from './housekeeper';
 import { setMonitorInstance } from './routes/mqtt-monitor';
 import { MQTTMonitorService } from './services/mqtt-monitor';
-import { MQTTDatabaseService } from './services/mqtt-database.service';
+import { MQTTDatabaseService } from './services/mqtt-database-service';
 import { LicenseValidator } from './services/license-validator';
 import licenseRoutes from './routes/license';
 import billingRoutes from './routes/billing';
@@ -53,6 +54,7 @@ const API_BASE = `/api/${API_VERSION}`;
 
 const app = express();
 const PORT = process.env.PORT || 3002;
+const housekeeper = createHousekeeper();
 
 // Middleware
 app.use(cors({
@@ -244,6 +246,14 @@ async function startServer() {
     // Don't exit - this is not critical for API operation
   }
 
+  // Start housekeeper for maintenance tasks
+  try {
+    await housekeeper.initialize();
+  } catch (error) {
+    console.error('⚠️  Failed to start housekeeper:', error);
+    // Don't exit - this is not critical for API operation
+  }
+
   // Start traffic flush service (persists device traffic metrics to database)
   try {
     startTrafficFlushService();
@@ -385,6 +395,13 @@ async function startServer() {
       // Ignore errors during shutdown
     }
     
+    // Shutdown housekeeper
+    try {
+      await housekeeper.shutdown();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
     // Stop heartbeat monitor
     try {
       const heartbeatMonitor = await import('./services/heartbeat-monitor');
@@ -462,6 +479,13 @@ async function startServer() {
     // Shutdown shadow retention scheduler
     try {
       stopRetentionScheduler();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
+    // Shutdown housekeeper
+    try {
+      await housekeeper.shutdown();
     } catch (error) {
       // Ignore errors during shutdown
     }

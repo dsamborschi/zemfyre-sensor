@@ -5,7 +5,7 @@
 
 import { Router, Request, Response } from 'express';
 import { MQTTMonitorService } from '../services/mqtt-monitor';
-import { MQTTDatabaseService } from '../services/mqtt-database.service';
+import { MQTTDatabaseService } from '../services/mqtt-database-service';
 
 const router = Router();
 

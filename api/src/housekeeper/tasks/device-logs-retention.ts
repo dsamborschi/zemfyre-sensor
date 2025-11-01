@@ -6,7 +6,7 @@
  */
 
 import { HousekeeperTask } from '../index';
-import { pool } from '../../src/db/connection';
+import { pool } from '../../db/connection';
 
 const task: HousekeeperTask = {
   name: 'device-logs-retention',
