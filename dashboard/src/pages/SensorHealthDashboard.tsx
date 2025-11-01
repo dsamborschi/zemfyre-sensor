@@ -95,7 +95,7 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
   // Only show loading spinner on initial load (when there's no data yet)
   if (loading && !data) {
     return (
-      <div className="flex-1 bg-gray-50 overflow-auto">
+      <div className="flex-1 bg-background overflow-auto">
         <div className="flex items-center justify-center min-h-[400px]">
           <Activity className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -106,7 +106,7 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
   // Show error only if we have no data to display
   if (error && !data) {
     return (
-      <div className="flex-1 bg-gray-50 overflow-auto p-6">
+      <div className="flex-1 bg-background overflow-auto p-6">
         <Alert variant="destructive">
           <AlertDescription>
             Failed to load sensor health data: {error.message}
@@ -121,13 +121,13 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
   }
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-auto">
+    <div className="flex-1 bg-background overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Sensors</h1>
-            <p className="text-sm text-gray-600">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Sensors</h1>
+            <p className="text-sm text-muted-foreground">
               Monitor and manage your connected sensors
             </p>
           </div>

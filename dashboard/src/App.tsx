@@ -989,8 +989,8 @@ export default function App() {
           ) : devices.length === 0 ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center max-w-md px-4">
-                <p className="text-xl font-semibold text-gray-900 mb-2">No Devices Found</p>
-                <p className="text-gray-600 mb-4">Get started by provisioning your first device.</p>
+                <p className="text-xl font-semibold text-foreground mb-2">No Devices Found</p>
+                <p className="text-muted-foreground mb-4">Get started by provisioning your first device.</p>
                 <Button onClick={handleAddDevice}>Add Device</Button>
               </div>
             </div>
@@ -1001,7 +1001,7 @@ export default function App() {
           ) : (
             <>
           {/* Mobile Header with Menu Button - Sticky at top */}
-          <div className="lg:hidden bg-white border-b border-gray-200 p-4 flex items-center gap-3 sticky top-0 z-10">
+          <div className="lg:hidden bg-card border-b border-border p-4 flex items-center gap-3 sticky top-0 z-10">
             <Button
               variant="outline"
               size="icon"
@@ -1010,7 +1010,7 @@ export default function App() {
               <Menu className="w-5 h-5" />
             </Button>
             <div className="flex-1 min-w-0">
-              <h2 className="font-semibold text-gray-900">{selectedDevice.name}</h2>
+              <h2 className="font-semibold text-foreground">{selectedDevice.name}</h2>
               <div className="flex items-center gap-2 mt-1">
                 <Badge
                   variant="outline"
@@ -1024,13 +1024,13 @@ export default function App() {
                 >
                   {selectedDevice.status}
                 </Badge>
-                <span className="text-xs text-gray-600">{selectedDevice.ipAddress}</span>
+                <span className="text-xs text-muted-foreground">{selectedDevice.ipAddress}</span>
               </div>
             </div>
           </div>
 
           {/* View Toggle Buttons */}
-          <div className="bg-white border-b border-gray-200 px-6 py-3 flex gap-2">
+          <div className="bg-card border-b border-border px-6 py-3 flex gap-2">
             <Button
               variant={currentView === 'metrics' ? 'default' : 'outline'}
               size="sm"
@@ -1162,14 +1162,12 @@ export default function App() {
             <AnalyticsPage device={selectedDevice} />
           )}
           {currentView === 'security' && (
-            <div className="flex-1 bg-gray-50 overflow-auto p-6">
+            <div className="flex-1 bg-background overflow-auto p-6">
               <SecurityPage />
             </div>
           )}
           {currentView === 'settings' && (
-            <div className="flex-1 bg-gray-50 overflow-auto p-6">
-              <HousekeeperPage />
-            </div>
+            <HousekeeperPage />
           )}
             </>
           )}

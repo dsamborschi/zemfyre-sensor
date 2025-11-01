@@ -347,37 +347,37 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
     <Card className="p-4 md:p-6">
       <div className="mb-4">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="text-lg text-gray-900 font-medium mb-1">MQTT Explorer</h3>
+          <h3 className="text-lg text-foreground font-medium mb-1">MQTT Explorer</h3>
           <div className="flex items-center gap-2">
             <Activity className={cn(
               "w-4 h-4",
-              isConnected ? "text-green-500 animate-pulse" : "text-gray-400"
+              isConnected ? "text-green-500 animate-pulse" : "text-muted-foreground"
             )} />
             <Badge variant="outline" className={cn(
               "text-xs",
               isConnected 
                 ? "bg-green-50 text-green-700 border-green-200" 
-                : "bg-gray-50 text-gray-700 border-gray-200"
+                : "bg-muted text-muted-foreground border-border"
             )}>
               {isConnected ? "Connected" : "Disconnected"}
             </Badge>
           </div>
         </div>
-        <p className="text-gray-600">Topic hierarchy and message counts</p>
+        <p className="text-muted-foreground">Topic hierarchy and message counts</p>
       </div>
 
       {/* Stats */}
       <div className="mb-4">
-        <div className="grid grid-cols-2 gap-4 p-3 bg-gray-50 rounded-lg">
+        <div className="grid grid-cols-2 gap-4 p-3 bg-muted rounded-lg">
           <div>
-            <p className="text-xs text-gray-500 mb-1">Messages</p>
-            <p className="text-lg font-semibold text-gray-900">
+            <p className="text-xs text-muted-foreground mb-1">Messages</p>
+            <p className="text-lg font-semibold text-foreground">
               {loading ? '...' : totalMessages.toLocaleString()}
             </p>
           </div>
           <div>
-            <p className="text-xs text-gray-500 mb-1">Active Topics</p>
-            <p className="text-lg font-semibold text-gray-900">
+            <p className="text-xs text-muted-foreground mb-1">Active Topics</p>
+            <p className="text-lg font-semibold text-foreground">
               {loading ? '...' : activeTopics}
             </p>
           </div>
@@ -387,7 +387,7 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
 
       {/* Search Filter */}
       <div className="mb-4">
-        <label className="block text-sm font-medium text-gray-700 mb-2">
+        <label className="block text-sm font-medium text-muted-foreground mb-2">
           Search Topics
         </label>
         <div className="relative">
@@ -396,12 +396,12 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter by topic name..."
-            className="w-full px-3 py-2 pr-10 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white text-gray-900 placeholder-gray-400"
+            className="w-full px-3 py-2 pr-10 border border-border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-background text-foreground placeholder:text-muted-foreground"
           />
           {searchQuery && (
             <button
               onClick={() => setSearchQuery('')}
-              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 focus:outline-none"
+              className="absolute right-2 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground focus:outline-none"
               title="Clear search"
             >
               <svg
@@ -457,14 +457,14 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
 
         {/* JSON Message Viewer - Only render when a leaf topic is selected */}
         {selectedTopic && (
-          <div className="border border-gray-200 rounded-lg p-3 max-h-[500px] overflow-y-auto bg-gray-50">
+          <div className="border border-border rounded-lg p-3 max-h-[500px] overflow-y-auto bg-muted">
             <div>
-              <div className="mb-2 pb-2 border-b border-gray-300">
+              <div className="mb-2 pb-2 border-b border-border">
                 <div className="flex items-start justify-between gap-2 mb-1">
-                  <p className="text-xs font-semibold text-gray-700">Topic:</p>
+                  <p className="text-xs font-semibold text-muted-foreground">Topic:</p>
                   <button
                     onClick={handleCopyTopic}
-                    className="flex items-center gap-1 px-2 py-1 text-xs text-gray-600 hover:text-gray-900 hover:bg-gray-200 rounded transition-colors"
+                    className="flex items-center gap-1 px-2 py-1 text-xs text-muted-foreground hover:text-foreground hover:bg-muted rounded transition-colors"
                     title={copied ? "Copied!" : "Copy topic"}
                   >
                     {copied ? (
@@ -480,12 +480,12 @@ export function MqttBrokerCard({ deviceId }: MqttBrokerCardProps) {
                     )}
                   </button>
                 </div>
-                <p className="text-xs font-mono text-gray-900 break-all">{selectedTopic}</p>
+                <p className="text-xs font-mono text-foreground break-all">{selectedTopic}</p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-gray-700 mb-2">Last Message:</p>
+                <p className="text-xs font-semibold text-muted-foreground mb-2">Last Message:</p>
                 <pre 
-                  className="text-xs font-mono text-gray-800 whitespace-pre-wrap break-words bg-white p-3 rounded border border-gray-200 overflow-x-auto"
+                  className="text-xs font-mono text-foreground whitespace-pre-wrap break-words bg-card p-3 rounded border border-border overflow-x-auto"
                   dangerouslySetInnerHTML={{ __html: formatJsonMessage(selectedMessage) }}
                 />
               </div>

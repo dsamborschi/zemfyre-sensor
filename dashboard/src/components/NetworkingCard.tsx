@@ -24,7 +24,7 @@ const interfaceIcons = {
 
 const statusColors = {
   connected: "bg-green-100 text-green-700 border-green-200",
-  disconnected: "bg-gray-100 text-gray-700 border-gray-200",
+  disconnected: "bg-muted text-muted-foreground border-border",
 };
 
 export function NetworkingCard({ interfaces }: NetworkingCardProps) {
@@ -32,8 +32,8 @@ export function NetworkingCard({ interfaces }: NetworkingCardProps) {
     <Card className="p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-gray-900 mb-1">Network Interfaces</h3>
-          <p className="text-gray-600">Active network connections</p>
+          <h3 className="text-foreground mb-1">Network Interfaces</h3>
+          <p className="text-muted-foreground">Active network connections</p>
         </div>
         <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
           {interfaces.filter(i => i.status === "connected").length} Active
@@ -41,7 +41,7 @@ export function NetworkingCard({ interfaces }: NetworkingCardProps) {
       </div>
 
       {interfaces.length === 0 ? (
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-muted-foreground">
           <p>No network interfaces detected</p>
         </div>
       ) : (
@@ -51,26 +51,26 @@ export function NetworkingCard({ interfaces }: NetworkingCardProps) {
             return (
               <div
                 key={iface.id}
-                className="border border-gray-200 rounded-lg p-3 hover:bg-gray-50 transition-colors"
+                className="border border-border rounded-lg p-3 hover:bg-muted transition-colors"
               >
                 <div className="flex items-center gap-3">
                   <div className={`p-2 rounded-lg ${
                     iface.status === "connected" 
                       ? "bg-green-100 text-green-700" 
-                      : "bg-gray-100 text-gray-400"
+                      : "bg-muted text-muted-foreground"
                   }`}>
                     <Icon className="w-5 h-5" />
                   </div>
                   
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-medium text-gray-900">{iface.ipAddress}</span>
+                      <span className="font-medium text-foreground">{iface.ipAddress}</span>
                       <Badge variant="outline" className={`text-xs ${statusColors[iface.status]}`}>
                         {iface.status}
                       </Badge>
                     </div>
                     
-                    <div className="flex items-center gap-3 text-xs text-gray-500">
+                    <div className="flex items-center gap-3 text-xs text-muted-foreground">
                       <span className="capitalize">{iface.type}</span>
                       
                       {iface.type === "wifi" && iface.signal !== undefined && (

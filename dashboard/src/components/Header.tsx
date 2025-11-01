@@ -10,6 +10,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu";
 import { toast } from "sonner";
+import { ThemeToggle } from "./theme-toggle";
 
 interface HeaderProps {
   isAuthenticated?: boolean;
@@ -31,7 +32,7 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
   console.log('Header deploymentStatus:', deploymentStatus);
   
   return (
-    <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
+    <header className="bg-card border-b border-border sticky top-0 z-50">
       <div className="px-4 md:px-6 py-3 flex items-center justify-between">
         {/* Logo */}
         <div className="flex items-center gap-3">
@@ -39,8 +40,8 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
             <Server className="w-6 h-6 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-extrabold text-gray-900 leading-tight">Iotistic</h1>
-            <p className="text-xs text-gray-600 hidden sm:block">Your Device Management Platform</p>
+            <h1 className="text-lg font-extrabold text-foreground leading-tight">Iotistic</h1>
+            <p className="text-xs text-muted-foreground hidden sm:block">Your Device Management Platform</p>
           </div>
         </div>
 
@@ -77,6 +78,8 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
                 )}
               </div>
 
+              <ThemeToggle />
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -93,14 +96,14 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
                       <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" />
                       <AvatarFallback>{userName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                     </Avatar>
-                    <span className="hidden md:inline text-gray-900">{userName}</span>
+                    <span className="hidden md:inline text-foreground">{userName}</span>
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-56">
                   <DropdownMenuLabel>
                     <div className="flex flex-col">
                       <span>{userName}</span>
-                      <span className="text-gray-500">{userEmail}</span>
+                      <span className="text-muted-foreground">{userEmail}</span>
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />

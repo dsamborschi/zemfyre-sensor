@@ -1,5 +1,5 @@
 import { Clock, CheckCircle2, AlertCircle, Calendar } from "lucide-react";
-import { Card } from "./ui/card";
+import { Card, CardContent, CardDescription, CardHeader } from "./ui/card";
 import { Progress } from "./ui/progress";
 
 
@@ -61,34 +61,44 @@ const summaries = [
 ];
 
 export function SummaryCards() {
+  const iconColors = {
+    blue: 'text-blue-600 dark:text-blue-400',
+    green: 'text-green-600 dark:text-green-400',
+    orange: 'text-orange-600 dark:text-orange-400',
+    purple: 'text-purple-600 dark:text-purple-400',
+  };
+  
   return (
     <div className="space-y-4">
-      <h2 className="text-gray-900">Project Summary</h2>
+      <h2 className="text-foreground">Project Summary</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {summaries.map((summary, index) => {
           const Icon = summary.icon;
           return (
-            <Card key={index} className="p-6 hover:shadow-lg transition-shadow">
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <p className="text-gray-600 mb-1">{summary.title}</p>
-                  <p className="text-gray-900">{summary.count}</p>
-                </div>
-                <div className={`w-10 h-10 ${summary.bgColor} rounded-lg flex items-center justify-center`}>
-                  <Icon className={`w-5 h-5 ${summary.iconColor}`} />
-                </div>
-              </div>
-              
-              <div className="space-y-3">
-                {summary.items.slice(0, 2).map((item, itemIndex) => (
-                  <div key={itemIndex} className="space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-gray-700">{item.name}</span>
-                    </div>
-                    <Progress value={item.progress} className="h-1.5" />
+            <Card key={index}>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <CardDescription>{summary.title}</CardDescription>
+                    <p className="text-3xl font-bold mt-1">{summary.count}</p>
                   </div>
-                ))}
-              </div>
+                  <div className={`h-10 w-10 ${iconColors[summary.color as keyof typeof iconColors]}`}>
+                    <Icon className="h-full w-full" />
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {summary.items.slice(0, 2).map((item, itemIndex) => (
+                    <div key={itemIndex} className="space-y-1">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm text-muted-foreground">{item.name}</span>
+                      </div>
+                      <Progress value={item.progress} className="h-1.5" />
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
             </Card>
           );
         })}

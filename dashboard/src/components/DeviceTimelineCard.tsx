@@ -163,12 +163,12 @@ export function DeviceTimelineCard({
             <Clock className="w-5 h-5 text-indigo-600" />
           </div>
           <div>
-            <h3 className="text-gray-900 mb-1">Device Event History</h3>
-            <p className="text-gray-600">Recent device activity and status changes</p>
+            <h3 className="text-foreground mb-1">Device Event History</h3>
+            <p className="text-muted-foreground">Recent device activity and status changes</p>
           </div>
         </div>
         {events.length > 0 && (
-          <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-200">
+          <Badge variant="outline" className="bg-muted text-foreground border-border">
             {events.length} {events.length === 1 ? "event" : "events"}
           </Badge>
         )}
@@ -177,16 +177,16 @@ export function DeviceTimelineCard({
       <ScrollArea className="h-[400px] pr-4">
         {events.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-              <Info className="w-6 h-6 text-gray-400" />
+            <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-3">
+              <Info className="w-6 h-6 text-muted-foreground" />
             </div>
-            <p className="text-gray-600">No events to display</p>
-            <p className="text-gray-500">Events will appear here as they occur</p>
+            <p className="text-muted-foreground">No events to display</p>
+            <p className="text-muted-foreground">Events will appear here as they occur</p>
           </div>
         ) : (
           <div className="relative">
             {/* Timeline line */}
-            <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-gray-200" />
+            <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-border" />
 
             {/* Events */}
             <div className="space-y-6">
@@ -205,12 +205,12 @@ export function DeviceTimelineCard({
                     </div>
 
                     {/* Event card */}
-                    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
+                    <div className="bg-card border border-border rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
                       <div className="flex items-start justify-between mb-2">
                         <div className="flex-1">
-                          <h4 className="text-gray-900 mb-1">{event.title}</h4>
+                          <h4 className="text-foreground mb-1">{event.title}</h4>
                           {event.description && (
-                            <p className="text-gray-600">{event.description}</p>
+                            <p className="text-muted-foreground">{event.description}</p>
                           )}
                         </div>
                         <Badge
@@ -222,29 +222,29 @@ export function DeviceTimelineCard({
                       </div>
 
                       {timestamp && (
-                        <div className="flex items-center gap-2 text-gray-500 mb-3">
+                        <div className="flex items-center gap-2 text-muted-foreground mb-3">
                           <Clock className="w-3.5 h-3.5" />
                           <span>{formatDate(timestamp)}</span>
                         </div>
                       )}
 
                       {details.length > 0 && (
-                        <div className="space-y-2 pt-3 border-t border-gray-100">
+                        <div className="space-y-2 pt-3 border-t border-border">
                           {details.map((detail, idx) => (
                             <div
                               key={idx}
                               className="flex items-center justify-between text-sm"
                             >
-                              <span className="text-gray-600">{detail.label}</span>
-                              <span className="text-gray-900">{detail.value}</span>
+                              <span className="text-muted-foreground">{detail.label}</span>
+                              <span className="text-foreground">{detail.value}</span>
                             </div>
                           ))}
                         </div>
                       )}
 
                       {/* Event ID (collapsed by default) */}
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-xs text-gray-500">
+                      <div className="mt-3 pt-3 border-t border-border">
+                        <p className="text-xs text-muted-foreground">
                           Event ID: {event.event_id}
                         </p>
                       </div>

@@ -106,12 +106,12 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
 
   return (
     <TooltipProvider>
-      <div className="w-full lg:w-80 lg:border-r border-gray-200 bg-white h-full flex flex-col overflow-hidden">
-        <div className="p-6 border-b border-gray-200 flex-shrink-0">
+      <div className="w-full lg:w-80 lg:border-r border-border bg-card h-full flex flex-col overflow-hidden">
+        <div className="p-6 border-b border-border flex-shrink-0">
         <div className="flex items-start justify-between mb-2">
           <div>
-            <h2 className="text-gray-900 mb-1">Devices</h2>
-            <p className="text-gray-600">
+            <h2 className="text-foreground mb-1">Devices</h2>
+            <p className="text-muted-foreground">
               {devices.filter(d => d.status === "online").length} of {devices.length} online
             </p>
           </div>
@@ -123,7 +123,7 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
       </div>
 
       {/* Search and Filter */}
-      <div className="p-4 space-y-3 border-b border-gray-200 flex-shrink-0">
+      <div className="p-4 space-y-3 border-b border-border flex-shrink-0">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
           <Input
@@ -253,7 +253,7 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
           )}
         </div>
 
-        <p className="text-gray-600">
+        <p className="text-muted-foreground">
           Showing {filteredDevices.length} of {devices.length} devices
         </p>
       </div>
@@ -277,12 +277,12 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
                   onClick={() => onSelectDevice(device.id)}
                 >
                   <div className="relative">
-                    <div className="w-10 h-10 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <Icon className="w-5 h-5 text-gray-700" />
+                    <div className="w-10 h-10 bg-muted rounded-lg flex items-center justify-center">
+                      <Icon className="w-5 h-5 text-muted-foreground" />
                     </div>
                     <div
                       className={cn(
-                        "absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-white",
+                        "absolute -top-1 -right-1 w-3 h-3 rounded-full border-2 border-card",
                         statusColors[device.status]
                       )}
                     />
@@ -292,7 +292,7 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
                     <div className="flex items-start justify-between gap-2 mb-1">
                       <Tooltip>
                         <TooltipTrigger asChild>
-                          <h3 className="text-gray-900 truncate">
+                          <h3 className="text-foreground truncate">
                             {device.name.length > 15 
                               ? `${device.name.substring(0, 15)}...` 
                               : device.name}
@@ -310,15 +310,15 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
                       <Badge variant="outline" className={cn("text-xs", statusBadgeColors[device.status])}>
                         {device.status}
                       </Badge>
-                      <span className="text-gray-500">{device.ipAddress}</span>
+                      <span className="text-muted-foreground">{device.ipAddress}</span>
                     </div>
 
                     <div className="space-y-1">
-                      <div className="flex items-center justify-between text-gray-600">
+                      <div className="flex items-center justify-between text-muted-foreground">
                         <span>CPU</span>
                         <span>{device.cpu}%</span>
                       </div>
-                      <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                      <div className="h-1.5 bg-muted rounded-full overflow-hidden">
                         <div
                           className={cn(
                             "h-full transition-all rounded-full",
@@ -329,7 +329,7 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
                       </div>
                     </div>
 
-                    <div className="text-gray-500 mt-2">
+                    <div className="text-muted-foreground mt-2">
                       Last seen: {device.lastSeen}
                     </div>
                   </div>

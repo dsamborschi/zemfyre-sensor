@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Card } from "./ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Device } from "./DeviceSidebar";
 import JobsCard from "./JobsCard";
@@ -111,13 +111,13 @@ export function JobsPage({ device }: JobsPageProps) {
   ];
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-auto">
+    <div className="flex-1 bg-background overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
 
         {/* Page Title */}
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900">Scheduled Jobs</h2>
-          <p className="text-sm text-gray-600">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">Scheduled Jobs</h2>
+          <p className="text-sm text-muted-foreground">
             Manage and monitor scheduled tasks and job execution history
           </p>
         </div>
@@ -126,29 +126,29 @@ export function JobsPage({ device }: JobsPageProps) {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {metrics.map((metric, index) => {
             const Icon = metric.icon;
-            const borderColors = {
-              blue: 'border-blue-200',
-              green: 'border-green-200',
-              red: 'border-red-200',
-              purple: 'border-purple-200',
-              gray: 'border-gray-200',
+            const iconColors = {
+              blue: 'text-blue-600 dark:text-blue-400',
+              green: 'text-green-600 dark:text-green-400',
+              red: 'text-red-600 dark:text-red-400',
+              purple: 'text-purple-600 dark:text-purple-400',
+              gray: 'text-gray-600 dark:text-gray-400',
             };
             return (
-              <Card key={index} className={`border-2 ${metric.bgColor} ${borderColors[metric.color as keyof typeof borderColors]}`}>
-                <div className="p-6">
+              <Card key={index}>
+                <CardHeader>
                   <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">{metric.label}</p>
-                      <p className="text-3xl font-bold">{metric.value}</p>
-                      {metric.subtitle && (
-                        <p className="text-xs text-gray-600">{metric.subtitle}</p>
-                      )}
-                    </div>
-                    <div className={`h-12 w-12 ${metric.iconColor}`}>
+                    <CardDescription>{metric.label}</CardDescription>
+                    <div className={`h-10 w-10 ${iconColors[metric.color as keyof typeof iconColors]}`}>
                       <Icon className="h-full w-full" />
                     </div>
                   </div>
-                </div>
+                </CardHeader>
+                <CardContent>
+                  <CardTitle className="text-3xl mb-1">{metric.value}</CardTitle>
+                  {metric.subtitle && (
+                    <p className="text-xs text-muted-foreground">{metric.subtitle}</p>
+                  )}
+                </CardContent>
               </Card>
             );
           })}

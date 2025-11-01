@@ -38,7 +38,7 @@ export function DeleteJobDialog({
           <AlertDialogDescription className="text-left">
             Are you sure you want to delete {jobName ? (
               <>
-                job <span className="font-semibold text-gray-900">{jobName}</span>
+                job <span className="font-semibold text-foreground">{jobName}</span>
               </>
             ) : (
               'this job'

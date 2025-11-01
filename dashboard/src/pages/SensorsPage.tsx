@@ -163,14 +163,14 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
       return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-300">✓ Active</Badge>;
     }
     if (sensor.state === 'DISCONNECTED') {
-      return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-300">○ Inactive</Badge>;
+      return <Badge variant="outline" className="bg-muted text-muted-foreground border-border">○ Inactive</Badge>;
     }
     return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-300">✕ Error</Badge>;
   };
 
   if (loading) {
     return (
-      <div className="flex-1 bg-gray-50 overflow-auto">
+      <div className="flex-1 bg-background overflow-auto">
         <div className="flex items-center justify-center min-h-[400px]">
           <Activity className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
@@ -179,13 +179,13 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
   }
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-auto">
+    <div className="flex-1 bg-background overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Sensors</h1>
-            <p className="text-sm text-gray-600">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Sensors</h1>
+            <p className="text-sm text-muted-foreground">
               Configure and monitor your connected sensors
             </p>
           </div>
@@ -231,8 +231,8 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
           </CardHeader>
           <CardContent>
             {sensors.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <Activity className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <div className="text-center py-12 text-muted-foreground">
+                <Activity className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-lg font-medium mb-2">No sensors yet</p>
                 <p className="text-sm">Add your first sensor to start collecting data</p>
               </div>
@@ -241,11 +241,11 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
                 {sensors.map((sensor) => (
                   <div
                     key={sensor.name}
-                    className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                    className="flex items-center justify-between p-4 border border-border rounded-lg hover:border-muted-foreground/20 transition-colors"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900">{sensor.name}</h3>
+                        <h3 className="text-lg font-semibold text-foreground">{sensor.name}</h3>
                         {getStatusBadge(sensor)}
                         {sensor.protocol && (
                           <Badge variant="outline" className="text-xs">
@@ -254,7 +254,7 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
                         )}
                       </div>
                       
-                      <div className="flex flex-wrap gap-6 text-sm text-gray-600">
+                      <div className="flex flex-wrap gap-6 text-sm text-muted-foreground">
                         {sensor.type === 'pipeline' && (
                           <div>
                             <span className="font-medium">Messages Published:</span>{' '}

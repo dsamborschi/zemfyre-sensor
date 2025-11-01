@@ -183,10 +183,10 @@ export function AnalyticsCard({ deviceName = "Device 1", deviceId, processes = [
     return (
       <Card className="p-4 md:p-6">
         <div className="mb-4 space-y-3">
-          <h3 className="text-lg text-gray-900 font-medium mb-1">Analytics</h3>
-          <p className="text-sm text-gray-600">Process performance metrics</p>
+          <h3 className="text-lg text-foreground font-medium mb-1">Analytics</h3>
+          <p className="text-sm text-muted-foreground">Process performance metrics</p>
         </div>
-        <div className="text-center py-8 text-gray-500">
+        <div className="text-center py-8 text-muted-foreground">
           <p>No analytics available</p>
         </div>
       </Card>
@@ -197,8 +197,8 @@ export function AnalyticsCard({ deviceName = "Device 1", deviceId, processes = [
     <Card className="p-4 md:p-6">
       <div className="mb-4 space-y-3">
         <div>
-          <h3 className="text-lg text-gray-900 font-medium mb-1">Analytics</h3>
-          <p className="text-sm text-gray-600">Process performance metrics</p>
+          <h3 className="text-lg text-foreground font-medium mb-1">Analytics</h3>
+          <p className="text-sm text-muted-foreground">Process performance metrics</p>
         </div>
         <div className="flex items-center gap-2">
           <Select value={timePeriod} onValueChange={(value: any) => setTimePeriod(value)}>

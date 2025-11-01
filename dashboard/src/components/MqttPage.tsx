@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { Users, MessageSquare, Zap, TrendingUp } from "lucide-react";
-import { Card, CardContent } from "./ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Device } from "./DeviceSidebar";
 import { MqttBrokerCard } from "./MqttBrokerCard";
 import { MqttMetricsCard } from "./MqttMetricsCard";
@@ -96,72 +96,72 @@ export function MqttPage({ device }: MqttPageProps) {
   }, [brokerStats]);
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-auto">
+    <div className="flex-1 bg-background overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
 
         {/* Page Title */}
         <div className="space-y-2">
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900">MQTT Broker & Metrics</h2>
-          <p className="text-sm text-gray-600">
+          <h2 className="text-2xl font-bold tracking-tight text-foreground">MQTT Broker & Metrics</h2>
+          <p className="text-sm text-muted-foreground">
             Monitor MQTT broker status, connections, and message flow
           </p>
         </div>
 
         {/* Metric Count Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-2 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-            <CardContent className="p-6">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Connected Clients</p>
-                  <p className="text-3xl font-bold">{currentStats.activeClients}</p>
-                </div>
-                <div className="h-12 w-12 text-blue-600 dark:text-blue-400">
+                <CardDescription>Connected Clients</CardDescription>
+                <div className="h-10 w-10 text-blue-600 dark:text-blue-400">
                   <Users className="h-full w-full" />
                 </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl">{currentStats.activeClients}</CardTitle>
             </CardContent>
           </Card>
 
-          <Card className="border-2 bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800">
-            <CardContent className="p-6">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Subscriptions</p>
-                  <p className="text-3xl font-bold">{currentStats.activeSubscriptions}</p>
-                </div>
-                <div className="h-12 w-12 text-purple-600 dark:text-purple-400">
+                <CardDescription>Subscriptions</CardDescription>
+                <div className="h-10 w-10 text-purple-600 dark:text-purple-400">
                   <MessageSquare className="h-full w-full" />
                 </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl">{currentStats.activeSubscriptions}</CardTitle>
             </CardContent>
           </Card>
 
-          <Card className="border-2 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
-            <CardContent className="p-6">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Messages/sec</p>
-                  <p className="text-3xl font-bold">{currentStats.messagesPerSec}</p>
-                </div>
-                <div className="h-12 w-12 text-green-600 dark:text-green-400">
+                <CardDescription>Messages/sec</CardDescription>
+                <div className="h-10 w-10 text-green-600 dark:text-green-400">
                   <Zap className="h-full w-full" />
                 </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl">{currentStats.messagesPerSec}</CardTitle>
             </CardContent>
           </Card>
 
-          <Card className="border-2 bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800">
-            <CardContent className="p-6">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Throughput</p>
-                  <p className="text-3xl font-bold">{currentStats.throughputKBps} <span className="text-lg">KB/s</span></p>
-                </div>
-                <div className="h-12 w-12 text-orange-600 dark:text-orange-400">
+                <CardDescription>Throughput</CardDescription>
+                <div className="h-10 w-10 text-orange-600 dark:text-orange-400">
                   <TrendingUp className="h-full w-full" />
                 </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl">{currentStats.throughputKBps} <span className="text-lg">KB/s</span></CardTitle>
             </CardContent>
           </Card>
         </div>

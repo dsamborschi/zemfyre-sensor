@@ -113,7 +113,7 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose,
           <DialogTitle className="flex items-center gap-2">
             Job Details: {job.job_name}
             {getStatusBadge(job.status)}
-            <Badge variant="outline" className="text-xs bg-gray-100 text-gray-700 border-gray-300 capitalize">
+            <Badge variant="outline" className="text-xs bg-muted text-foreground border-border capitalize">
               {job.execution_type}
             </Badge>
           </DialogTitle>
@@ -123,41 +123,41 @@ export const JobDetailsModal: React.FC<JobDetailsModalProps> = ({ open, onClose,
           {/* Basic Information */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Job ID</label>
-              <p className="text-sm text-gray-900 font-mono truncate">{job.job_id}</p>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Job ID</label>
+              <p className="text-sm text-foreground font-mono truncate">{job.job_id}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Template ID</label>
-              <p className="text-sm text-gray-900">{job.template_id || 'N/A'}</p>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Template ID</label>
+              <p className="text-sm text-foreground">{job.template_id || 'N/A'}</p>
             </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Execution Type</label>
-              <p className="text-sm text-gray-900 capitalize">{job.execution_type}</p>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Execution Type</label>
+              <p className="text-sm text-foreground capitalize">{job.execution_type}</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-600 mb-1">Exit Code</label>
-              <p className="text-sm text-gray-900">{job.exit_code !== null ? job.exit_code : 'N/A'}</p>
+              <label className="block text-sm font-medium text-muted-foreground mb-1">Exit Code</label>
+              <p className="text-sm text-foreground">{job.exit_code !== null ? job.exit_code : 'N/A'}</p>
             </div>
           </div>
 
           {/* Timestamps */}
           <div className="border-t pt-4">
-            <h4 className="text-sm font-semibold text-gray-900 mb-3">Timeline</h4>
+            <h4 className="text-sm font-semibold text-foreground mb-3">Timeline</h4>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Queued At:</span>
-                <span className="text-sm text-gray-900">{formatDate(job.queued_at)}</span>
+                <span className="text-sm text-muted-foreground">Queued At:</span>
+                <span className="text-sm text-foreground">{formatDate(job.queued_at)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Started At:</span>
-                <span className="text-sm text-gray-900">{formatDate(job.started_at)}</span>
+                <span className="text-sm text-muted-foreground">Started At:</span>
+                <span className="text-sm text-foreground">{formatDate(job.started_at)}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Completed At:</span>
-                <span className="text-sm text-gray-900">{formatDate(job.completed_at)}</span>
+                <span className="text-sm text-muted-foreground">Completed At:</span>
+                <span className="text-sm text-foreground">{formatDate(job.completed_at)}</span>
               </div>
             </div>
           </div>

@@ -188,8 +188,8 @@ export function DeviceActions({ deviceName, deviceId }: DeviceActionsProps) {
               <>
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-gray-700">Progress</span>
-                    <span className="text-gray-900">{diagnosticsProgress}%</span>
+                    <span className="text-muted-foreground">Progress</span>
+                    <span className="text-foreground">{diagnosticsProgress}%</span>
                   </div>
                   <Progress value={diagnosticsProgress} className="h-2" />
                 </div>
@@ -198,7 +198,7 @@ export function DeviceActions({ deviceName, deviceId }: DeviceActionsProps) {
                   {diagnosticsTests.map((test, index) => (
                     <Card key={index} className="p-3">
                       <div className="flex items-center justify-between">
-                        <span className="text-gray-700">{test.name}</span>
+                        <span className="text-muted-foreground">{test.name}</span>
                         {test.status === "passed" ? (
                           <Badge className="bg-green-100 text-green-700 border-green-200">
                             Passed

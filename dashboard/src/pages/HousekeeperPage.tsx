@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { PlayCircle, RefreshCw, CheckCircle2, XCircle, Activity, AlertTriangle, Eye, Clock } from 'lucide-react';
-import { Card } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -254,16 +254,16 @@ export default function HousekeeperPage() {
   }
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-auto">
+    <div className="flex-1 bg-background overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
         {/* Page Title */}
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
-            <h2 className="text-2xl font-bold tracking-tight text-gray-900">Maintenance Tasks</h2>
-            <p className="text-sm text-gray-600">
+            <h2 className="text-2xl font-bold tracking-tight text-foreground">Maintenance Tasks</h2>
+            <p className="text-sm text-muted-foreground">
               Monitor scheduled maintenance and cleanup task executions
               {lastRefresh && (
-                <span className="text-xs text-gray-400 ml-2">
+                <span className="text-xs text-muted-foreground/70 ml-2">
                   • Last updated {lastRefresh.toLocaleTimeString()}
                 </span>
               )}
@@ -290,29 +290,29 @@ export default function HousekeeperPage() {
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {metrics.map((metric, index) => {
             const Icon = metric.icon;
-            const borderColors = {
-              blue: 'border-blue-200',
-              green: 'border-green-200',
-              red: 'border-red-200',
-              purple: 'border-purple-200',
-              gray: 'border-gray-200',
+            const iconColors = {
+              blue: 'text-blue-600 dark:text-blue-400',
+              green: 'text-green-600 dark:text-green-400',
+              red: 'text-red-600 dark:text-red-400',
+              purple: 'text-purple-600 dark:text-purple-400',
+              gray: 'text-gray-600 dark:text-gray-400',
             };
             return (
-              <Card key={index} className={`border-2 ${metric.bgColor} ${borderColors[metric.color as keyof typeof borderColors]}`}>
-                <div className="p-6">
+              <Card key={index}>
+                <CardHeader>
                   <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">{metric.label}</p>
-                      <p className="text-3xl font-bold">{metric.value}</p>
-                      {metric.subtitle && (
-                        <p className="text-xs text-gray-600">{metric.subtitle}</p>
-                      )}
-                    </div>
-                    <div className={`h-12 w-12 ${metric.iconColor}`}>
+                    <CardDescription>{metric.label}</CardDescription>
+                    <div className={`h-10 w-10 ${iconColors[metric.color as keyof typeof iconColors]}`}>
                       <Icon className="h-full w-full" />
                     </div>
                   </div>
-                </div>
+                </CardHeader>
+                <CardContent>
+                  <CardTitle className="text-3xl mb-1">{metric.value}</CardTitle>
+                  {metric.subtitle && (
+                    <p className="text-xs text-muted-foreground">{metric.subtitle}</p>
+                  )}
+                </CardContent>
               </Card>
             );
           })}
@@ -322,18 +322,18 @@ export default function HousekeeperPage() {
         <Card className="p-4 md:p-6">
           <div className="space-y-4">
             <div className="space-y-2 mb-6">
-              <h3 className="text-xl font-bold tracking-tight text-gray-900">Task Execution History</h3>
-              <p className="text-sm text-gray-600">
+              <h3 className="text-xl font-bold tracking-tight text-foreground">Task Execution History</h3>
+              <p className="text-sm text-muted-foreground">
                 Recent maintenance task runs across all scheduled tasks
               </p>
             </div>
 
             {loading && allRuns.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">Loading task runs...</div>
+              <div className="text-center py-8 text-muted-foreground">Loading task runs...</div>
             ) : error ? (
-              <div className="text-center py-8 text-red-600">{error}</div>
+              <div className="text-center py-8 text-destructive">{error}</div>
             ) : allRuns.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-muted-foreground">
                 No task runs found. Tasks will appear here after execution.
               </div>
             ) : (
@@ -341,26 +341,26 @@ export default function HousekeeperPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm table-fixed">
                     <thead>
-                      <tr className="border-b border-gray-200">
-                        <th className="text-left py-2 px-4 font-medium text-gray-600 w-[25%]">Task Name</th>
-                        <th className="text-left py-2 px-4 font-medium text-gray-600 w-[12%]">Status</th>
-                        <th className="text-left py-2 px-4 font-medium text-gray-600 w-[12%] hidden md:table-cell">
+                      <tr className="border-b border-border">
+                        <th className="text-left py-2 px-4 font-medium text-muted-foreground w-[25%]">Task Name</th>
+                        <th className="text-left py-2 px-4 font-medium text-muted-foreground w-[12%]">Status</th>
+                        <th className="text-left py-2 px-4 font-medium text-muted-foreground w-[12%] hidden md:table-cell">
                           Trigger
                         </th>
-                        <th className="text-left py-2 px-4 font-medium text-gray-600 w-[12%] hidden lg:table-cell">
+                        <th className="text-left py-2 px-4 font-medium text-muted-foreground w-[12%] hidden lg:table-cell">
                           Duration
                         </th>
-                        <th className="text-left py-2 px-4 font-medium text-gray-600 w-[20%]">Started At</th>
+                        <th className="text-left py-2 px-4 font-medium text-muted-foreground w-[20%]">Started At</th>
                         <th className="w-[19%]"></th>
                       </tr>
                     </thead>
                     <tbody>
                       {paginatedRuns.map((run) => (
-                        <tr key={run.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                          <td className="py-3 px-4 text-gray-900">
+                        <tr key={run.id} className="border-b border-border/50 last:border-0 hover:bg-muted/50">
+                          <td className="py-3 px-4 text-foreground">
                             <div className="font-medium truncate">{run.task_name}</div>
                             {run.error && (
-                              <div className="text-xs text-red-600 mt-0.5 truncate max-w-[200px]">
+                              <div className="text-xs text-destructive mt-0.5 truncate max-w-[200px]">
                                 {run.error.split('\n')[0]}
                               </div>
                             )}
@@ -369,13 +369,13 @@ export default function HousekeeperPage() {
                           <td className="py-3 px-4 hidden md:table-cell">
                             {getTriggerBadge(run.triggered_by)}
                           </td>
-                          <td className="py-3 px-4 text-gray-600 hidden lg:table-cell">
+                          <td className="py-3 px-4 text-muted-foreground hidden lg:table-cell">
                             <div className="flex items-center gap-1">
                               <Clock className="w-3 h-3" />
                               {formatDuration(run.duration_ms)}
                             </div>
                           </td>
-                          <td className="py-3 px-4 text-gray-600">
+                          <td className="py-3 px-4 text-muted-foreground">
                             {formatDate(run.started_at)}
                           </td>
                           <td className="py-3 px-4">
@@ -399,8 +399,8 @@ export default function HousekeeperPage() {
 
                 {/* Pagination Controls */}
                 {totalRuns > pageSize && (
-                  <div className="flex items-center justify-between px-4 py-3 border-t">
-                    <div className="text-sm text-gray-600">
+                  <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+                    <div className="text-sm text-muted-foreground">
                       Showing {Math.min((currentPage - 1) * pageSize + 1, totalRuns)} to {Math.min(currentPage * pageSize, totalRuns)} of {totalRuns} runs
                     </div>
                     <div className="flex gap-2">
@@ -422,7 +422,7 @@ export default function HousekeeperPage() {
                           .map((page, idx, arr) => (
                             <React.Fragment key={page}>
                               {idx > 0 && arr[idx - 1] !== page - 1 && (
-                                <span className="px-2 text-gray-400">...</span>
+                                <span className="px-2 text-muted-foreground">...</span>
                               )}
                               <Button
                                 variant={currentPage === page ? "default" : "outline"}
@@ -465,35 +465,35 @@ export default function HousekeeperPage() {
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Task Name</label>
+                    <label className="text-sm font-medium text-muted-foreground">Task Name</label>
                     <div className="text-base font-semibold">{selectedRun.task_name}</div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Status</label>
+                    <label className="text-sm font-medium text-muted-foreground">Status</label>
                     <div className="mt-1">{getStatusBadge(selectedRun.status)}</div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Triggered By</label>
+                    <label className="text-sm font-medium text-muted-foreground">Triggered By</label>
                     <div className="mt-1">{getTriggerBadge(selectedRun.triggered_by)}</div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Duration</label>
+                    <label className="text-sm font-medium text-muted-foreground">Duration</label>
                     <div className="text-base">{formatDuration(selectedRun.duration_ms)}</div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Started At</label>
+                    <label className="text-sm font-medium text-muted-foreground">Started At</label>
                     <div className="text-base">{formatDate(selectedRun.started_at)}</div>
                   </div>
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Completed At</label>
+                    <label className="text-sm font-medium text-muted-foreground">Completed At</label>
                     <div className="text-base">{formatDate(selectedRun.completed_at)}</div>
                   </div>
                 </div>
 
                 {selectedRun.output && (
                   <div>
-                    <label className="text-sm font-medium text-gray-600">Output</label>
-                    <pre className="mt-2 p-3 bg-gray-100 rounded text-xs overflow-x-auto max-h-60 overflow-y-auto">
+                    <label className="text-sm font-medium text-muted-foreground">Output</label>
+                    <pre className="mt-2 p-3 bg-muted rounded text-xs overflow-x-auto max-h-60 overflow-y-auto">
                       {selectedRun.output}
                     </pre>
                   </div>
@@ -501,8 +501,8 @@ export default function HousekeeperPage() {
 
                 {selectedRun.error && (
                   <div>
-                    <label className="text-sm font-medium text-red-600">Error</label>
-                    <pre className="mt-2 p-3 bg-red-50 rounded text-xs text-red-800 overflow-x-auto max-h-60 overflow-y-auto">
+                    <label className="text-sm font-medium text-destructive">Error</label>
+                    <pre className="mt-2 p-3 bg-destructive/10 rounded text-xs text-destructive overflow-x-auto max-h-60 overflow-y-auto">
                       {selectedRun.error}
                     </pre>
                   </div>

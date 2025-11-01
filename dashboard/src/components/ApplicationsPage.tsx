@@ -1,6 +1,6 @@
 import { Application, ApplicationsCard } from "./ApplicationsCard";
 import { Device } from "./DeviceSidebar";
-import { Card } from "./ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Package, Layers, Activity, AlertCircle } from "lucide-react";
 import { ContainerLogsCard } from "./ContainerLogsCard";
@@ -98,11 +98,11 @@ export function ApplicationsPage({
   ];
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-auto">
+    <div className="flex-1 bg-background overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
         <div className="mb-6">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Applications</h2>
-          <p className="text-gray-600">
+          <h2 className="text-2xl font-bold text-foreground mb-2">Applications</h2>
+          <p className="text-muted-foreground">
             Manage containerized applications and services running on {device.name}
           </p>
         </div>
@@ -111,29 +111,29 @@ export function ApplicationsPage({
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {metrics.map((metric, index) => {
             const Icon = metric.icon;
-            const borderColors = {
-              blue: 'border-blue-200',
-              purple: 'border-purple-200',
-              green: 'border-green-200',
-              orange: 'border-orange-200',
-              red: 'border-red-200',
+            const iconColors = {
+              blue: 'text-blue-600 dark:text-blue-400',
+              purple: 'text-purple-600 dark:text-purple-400',
+              green: 'text-green-600 dark:text-green-400',
+              orange: 'text-orange-600 dark:text-orange-400',
+              red: 'text-red-600 dark:text-red-400',
             };
             return (
-              <Card key={index} className={`border-2 ${metric.bgColor} ${borderColors[metric.color as keyof typeof borderColors]}`}>
-                <div className="p-6">
+              <Card key={index}>
+                <CardHeader>
                   <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">{metric.label}</p>
-                      <p className="text-3xl font-bold">{metric.value}</p>
-                      {metric.subtitle && (
-                        <p className="text-xs text-gray-600">{metric.subtitle}</p>
-                      )}
-                    </div>
-                    <div className={`h-12 w-12 ${metric.iconColor}`}>
+                    <CardDescription>{metric.label}</CardDescription>
+                    <div className={`h-10 w-10 ${iconColors[metric.color as keyof typeof iconColors]}`}>
                       <Icon className="h-full w-full" />
                     </div>
                   </div>
-                </div>
+                </CardHeader>
+                <CardContent>
+                  <CardTitle className="text-3xl mb-1">{metric.value}</CardTitle>
+                  {metric.subtitle && (
+                    <p className="text-xs text-muted-foreground">{metric.subtitle}</p>
+                  )}
+                </CardContent>
               </Card>
             );
           })}

@@ -190,13 +190,13 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
   };
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-auto">
+    <div className="flex-1 bg-background overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">Device Analytics</h1>
-            <p className="text-sm text-gray-600">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">Device Analytics</h1>
+            <p className="text-sm text-muted-foreground">
               Monitor device traffic patterns and endpoint usage
             </p>
           </div>
@@ -223,64 +223,64 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
         {/* Traffic Summary Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {/* HTTP API Traffic */}
-          <Card className="border-2 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-            <CardContent className="p-6">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">HTTP Inbound</p>
-                  <p className="text-3xl font-bold">{formatBytes(totalInbound)}</p>
-                  <p className="text-xs text-muted-foreground">Avg: {formatBytes(avgInbound)}</p>
-                </div>
-                <div className="h-12 w-12 text-blue-600 dark:text-blue-400">
+                <CardDescription>HTTP Inbound</CardDescription>
+                <div className="h-10 w-10 text-blue-600 dark:text-blue-400">
                   <ArrowDownToLine className="h-full w-full" />
                 </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl mb-1">{formatBytes(totalInbound)}</CardTitle>
+              <p className="text-xs text-muted-foreground">Avg: {formatBytes(avgInbound)}</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
-            <CardContent className="p-6">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">HTTP Outbound</p>
-                  <p className="text-3xl font-bold">{formatBytes(totalOutbound)}</p>
-                  <p className="text-xs text-muted-foreground">Avg: {formatBytes(avgOutbound)}</p>
-                </div>
-                <div className="h-12 w-12 text-green-600 dark:text-green-400">
+                <CardDescription>HTTP Outbound</CardDescription>
+                <div className="h-10 w-10 text-green-600 dark:text-green-400">
                   <ArrowUpFromLine className="h-full w-full" />
                 </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl mb-1">{formatBytes(totalOutbound)}</CardTitle>
+              <p className="text-xs text-muted-foreground">Avg: {formatBytes(avgOutbound)}</p>
             </CardContent>
           </Card>
 
           {/* MQTT Traffic */}
-          <Card className="border-2 bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800">
-            <CardContent className="p-6">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">MQTT Inbound</p>
-                  <p className="text-3xl font-bold">{formatBytes(filteredMqttSummary.totalBytes)}</p>
-                  <p className="text-xs text-muted-foreground">Avg: {formatBytes(filteredMqttSummary.avgMessageSize)}</p>
-                </div>
-                <div className="h-12 w-12 text-purple-600 dark:text-purple-400">
+                <CardDescription>MQTT Inbound</CardDescription>
+                <div className="h-10 w-10 text-purple-600 dark:text-purple-400">
                   <Radio className="h-full w-full" />
                 </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl mb-1">{formatBytes(filteredMqttSummary.totalBytes)}</CardTitle>
+              <p className="text-xs text-muted-foreground">Avg: {formatBytes(filteredMqttSummary.avgMessageSize)}</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800">
-            <CardContent className="p-6">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">MQTT Messages</p>
-                  <p className="text-3xl font-bold">{filteredMqttSummary.totalMessages.toLocaleString()}</p>
-                  <p className="text-xs text-muted-foreground">{filteredMqttSummary.totalTopics} topics</p>
-                </div>
-                <div className="h-12 w-12 text-orange-600 dark:text-orange-400">
+                <CardDescription>MQTT Messages</CardDescription>
+                <div className="h-10 w-10 text-orange-600 dark:text-orange-400">
                   <Radio className="h-full w-full" />
                 </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl mb-1">{filteredMqttSummary.totalMessages.toLocaleString()}</CardTitle>
+              <p className="text-xs text-muted-foreground">{filteredMqttSummary.totalTopics} topics</p>
             </CardContent>
           </Card>
         </div>
@@ -337,21 +337,21 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
                     {filteredMqttTopics.map((topic) => (
                       <tr 
                         key={topic.topic}
-                        className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                        className="border-b border-border hover:bg-muted transition-colors"
                       >
-                        <td className="py-3 px-4 font-mono text-sm text-gray-700 max-w-md" title={topic.topic}>
+                        <td className="py-3 px-4 font-mono text-sm text-foreground max-w-md" title={topic.topic}>
                           {topic.topic}
                         </td>
-                        <td className="py-3 px-4 text-right text-gray-700">
+                        <td className="py-3 px-4 text-right text-foreground">
                           {topic.messageCount.toLocaleString()}
                         </td>
-                        <td className="py-3 px-4 text-right text-gray-700 font-medium">
+                        <td className="py-3 px-4 text-right text-foreground font-medium">
                           {formatBytes(topic.bytesReceived)}
                         </td>
-                        <td className="py-3 px-4 text-right text-gray-600">
+                        <td className="py-3 px-4 text-right text-muted-foreground">
                           {formatBytes(topic.avgMessageSize)}
                         </td>
-                        <td className="py-3 px-4 text-right text-xs text-gray-500">
+                        <td className="py-3 px-4 text-right text-xs text-muted-foreground">
                           {new Date(topic.lastActivity).toLocaleString()}
                         </td>
                       </tr>
@@ -416,9 +416,9 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
                       return (
                         <tr 
                           key={`${traffic.deviceId}-${traffic.method}-${traffic.endpoint}`}
-                          className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
+                          className="border-b border-border hover:bg-muted transition-colors"
                         >
-                          <td className="py-3 px-4 font-mono text-xs text-gray-700" title={traffic.deviceId}>
+                          <td className="py-3 px-4 font-mono text-xs text-foreground" title={traffic.deviceId}>
                             {traffic.deviceId.substring(0, 8)}...
                           </td>
                           <td className="py-3 px-4">
@@ -426,10 +426,10 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
                               {traffic.method || 'GET'}
                             </Badge>
                           </td>
-                          <td className="py-3 px-4 font-mono text-sm text-gray-700 max-w-md truncate" title={traffic.endpoint}>
+                          <td className="py-3 px-4 font-mono text-sm text-foreground max-w-md truncate" title={traffic.endpoint}>
                             {traffic.endpoint}
                           </td>
-                          <td className="py-3 px-4 text-right text-gray-700">
+                          <td className="py-3 px-4 text-right text-foreground">
                             {traffic.count}
                           </td>
                           <td className="py-3 px-4 text-right text-green-600 font-medium">
@@ -438,16 +438,16 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
                           <td className="py-3 px-4 text-right text-red-600 font-medium">
                             {traffic.failed || 0}
                           </td>
-                          <td className="py-3 px-4 text-right text-gray-700 font-medium">
+                          <td className="py-3 px-4 text-right text-foreground font-medium">
                             {formatBytes(traffic.totalBytes)}
                           </td>
-                          <td className="py-3 px-4 text-right text-gray-600">
+                          <td className="py-3 px-4 text-right text-muted-foreground">
                             {formatBytes(traffic.avgSize)}
                           </td>
-                          <td className="py-3 px-4 text-right text-gray-600">
+                          <td className="py-3 px-4 text-right text-muted-foreground">
                             {formatTime(traffic.avgTime)}
                           </td>
-                          <td className="py-3 px-4 text-right text-xs font-mono text-gray-500">
+                          <td className="py-3 px-4 text-right text-xs font-mono text-muted-foreground">
                             {statusCodes || '-'}
                           </td>
                         </tr>

@@ -141,7 +141,7 @@ export function EntriesTable() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-gray-900">Recent Projects</h2>
+        <h2 className="text-foreground">Recent Projects</h2>
         <Button variant="outline">View All</Button>
       </div>
       
@@ -163,8 +163,8 @@ export function EntriesTable() {
               <TableRow key={entry.id}>
                 <TableCell>
                   <div>
-                    <div className="text-gray-900">{entry.name}</div>
-                    <div className="text-gray-500">{entry.id}</div>
+                    <div className="text-foreground">{entry.name}</div>
+                    <div className="text-muted-foreground">{entry.id}</div>
                   </div>
                 </TableCell>
                 <TableCell>
@@ -183,19 +183,19 @@ export function EntriesTable() {
                       <AvatarImage src={entry.assignee.avatar} />
                       <AvatarFallback>{entry.assignee.initials}</AvatarFallback>
                     </Avatar>
-                    <span className="text-gray-900">{entry.assignee.name}</span>
+                    <span className="text-foreground">{entry.assignee.name}</span>
                   </div>
                 </TableCell>
-                <TableCell className="text-gray-600">{entry.dueDate}</TableCell>
+                <TableCell className="text-muted-foreground">{entry.dueDate}</TableCell>
                 <TableCell>
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[100px]">
+                    <div className="flex-1 bg-muted rounded-full h-2 max-w-[100px]">
                       <div
                         className="bg-blue-600 h-2 rounded-full transition-all"
                         style={{ width: `${entry.progress}%` }}
                       ></div>
                     </div>
-                    <span className="text-gray-600">{entry.progress}%</span>
+                    <span className="text-muted-foreground">{entry.progress}%</span>
                   </div>
                 </TableCell>
                 <TableCell>

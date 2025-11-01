@@ -8,14 +8,14 @@ interface TimelinePageProps {
 
 export function TimelinePage({ device }: TimelinePageProps) {
   return (
-    <div className="flex-1 bg-gray-50 overflow-auto">
+    <div className="flex-1 bg-background overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
 
 
         {/* Page Title */}
         <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Event Timeline</h2>
-          <p className="text-gray-600">System events and activity history</p>
+          <h2 className="text-2xl font-bold text-foreground mb-2">Event Timeline</h2>
+          <p className="text-muted-foreground">System events and activity history</p>
         </div>
 
         {/* Timeline Card */}

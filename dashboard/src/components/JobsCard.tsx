@@ -222,11 +222,11 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid, deviceStatus }) 
       {/* Header with Buttons - Outside Card */}
       <div className="flex items-start justify-between gap-4 mb-6">
         <div className="space-y-2">
-          <h1 className="text-2xl font-bold tracking-tight text-gray-900">Jobs</h1>
-          <p className="text-sm text-gray-600">
+          <h1 className="text-2xl font-bold tracking-tight text-foreground">Jobs</h1>
+          <p className="text-sm text-muted-foreground">
             Job executions on this device
             {lastRefresh && (
-              <span className="text-xs text-gray-400 ml-2">
+              <span className="text-xs text-muted-foreground ml-2">
                 • Last updated {lastRefresh.toLocaleTimeString()}
               </span>
             )}
@@ -287,11 +287,11 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid, deviceStatus }) 
               </thead>
               <tbody>
                 {jobs.map((job) => (
-                  <tr key={job.id} className="border-b border-gray-100 last:border-0 hover:bg-gray-50">
-                    <td className="py-3 px-4 text-gray-900">
+                  <tr key={job.id} className="border-b border-border last:border-0 hover:bg-muted">
+                    <td className="py-3 px-4 text-foreground">
                       <div className="font-medium">{job.job_name}</div>
                       {job.reason && (
-                        <div className="text-xs text-gray-500 mt-0.5 truncate max-w-[200px]">
+                        <div className="text-xs text-muted-foreground mt-0.5 truncate max-w-[200px]">
                           {job.reason}
                         </div>
                       )}
@@ -445,7 +445,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid, deviceStatus }) 
               <AlertDialogTitle>Delete Job</AlertDialogTitle>
             </div>
             <AlertDialogDescription className="text-left pt-2">
-              Are you sure you want to delete job <strong className="text-gray-900">"{jobToDelete?.job_name}"</strong>? 
+              Are you sure you want to delete job <strong className="text-foreground">"{jobToDelete?.job_name}"</strong>? 
               This action cannot be undone and all job data will be permanently removed.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -473,7 +473,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid, deviceStatus }) 
               <AlertDialogTitle>Cancel Job</AlertDialogTitle>
             </div>
             <AlertDialogDescription className="text-left pt-2">
-              Are you sure you want to cancel job <strong className="text-gray-900">"{jobToCancel?.job_name}"</strong>? 
+              Are you sure you want to cancel job <strong className="text-foreground">"{jobToCancel?.job_name}"</strong>? 
               The job will not be executed and its status will be updated to canceled.
             </AlertDialogDescription>
           </AlertDialogHeader>

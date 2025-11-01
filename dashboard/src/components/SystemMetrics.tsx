@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { Cpu, HardDrive, MemoryStick, Package } from "lucide-react";
-import { Card } from "./ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import {
@@ -184,64 +184,47 @@ export function SystemMetrics({
   };
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-auto">
+    <div className="flex-1 bg-background overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
 
         {/* Quick Metrics */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
           {metrics.map((metric, index) => {
             const Icon = metric.icon;
-
-            const getProgressColors = (color: string) => {
-              switch (color) {
-                case 'blue':
-                  return { bg: '#dbeafe', bar: '#2563eb' }; // blue-100, blue-600
-                case 'purple':
-                  return { bg: '#e9d5ff', bar: '#9333ea' }; // purple-200, purple-600
-                case 'green':
-                  return { bg: '#dcfce7', bar: '#16a34a' }; // green-100, green-600
-                case 'orange':
-                  return { bg: '#ffedd5', bar: '#ea580c' }; // orange-100, orange-600
-                default:
-                  return { bg: '#f3f4f6', bar: '#4b5563' }; // gray-100, gray-600
-              }
+            
+            const iconColors = {
+              blue: 'text-blue-600 dark:text-blue-400',
+              purple: 'text-purple-600 dark:text-purple-400',
+              green: 'text-green-600 dark:text-green-400',
+              orange: 'text-orange-600 dark:text-orange-400',
             };
 
-            const colors = getProgressColors(metric.color);
-            
-            const borderColors = {
-              blue: 'border-blue-200',
-              purple: 'border-purple-200',
-              green: 'border-green-200',
-              orange: 'border-orange-200',
+            const progressBarColors = {
+              blue: 'bg-blue-600 dark:bg-blue-500',
+              purple: 'bg-purple-600 dark:bg-purple-500',
+              green: 'bg-green-600 dark:bg-green-500',
+              orange: 'bg-orange-600 dark:bg-orange-500',
             };
 
             return (
-              
-              <Card key={index} className={`border-2 ${metric.bgColor} ${borderColors[metric.color as keyof typeof borderColors]}`}>
-                <div className="p-6">
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">{metric.label}</p>
-                      <p className="text-3xl font-bold">{metric.value}</p>
-                    </div>
-                    <div className={`h-12 w-12 ${metric.iconColor}`}>
+              <Card key={index}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardDescription>{metric.label}</CardDescription>
+                    <div className={`h-10 w-10 ${iconColors[metric.color as keyof typeof iconColors]}`}>
                       <Icon className="h-full w-full" />
                     </div>
                   </div>
-                  <div 
-                    className="relative h-2 w-full overflow-hidden rounded-full"
-                    style={{ backgroundColor: colors.bg }}
-                  >
+                </CardHeader>
+                <CardContent>
+                  <CardTitle className="text-3xl">{metric.value}</CardTitle>
+                  <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted mt-4">
                     <div 
-                      className="h-full transition-all"
-                      style={{ 
-                        width: `${metric.progress}%`,
-                        backgroundColor: colors.bar
-                      }}
+                      className={`h-full transition-all ${progressBarColors[metric.color as keyof typeof progressBarColors]}`}
+                      style={{ width: `${metric.progress}%` }}
                     />
                   </div>
-                </div>
+                </CardContent>
               </Card>
             );
           })}
@@ -253,8 +236,8 @@ export function SystemMetrics({
           <Card className="p-4 md:p-6">
             <div className="mb-4 space-y-3">
               <div>
-                <h3 className="text-lg text-gray-900 font-medium mb-1">Telemetry</h3>
-                <p className="text-sm text-gray-600">System performance metrics</p>
+                <h3 className="text-lg text-foreground font-medium mb-1">Telemetry</h3>
+                <p className="text-sm text-muted-foreground">System performance metrics</p>
               </div>
               <div className="flex items-center gap-2">
                 <Select value={timePeriod} onValueChange={(value: any) => setTimePeriod(value)}>
@@ -422,37 +405,37 @@ export function SystemMetrics({
         {/* Top Processes */}
         <Card className="p-4 md:p-6" id="processes-section">
           <div className="mb-4">
-            <h3 className="text-lg text-gray-900 font-medium mb-1">Top Processes</h3>
-            <p className="text-sm text-gray-600">Most resource-intensive processes</p>
+            <h3 className="text-lg text-foreground font-medium mb-1">Top Processes</h3>
+            <p className="text-sm text-muted-foreground">Most resource-intensive processes</p>
           </div>
           {processesLoading ? (
-            <div className="text-center py-8 text-gray-500">Loading processes...</div>
+            <div className="text-center py-8 text-muted-foreground">Loading processes...</div>
           ) : processes.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">No process data available</div>
+            <div className="text-center py-8 text-muted-foreground">No process data available</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-0 text-sm font-medium text-gray-600">Process</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 hidden sm:table-cell">PID</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600">CPU %</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 hidden md:table-cell">Memory %</th>
-                    <th className="text-left py-3 px-4 text-sm font-medium text-gray-600 hidden lg:table-cell">CPU Usage</th>
+                  <tr className="border-b border-border">
+                    <th className="text-left py-3 px-0 text-sm font-medium text-muted-foreground">Process</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground hidden sm:table-cell">PID</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">CPU %</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Memory %</th>
+                    <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">CPU Usage</th>
                   </tr>
                 </thead>
                 <tbody>
                   {processes.map((process, index) => (
-                    <tr key={index} className="border-b border-gray-100 last:border-0">
-                      <td className="py-3 px-0 text-gray-900 truncate max-w-[150px]">
+                    <tr key={index} className="border-b border-border last:border-0">
+                      <td className="py-3 px-0 text-foreground truncate max-w-[150px]">
                         {process.name}
                       </td>
-                      <td className="py-3 px-4 text-gray-600 hidden sm:table-cell">{process.pid}</td>
-                      <td className="py-3 px-4 text-gray-900">{process.cpu.toFixed(1)}%</td>
-                      <td className="py-3 px-4 text-gray-900 hidden md:table-cell">{process.mem.toFixed(1)}%</td>
+                      <td className="py-3 px-4 text-muted-foreground hidden sm:table-cell">{process.pid}</td>
+                      <td className="py-3 px-4 text-foreground">{process.cpu.toFixed(1)}%</td>
+                      <td className="py-3 px-4 text-foreground hidden md:table-cell">{process.mem.toFixed(1)}%</td>
                       <td className="py-3 px-4 hidden lg:table-cell">
                         <div className="flex items-center gap-2">
-                          <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[120px]">
+                          <div className="flex-1 bg-muted rounded-full h-2 max-w-[120px]">
                             <div
                               className="bg-blue-600 h-2 rounded-full transition-all"
                               style={{ width: `${Math.min(process.cpu * 5, 100)}%` }}

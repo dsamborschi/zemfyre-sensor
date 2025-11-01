@@ -82,13 +82,13 @@ export function UsagePage() {
   };
 
   return (
-    <div className="flex-1 bg-gray-50 overflow-auto">
+    <div className="flex-1 bg-background overflow-auto">
       <div className="p-4 md:p-6 lg:p-8 space-y-6">
         {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold tracking-tight text-gray-900">API Usage</h1>
-            <p className="text-sm text-gray-600">
+            <h1 className="text-2xl font-bold tracking-tight text-foreground">API Usage</h1>
+            <p className="text-sm text-muted-foreground">
               Monitor API endpoint usage and performance metrics
             </p>
           </div>
@@ -100,79 +100,79 @@ export function UsagePage() {
 
         {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="border-2 bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
-            <CardContent className="p-6">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Total Requests</p>
-                  <p className="text-3xl font-bold">{globalMetrics.count}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {globalMetrics.success > 0 && (
-                      <span className="text-green-600">{globalMetrics.success} success</span>
-                    )}
-                    {globalMetrics.failed > 0 && (
-                      <>
-                        {globalMetrics.success > 0 && ' • '}
-                        <span className="text-red-600">{globalMetrics.failed} failed</span>
-                      </>
-                    )}
-                  </p>
-                </div>
-                <div className="h-12 w-12 text-blue-600 dark:text-blue-400">
+                <CardDescription>Total Requests</CardDescription>
+                <div className="h-10 w-10 text-blue-600 dark:text-blue-400">
                   <Activity className="h-full w-full" />
                 </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl mb-1">{globalMetrics.count}</CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {globalMetrics.success > 0 && (
+                  <span className="text-green-600 dark:text-green-400">{globalMetrics.success} success</span>
+                )}
+                {globalMetrics.failed > 0 && (
+                  <>
+                    {globalMetrics.success > 0 && ' • '}
+                    <span className="text-red-600 dark:text-red-400">{globalMetrics.failed} failed</span>
+                  </>
+                )}
+              </p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 bg-purple-50 dark:bg-purple-950 border-purple-200 dark:border-purple-800">
-            <CardContent className="p-6">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Total Bandwidth</p>
-                  <p className="text-3xl font-bold">{formatBytes(globalMetrics.totalBytes)}</p>
-                  <p className="text-xs text-muted-foreground">Avg: {formatBytes(globalMetrics.avgSize)}</p>
-                </div>
-                <div className="h-12 w-12 text-purple-600 dark:text-purple-400">
+                <CardDescription>Total Bandwidth</CardDescription>
+                <div className="h-10 w-10 text-purple-600 dark:text-purple-400">
                   <HardDrive className="h-full w-full" />
                 </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl mb-1">{formatBytes(globalMetrics.totalBytes)}</CardTitle>
+              <p className="text-xs text-muted-foreground">Avg: {formatBytes(globalMetrics.avgSize)}</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-800">
-            <CardContent className="p-6">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Avg Response Time</p>
-                  <p className="text-3xl font-bold">{formatTime(globalMetrics.avgTime)}</p>
-                  <p className="text-xs text-muted-foreground">Performance metric</p>
-                </div>
-                <div className="h-12 w-12 text-green-600 dark:text-green-400">
+                <CardDescription>Avg Response Time</CardDescription>
+                <div className="h-10 w-10 text-green-600 dark:text-green-400">
                   <Clock className="h-full w-full" />
                 </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl mb-1">{formatTime(globalMetrics.avgTime)}</CardTitle>
+              <p className="text-xs text-muted-foreground">Performance metric</p>
             </CardContent>
           </Card>
 
-          <Card className="border-2 bg-orange-50 dark:bg-orange-950 border-orange-200 dark:border-orange-800">
-            <CardContent className="p-6">
+          <Card>
+            <CardHeader>
               <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Success Rate</p>
-                  <p className="text-3xl font-bold">
-                    {globalMetrics.count > 0 
-                      ? Math.round((globalMetrics.success / globalMetrics.count) * 100) 
-                      : 0}%
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {globalMetrics.success}/{globalMetrics.count} requests
-                  </p>
-                </div>
-                <div className="h-12 w-12 text-orange-600 dark:text-orange-400">
+                <CardDescription>Success Rate</CardDescription>
+                <div className="h-10 w-10 text-orange-600 dark:text-orange-400">
                   <TrendingUp className="h-full w-full" />
                 </div>
               </div>
+            </CardHeader>
+            <CardContent>
+              <CardTitle className="text-3xl mb-1">
+                {globalMetrics.count > 0 
+                  ? Math.round((globalMetrics.success / globalMetrics.count) * 100) 
+                  : 0}%
+              </CardTitle>
+              <p className="text-xs text-muted-foreground">
+                {globalMetrics.success}/{globalMetrics.count} requests
+              </p>
             </CardContent>
           </Card>
         </div>

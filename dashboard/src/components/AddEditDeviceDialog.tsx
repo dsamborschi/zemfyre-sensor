@@ -281,11 +281,11 @@ export function AddEditDeviceDialog({
     
 
           {(!isEditMode || formData.status === "pending") && (
-            <div className="space-y-4 pt-4 border-t border-gray-200">
+            <div className="space-y-4 pt-4 border-t border-border">
               <div className="space-y-2">
-                <Label htmlFor="provisioning-key" className="text-sm font-semibold text-gray-900">Provisioning Key</Label>
-                <div className="relative bg-gray-50 border border-gray-200 rounded-md px-3 py-2.5">
-                  <code className="block font-mono text-xs text-gray-900 select-all break-all leading-relaxed pr-20">
+                <Label htmlFor="provisioning-key" className="text-sm font-semibold text-foreground">Provisioning Key</Label>
+                <div className="relative bg-muted border border-border rounded-md px-3 py-2.5">
+                  <code className="block font-mono text-xs text-foreground select-all break-all leading-relaxed pr-20">
                     {isLoadingKey ? "Generating..." : (provisioningKey || "Loading...")}
                   </code>
                   <div className="absolute top-2 right-2 flex gap-1">
@@ -293,11 +293,11 @@ export function AddEditDeviceDialog({
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="h-8 w-8 hover:bg-gray-200"
+                      className="h-8 w-8"
                       onClick={copyProvisioningKey}
                       disabled={isLoadingKey || !provisioningKey}
                     >
-                      {copiedKey ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-gray-600" />}
+                      {copiedKey ? <Check className="w-4 h-4 text-green-600" /> : <Copy className="w-4 h-4 text-muted-foreground" />}
                     </Button>
                     <Button
                       type="button"
@@ -317,7 +317,7 @@ export function AddEditDeviceDialog({
               </div>
 
               <div className="space-y-2">
-                <Label htmlFor="install-command" className="text-sm font-semibold text-gray-900">Install Command</Label>
+                <Label htmlFor="install-command" className="text-sm font-semibold text-foreground">Install Command</Label>
                 <div className="relative bg-black border border-gray-700 rounded-md px-4 py-3" style={{ backgroundColor: '#0d1117' }}>
                   <code className="block font-mono text-sm whitespace-pre-wrap break-all select-all pr-10" style={{ color: '#00ff41' }}>
                     {installCommand}

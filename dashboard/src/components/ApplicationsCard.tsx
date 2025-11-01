@@ -418,7 +418,7 @@ export function ApplicationsCard({
       <Card className="p-4 md:p-6">
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
-            <h3 className="text-lg text-gray-900 font-medium">Applications</h3>
+            <h3 className="text-lg text-foreground font-medium">Applications</h3>
             <Button 
               onClick={openAddAppModal} 
               size="sm" 
@@ -430,11 +430,11 @@ export function ApplicationsCard({
               Add App
             </Button>
           </div>
-          <p className="text-sm text-gray-600">Docker containers and services</p>
+          <p className="text-sm text-muted-foreground">Docker containers and services</p>
         </div>
 
         {applications.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
+          <div className="text-center py-8 text-muted-foreground">
             <p>No applications deployed</p>
             <p className="text-sm mt-1">Click "Add App" to deploy a service</p>
           </div>
@@ -445,14 +445,14 @@ export function ApplicationsCard({
               return (
                 <div
                   key={app.id}
-                  className="border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors"
+                  className="border border-border rounded-lg overflow-hidden hover:border-muted-foreground/20 transition-colors"
                 >
                   {/* Application Header */}
-                  <div className="p-3 bg-gray-50 space-y-3">
+                  <div className="p-3 bg-muted space-y-3">
                     {/* Title Row */}
                     <div className="flex items-start gap-2">
                       <div className="flex-1 min-w-0">
-                        <h4 className="text-gray-900 font-medium mb-1">{app.appName || app.name}</h4>
+                        <h4 className="text-foreground font-medium mb-1">{app.appName || app.name}</h4>
                         <div className="flex items-center gap-2 flex-wrap">
                           <div className="flex items-center gap-1">
                             <SyncIcon className={`w-3 h-3 ${
@@ -472,7 +472,7 @@ export function ApplicationsCard({
                           </div>
                           {app.services && app.services.length > 0 && (
                             <>
-                              <span className="text-gray-400">•</span>
+                              <span className="text-muted-foreground">•</span>
                               <span className="text-sm text-gray-500">
                                 {app.services.length} service{app.services.length !== 1 ? 's' : ''}
                               </span>
@@ -521,15 +521,15 @@ export function ApplicationsCard({
 
                   {/* Services List */}
                   {app.services && app.services.length > 0 && (
-                    <div className="border-t border-gray-200 bg-white">
+                    <div className="border-t border-border bg-card">
                       <div className="p-3 space-y-2">
-                        <h5 className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2">Services</h5>
+                        <h5 className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">Services</h5>
                         {app.services.map((service, idx) => (
-                          <div key={`${service.serviceId}-${idx}`} className="bg-white rounded p-2 border border-gray-100">
+                          <div key={`${service.serviceId}-${idx}`} className="bg-card rounded p-2 border border-border">
                             <div className="flex items-center justify-between gap-2">
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-medium text-gray-900 text-sm">{service.serviceName}</span>
+                                  <span className="font-medium text-foreground text-sm">{service.serviceName}</span>
                                   {service.status && (
                                     <Badge variant="outline" className={`text-xs ${statusColors[service.status]}`}>
                                       {service.status}
@@ -547,7 +547,7 @@ export function ApplicationsCard({
                                   disabled={service.status === "running" || service.status === "syncing" || app.syncStatus === "pending" || app.syncStatus === "syncing"}
                                   className={`h-8 w-8 p-0 ${
                                     service.status === "running" || service.status === "syncing" || app.syncStatus === "pending" || app.syncStatus === "syncing"
-                                      ? "border-gray-200 bg-gray-50 text-gray-400 cursor-not-allowed"
+                                      ? "border-border bg-muted text-muted-foreground cursor-not-allowed"
                                       : "border-green-300 bg-green-50 text-green-700 hover:bg-green-100 hover:border-green-400"
                                   }`}
                                   title={app.syncStatus === "pending" || app.syncStatus === "syncing" ? "Cannot start while app is pending or syncing deployment" : "Start (unpause or start stopped service)"}
