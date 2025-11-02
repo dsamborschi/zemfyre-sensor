@@ -11,9 +11,19 @@
 import { useEffect, useState } from "react";
 import { apiTrafficTracker, EndpointStats, ApiTrafficMetrics } from "@/lib/apiTrafficTracker";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MetricCard } from "@/components/ui/metric-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Activity, BarChart3, Clock, HardDrive, RefreshCw, TrendingUp } from "lucide-react";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 export function UsagePage() {
   const [globalMetrics, setGlobalMetrics] = useState<ApiTrafficMetrics>({
@@ -26,10 +36,38 @@ export function UsagePage() {
     failed: 0,
   });
   const [endpoints, setEndpoints] = useState<EndpointStats[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  // Track metrics history for trend calculation
+  const [metricsHistory, setMetricsHistory] = useState<{
+    requests: number[];
+    bandwidth: number[];
+    responseTime: number[];
+    successRate: number[];
+  }>({
+    requests: [],
+    bandwidth: [],
+    responseTime: [],
+    successRate: [],
+  });
 
   useEffect(() => {
-    // Subscribe to global metrics
-    const unsubGlobal = apiTrafficTracker.subscribe(setGlobalMetrics);
+    // Subscribe to global metrics and track history
+    const unsubGlobal = apiTrafficTracker.subscribe((metrics) => {
+      setGlobalMetrics(metrics);
+      
+      // Update metrics history (keep last 10 snapshots)
+      setMetricsHistory(prev => {
+        const successRate = metrics.count > 0 ? (metrics.success / metrics.count) * 100 : 0;
+        return {
+          requests: [...prev.requests, metrics.count].slice(-10),
+          bandwidth: [...prev.bandwidth, metrics.totalBytes].slice(-10),
+          responseTime: [...prev.responseTime, metrics.avgTime].slice(-10),
+          successRate: [...prev.successRate, successRate].slice(-10),
+        };
+      });
+    });
     
     // Subscribe to endpoint metrics
     const unsubEndpoints = apiTrafficTracker.subscribeEndpoints(setEndpoints);
@@ -40,8 +78,42 @@ export function UsagePage() {
     };
   }, []);
 
+  // Calculate trends from history
+  const calculateTrend = (history: number[]): { trend: "up" | "down" | "neutral"; trendValue: string } => {
+    if (history.length < 4) return { trend: "neutral", trendValue: "" };
+    
+    // Compare recent half vs older half
+    const mid = Math.floor(history.length / 2);
+    const olderHalf = history.slice(0, mid);
+    const recentHalf = history.slice(mid);
+    
+    const avgOlder = olderHalf.reduce((sum, val) => sum + val, 0) / olderHalf.length;
+    const avgRecent = recentHalf.reduce((sum, val) => sum + val, 0) / recentHalf.length;
+    
+    const change = avgRecent - avgOlder;
+    const percentChange = avgOlder > 0 ? (change / avgOlder) * 100 : 0;
+    
+    if (Math.abs(percentChange) < 5) return { trend: "neutral", trendValue: "" };
+    
+    return {
+      trend: change > 0 ? "up" : "down",
+      trendValue: `${change > 0 ? "+" : ""}${percentChange.toFixed(1)}%`
+    };
+  };
+
+  const requestsTrend = calculateTrend(metricsHistory.requests);
+  const bandwidthTrend = calculateTrend(metricsHistory.bandwidth);
+  const responseTimeTrend = calculateTrend(metricsHistory.responseTime);
+  const successRateTrend = calculateTrend(metricsHistory.successRate);
+
   // Sort endpoints by total bytes (most bandwidth-intensive first)
   const sortedEndpoints = [...endpoints].sort((a, b) => b.totalBytes - a.totalBytes);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(sortedEndpoints.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedEndpoints = sortedEndpoints.slice(startIndex, endIndex);
 
   // Format bytes to human-readable format
   const formatBytes = (bytes: number): string => {
@@ -100,81 +172,51 @@ export function UsagePage() {
 
         {/* Summary Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>Total Requests</CardDescription>
-                <div className="h-10 w-10 text-blue-600 dark:text-blue-400">
-                  <Activity className="h-full w-full" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardTitle className="text-3xl mb-1">{globalMetrics.count}</CardTitle>
-              <p className="text-xs text-muted-foreground">
-                {globalMetrics.success > 0 && (
-                  <span className="text-green-600 dark:text-green-400">{globalMetrics.success} success</span>
-                )}
-                {globalMetrics.failed > 0 && (
-                  <>
-                    {globalMetrics.success > 0 && ' • '}
-                    <span className="text-red-600 dark:text-red-400">{globalMetrics.failed} failed</span>
-                  </>
-                )}
-              </p>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="Total Requests"
+            value={globalMetrics.count}
+            subtitle={
+              globalMetrics.success > 0 || globalMetrics.failed > 0
+                ? `${globalMetrics.success > 0 ? `${globalMetrics.success} success` : ''}${
+                    globalMetrics.success > 0 && globalMetrics.failed > 0 ? ' • ' : ''
+                  }${globalMetrics.failed > 0 ? `${globalMetrics.failed} failed` : ''}`
+                : undefined
+            }
+            icon={Activity}
+            iconColor="blue"
+            trend={requestsTrend.trend}
+            trendValue={requestsTrend.trendValue}
+          />
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>Total Bandwidth</CardDescription>
-                <div className="h-10 w-10 text-purple-600 dark:text-purple-400">
-                  <HardDrive className="h-full w-full" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardTitle className="text-3xl mb-1">{formatBytes(globalMetrics.totalBytes)}</CardTitle>
-              <p className="text-xs text-muted-foreground">Avg: {formatBytes(globalMetrics.avgSize)}</p>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="Total Bandwidth"
+            value={formatBytes(globalMetrics.totalBytes)}
+            subtitle={`Avg: ${formatBytes(globalMetrics.avgSize)}`}
+            icon={HardDrive}
+            iconColor="purple"
+            trend={bandwidthTrend.trend}
+            trendValue={bandwidthTrend.trendValue}
+          />
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>Avg Response Time</CardDescription>
-                <div className="h-10 w-10 text-green-600 dark:text-green-400">
-                  <Clock className="h-full w-full" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardTitle className="text-3xl mb-1">{formatTime(globalMetrics.avgTime)}</CardTitle>
-              <p className="text-xs text-muted-foreground">Performance metric</p>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="Avg Response Time"
+            value={formatTime(globalMetrics.avgTime)}
+            subtitle="Performance metric"
+            icon={Clock}
+            iconColor="green"
+            trend={responseTimeTrend.trend}
+            trendValue={responseTimeTrend.trendValue}
+          />
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>Success Rate</CardDescription>
-                <div className="h-10 w-10 text-orange-600 dark:text-orange-400">
-                  <TrendingUp className="h-full w-full" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardTitle className="text-3xl mb-1">
-                {globalMetrics.count > 0 
-                  ? Math.round((globalMetrics.success / globalMetrics.count) * 100) 
-                  : 0}%
-              </CardTitle>
-              <p className="text-xs text-muted-foreground">
-                {globalMetrics.success}/{globalMetrics.count} requests
-              </p>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="Success Rate"
+            value={`${globalMetrics.count > 0 ? Math.round((globalMetrics.success / globalMetrics.count) * 100) : 0}%`}
+            subtitle={`${globalMetrics.success}/${globalMetrics.count} requests`}
+            icon={TrendingUp}
+            iconColor="orange"
+            trend={successRateTrend.trend}
+            trendValue={successRateTrend.trendValue}
+          />
         </div>
 
         {/* Endpoints Table */}
@@ -186,7 +228,7 @@ export function UsagePage() {
                 <CardDescription>
                   {sortedEndpoints.length === 0 
                     ? 'No API requests tracked yet' 
-                    : `Top ${Math.min(sortedEndpoints.length, 20)} endpoints by bandwidth usage`}
+                    : `Showing ${startIndex + 1}-${Math.min(endIndex, sortedEndpoints.length)} of ${sortedEndpoints.length} endpoints`}
                 </CardDescription>
               </div>
               <TrendingUp className="h-5 w-5 text-muted-foreground" />
@@ -194,8 +236,8 @@ export function UsagePage() {
           </CardHeader>
           <CardContent>
             {sortedEndpoints.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <BarChart3 className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <div className="text-center py-12 text-muted-foreground">
+                <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-lg font-medium mb-2">No data yet</p>
                 <p className="text-sm">API usage will appear here as you use the application</p>
               </div>
@@ -203,30 +245,32 @@ export function UsagePage() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Method</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Endpoint</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Requests</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Success</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Failed</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Total Size</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Avg Size</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Avg Time</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Status Codes</th>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Method</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Endpoint</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Requests</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Success</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Failed</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Total Size</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Avg Size</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Avg Time</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Status Codes</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {sortedEndpoints.slice(0, 20).map((endpoint, index) => {
+                    {paginatedEndpoints.map((endpoint, index) => {
                       const statusCodes = Object.entries(endpoint.statuses || {})
                         .sort(([a], [b]) => Number(a) - Number(b))
                         .map(([code, count]) => `${code}:${count}`)
                         .join(', ');
+                      
+                      const globalIndex = startIndex + index;
 
                       return (
                         <tr 
                           key={`${endpoint.method}-${endpoint.url}`}
-                          className={`border-b border-gray-100 hover:bg-gray-50 transition-colors ${
-                            index < 3 ? 'bg-blue-50/30' : ''
+                          className={`border-b border-border hover:bg-muted transition-colors ${
+                            globalIndex < 3 ? 'bg-blue-50/30 dark:bg-blue-950/30' : ''
                           }`}
                         >
                           <td className="py-3 px-4">
@@ -234,10 +278,10 @@ export function UsagePage() {
                               {endpoint.method || 'GET'}
                             </Badge>
                           </td>
-                          <td className="py-3 px-4 font-mono text-sm text-gray-700 max-w-md truncate" title={endpoint.url}>
+                          <td className="py-3 px-4 font-mono text-sm text-foreground max-w-md truncate" title={endpoint.url}>
                             {endpoint.url}
                           </td>
-                          <td className="py-3 px-4 text-right text-gray-700">
+                          <td className="py-3 px-4 text-right text-foreground">
                             {endpoint.count}
                           </td>
                           <td className="py-3 px-4 text-right text-green-600 font-medium">
@@ -246,16 +290,16 @@ export function UsagePage() {
                           <td className="py-3 px-4 text-right text-red-600 font-medium">
                             {endpoint.failed || 0}
                           </td>
-                          <td className="py-3 px-4 text-right text-gray-700 font-medium">
+                          <td className="py-3 px-4 text-right text-foreground font-medium">
                             {formatBytes(endpoint.totalBytes)}
                           </td>
-                          <td className="py-3 px-4 text-right text-gray-600">
+                          <td className="py-3 px-4 text-right text-muted-foreground">
                             {formatBytes(endpoint.avgSize)}
                           </td>
-                          <td className="py-3 px-4 text-right text-gray-600">
+                          <td className="py-3 px-4 text-right text-muted-foreground">
                             {formatTime(endpoint.avgTime)}
                           </td>
-                          <td className="py-3 px-4 text-right text-xs font-mono text-gray-500">
+                          <td className="py-3 px-4 text-right text-xs font-mono text-muted-foreground">
                             {statusCodes || '-'}
                           </td>
                         </tr>
@@ -263,6 +307,118 @@ export function UsagePage() {
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+            
+            {/* Pagination */}
+            {sortedEndpoints.length > itemsPerPage && (
+              <div className="mt-6">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrentPage(prev => Math.max(1, prev - 1));
+                        }}
+                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                    
+                    {/* First page */}
+                    {currentPage > 2 && (
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(1);
+                          }}
+                        >
+                          1
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+                    
+                    {/* Ellipsis before current page */}
+                    {currentPage > 3 && (
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )}
+                    
+                    {/* Previous page */}
+                    {currentPage > 1 && (
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(currentPage - 1);
+                          }}
+                        >
+                          {currentPage - 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+                    
+                    {/* Current page */}
+                    <PaginationItem>
+                      <PaginationLink href="#" isActive>
+                        {currentPage}
+                      </PaginationLink>
+                    </PaginationItem>
+                    
+                    {/* Next page */}
+                    {currentPage < totalPages && (
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(currentPage + 1);
+                          }}
+                        >
+                          {currentPage + 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+                    
+                    {/* Ellipsis after current page */}
+                    {currentPage < totalPages - 2 && (
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )}
+                    
+                    {/* Last page */}
+                    {currentPage < totalPages - 1 && (
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setCurrentPage(totalPages);
+                          }}
+                        >
+                          {totalPages}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setCurrentPage(prev => Math.min(totalPages, prev + 1));
+                        }}
+                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
               </div>
             )}
           </CardContent>

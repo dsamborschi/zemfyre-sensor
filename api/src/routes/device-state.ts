@@ -569,7 +569,7 @@ function normalizeAppsFormat(apps: any): Record<number, any> {
  * - Array: [{ appId: 1, appName: "app1", ... }, ...]
  * - Object: { 1: { appId: 1, appName: "app1", ... }, ... }
  */
-router.put('/devices/:uuid/target-state', deviceAuth, async (req, res) => {
+router.put('/devices/:uuid/target-state', async (req, res) => {
   try {
     const { uuid } = req.params;
     let { apps, config } = req.body;

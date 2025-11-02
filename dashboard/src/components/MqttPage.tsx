@@ -2,13 +2,14 @@
  * MQTT Page - Shows MQTT broker status and metrics
  */
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { Users, MessageSquare, Zap, TrendingUp } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { MetricCard } from "./ui/metric-card";
 import { Device } from "./DeviceSidebar";
 import { MqttBrokerCard } from "./MqttBrokerCard";
 import { MqttMetricsCard } from "./MqttMetricsCard";
-import { buildApiUrl } from "@/config/api";
+import { useWebSocket, useGlobalWebSocketConnection } from "@/hooks/useWebSocket";
+import type { MqttStatsData } from "@/services/websocket";
 
 interface MqttPageProps {
   device: Device;
@@ -34,47 +35,68 @@ interface BrokerStats {
 
 export function MqttPage({ device }: MqttPageProps) {
   const [brokerStats, setBrokerStats] = useState<BrokerStats | null>(null);
+  const [mqttTopics, setMqttTopics] = useState<any[]>([]);
+  const [isConnected, setIsConnected] = useState(false);
 
-  // Fetch broker stats from API
-  useEffect(() => {
-    const fetchBrokerStats = async () => {
-      try {
-        const response = await fetch(buildApiUrl('/api/v1/mqtt-monitor/stats'));
-        if (response.ok) {
-          const data = await response.json();
-          if (data.stats) {
-            // Map the API response to our BrokerStats interface
-            const mappedStats: BrokerStats = {
-              connectedClients: parseInt(data.stats.broker?.clients?.connected || '0'),
-              disconnectedClients: parseInt(data.stats.broker?.clients?.disconnected || '0'),
-              totalClients: parseInt(data.stats.broker?.clients?.total || '0'),
-              subscriptions: parseInt(data.stats.broker?.subscriptions?.count || '0'),
-              retainedMessages: parseInt(data.stats.broker?.['retained messages']?.count || '0'),
-              messagesSent: parseInt(data.stats.broker?.messages?.sent || '0'),
-              messagesReceived: parseInt(data.stats.broker?.messages?.received || '0'),
-              messagesPublished: parseInt(data.stats.broker?.publish?.messages?.sent || '0'),
-              messagesDropped: parseInt(data.stats.broker?.publish?.messages?.dropped || '0'),
-              bytesSent: parseInt(data.stats.broker?.bytes?.sent || '0'),
-              bytesReceived: parseInt(data.stats.broker?.bytes?.received || '0'),
-              messageRatePublished: parseFloat(data.stats.broker?.load?.publish?.sent?.['1min'] || '0'),
-              messageRateReceived: parseFloat(data.stats.broker?.load?.publish?.received?.['1min'] || '0'),
-              throughputInbound: parseFloat(data.stats.broker?.load?.bytes?.received?.['1min'] || '0'),
-              throughputOutbound: parseFloat(data.stats.broker?.load?.bytes?.sent?.['1min'] || '0'),
-            };
-            
-            setBrokerStats(mappedStats);
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch broker stats:', error);
-      }
+  // Establish global WebSocket connection
+  useGlobalWebSocketConnection();
+
+  // Handle MQTT stats updates via WebSocket
+  const handleMqttStats = useCallback((data: MqttStatsData) => {
+    console.log('[MqttPage] Received MQTT stats:', data);
+    
+    // Helper function to safely parse number or return 0
+    const safeNumber = (value: any): number => {
+      if (value === null || value === undefined) return 0;
+      const num = typeof value === 'number' ? value : parseFloat(value);
+      return isNaN(num) ? 0 : num;
     };
-
-    fetchBrokerStats();
-    const interval = setInterval(fetchBrokerStats, 5000); // Refresh every 5 seconds
-
-    return () => clearInterval(interval);
+    
+    // Map WebSocket data to BrokerStats interface
+    // WebSocket sends data directly (not wrapped in 'stats' like HTTP endpoint)
+    const mappedStats: BrokerStats = {
+      // Use data.clients directly (from metrics.clients)
+      connectedClients: safeNumber(data.clients),
+      disconnectedClients: 0, // Not available in current metrics
+      totalClients: safeNumber(data.clients),
+      
+      // Direct metrics
+      subscriptions: safeNumber(data.subscriptions),
+      retainedMessages: safeNumber(data.retainedMessages),
+      messagesSent: safeNumber(data.totalMessagesSent),
+      messagesReceived: safeNumber(data.totalMessagesReceived),
+      
+      // System stats (from $SYS topics) - fallback to 0 if not available
+      messagesPublished: safeNumber(data.systemStats?.publish?.messages?.sent),
+      messagesDropped: safeNumber(data.systemStats?.publish?.messages?.dropped),
+      bytesSent: safeNumber(data.systemStats?.bytes?.sent),
+      bytesReceived: safeNumber(data.systemStats?.bytes?.received),
+      
+      // Rates (from metrics) - now using nested structure
+      messageRatePublished: safeNumber(data.messageRate?.published),
+      messageRateReceived: safeNumber(data.messageRate?.received),
+      throughputInbound: safeNumber(data.throughput?.inbound),
+      throughputOutbound: safeNumber(data.throughput?.outbound),
+    };
+    
+    console.log('[MqttPage] Mapped stats:', mappedStats);
+    setBrokerStats(mappedStats);
+    setIsConnected(data.connected || false);
   }, []);
+
+  // Handle MQTT topics updates via WebSocket
+  const handleMqttTopics = useCallback((data: any) => {
+    console.log('[MqttPage] Received MQTT topics:', data);
+    if (data.topics) {
+      setMqttTopics(data.topics);
+    }
+  }, []);
+
+  // Subscribe to mqtt-stats channel
+  useWebSocket(null, 'mqtt-stats', handleMqttStats);
+
+  // Subscribe to mqtt-topics channel
+  useWebSocket(null, 'mqtt-topics', handleMqttTopics);
 
   // Calculate current stats
   const currentStats = useMemo(() => {
@@ -109,70 +131,46 @@ export function MqttPage({ device }: MqttPageProps) {
 
         {/* Metric Count Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>Connected Clients</CardDescription>
-                <div className="h-10 w-10 text-blue-600 dark:text-blue-400">
-                  <Users className="h-full w-full" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardTitle className="text-3xl">{currentStats.activeClients}</CardTitle>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="Connected Clients"
+            value={currentStats.activeClients}
+            icon={Users}
+            iconColor="blue"
+          />
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>Subscriptions</CardDescription>
-                <div className="h-10 w-10 text-purple-600 dark:text-purple-400">
-                  <MessageSquare className="h-full w-full" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardTitle className="text-3xl">{currentStats.activeSubscriptions}</CardTitle>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="Subscriptions"
+            value={currentStats.activeSubscriptions}
+            icon={MessageSquare}
+            iconColor="purple"
+          />
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>Messages/sec</CardDescription>
-                <div className="h-10 w-10 text-green-600 dark:text-green-400">
-                  <Zap className="h-full w-full" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardTitle className="text-3xl">{currentStats.messagesPerSec}</CardTitle>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="Messages/sec"
+            value={currentStats.messagesPerSec}
+            icon={Zap}
+            iconColor="green"
+          />
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>Throughput</CardDescription>
-                <div className="h-10 w-10 text-orange-600 dark:text-orange-400">
-                  <TrendingUp className="h-full w-full" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardTitle className="text-3xl">{currentStats.throughputKBps} <span className="text-lg">KB/s</span></CardTitle>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="Throughput"
+            value={`${currentStats.throughputKBps} KB/s`}
+            icon={TrendingUp}
+            iconColor="orange"
+          />
         </div>
 
         {/* MQTT Cards Side by Side */}
         <div className="grid gap-6 lg:grid-cols-2">
           {/* MQTT Broker Status Card */}
-          <MqttBrokerCard deviceId={device.deviceUuid} />
+          <MqttBrokerCard 
+            deviceId={device.deviceUuid} 
+            topics={mqttTopics}
+            isConnected={isConnected}
+          />
 
           {/* MQTT Metrics Card */}
-          <MqttMetricsCard />
+          <MqttMetricsCard brokerStats={brokerStats} />
         </div>
       </div>
     </div>

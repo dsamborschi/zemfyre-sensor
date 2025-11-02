@@ -10,6 +10,15 @@ import AddJobModal from './jobs/AddJobModal';
 import JobDetailsModal from './jobs/JobDetailsModal';
 import AddTemplateModal from './jobs/AddTemplateModal';
 import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from './ui/pagination';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -273,16 +282,16 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid, deviceStatus }) 
         ) : (
           <>
             <div className="overflow-x-auto">
-              <table className="w-full text-sm table-fixed">
+              <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="text-left py-2 px-4 font-medium text-gray-600 w-[25%]">Job Name</th>
-                  <th className="text-left py-2 px-4 font-medium text-gray-600 w-[15%]">Status</th>
-                  <th className="text-left py-2 px-4 font-medium text-gray-600 w-[15%] hidden md:table-cell">
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Job Name</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Status</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm text-foreground hidden md:table-cell">
                     Execution Type
                   </th>
-                  <th className="text-left py-2 px-4 font-medium text-gray-600 w-[20%]">Date</th>
-                  <th className="w-[25%] md:w-[300px]"></th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Date</th>
+                  <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -300,7 +309,7 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid, deviceStatus }) 
                     <td className="py-3 px-4 hidden md:table-cell">
                       {getExecutionTypeBadge(job.execution_type)}
                     </td>
-                    <td className="py-3 px-4 text-gray-600">
+                    <td className="py-3 px-4 text-muted-foreground">
                       {formatDate(job.completed_at || job.started_at || job.queued_at)}
                     </td>
                     <td className="py-3 px-4">
@@ -359,53 +368,54 @@ export const JobsCard: React.FC<JobsCardProps> = ({ deviceUuid, deviceStatus }) 
 
           {/* Pagination Controls */}
           {totalJobs > pageSize && (
-            <div className="flex items-center justify-between px-4 py-3 border-t">
-              <div className="text-sm text-gray-600">
+            <div className="flex items-center justify-between px-4 py-3 border-t border-border">
+              <div className="text-sm text-muted-foreground">
                 Showing {Math.min((currentPage - 1) * pageSize + 1, totalJobs)} to {Math.min(currentPage * pageSize, totalJobs)} of {totalJobs} jobs
               </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchJobs(currentPage - 1)}
-                  disabled={currentPage === 1 || loading}
-                >
-                  Previous
-                </Button>
-                <div className="flex items-center gap-1">
+              <Pagination>
+                <PaginationContent>
+                  <PaginationItem>
+                    <PaginationPrevious 
+                      onClick={() => fetchJobs(currentPage - 1)}
+                      className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                  
                   {Array.from({ length: Math.ceil(totalJobs / pageSize) }, (_, i) => i + 1)
                     .filter(page => {
+                      const totalPages = Math.ceil(totalJobs / pageSize);
                       // Show first page, last page, current page, and pages around current
                       return page === 1 || 
-                             page === Math.ceil(totalJobs / pageSize) || 
+                             page === totalPages || 
                              Math.abs(page - currentPage) <= 1;
                     })
                     .map((page, idx, arr) => (
                       <React.Fragment key={page}>
                         {idx > 0 && arr[idx - 1] !== page - 1 && (
-                          <span className="px-2 text-gray-400">...</span>
+                          <PaginationItem>
+                            <PaginationEllipsis />
+                          </PaginationItem>
                         )}
-                        <Button
-                          variant={currentPage === page ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => fetchJobs(page)}
-                          disabled={loading}
-                          className={currentPage === page ? "bg-blue-600 text-white" : ""}
-                        >
-                          {page}
-                        </Button>
+                        <PaginationItem>
+                          <PaginationLink
+                            onClick={() => fetchJobs(page)}
+                            isActive={currentPage === page}
+                            className="cursor-pointer"
+                          >
+                            {page}
+                          </PaginationLink>
+                        </PaginationItem>
                       </React.Fragment>
                     ))}
-                </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fetchJobs(currentPage + 1)}
-                  disabled={currentPage === Math.ceil(totalJobs / pageSize) || loading}
-                >
-                  Next
-                </Button>
-              </div>
+                  
+                  <PaginationItem>
+                    <PaginationNext 
+                      onClick={() => fetchJobs(currentPage + 1)}
+                      className={currentPage === Math.ceil(totalJobs / pageSize) ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                    />
+                  </PaginationItem>
+                </PaginationContent>
+              </Pagination>
             </div>
           )}
           </>

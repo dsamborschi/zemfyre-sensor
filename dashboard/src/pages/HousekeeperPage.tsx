@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { PlayCircle, RefreshCw, CheckCircle2, XCircle, Activity, AlertTriangle, Eye, Clock } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { MetricCard } from '@/components/ui/metric-card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -11,6 +12,15 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 import { toast } from 'sonner';
 import { buildApiUrl } from '@/config/api';
 
@@ -67,7 +77,7 @@ export default function HousekeeperPage() {
 
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize] = useState(20);
+  const [pageSize] = useState(10);
 
   const loadData = async () => {
     setLoading(true);
@@ -288,34 +298,16 @@ export default function HousekeeperPage() {
 
         {/* Quick Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {metrics.map((metric, index) => {
-            const Icon = metric.icon;
-            const iconColors = {
-              blue: 'text-blue-600 dark:text-blue-400',
-              green: 'text-green-600 dark:text-green-400',
-              red: 'text-red-600 dark:text-red-400',
-              purple: 'text-purple-600 dark:text-purple-400',
-              gray: 'text-gray-600 dark:text-gray-400',
-            };
-            return (
-              <Card key={index}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardDescription>{metric.label}</CardDescription>
-                    <div className={`h-10 w-10 ${iconColors[metric.color as keyof typeof iconColors]}`}>
-                      <Icon className="h-full w-full" />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardTitle className="text-3xl mb-1">{metric.value}</CardTitle>
-                  {metric.subtitle && (
-                    <p className="text-xs text-muted-foreground">{metric.subtitle}</p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+          {metrics.map((metric, index) => (
+            <MetricCard
+              key={index}
+              label={metric.label}
+              value={metric.value}
+              subtitle={metric.subtitle}
+              icon={metric.icon}
+              iconColor={metric.color as any}
+            />
+          ))}
         </div>
 
         {/* Task Executions Table */}
@@ -339,24 +331,24 @@ export default function HousekeeperPage() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="w-full text-sm table-fixed">
+                  <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-border">
-                        <th className="text-left py-2 px-4 font-medium text-muted-foreground w-[25%]">Task Name</th>
-                        <th className="text-left py-2 px-4 font-medium text-muted-foreground w-[12%]">Status</th>
-                        <th className="text-left py-2 px-4 font-medium text-muted-foreground w-[12%] hidden md:table-cell">
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Task Name</th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Status</th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-foreground hidden md:table-cell">
                           Trigger
                         </th>
-                        <th className="text-left py-2 px-4 font-medium text-muted-foreground w-[12%] hidden lg:table-cell">
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-foreground hidden lg:table-cell">
                           Duration
                         </th>
-                        <th className="text-left py-2 px-4 font-medium text-muted-foreground w-[20%]">Started At</th>
-                        <th className="w-[19%]"></th>
+                        <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Started At</th>
+                        <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {paginatedRuns.map((run) => (
-                        <tr key={run.id} className="border-b border-border/50 last:border-0 hover:bg-muted/50">
+                        <tr key={run.id} className="border-b border-border last:border-0 hover:bg-muted">
                           <td className="py-3 px-4 text-foreground">
                             <div className="font-medium truncate">{run.task_name}</div>
                             {run.error && (
@@ -403,18 +395,18 @@ export default function HousekeeperPage() {
                     <div className="text-sm text-muted-foreground">
                       Showing {Math.min((currentPage - 1) * pageSize + 1, totalRuns)} to {Math.min(currentPage * pageSize, totalRuns)} of {totalRuns} runs
                     </div>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(currentPage - 1)}
-                        disabled={currentPage === 1 || loading}
-                      >
-                        Previous
-                      </Button>
-                      <div className="flex items-center gap-1">
+                    <Pagination>
+                      <PaginationContent>
+                        <PaginationItem>
+                          <PaginationPrevious 
+                            onClick={() => setCurrentPage(currentPage - 1)}
+                            className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                        
                         {Array.from({ length: totalPages }, (_, i) => i + 1)
                           .filter(page => {
+                            // Show first page, last page, current page, and pages around current
                             return page === 1 || 
                                    page === totalPages || 
                                    Math.abs(page - currentPage) <= 1;
@@ -422,29 +414,30 @@ export default function HousekeeperPage() {
                           .map((page, idx, arr) => (
                             <React.Fragment key={page}>
                               {idx > 0 && arr[idx - 1] !== page - 1 && (
-                                <span className="px-2 text-muted-foreground">...</span>
+                                <PaginationItem>
+                                  <PaginationEllipsis />
+                                </PaginationItem>
                               )}
-                              <Button
-                                variant={currentPage === page ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => setCurrentPage(page)}
-                                disabled={loading}
-                                className={currentPage === page ? "bg-blue-600 text-white" : ""}
-                              >
-                                {page}
-                              </Button>
+                              <PaginationItem>
+                                <PaginationLink
+                                  onClick={() => setCurrentPage(page)}
+                                  isActive={currentPage === page}
+                                  className="cursor-pointer"
+                                >
+                                  {page}
+                                </PaginationLink>
+                              </PaginationItem>
                             </React.Fragment>
                           ))}
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setCurrentPage(currentPage + 1)}
-                        disabled={currentPage === totalPages || loading}
-                      >
-                        Next
-                      </Button>
-                    </div>
+                        
+                        <PaginationItem>
+                          <PaginationNext 
+                            onClick={() => setCurrentPage(currentPage + 1)}
+                            className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                          />
+                        </PaginationItem>
+                      </PaginationContent>
+                    </Pagination>
                   </div>
                 )}
               </>

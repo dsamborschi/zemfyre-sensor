@@ -3,6 +3,7 @@ import { Plus, CheckCircle2, XCircle, Clock, Play, Pause, MoreVertical, Pen,  Tr
 import { Card } from "./ui/card";
 import { Button } from "./ui/button";
 import { Badge } from "./ui/badge";
+import { useDeviceState } from "@/contexts/DeviceStateContext";
 import {
   Dialog,
   DialogContent,
@@ -34,7 +35,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from ".
 import { Textarea } from "./ui/textarea";
 import { toast } from "sonner";
 import { buildApiUrl } from "@/config/api";
-import { Device } from "./DeviceSidebar";
 import { canPerformDeviceActions, getDisabledActionMessage } from "@/utils/devicePermissions";
 import { useEffect } from "react";
 
@@ -70,18 +70,6 @@ export interface Application {
   services: Service[];
 }
 
-interface ApplicationsCardProps {
-  deviceId: string;
-  deviceUuid: string; // Add deviceUuid for API calls
-  deviceStatus?: Device['status']; // Add device status for permission checks
-  applications: Application[];
-  onAddApplication: (app: Omit<Application, "id">) => void;
-  onUpdateApplication?: (app: Application) => void;
-  onRemoveApplication: (appId: string) => void;
-  onToggleStatus: (appId: string) => void;
-  onToggleServiceStatus?: (appId: string, serviceId: number, action: "start" | "pause" | "stop") => void;
-}
-
 const statusColors = {
   running: "bg-green-100 text-green-700 border-green-200",
   stopped: "bg-gray-100 text-gray-700 border-gray-200",
@@ -90,7 +78,6 @@ const statusColors = {
   pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
 };
 
-
 const syncStatusIcons = {
   synced: CheckCircle2,
   syncing: Clock,
@@ -98,15 +85,56 @@ const syncStatusIcons = {
   pending: Clock,
 };
 
+interface ApplicationsCardProps {
+  deviceUuid: string;
+  deviceStatus?: "online" | "offline" | "warning" | "pending";
+}
+
 export function ApplicationsCard({
   deviceUuid,
-  deviceStatus,
-  applications,
-  onAddApplication,
-  onUpdateApplication = () => {},
-  onRemoveApplication,
-  onToggleServiceStatus = () => {},
+  deviceStatus = "online",
 }: ApplicationsCardProps) {
+  // Use context for state management
+  const {
+    getPendingApps,
+    getTargetApps,
+    updatePendingService,
+    addPendingApp,
+    updatePendingApp,
+    removePendingApp,
+    hasPendingChanges,
+    getSyncStatus,
+  } = useDeviceState();
+
+  // Get apps from context (pending if exists, otherwise target)
+  const pendingApps = getPendingApps(deviceUuid);
+  const targetApps = getTargetApps(deviceUuid);
+  const apps = Object.keys(pendingApps).length > 0 ? pendingApps : targetApps;
+  const hasUnsavedChanges = hasPendingChanges(deviceUuid);
+  
+  // Get sync status from context (compares versions)
+  const syncStatus = getSyncStatus(deviceUuid);
+
+  // Convert apps to Application format for UI
+  const applications: Application[] = Object.entries(apps).map(([appId, app]) => ({
+    id: appId,
+    appId: app.appId,
+    appName: app.appName,
+    name: app.appName,
+    image: app.services[0]?.imageName || "",
+    status: app.services.some(s => s.state === "running") ? "running" as const : "stopped" as const,
+    syncStatus: syncStatus, // Use centralized sync status
+    services: app.services.map(s => ({
+      ...s,
+      appId: app.appId,
+      appName: app.appName,
+      status: s.state as "running" | "stopped" | "paused" | undefined,
+      config: {
+        image: s.imageName,
+        ...s.config,
+      },
+    })),
+  }));
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingApp, setEditingApp] = useState<Application | null>(null);
   
@@ -196,13 +224,10 @@ export function ApplicationsCard({
 
     if (editingApp) {
       // Update existing application
-      const updatedApp = {
-        ...editingApp,
+      updatePendingApp(deviceUuid, editingApp.appId.toString(), {
         appName: newApp.appName,
-        name: newApp.appName, // For backward compatibility
-      };
-      onUpdateApplication(updatedApp);
-      toast.success("Application updated successfully");
+      });
+      toast.success("Application updated (not saved yet - click Save Draft)");
     } else {
       // Get next unique app ID from API
       try {
@@ -227,17 +252,13 @@ export function ApplicationsCard({
         const numericAppId = typeof appId === 'number' ? appId : parseInt(appId);
         console.log('🔢 App ID from API:', { appId, type: typeof appId, numeric: numericAppId });
 
-        onAddApplication({
+        // Add new app using context
+        addPendingApp(deviceUuid, {
           appId: numericAppId,
           appName: newApp.appName,
-          name: newApp.appName, // For backward compatibility
-          image: "", // Placeholder, actual images are defined in services
-          status: "stopped",
-          syncStatus: "pending",
-          services: [], // Services will be added separately
-          uptime: "0m",
+          services: [],
         });
-        toast.success("Application added successfully");
+        toast.success("Application added (not saved yet - click Save Draft)");
       } catch (error) {
         console.error('Error generating app ID:', error);
         toast.error("Failed to generate app ID");
@@ -311,18 +332,14 @@ export function ApplicationsCard({
     }
 
     try {
-      const updatedApp = { ...selectedAppForService };
-      
       // Service ID will be generated by backend API
       // When editing, keep existing ID; when creating new, backend generates via global_service_id_seq
-      const serviceId = editingService?.serviceId || 0; // 0 = backend will generate
+      const serviceId = editingService?.serviceId || Date.now(); // Temp ID for new services
       
-      const newServiceObj: Service = {
+      const newServiceConfig = {
         serviceId: serviceId,
         serviceName: newService.serviceName,
         imageName: newService.imageName,
-        appId: selectedAppForService.appId,
-        appName: selectedAppForService.appName,
         config: {
           image: newService.imageName,
           ports: newService.ports ? newService.ports.split("\n").filter(p => p.trim()) : [],
@@ -330,26 +347,31 @@ export function ApplicationsCard({
           volumes: newService.volumes ? newService.volumes.split("\n").filter(v => v.trim()) : [],
           labels: newService.labels ? JSON.parse(newService.labels) : {},
         },
-        status: editingService?.status ?? "stopped",
-        uptime: editingService?.uptime ?? "0m",
+        state: editingService?.state || "stopped",
       };
 
       if (editingService) {
-        // Edit existing service
-        const serviceIndex = updatedApp.services.findIndex(s => s.serviceId === editingService.serviceId);
-        if (serviceIndex !== -1) {
-          updatedApp.services[serviceIndex] = newServiceObj;
-        }
+        // Edit existing service via context
+        updatePendingService(
+          deviceUuid, 
+          selectedAppForService.appId.toString(), 
+          editingService.serviceId, 
+          newServiceConfig
+        );
+        toast.success("Service updated (not saved yet - click Save Draft)");
       } else {
-        // Add new service
-        updatedApp.services.push(newServiceObj);
+        // Add new service via context - need to update the entire app
+        const pendingApps = getPendingApps(deviceUuid);
+        const targetApps = getTargetApps(deviceUuid);
+        const allApps = Object.keys(pendingApps).length > 0 ? pendingApps : targetApps;
+        const currentApp = allApps[selectedAppForService.appId.toString()];
+        const updatedServices = [...(currentApp?.services || []), newServiceConfig];
+        
+        updatePendingApp(deviceUuid, selectedAppForService.appId.toString(), {
+          services: updatedServices.sort((a, b) => a.serviceName.localeCompare(b.serviceName))
+        });
+        toast.success("Service added (not saved yet - click Save Draft)");
       }
-
-      // Sort services alphabetically by serviceName
-      updatedApp.services.sort((a, b) => a.serviceName.localeCompare(b.serviceName));
-
-      // Use onUpdateApplication instead of onAddApplication
-      onUpdateApplication(updatedApp);
       
       setServiceDialogOpen(false);
       setSelectedAppForService(null);
@@ -363,7 +385,6 @@ export function ApplicationsCard({
         volumes: "",
         labels: "",
       });
-  // Success toast handled by parent (App.tsx) to avoid duplicate messages
     } catch (error) {
       console.error("Error saving service:", error);
       toast.error("Invalid JSON in environment or labels");
@@ -376,13 +397,16 @@ export function ApplicationsCard({
       return;
     }
 
-    const updatedApp = { ...selectedAppForService };
+    // Remove service via context - update app with filtered services
+    const pendingApps = getPendingApps(deviceUuid);
+    const targetApps = getTargetApps(deviceUuid);
+    const allApps = Object.keys(pendingApps).length > 0 ? pendingApps : targetApps;
+    const currentApp = allApps[selectedAppForService.appId.toString()];
+    const updatedServices = currentApp?.services.filter((s: any) => s.serviceId !== editingService.serviceId) || [];
     
-    // Remove the service from the services array
-    updatedApp.services = updatedApp.services.filter(s => s.serviceId !== editingService.serviceId);
-
-    // Update the application
-    onUpdateApplication(updatedApp);
+    updatePendingApp(deviceUuid, selectedAppForService.appId.toString(), {
+      services: updatedServices
+    });
     
     // Close dialogs and reset state
     setDeleteConfirmOpen(false);
@@ -399,7 +423,7 @@ export function ApplicationsCard({
       labels: "",
     });
     
-    toast.success(`Service "${editingService.serviceName}" deleted successfully`);
+    toast.success(`Service "${editingService.serviceName}" deleted (not saved yet - click Save Draft)`);
   };
 
   const handleRemoveApplication = () => {
@@ -407,10 +431,11 @@ export function ApplicationsCard({
       return;
     }
 
-    onRemoveApplication(appToDelete.id);
+    removePendingApp(deviceUuid, appToDelete.appId.toString());
+    toast.success(`${appToDelete.appName || appToDelete.name} removed (not saved yet - click Save Draft)`);
+    
     setDeleteAppConfirmOpen(false);
     setAppToDelete(null);
-    toast.success(`${appToDelete.appName || appToDelete.name} removed`);
   };
 
   return (
@@ -419,18 +444,27 @@ export function ApplicationsCard({
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-lg text-foreground font-medium">Applications</h3>
-            <Button 
-              onClick={openAddAppModal} 
-              size="sm" 
-              className="flex-shrink-0"
-              disabled={!canAddApp}
-              title={!canAddApp ? disabledMessage : undefined}
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add App
-            </Button>
+            <div className="flex gap-2">
+              <Button 
+                onClick={openAddAppModal} 
+                size="sm" 
+                className="flex-shrink-0"
+                disabled={!canAddApp}
+                title={!canAddApp ? disabledMessage : undefined}
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add App
+              </Button>
+            </div>
           </div>
-          <p className="text-sm text-muted-foreground">Docker containers and services</p>
+          <p className="text-sm text-muted-foreground">
+            Docker containers and services
+            {hasUnsavedChanges && (
+              <span className="ml-2 text-yellow-600 font-medium">
+                • Unsaved changes
+              </span>
+            )}
+          </p>
         </div>
 
         {applications.length === 0 ? (
@@ -542,7 +576,10 @@ export function ApplicationsCard({
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    onToggleServiceStatus(app.id, service.serviceId, "start");
+                                    updatePendingService(deviceUuid, app.appId.toString(), service.serviceId, {
+                                      state: "running"
+                                    });
+                                    toast.success("Service set to running (not saved yet - click Save Draft)");
                                   }}
                                   disabled={service.status === "running" || service.status === "syncing" || app.syncStatus === "pending" || app.syncStatus === "syncing"}
                                   className={`h-8 w-8 p-0 ${
@@ -558,7 +595,10 @@ export function ApplicationsCard({
                                   variant="outline"
                                   size="sm"
                                   onClick={() => {
-                                    onToggleServiceStatus(app.id, service.serviceId, "pause");
+                                    updatePendingService(deviceUuid, app.appId.toString(), service.serviceId, {
+                                      state: "paused"
+                                    });
+                                    toast.success("Service set to paused (not saved yet - click Save Draft)");
                                   }}
                                   disabled={service.status === "paused" || service.status === "stopped" || service.status === "syncing" || !service.status || app.syncStatus === "pending" || app.syncStatus === "syncing"}
                                   className={`h-8 w-8 p-0 ${

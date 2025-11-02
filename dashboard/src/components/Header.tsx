@@ -1,4 +1,4 @@
-import { Server, User, LogIn, Settings, HelpCircle, LogOut, RefreshCw, XCircle } from "lucide-react";
+import { Server, User, LogIn, Settings, HelpCircle, LogOut, RefreshCw, XCircle, Save } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
@@ -11,25 +11,81 @@ import {
 } from "./ui/dropdown-menu";
 import { toast } from "sonner";
 import { ThemeToggle } from "./theme-toggle";
+import { useDeviceState } from "../contexts/DeviceStateContext";
 
 interface HeaderProps {
   isAuthenticated?: boolean;
   onLogout?: () => void;
   userEmail?: string;
   userName?: string;
-  deploymentStatus?: {
-    needsDeployment: boolean;
-    version: number;
-    lastDeployedAt?: string;
-    deployedBy?: string;
-  };
-  onDeploy?: () => void;
-  onCancelDeploy?: () => void;
+  deviceUuid?: string; // Device UUID for deployment operations
 }
 
-export function Header({  isAuthenticated = true, onLogout = () => {},userEmail = "john.doe@company.com",userName = "John Doe", deploymentStatus, onDeploy = () => {}, onCancelDeploy = () => {}}: HeaderProps) {
-  // Debug logging
-  console.log('Header deploymentStatus:', deploymentStatus);
+export function Header({
+  isAuthenticated = true,
+  onLogout = () => {},
+  userEmail = "john.doe@company.com",
+  userName = "John Doe",
+  deviceUuid
+}: HeaderProps) {
+  // Get deployment status and functions from context
+  const { syncTargetState, cancelDeployment, hasPendingChanges, saveTargetState, getDeviceState } = useDeviceState();
+  
+  const needsDeployment = deviceUuid ? hasPendingChanges(deviceUuid) : false;
+  const deviceState = deviceUuid ? getDeviceState(deviceUuid) : null;
+  const hasUnsavedChanges = deviceState?.isDirty || false;
+  
+  const handleDeploy = async () => {
+    if (!deviceUuid) {
+      toast.error("No device selected");
+      return;
+    }
+    
+    try {
+      // If there are unsaved changes, save them first
+      if (hasUnsavedChanges) {
+        toast.info("Saving changes...");
+        await saveTargetState(deviceUuid);
+      }
+      
+      // Then deploy
+      await syncTargetState(deviceUuid, 'dashboard');
+      toast.success("Deployment successful");
+    } catch (error) {
+      toast.error("Deployment failed");
+      console.error("Deployment error:", error);
+    }
+  };
+  
+  const handleCancelDeploy = async () => {
+    if (!deviceUuid) {
+      toast.error("No device selected");
+      return;
+    }
+    
+    try {
+      await cancelDeployment(deviceUuid);
+      toast.success("Deployment cancelled");
+    } catch (error) {
+      toast.error("Failed to cancel deployment");
+      console.error("Cancel deployment error:", error);
+    }
+  };
+  
+  const handleSaveDraft = async () => {
+    if (!deviceUuid) {
+      toast.error("No device selected");
+      return;
+    }
+    
+    try {
+      await saveTargetState(deviceUuid);
+      toast.success("Changes saved as draft");
+    } catch (error) {
+      toast.error("Failed to save draft");
+      console.error("Save draft error:", error);
+    }
+  };
   
   return (
     <header className="bg-card border-b border-border sticky top-0 z-50">
@@ -49,14 +105,29 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
         <div className="flex items-center gap-3">
           {isAuthenticated ? (
             <>
-              {/* Deploy Button - Always visible, enabled when changes are pending */}
+              {/* Save Draft + Deploy Buttons */}
               <div className="flex items-center gap-2">
+                {hasUnsavedChanges && (
+                  <Button 
+                    onClick={handleSaveDraft}
+                    size="lg"
+                    variant="outline"
+                    className="border-yellow-300 bg-yellow-50 text-yellow-700 hover:bg-yellow-100 font-semibold shadow-md"
+                    style={{ 
+                      padding: '0.75rem 1.5rem',
+                      fontSize: '1rem'
+                    }}
+                  >
+                    <Save className="w-5 h-5 mr-2" />
+                    Save Draft
+                  </Button>
+                )}
                 <Button 
-                  onClick={onDeploy}
+                  onClick={handleDeploy}
                   size="lg"
-                  disabled={!deploymentStatus?.needsDeployment}
+                  disabled={!needsDeployment}
                   style={{ 
-                    backgroundColor: deploymentStatus?.needsDeployment ? '#ca8a04' : '#9ca3af',
+                    backgroundColor: needsDeployment ? '#ca8a04' : '#9ca3af',
                     color: 'white',
                     padding: '0.75rem 1.5rem',
                     fontSize: '1rem'
@@ -66,9 +137,9 @@ export function Header({  isAuthenticated = true, onLogout = () => {},userEmail 
                   <RefreshCw className="w-6 h-6 mr-2" />
                   Sync
                 </Button>
-                {deploymentStatus?.needsDeployment && (
+                {needsDeployment && (
                   <Button 
-                    onClick={onCancelDeploy}
+                    onClick={handleCancelDeploy}
                     size="sm"
                     variant="outline"
                   >

@@ -1,14 +1,15 @@
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
-import { Wifi, Network, Smartphone } from "lucide-react";
+import { Network } from "lucide-react";
 
 export interface NetworkInterface {
   id: string;
-  type: "wifi" | "ethernet" | "mobile" | "wired";
+  type: "wifi" | "ethernet" | "mobile";
   ipAddress: string;
   status: "connected" | "disconnected";
   signal?: number; // For wifi/mobile
-  speed?: string; // e.g., "1000 Mbps" for ethernetf
+  speed?: string; // e.g., "1000 Mbps" for ethernet
+  virtual?: boolean; // Virtual interfaces (Docker, VPN, etc.)
 }
 
 interface NetworkingCardProps {
@@ -16,10 +17,9 @@ interface NetworkingCardProps {
 }
 
 const interfaceIcons = {
-  wifi: Wifi,
+  wifi: Network,
   ethernet: Network,
-  mobile: Smartphone,
-  wired: Network,
+  mobile: Network,
 };
 
 const statusColors = {
@@ -54,11 +54,7 @@ export function NetworkingCard({ interfaces }: NetworkingCardProps) {
                 className="border border-border rounded-lg p-3 hover:bg-muted transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <div className={`p-2 rounded-lg ${
-                    iface.status === "connected" 
-                      ? "bg-green-100 text-green-700" 
-                      : "bg-muted text-muted-foreground"
-                  }`}>
+                  <div className="p-2 rounded-lg bg-muted text-muted-foreground">
                     <Icon className="w-5 h-5" />
                   </div>
                   
@@ -68,6 +64,11 @@ export function NetworkingCard({ interfaces }: NetworkingCardProps) {
                       <Badge variant="outline" className={`text-xs ${statusColors[iface.status]}`}>
                         {iface.status}
                       </Badge>
+                      {iface.virtual && (
+                        <Badge className="text-xs bg-orange-400 dark:bg-orange-500 text-black dark:text-black border border-orange-500 dark:border-orange-600">
+                          virtual
+                        </Badge>
+                      )}
                     </div>
                     
                     <div className="flex items-center gap-3 text-xs text-muted-foreground">

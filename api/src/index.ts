@@ -48,6 +48,7 @@ import { MQTTDatabaseService } from './services/mqtt-database-service';
 import { LicenseValidator } from './services/license-validator';
 import licenseRoutes from './routes/license';
 import billingRoutes from './routes/billing';
+import { websocketManager } from './services/websocket-manager';
 
 // API Version Configuration - Change here to update all routesggg
 const API_VERSION = process.env.API_VERSION || 'v1';
@@ -348,6 +349,9 @@ async function startServer() {
       // Set monitor instance for routes
       setMonitorInstance(mqttMonitor, mqttDbService);
       
+      // Set monitor instance for WebSocket
+      websocketManager.setMqttMonitor(mqttMonitor);
+      
       console.log('✅ MQTT Monitor Service started');
     } catch (error) {
       console.error('⚠️  Failed to start MQTT Monitor:', error);
@@ -365,9 +369,26 @@ async function startServer() {
     console.log('='.repeat(80) + '\n');
   });
 
+  // Initialize WebSocket server
+  try {
+    websocketManager.initialize(server);
+    console.log('✅ WebSocket Server initialized (available at ws://localhost:' + PORT + '/ws)');
+  } catch (error) {
+    console.error('⚠️  Failed to initialize WebSocket server:', error);
+    // Don't exit - this is not critical for API operation
+  }
+
   // Graceful shutdown
   process.on('SIGTERM', async () => {
     console.log('\nSIGTERM received, shutting down gracefully...');
+    
+    // Shutdown WebSocket Server
+    try {
+      websocketManager.shutdown();
+      console.log('✅ WebSocket Server stopped');
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
     
     // Shutdown MQTT Monitor
     try {
@@ -456,6 +477,14 @@ async function startServer() {
 
   process.on('SIGINT', async () => {
     console.log('\nSIGINT received, shutting down gracefully...');
+    
+    // Shutdown WebSocket Server
+    try {
+      websocketManager.shutdown();
+      console.log('✅ WebSocket Server stopped');
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
     
     // Shutdown MQTT Monitor
     try {

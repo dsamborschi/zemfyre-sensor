@@ -224,11 +224,11 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
                   value={devicePollInterval}
                   onChange={(e) => setDevicePollInterval(parseInt(e.target.value))}
                 />
-                <p className="text-xs text-gray-500">How often to read data from the device</p>
+                <p className="text-xs text-muted-foreground">How often to read data from the device</p>
               </div>
 
               {/* Protocol-specific configuration (JSON) */}
-              <Card className="p-4 space-y-4 bg-gray-50">
+              <Card className="p-4 space-y-4 bg-muted/50">
                 <div className="flex items-center justify-between">
                   <h4 className="font-medium">Configuration (JSON)</h4>
                   <Button 
@@ -246,12 +246,12 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
                   <Label htmlFor="connectionJson">Connection Configuration</Label>
                   <textarea
                     id="connectionJson"
-                    className="w-full h-32 p-3 border rounded-md font-mono text-sm"
+                    className="w-full h-32 p-3 border border-input rounded-md font-mono text-sm bg-background text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     value={connectionJson}
                     onChange={(e) => setConnectionJson(e.target.value)}
                     placeholder="Enter connection configuration as JSON"
                   />
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {deviceProtocol === 'modbus' && 'Example: {"type": "tcp", "host": "192.168.1.100", "port": 502, "unitId": 1}'}
                     {deviceProtocol === 'can' && 'Example: {"interface": "can0", "bitrate": 500000, "protocol": "j1939"}'}
                     {deviceProtocol === 'opcua' && 'Example: {"endpointUrl": "opc.tcp://....", "securityPolicy": "None"}'}
@@ -267,12 +267,12 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
                   </Label>
                   <textarea
                     id="registersJson"
-                    className="w-full h-48 p-3 border rounded-md font-mono text-sm"
+                    className="w-full h-48 p-3 border border-input rounded-md font-mono text-sm bg-background text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                     value={registersJson}
                     onChange={(e) => setRegistersJson(e.target.value)}
                     placeholder={`Enter ${deviceProtocol} configuration as JSON array`}
                   />
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-muted-foreground">
                     {deviceProtocol === 'modbus' && 'Example: [{"name": "temperature", "address": 0, "type": "holding", "dataType": "float32"}]'}
                     {deviceProtocol === 'can' && 'Example: [{"pgn": 61444, "name": "engine_speed", "type": "uint16"}]'}
                     {deviceProtocol === 'opcua' && 'Example: [{"nodeId": "ns=2;s=Temperature", "name": "temp", "type": "Double"}]'}

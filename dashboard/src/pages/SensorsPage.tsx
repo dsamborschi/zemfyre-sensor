@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 import { buildApiUrl } from '@/config/api';
 import { canPerformDeviceActions } from "@/utils/devicePermissions";
 import { Device } from "../components/DeviceSidebar";
+import { useDeviceState } from '@/contexts/DeviceStateContext';
 
 
 interface SensorsPageProps {
@@ -48,6 +49,9 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [addSensorDialogOpen, setAddSensorDialogOpen] = useState(false);
   const canAddApp = canPerformDeviceActions(deviceStatus);
+  
+  // Use context for config changes
+  const { updatePendingConfig, getPendingConfig } = useDeviceState();
 
   const fetchSensors = async () => {
     try {
@@ -102,52 +106,28 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
     return () => clearInterval(interval);
   }, [deviceUuid]);
 
-  const handleAddSensorPipeline = async (config: any) => {
-    try {
-      const response = await fetch(buildApiUrl(`/api/v1/devices/${deviceUuid}/sensor-config`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(config),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to add sensor pipeline');
-      }
-
-      toast.success(`Sensor pipeline "${config.name}" added successfully`);
-      fetchSensors();
-    } catch (error: any) {
-      toast.error(`Failed to add sensor pipeline: ${error.message}`);
-      throw error;
-    }
-  };
-
   const handleAddProtocolDevice = async (device: any) => {
     try {
-      console.log('📡 Sending protocol device to API:', buildApiUrl(`/api/v1/devices/${deviceUuid}/protocol-devices`));
-      console.log('📦 Device payload:', JSON.stringify(device, null, 2));
+      console.log('📡 Adding protocol device via context:', device);
+      
+      // Get current config
+      const currentConfig = getPendingConfig(deviceUuid);
+      const existingDevices = currentConfig.protocolAdapterDevices || [];
+      
+      // Add new device to config (marks as pending change)
+      updatePendingConfig(deviceUuid, 'protocolAdapterDevices', [
+        ...existingDevices,
+        {
+          ...device,
+          enabled: true,
+          metadata: {
+            createdAt: new Date().toISOString(),
+            createdBy: 'dashboard',
+          }
+        }
+      ]);
 
-      const response = await fetch(buildApiUrl(`/api/v1/devices/${deviceUuid}/protocol-devices`), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(device),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        console.error('❌ API error:', error);
-        throw new Error(error.message || 'Failed to add protocol adapter device');
-      }
-
-      const result = await response.json();
-      console.log('✅ API response:', result);
-
-      toast.success(`Protocol device "${device.name}" added successfully`);
+      toast.success(`Protocol device "${device.name}" added (not saved yet - click Save Draft)`);
       fetchSensors();
     } catch (error: any) {
       toast.error(`Failed to add protocol device: ${error.message}`);
@@ -292,7 +272,6 @@ export const SensorsPage: React.FC<SensorsPageProps> = ({
         <AddSensorDialog
           open={addSensorDialogOpen}
           onOpenChange={setAddSensorDialogOpen}
-          onSavePipeline={handleAddSensorPipeline}
           onSaveDevice={handleAddProtocolDevice}
           deviceUuid={deviceUuid}
         />

@@ -12,7 +12,6 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import { buildApiUrl } from "@/config/api";
 
 interface BrokerStats {
   connectedClients: number;
@@ -33,98 +32,60 @@ interface BrokerStats {
 }
 
 interface MqttMetricsCardProps {
-  deviceId: string;
+  brokerStats: BrokerStats | null;
 }
 
-export function MqttMetricsCard() {
-  const [brokerStats, setBrokerStats] = useState<BrokerStats | null>(null);
+export function MqttMetricsCard({ brokerStats }: MqttMetricsCardProps) {
   const [messageRateHistory, setMessageRateHistory] = useState<Array<{time: string; published: number; received: number}>>([]);
   const [throughputHistory, setThroughputHistory] = useState<Array<{time: string; inbound: number; outbound: number}>>([]);
   const [connectionHistory, setConnectionHistory] = useState<Array<{time: string; clients: number; subscriptions: number}>>([]);
 
-  // Fetch broker stats from API
+  // Update history when brokerStats changes (pushed via WebSocket)
   useEffect(() => {
-    const fetchBrokerStats = async () => {
-      try {
-        const response = await fetch(buildApiUrl('/api/v1/mqtt-monitor/stats'));
-        if (response.ok) {
-          const data = await response.json();
-          if (data.stats) {
-            // Map the API response to our BrokerStats interface
-            const mappedStats: BrokerStats = {
-              connectedClients: parseInt(data.stats.broker?.clients?.connected || '0'),
-              disconnectedClients: parseInt(data.stats.broker?.clients?.disconnected || '0'),
-              totalClients: parseInt(data.stats.broker?.clients?.total || '0'),
-              subscriptions: parseInt(data.stats.broker?.subscriptions?.count || '0'),
-              retainedMessages: parseInt(data.stats.broker?.['retained messages']?.count || '0'),
-              messagesSent: parseInt(data.stats.broker?.messages?.sent || '0'),
-              messagesReceived: parseInt(data.stats.broker?.messages?.received || '0'),
-              messagesPublished: parseInt(data.stats.broker?.publish?.messages?.sent || '0'),
-              messagesDropped: parseInt(data.stats.broker?.publish?.messages?.dropped || '0'),
-              bytesSent: parseInt(data.stats.broker?.bytes?.sent || '0'),
-              bytesReceived: parseInt(data.stats.broker?.bytes?.received || '0'),
-              messageRatePublished: parseFloat(data.stats.broker?.load?.publish?.sent?.['1min'] || '0'),
-              messageRateReceived: parseFloat(data.stats.broker?.load?.publish?.received?.['1min'] || '0'),
-              throughputInbound: parseFloat(data.stats.broker?.load?.bytes?.received?.['1min'] || '0'),
-              throughputOutbound: parseFloat(data.stats.broker?.load?.bytes?.sent?.['1min'] || '0'),
-            };
-            
-            setBrokerStats(mappedStats);
-            
-            // Update history with new data point
-            const now = new Date();
-            const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-            
-            setMessageRateHistory(prev => {
-              const newEntry = {
-                time: timeStr,
-                published: Math.round(mappedStats.messageRatePublished),
-                received: Math.round(mappedStats.messageRateReceived),
-              };
-              const updated = [...prev, newEntry];
-              return updated.slice(-30); // Keep last 30 data points
-            });
-            
-            setThroughputHistory(prev => {
-              const newEntry = {
-                time: timeStr,
-                inbound: Math.round(mappedStats.throughputInbound / 1024), // Convert to KB/s
-                outbound: Math.round(mappedStats.throughputOutbound / 1024),
-              };
-              const updated = [...prev, newEntry];
-              return updated.slice(-30);
-            });
-            
-            setConnectionHistory(prev => {
-              const newEntry = {
-                time: timeStr,
-                clients: mappedStats.connectedClients,
-                subscriptions: mappedStats.subscriptions,
-              };
-              const updated = [...prev, newEntry];
-              return updated.slice(-30);
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Failed to fetch broker stats:', error);
-      }
-    };
+    if (!brokerStats) return;
 
-    fetchBrokerStats();
-    const interval = setInterval(fetchBrokerStats, 5000); // Refresh every 5 seconds
-
-    return () => clearInterval(interval);
-  }, []);
+    const now = new Date();
+    const timeStr = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    
+    setMessageRateHistory(prev => {
+      const newEntry = {
+        time: timeStr,
+        published: Math.round(brokerStats.messageRatePublished),
+        received: Math.round(brokerStats.messageRateReceived),
+      };
+      const updated = [...prev, newEntry];
+      return updated.slice(-30); // Keep last 30 data points
+    });
+    
+    setThroughputHistory(prev => {
+      const newEntry = {
+        time: timeStr,
+        inbound: Math.round(brokerStats.throughputInbound / 1024), // Convert to KB/s
+        outbound: Math.round(brokerStats.throughputOutbound / 1024),
+      };
+      const updated = [...prev, newEntry];
+      return updated.slice(-30);
+    });
+    
+    setConnectionHistory(prev => {
+      const newEntry = {
+        time: timeStr,
+        clients: brokerStats.connectedClients,
+        subscriptions: brokerStats.subscriptions,
+      };
+      const updated = [...prev, newEntry];
+      return updated.slice(-30);
+    });
+  }, [brokerStats]);
 
   return (
     <Card className="p-4 md:p-6">
       <div className="mb-6">
         <div className="flex items-center gap-2 mb-1">
    
-          <h3 className="text-lg text-gray-900 font-medium mb-1">MQTT Metrics</h3>
+          <h3 className="text-lg text-foreground font-medium mb-1">MQTT Metrics</h3>
         </div>
-        <p className="text-gray-600 text-sm">Real-time broker statistics and performance</p>
+        <p className="text-muted-foreground text-sm">Real-time broker statistics and performance</p>
       </div>
 
       {/* Charts Grid */}
@@ -132,8 +93,8 @@ export function MqttMetricsCard() {
         {/* Message Rate Chart */}
         <div>
           <div className="mb-3">
-            <h4 className="text-gray-900 text-sm font-medium mb-1">Message Rate</h4>
-            <p className="text-gray-600 text-xs">Published and received messages per second</p>
+            <h4 className="text-foreground text-sm font-medium mb-1">Message Rate</h4>
+            <p className="text-muted-foreground text-xs">Published and received messages per second</p>
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={messageRateHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
@@ -182,8 +143,8 @@ export function MqttMetricsCard() {
         {/* Throughput Chart */}
         <div>
           <div className="mb-3">
-            <h4 className="text-gray-900 text-sm font-medium mb-1">Network Throughput</h4>
-            <p className="text-gray-600 text-xs">Inbound and outbound data transfer (KB/s)</p>
+            <h4 className="text-foreground text-sm font-medium mb-1">Network Throughput</h4>
+            <p className="text-muted-foreground text-xs">Inbound and outbound data transfer (KB/s)</p>
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={throughputHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
@@ -218,8 +179,8 @@ export function MqttMetricsCard() {
         {/* Connections Chart */}
         <div>
           <div className="mb-3">
-            <h4 className="text-gray-900 text-sm font-medium mb-1">Active Connections</h4>
-            <p className="text-gray-600 text-xs">Connected clients and active subscriptions</p>
+            <h4 className="text-foreground text-sm font-medium mb-1">Active Connections</h4>
+            <p className="text-muted-foreground text-xs">Connected clients and active subscriptions</p>
           </div>
           <ResponsiveContainer width="100%" height={200}>
             <LineChart data={connectionHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>

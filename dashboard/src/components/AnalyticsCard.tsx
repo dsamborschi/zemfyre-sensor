@@ -101,8 +101,14 @@ export function AnalyticsCard({ deviceName = "Device 1", deviceId, processes = [
 
   const activeProcesses = processes.length > 0 ? processes : defaultProcesses;
 
+  // TODO: Convert to WebSocket for real-time process history
   // Fetch historical process data from API
   useEffect(() => {
+    // Temporarily disabled - will be replaced with WebSocket implementation
+    setUseRealData(false);
+    return;
+    
+    /* Disabled HTTP polling - to be replaced with WebSocket
     if (!deviceId) {
       setUseRealData(false);
       return;
@@ -152,6 +158,7 @@ export function AnalyticsCard({ deviceName = "Device 1", deviceId, processes = [
     const interval = setInterval(fetchHistoricalData, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(interval);
+    */
   }, [deviceId, timePeriod, selectedMetric]);
 
 

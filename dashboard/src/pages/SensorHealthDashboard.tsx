@@ -16,6 +16,7 @@ import { SensorDetailPage } from './SensorDetailPage';
 import { AddSensorDialog } from '@/components/sensors/AddSensorDialog';
 import { useSensorHealth } from '@/hooks/useSensorHealth';
 import { toast } from 'sonner';
+import { useDeviceState } from '@/contexts/DeviceStateContext';
 
 interface SensorHealthDashboardProps {
   deviceUuid: string;
@@ -25,6 +26,9 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
   const { data, loading, error, refetch } = useSensorHealth(deviceUuid);
   const [selectedSensor, setSelectedSensor] = useState<string | null>(null);
   const [addSensorDialogOpen, setAddSensorDialogOpen] = useState(false);
+  
+  // Use context for config changes
+  const { updatePendingConfig, getPendingConfig } = useDeviceState();
 
   // Auto-refresh every 10 seconds
   useEffect(() => {
@@ -35,54 +39,28 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
     return () => clearInterval(interval);
   }, [refetch]);
 
-  // Handle adding new sensor pipeline
-  const handleAddSensorPipeline = async (config: any) => {
-    try {
-      const response = await fetch(`/api/v1/devices/${deviceUuid}/sensor-config`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(config),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to add sensor pipeline');
-      }
-
-      const result = await response.json();
-      console.log('Sensor pipeline added:', result);
-      
-      toast.success(`Sensor pipeline "${config.name}" added successfully`);
-      
-      // Refresh sensor list
-      refetch();
-    } catch (error: any) {
-      toast.error(`Failed to add sensor pipeline: ${error.message}`);
-      throw error;
-    }
-  };
-
   const handleAddProtocolDevice = async (device: any) => {
     try {
-      const response = await fetch(`/api/v1/devices/${deviceUuid}/protocol-devices`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(device),
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to add protocol adapter device');
-      }
-
-      const result = await response.json();
-      console.log('Protocol device added:', result);
+      console.log('📡 Adding protocol device via context:', device);
       
-      toast.success(`Protocol device "${device.name}" added successfully`);
+      // Get current config
+      const currentConfig = getPendingConfig(deviceUuid);
+      const existingDevices = currentConfig.protocolAdapterDevices || [];
+      
+      // Add new device to config (marks as pending change)
+      updatePendingConfig(deviceUuid, 'protocolAdapterDevices', [
+        ...existingDevices,
+        {
+          ...device,
+          enabled: true,
+          metadata: {
+            createdAt: new Date().toISOString(),
+            createdBy: 'dashboard',
+          }
+        }
+      ]);
+      
+      toast.success(`Protocol device "${device.name}" added (not saved yet - click Save Draft)`);
       
       // Refresh sensor list
       refetch();
@@ -174,7 +152,6 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
       <AddSensorDialog
         open={addSensorDialogOpen}
         onOpenChange={setAddSensorDialogOpen}
-        onSavePipeline={handleAddSensorPipeline}
         onSaveDevice={handleAddProtocolDevice}
         deviceUuid={deviceUuid}
       />

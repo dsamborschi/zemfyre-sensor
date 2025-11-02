@@ -1,6 +1,9 @@
-import { useState, useEffect } from "react";
-import { Cpu, HardDrive, MemoryStick, Package } from "lucide-react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Cpu, HardDrive, MemoryStick, Package, Network, Loader2 } from "lucide-react";
+import { Card } from "./ui/card";
+import { useWebSocket } from "@/hooks/useWebSocket";
+import type { SystemInfoData, ProcessData, MetricsHistoryData } from "@/services/websocket";
+import { MetricCard } from "./ui/metric-card";
 import { Badge } from "./ui/badge";
 import { Button } from "./ui/button";
 import {
@@ -32,53 +35,128 @@ import { buildApiUrl } from "@/config/api";
 
 interface SystemMetricsProps {
   device: Device;
-  cpuHistory?: Array<{ time: string; value: number }>;
-  memoryHistory?: Array<{ time: string; used: number; available: number }>;
-  networkHistory?: Array<{ time: string; download: number; upload: number }>;
   networkInterfaces?: NetworkInterface[];
 }
 
 export function SystemMetrics({ 
-  device, 
-  cpuHistory = [],
-  memoryHistory = [],
-  networkHistory = [],
+  device,
   networkInterfaces = []
 }: SystemMetricsProps) {
   const [selectedMetric, setSelectedMetric] = useState<'cpu' | 'memory' | 'network'>('cpu');
   const [timePeriod, setTimePeriod] = useState<'30min' | '6h' | '12h' | '24h'>('30min');
+  
+  // Local state for history data (populated by WebSocket)
+  const [cpuHistory, setCpuHistory] = useState<Array<{ time: string; value: number }>>([]);
+  const [memoryHistory, setMemoryHistory] = useState<Array<{ time: string; used: number; available: number }>>([]);
+  const [networkHistory, setNetworkHistory] = useState<Array<{ time: string; download: number; upload: number }>>([]);
+  
+  // Check if we're still waiting for initial data
+  const isLoading = device.cpu === 0 && device.memory === 0 && device.disk === 0;
+
+  // Calculate trends from history data
+  const calculateTrend = (history: Array<{ value?: number; used?: number }>): { trend: "up" | "down" | "neutral"; trendValue: string } => {
+    if (history.length < 2) return { trend: "neutral", trendValue: "" };
+    
+    // Get the average of the last 5 data points (or less if not enough data)
+    const recentPoints = history.slice(-5);
+    const avgRecent = recentPoints.reduce((sum, point) => sum + (point.value || point.used || 0), 0) / recentPoints.length;
+    
+    // Get the average of the 5 points before that (or start of history)
+    const olderPoints = history.slice(Math.max(0, history.length - 10), Math.max(0, history.length - 5));
+    if (olderPoints.length === 0) return { trend: "neutral", trendValue: "" };
+    
+    const avgOlder = olderPoints.reduce((sum, point) => sum + (point.value || point.used || 0), 0) / olderPoints.length;
+    
+    const change = avgRecent - avgOlder;
+    const percentChange = avgOlder > 0 ? (change / avgOlder) * 100 : 0;
+    
+    if (Math.abs(percentChange) < 2) return { trend: "neutral", trendValue: "" };
+    
+    return {
+      trend: change > 0 ? "up" : "down",
+      trendValue: `${change > 0 ? "+" : ""}${percentChange.toFixed(1)}%`
+    };
+  };
+
+  const cpuTrend = calculateTrend(cpuHistory);
+  const memoryTrend = calculateTrend(memoryHistory);
+  // For disk, we don't have history, so just show neutral
+  const diskTrend = { trend: "neutral" as const, trendValue: "" };
+
+  // Calculate network stats
+  const calculateNetworkTrend = (history: Array<{ download: number; upload: number }>): { trend: "up" | "down" | "neutral"; trendValue: string } => {
+    if (history.length < 2) return { trend: "neutral", trendValue: "" };
+    
+    const recentPoints = history.slice(-5);
+    const avgRecentTotal = recentPoints.reduce((sum, point) => sum + point.download + point.upload, 0) / recentPoints.length;
+    
+    const olderPoints = history.slice(Math.max(0, history.length - 10), Math.max(0, history.length - 5));
+    if (olderPoints.length === 0) return { trend: "neutral", trendValue: "" };
+    
+    const avgOlderTotal = olderPoints.reduce((sum, point) => sum + point.download + point.upload, 0) / olderPoints.length;
+    
+    const change = avgRecentTotal - avgOlderTotal;
+    const percentChange = avgOlderTotal > 0 ? (change / avgOlderTotal) * 100 : 0;
+    
+    if (Math.abs(percentChange) < 2) return { trend: "neutral", trendValue: "" };
+    
+    return {
+      trend: change > 0 ? "up" : "down",
+      trendValue: `${change > 0 ? "+" : ""}${percentChange.toFixed(1)}%`
+    };
+  };
+
+  const networkTrend = calculateNetworkTrend(networkHistory);
+  
+  // Get current network speed (last data point or 0)
+  const currentNetworkSpeed = networkHistory.length > 0 
+    ? networkHistory[networkHistory.length - 1].download + networkHistory[networkHistory.length - 1].upload
+    : 0;
+  
+  const formatNetworkSpeed = (kbps: number): string => {
+    // Handle NaN or invalid values
+    if (!kbps || isNaN(kbps) || kbps < 0) return '0 KB/s';
+    if (kbps < 1024) return `${kbps.toFixed(0)} KB/s`;
+    const mbps = kbps / 1024;
+    return `${mbps.toFixed(1)} MB/s`;
+  };
 
   const metrics = [
     {
       icon: Cpu,
       label: "CPU Usage",
       value: `${device.cpu}%`,
-      progress: device.cpu,
       color: "blue",
-      bgColor: "bg-blue-50",
-      iconColor: "text-blue-600",
+      trend: cpuTrend.trend,
+      trendValue: cpuTrend.trendValue,
     },
     {
       icon: MemoryStick,
       label: "Memory",
       value: `${device.memory}%`,
-      progress: device.memory,
       color: "purple",
-      bgColor: "bg-purple-50",
-      iconColor: "text-purple-600",
+      trend: memoryTrend.trend,
+      trendValue: memoryTrend.trendValue,
     },
     {
       icon: HardDrive,
       label: "Disk Usage",
       value: `${device.disk}%`,
-      progress: device.disk,
       color: "green",
-      bgColor: "bg-green-50",
-      iconColor: "text-green-600",
+      trend: diskTrend.trend,
+      trendValue: diskTrend.trendValue,
+    },
+    {
+      icon: Network,
+      label: "Network",
+      value: formatNetworkSpeed(currentNetworkSpeed),
+      color: "orange",
+      trend: networkTrend.trend,
+      trendValue: networkTrend.trendValue,
     },
   ];
 
-  // Fetch system info from API
+  // Fetch system info and processes from API
   const [systemInfo, setSystemInfo] = useState([
     { label: "Operating System", value: "Unknown" },
     { label: "Architecture", value: "Unknown" },
@@ -88,60 +166,6 @@ export function SystemMetrics({
     { label: "MAC Address", value: "Unknown" },
   ]);
 
-  useEffect(() => {
-    // Clear systemInfo immediately on device change
-    setSystemInfo([
-      { label: "Operating System", value: "Unknown" },
-      { label: "Architecture", value: "Unknown" },
-      { label: "Uptime", value: "Unknown" },
-      { label: "Hostname", value: device.name },
-      { label: "IP Address", value: device.ipAddress },
-      { label: "MAC Address", value: "Unknown" },
-    ]);
-
-    const fetchSystemInfo = async () => {
-      if (!device.deviceUuid) return;
-      try {
-        const response = await fetch(buildApiUrl(`/api/v1/devices/${device.deviceUuid}/current-state`));
-        if (!response.ok) {
-          console.warn('Failed to fetch system info');
-          return;
-        }
-        const data = await response.json();
-        // Format uptime from seconds to human readable
-        const formatUptime = (seconds: number): string => {
-          const days = Math.floor(seconds / 86400);
-          const hours = Math.floor((seconds % 86400) / 3600);
-          const minutes = Math.floor((seconds % 3600) / 60);
-          const parts = [];
-          if (days > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
-          if (hours > 0) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
-          if (minutes > 0) parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
-          return parts.length > 0 ? parts.join(', ') : 'Less than a minute';
-        };
-        // Extract OS and architecture from os_version string (e.g., "Microsoft Windows 10 Pro 10.0.19045")
-        const osVersion = data.os_version || '';
-        const osMatch = osVersion.match(/^([^0-9]+)/);
-        const os = osMatch ? osMatch[1].trim() : (osVersion || 'Unknown');
-        setSystemInfo([
-          { label: "Operating System", value: os },
-          { label: "Architecture", value: data.architecture || "Unknown" },
-          { label: "Uptime", value: data.uptime ? formatUptime(data.uptime) : "Unknown" },
-          { label: "Hostname", value: data.hostname || device.name },
-          { label: "IP Address", value: device.ipAddress },
-          { label: "MAC Address", value: device.macAddress || data.mac_address || "Unknown" },
-        ]);
-      } catch (error) {
-        console.error('Failed to fetch system info:', error);
-      }
-    };
-
-    fetchSystemInfo();
-    const interval = setInterval(fetchSystemInfo, 30000); // Refresh every 30 seconds
-    return () => clearInterval(interval);
-  }, [device.deviceUuid, device.name, device.ipAddress, device.macAddress]);
-
-  // Fetch process data from API
   const [processes, setProcesses] = useState<Array<{
     pid: number;
     name: string;
@@ -151,30 +175,80 @@ export function SystemMetrics({
   }>>([]);
   const [processesLoading, setProcessesLoading] = useState(true);
 
+  // Format uptime from seconds to human readable
+  const formatUptime = useCallback((seconds: number): string => {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const parts = [];
+    if (days > 0) parts.push(`${days} day${days !== 1 ? 's' : ''}`);
+    if (hours > 0) parts.push(`${hours} hour${hours !== 1 ? 's' : ''}`);
+    if (minutes > 0) parts.push(`${minutes} minute${minutes !== 1 ? 's' : ''}`);
+    return parts.length > 0 ? parts.join(', ') : 'Less than a minute';
+  }, []);
+
+  // Handle system info updates via WebSocket
+  const handleSystemInfo = useCallback((data: SystemInfoData) => {
+    const osVersion = data.os || '';
+    const osMatch = osVersion.match(/^([^0-9]+)/);
+    const os = osMatch ? osMatch[1].trim() : (osVersion || 'Unknown');
+    
+    setSystemInfo([
+      { label: "Operating System", value: os },
+      { label: "Architecture", value: data.architecture || "Unknown" },
+      { label: "Uptime", value: data.uptime ? formatUptime(data.uptime) : "Unknown" },
+      { label: "Hostname", value: data.hostname || device.name },
+      { label: "IP Address", value: device.ipAddress },
+      { label: "MAC Address", value: data.macAddress || device.macAddress || "Unknown" },
+    ]);
+  }, [device.name, device.ipAddress, device.macAddress, formatUptime]);
+
+  // Handle processes updates via WebSocket
+  const handleProcesses = useCallback((data: { top_processes: ProcessData[] }) => {
+    if (data.top_processes && Array.isArray(data.top_processes)) {
+      setProcesses(data.top_processes);
+      setProcessesLoading(false);
+    }
+  }, []);
+
+  // Handle metrics history updates via WebSocket
+  const handleMetricsHistory = useCallback((data: MetricsHistoryData) => {
+    console.log('[SystemMetrics] Received history data:', data);
+    if (data.cpu && data.cpu.length > 0) {
+      console.log('[SystemMetrics] Setting CPU history:', data.cpu.length, 'points');
+      setCpuHistory(data.cpu);
+    }
+    if (data.memory && data.memory.length > 0) {
+      console.log('[SystemMetrics] Setting Memory history:', data.memory.length, 'points');
+      setMemoryHistory(data.memory);
+    }
+    if (data.network && data.network.length > 0) {
+      console.log('[SystemMetrics] Setting Network history:', data.network.length, 'points');
+      setNetworkHistory(data.network);
+    }
+  }, []);
+
+  // Subscribe to WebSocket channels
+  useWebSocket(device.deviceUuid, 'system-info', handleSystemInfo);
+  useWebSocket(device.deviceUuid, 'processes', handleProcesses);
+  useWebSocket(device.deviceUuid, 'history', handleMetricsHistory);
+
+  // Clear data when device changes
   useEffect(() => {
-    // Clear processes immediately on device change
+    setSystemInfo([
+      { label: "Operating System", value: "Unknown" },
+      { label: "Architecture", value: "Unknown" },
+      { label: "Uptime", value: "Unknown" },
+      { label: "Hostname", value: device.name },
+      { label: "IP Address", value: device.ipAddress },
+      { label: "MAC Address", value: "Unknown" },
+    ]);
     setProcesses([]);
     setProcessesLoading(true);
-
-    const fetchProcesses = async () => {
-      if (!device.deviceUuid) return;
-      try {
-        const response = await fetch(buildApiUrl(`/api/v1/devices/${device.deviceUuid}/processes`));
-        const data = await response.json();
-        if (data.top_processes && Array.isArray(data.top_processes)) {
-          setProcesses(data.top_processes);
-        }
-      } catch (error) {
-        console.error('Failed to fetch processes:', error);
-      } finally {
-        setProcessesLoading(false);
-      }
-    };
-
-    fetchProcesses();
-    const interval = setInterval(fetchProcesses, 5000); // Refresh every 5 seconds
-    return () => clearInterval(interval);
-  }, [device.deviceUuid]);
+    setCpuHistory([]);
+    setMemoryHistory([]);
+    setNetworkHistory([]);
+  }, [device.deviceUuid, device.name, device.ipAddress]);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -189,45 +263,18 @@ export function SystemMetrics({
 
         {/* Quick Metrics */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {metrics.map((metric, index) => {
-            const Icon = metric.icon;
-            
-            const iconColors = {
-              blue: 'text-blue-600 dark:text-blue-400',
-              purple: 'text-purple-600 dark:text-purple-400',
-              green: 'text-green-600 dark:text-green-400',
-              orange: 'text-orange-600 dark:text-orange-400',
-            };
-
-            const progressBarColors = {
-              blue: 'bg-blue-600 dark:bg-blue-500',
-              purple: 'bg-purple-600 dark:bg-purple-500',
-              green: 'bg-green-600 dark:bg-green-500',
-              orange: 'bg-orange-600 dark:bg-orange-500',
-            };
-
-            return (
-              <Card key={index}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardDescription>{metric.label}</CardDescription>
-                    <div className={`h-10 w-10 ${iconColors[metric.color as keyof typeof iconColors]}`}>
-                      <Icon className="h-full w-full" />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardTitle className="text-3xl">{metric.value}</CardTitle>
-                  <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted mt-4">
-                    <div 
-                      className={`h-full transition-all ${progressBarColors[metric.color as keyof typeof progressBarColors]}`}
-                      style={{ width: `${metric.progress}%` }}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {metrics.map((metric, index) => (
+            <MetricCard
+              key={index}
+              label={metric.label}
+              value={metric.value}
+              icon={metric.icon}
+              iconColor={metric.color as "blue" | "purple" | "green" | "orange"}
+              trend={metric.trend}
+              trendValue={metric.trendValue}
+              loading={isLoading}
+            />
+          ))}
         </div>
 
         {/* Cards in 2-Column Layout */}
@@ -267,8 +314,8 @@ export function SystemMetrics({
             {selectedMetric === 'cpu' && (
               <>
                 {cpuHistory.length === 0 ? (
-                  <div className="flex items-center justify-center h-[250px] text-gray-500">
-                    No CPU data available
+                  <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+                    <Loader2 className="h-8 w-8 animate-spin" />
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={250}>
@@ -300,8 +347,8 @@ export function SystemMetrics({
             {selectedMetric === 'memory' && (
               <>
                 {memoryHistory.length === 0 ? (
-                  <div className="flex items-center justify-center h-[250px] text-gray-500">
-                    No memory data available
+                  <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+                    <Loader2 className="h-8 w-8 animate-spin" />
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={250}>
@@ -348,8 +395,8 @@ export function SystemMetrics({
             {selectedMetric === 'network' && (
               <>
                 {networkHistory.length === 0 ? (
-                  <div className="flex items-center justify-center h-[250px] text-gray-500">
-                    No network data available
+                  <div className="flex items-center justify-center h-[250px] text-muted-foreground">
+                    <Loader2 className="h-8 w-8 animate-spin" />
                   </div>
                 ) : (
                   <ResponsiveContainer width="100%" height={250}>

@@ -1,6 +1,8 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { DeviceSidebar, Device } from "./components/DeviceSidebar";
 import { AddEditDeviceDialog } from "./components/AddEditDeviceDialog";
+import { useWebSocketConnection, useWebSocket } from "./hooks/useWebSocket";
+import type { NetworkInterfaceData } from "./services/websocket";
 import { SystemMetrics } from "./components/SystemMetrics";
 import { MqttPage } from "./components/MqttPage";
 import { JobsPage } from "./components/JobsPage";
@@ -9,13 +11,11 @@ import { TimelinePage } from "./components/TimelinePage";
 import { UsagePage } from "./components/UsagePage";
 import { AnalyticsPage } from "./components/AnalyticsPage";
 import { SecurityPage } from "./components/SecurityPage";
-import { Application } from "./components/ApplicationsCard";
 import { Toaster } from "./components/ui/sonner";
 import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
 import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock, Package, TrendingUp, LineChart, Shield, Settings } from "lucide-react";
-import { LoginPage } from "./components/LoginPage";
 import { buildApiUrl } from "./config/api";
 import { SensorHealthDashboard } from "./pages/SensorHealthDashboard";
 import { SensorsPage } from "./pages/SensorsPage";
@@ -23,6 +23,7 @@ import HousekeeperPage from "./pages/HousekeeperPage";
 
 import { toast } from "sonner";
 import { Header } from "./components/Header";
+import { useDeviceState } from "./contexts/DeviceStateContext";
 
 // Initialize API traffic tracking
 import "./lib/apiInterceptor";
@@ -30,6 +31,9 @@ import "./lib/apiInterceptor";
 // Initial mock applications for each device
 
 export default function App() {
+  // Device state context
+  const { fetchDeviceState } = useDeviceState();
+  
   const [isAuthenticated, setIsAuthenticated] = useState(true);
   const [userEmail, setUserEmail] = useState("");
   const [userName, setUserName] = useState("");
@@ -40,20 +44,8 @@ export default function App() {
   const [devices, setDevices] = useState<Device[]>([]);
   const devicesRef = useRef<Device[]>([]); // Ref to access devices without causing re-renders
   const [isLoadingDevices, setIsLoadingDevices] = useState(true);
-  const [cpuHistory, setCpuHistory] = useState<Array<{ time: string; value: number }>>([]);
-  const [memoryHistory, setMemoryHistory] = useState<Array<{ time: string; used: number; available: number }>>([]);
-  const [networkHistory, setNetworkHistory] = useState<Array<{ time: string; download: number; upload: number }>>([]);
   const [networkInterfaces, setNetworkInterfaces] = useState<any[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [applications, setApplications] = useState<Record<string, Application[]>>({});
-  const [deploymentStatus, setDeploymentStatus] = useState<
-    Record<string, { 
-      needsDeployment: boolean;
-      version: number;
-      lastDeployedAt?: string;
-      deployedBy?: string;
-    }>
-  >({});
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
   const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security' | 'settings'>('metrics');
@@ -63,8 +55,6 @@ export default function App() {
   const selectedDevice = useMemo(() => {
     return devices.find((d) => d.id === selectedDeviceId) || devices[0];
   }, [devices, selectedDeviceId]);
-  
-  const deviceApplications = applications[selectedDeviceId] || [];
 
   // Persist selectedDeviceId to localStorage whenever it changes
   useEffect(() => {
@@ -149,259 +139,67 @@ export default function App() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch applications for selected device
+  // Fetch device state from context when device changes
   useEffect(() => {
-    const fetchApplications = async () => {
-      if (!selectedDeviceId) return;
-      
-      const selectedDevice = devicesRef.current.find((d: any) => d.id === selectedDeviceId);
-      if (!selectedDevice?.deviceUuid) return;
-
-      try {
-        const response = await fetch(buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}`));
-        
-        if (!response.ok) {
-          console.error('Failed to fetch device state:', response.statusText);
-          return;
-        }
-
-        const data = await response.json();
-
-        console.log("Fetched device data:", data);
-        
-        // Capture deployment status
-        if (data.target_state) {
-          setDeploymentStatus(prev => ({
-            ...prev,
-            [selectedDeviceId]: {
-              needsDeployment: data.target_state.needs_deployment || false,
-              version: data.target_state.version || 1,
-              lastDeployedAt: data.target_state.last_deployed_at,
-              deployedBy: data.target_state.deployed_by,
-            }
-          }));
-        }
-        
-        // Determine actual sync status by comparing target vs current state versions
-        const targetVersion = data.target_state?.version || 1;
-        const currentVersion = data.current_state?.version || 0;
-        const needsDeployment = data.target_state?.needs_deployment || false;
-        
-        let actualSyncStatus: 'pending' | 'syncing' | 'synced' | 'error';
-        if (needsDeployment) {
-          // Changes saved but not deployed yet
-          actualSyncStatus = 'pending';
-        } else if (targetVersion > currentVersion) {
-          // Deployed but device hasn't picked it up yet
-          actualSyncStatus = 'syncing';
-        } else if (targetVersion === currentVersion) {
-          // Device has applied the changes
-          actualSyncStatus = 'synced';
-        } else {
-          // Something wrong - current version is higher than target?
-          actualSyncStatus = 'error';
-        }
-        
-        // Show target_state when pending/syncing, current_state when synced
-        // This displays what's configured vs what's actually running
-        const showCurrentState = actualSyncStatus === 'synced' && data.current_state?.apps;
-        const appsSource = showCurrentState ? data.current_state.apps : data.target_state?.apps;
-        
-        if (appsSource) {
-          const transformedApps: Application[] = [];
-
-          // For pending detection, get current_state services for comparison
-          const currentAppsSource = data.current_state?.apps || {};
-
-
-          Object.entries(appsSource).forEach(([appId, appData]: [string, any]) => {
-            const services = appData.services || [];
-            // For this app, get current_state services by serviceId
-            const currentServicesMap: Record<string, any> = {};
-            if (currentAppsSource[appId]?.services) {
-              for (const s of currentAppsSource[appId].services) {
-                currentServicesMap[s.serviceId] = s;
-              }
-            }
-            // Determine app syncStatus for this app
-            const appSyncStatus = actualSyncStatus;
-            const transformedServices = services.map((service: any) => {
-              // If app is pending and state/status differs from current_state, show pending
-              let showPending = false;
-              if (appSyncStatus === 'pending' && currentServicesMap[service.serviceId]) {
-                const current = currentServicesMap[service.serviceId];
-                if ((service.state && current.state && service.state !== current.state) ||
-                    (service.status && current.status && service.status !== current.status)) {
-                  showPending = true;
-                }
-              }
-              return {
-                serviceId: service.serviceId || 0,
-                serviceName: service.serviceName || 'Unknown Service',
-                imageName: service.imageName || 'unknown:latest',
-                appId: parseInt(appId) || 0,
-                appName: appData.appName || `App ${appId}`,
-                config: {
-                  image: service.imageName || 'unknown:latest',
-                  ports: service.config?.ports || [],
-                  environment: service.config?.environment || {},
-                  volumes: service.config?.volumes || [],
-                  labels: service.config?.labels || {},
-                },
-                status: showPending ? 'pending' : (service.status || service.state || 'stopped'),
-                uptime: service.uptime || '0m',
-                id: service.serviceId?.toString() || service.serviceName || `service-${Date.now()}`,
-                name: service.serviceName || 'Unknown Service',
-                image: service.imageName || 'unknown:latest',
-                state: service.state || 'running',
-                health: showCurrentState ? (service.health || 'unknown') : 'unknown',
-              };
-            });
-
-            transformedApps.push({
-              id: appId,
-              appId: parseInt(appId) || 0,
-              appName: appData.appName || `App ${appId}`,
-              name: appData.appName || `App ${appId}`,
-              image: transformedServices.length > 0 ? transformedServices[0].image : 'unknown:latest',
-              status: 'stopped',
-              syncStatus: appSyncStatus,
-              services: transformedServices,
-            });
-          });
-
-          setApplications(prev => ({
-            ...prev,
-            [selectedDeviceId]: transformedApps,
-          }));
-
-        } else {
-          setApplications(prev => ({
-            ...prev,
-            [selectedDeviceId]: [],
-          }));
-        }
-      } catch (error) {
-        console.error('Error fetching applications:', error);
-      }
-    };
-
-
-    fetchApplications();
+    if (!selectedDeviceId) return;
     
-    // Refresh applications every 10 seconds
-    const interval = setInterval(fetchApplications, 10000);
+    const selectedDevice = devices.find((d) => d.id === selectedDeviceId);
+    if (!selectedDevice?.deviceUuid) return;
+
+    // Initial fetch
+    fetchDeviceState(selectedDevice.deviceUuid);
+    
+    // Poll every 10 seconds for updates
+    const interval = setInterval(() => {
+      fetchDeviceState(selectedDevice.deviceUuid);
+    }, 10000);
+    
     return () => clearInterval(interval);
-  }, [selectedDeviceId]); // Only depend on selectedDeviceId, not devices array
+  }, [selectedDeviceId, devices, fetchDeviceState]);
 
-  // Fetch historical metrics for telemetry charts
-  useEffect(() => {
-    // Clear metrics immediately on device change
-    setCpuHistory([]);
-    setMemoryHistory([]);
-    setNetworkHistory([]);
+  // Get selected device UUID for WebSocket connection
+  const currentDevice = useMemo(() => 
+    devices.find(d => d.id === selectedDeviceId),
+    [devices, selectedDeviceId]
+  );
 
-    const fetchMetrics = async () => {
-      if (!selectedDeviceId) return;
-      const selectedDevice = devicesRef.current.find((d: any) => d.id === selectedDeviceId);
-      if (!selectedDevice?.deviceUuid) return;
+  // Establish WebSocket connection for selected device
+  useWebSocketConnection(currentDevice?.deviceUuid || null);
 
-      try {
-        const response = await fetch(buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/metrics?limit=30`));
-        if (!response.ok) {
-          console.error('Failed to fetch device metrics:', response.statusText);
-          return;
-        }
-        const data = await response.json();
-        console.log('Historical metrics:', data);
-        if (data.metrics && data.metrics.length > 0) {
-          // Reverse to get chronological order (oldest first)
-          const metricsData = data.metrics.reverse();
-          // Update CPU history
-          const cpuData = metricsData.map((m: any) => ({
-            time: new Date(m.recorded_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            value: Math.round(parseFloat(m.cpu_usage) || 0)
-          }));
-          setCpuHistory(cpuData);
-          // Update Memory history
-          const memData = metricsData.map((m: any) => ({
-            time: new Date(m.recorded_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            used: Math.round((parseFloat(m.memory_usage) || 0) / 1024 / 1024),
-            available: Math.round(((parseFloat(m.memory_total) || 0) - (parseFloat(m.memory_usage) || 0)) / 1024 / 1024)
-          }));
-          setMemoryHistory(memData);
-          // Network history - for now just use placeholder data since network metrics aren't stored yet
-          setNetworkHistory(metricsData.map((m: any) => ({
-            time: new Date(m.recorded_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-            rx: 0,
-            tx: 0
-          })));
-        }
-      } catch (error) {
-        console.error('Error fetching metrics:', error);
-      }
-    };
+  // Handle network interfaces updates via WebSocket
+  const handleNetworkInterfaces = useCallback((data: { interfaces: NetworkInterfaceData[] }) => {
+    console.log('[WebSocket] Received network interfaces:', data);
+    if (data.interfaces && Array.isArray(data.interfaces)) {
+      const interfaces = data.interfaces.map((iface: any) => {
+        // Normalize type: "wired" -> "ethernet"
+        let type = iface.type || 'ethernet';
+        if (type === 'wired') type = 'ethernet';
+        
+        return {
+          id: iface.id || iface.name,
+          name: iface.name,
+          type,
+          ipAddress: iface.ipAddress,
+          status: iface.status,
+          speed: iface.speed,
+          signal: iface.signal,
+          mac: iface.mac,
+          default: iface.default,
+          virtual: iface.virtual,
+        };
+      });
+      setNetworkInterfaces(interfaces);
+    }
+  }, []);
 
-    fetchMetrics();
-    // Refresh metrics every 30 seconds
-    const interval = setInterval(fetchMetrics, 30000);
-    return () => clearInterval(interval);
-  }, [selectedDeviceId]);
+  // Subscribe to WebSocket channels
+  useWebSocket(currentDevice?.deviceUuid || null, 'network-interfaces', handleNetworkInterfaces);
 
-  // Fetch network interfaces when device changes
+  // Clear data when device changes
   useEffect(() => {
     if (!selectedDeviceId) {
       setNetworkInterfaces([]);
-      return;
     }
-
-    const fetchNetworkInterfaces = async () => {
-      try {
-        const selectedDevice = devicesRef.current.find((d: any) => d.id === selectedDeviceId);
-        if (!selectedDevice?.deviceUuid) {
-          setNetworkInterfaces([]);
-          return;
-        }
-
-        const response = await fetch(
-          buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/network-interfaces`)
-        );
-
-        if (!response.ok) {
-          console.warn(`Failed to fetch network interfaces: ${response.statusText}`);
-          setNetworkInterfaces([]);
-          return;
-        }
-
-        const data = await response.json();
-
-        console.log("Fetched network interfaces:", data);
-        
-        // Transform API format to dashboard format
-        const interfaces = (data.interfaces || []).map((iface: any) => ({
-          id: iface.name || iface.id,
-          name: iface.name || iface.id,
-          type: iface.type || 'ethernet',
-          ipAddress: iface.ip4 || iface.ipAddress,
-          status: iface.status || (iface.operstate === 'up' ? 'connected' : 'disconnected'),
-          speed: iface.speed,
-          signal: iface.signalLevel,
-          mac: iface.mac,
-          default: iface.default,
-        }));
-
-        setNetworkInterfaces(interfaces);
-      } catch (error) {
-        console.error('Error fetching network interfaces:', error);
-        setNetworkInterfaces([]);
-      }
-    };
-
-    fetchNetworkInterfaces();
-    
-    // Refresh network interfaces every 30 seconds
-    const interval = setInterval(fetchNetworkInterfaces, 30000);
-    return () => clearInterval(interval);
   }, [selectedDeviceId]);
 
   // Helper function to format last seen time
@@ -453,7 +251,7 @@ export default function App() {
           const error = await response.json();
           throw new Error(error.message || 'Failed to update device');
         }
-        const result = await response.json();
+        await response.json();
         setDevices(prev =>
           prev.map(d => (d.id === deviceData.id ? { ...d, ...deviceData } : d))
         );
@@ -518,18 +316,6 @@ export default function App() {
     }
   };
 
-  const handleLogin = (email: string, password: string) => {
-    // In a real app, you would validate credentials with a backend
-    // For demo purposes, we accept any login
-    setIsAuthenticated(true);
-    setUserEmail(email);
-    // Extract name from email or use a default
-    const name = email.split('@')[0].split('.').map(word => 
-      word.charAt(0).toUpperCase() + word.slice(1)
-    ).join(' ');
-    setUserName(name || "User");
-  };
-
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUserEmail("");
@@ -541,393 +327,8 @@ export default function App() {
     setSidebarOpen(false); // Close sidebar on mobile after selection
   };
 
-  const handleAddApplication = async (app: Omit<Application, "id">) => {
-    try {
-      const selectedDevice = devices.find(d => d.id === selectedDeviceId);
-      if (!selectedDevice?.deviceUuid) {
-        toast.error('No device selected');
-        return;
-      }
-
-      // Ensure appId is a number
-      const numericAppId = typeof app.appId === 'number' ? app.appId : parseInt(String(app.appId));
-      
-      console.log('📦 Adding application:', {
-        appId: app.appId,
-        appIdType: typeof app.appId,
-        numericAppId: numericAppId,
-        numericType: typeof numericAppId,
-        appName: app.appName,
-        servicesCount: app.services?.length || 0
-      });
-
-      const payload = {
-        appId: numericAppId,
-        appName: app.appName,
-        services: app.services.map(service => ({
-          serviceName: service.serviceName,
-          image: service.imageName,
-          ports: service.config?.ports || [],
-          environment: service.config?.environment || {},
-          volumes: service.config?.volumes || [],
-        }))
-      };
-
-      console.log('📤 Sending payload:', JSON.stringify(payload, null, 2));
-
-      // Create application with services via API
-      const response = await fetch(
-        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/apps`),
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload)
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to deploy application');
-      }
-
-      const result = await response.json();
-      toast.success(`Application "${app.appName}" deployed successfully!`);
-      
-      // Refresh applications to show the newly deployed app
-      setTimeout(() => {
-        // Trigger re-fetch by updating devices array reference
-        setDevices(prev => [...prev]);
-      }, 1000);
-
-    } catch (error: any) {
-      console.error('Error deploying application:', error);
-      toast.error(`Failed to deploy application: ${error.message}`);
-    }
-  };
-
-  const handleUpdateApplication = async (updatedApp: Application) => {
-    try {
-      const selectedDevice = devices.find(d => d.id === selectedDeviceId);
-      if (!selectedDevice?.deviceUuid) {
-        toast.error('No device selected');
-        return;
-      }
-
-      // Use PATCH to update existing application
-      const response = await fetch(
-        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/apps/${updatedApp.appId}`),
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            appName: updatedApp.appName, // Include app name
-            services: updatedApp.services.map(service => ({
-              serviceName: service.serviceName,
-              image: service.imageName,
-              ports: service.config?.ports || [],
-              environment: service.config?.environment || {},
-              volumes: service.config?.volumes || [],
-            }))
-          })
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to update application');
-      }
-
-      toast.success(`Application "${updatedApp.appName}" saved (ready to deploy)`);
-      
-      // Mark as needs deployment
-      setDeploymentStatus(prev => ({
-        ...prev,
-        [selectedDeviceId]: {
-          ...prev[selectedDeviceId],
-          needsDeployment: true,
-        }
-      }));
-      
-      // Update local state
-      setApplications(prev => ({
-        ...prev,
-        [selectedDeviceId]: (prev[selectedDeviceId] || []).map(app =>
-          app.id === updatedApp.id ? updatedApp : app
-        ),
-      }));
-    } catch (error: any) {
-      console.error('Error updating application:', error);
-      toast.error(`Failed to update application: ${error.message}`);
-    }
-  };
-
-  const handleDeployChanges = async () => {
-    try {
-      if (!selectedDeviceId) {
-        toast.error('No device selected');
-        return;
-      }
-
-      const selectedDevice = devices.find(d => d.id === selectedDeviceId);
-      if (!selectedDevice?.deviceUuid) {
-        toast.error('Device not found');
-        return;
-      }
-
-      const deployStatus = deploymentStatus[selectedDeviceId];
-      if (!deployStatus?.needsDeployment) {
-        toast.info('No changes to deploy');
-        return;
-      }
-
-      toast.loading('Deploying changes...', { id: 'deploy' });
-
-      const response = await fetch(
-        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/deploy`),
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            deployedBy: 'dashboard'
-          })
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to deploy changes');
-      }
-
-      const data = await response.json();
-
-      toast.success(`Deployed version ${data.version} successfully!`, { id: 'deploy' });
-      
-      // Update deployment status
-      setDeploymentStatus(prev => ({
-        ...prev,
-        [selectedDeviceId]: {
-          needsDeployment: false,
-          version: data.version,
-          lastDeployedAt: data.deployedAt,
-          deployedBy: data.deployedBy,
-        }
-      }));
-    } catch (error: any) {
-      console.error('Error deploying changes:', error);
-      toast.error(`Failed to deploy: ${error.message}`, { id: 'deploy' });
-    }
-  };
-
-  const handleCancelDeploy = async () => {
-    try {
-      if (!selectedDeviceId) {
-        toast.error('No device selected');
-        return;
-      }
-
-      const selectedDevice = devices.find((d: any) => d.id === selectedDeviceId);
-      if (!selectedDevice?.deviceUuid) {
-        toast.error('Device not found');
-        return;
-      }
-
-      const deployStatus = deploymentStatus[selectedDeviceId];
-      if (!deployStatus?.needsDeployment) {
-        toast.info('No pending changes to cancel');
-        return;
-      }
-
-      toast.loading('Canceling pending changes...', { id: 'cancel' });
-
-      const response = await fetch(
-        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/deploy/cancel`),
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          }
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to cancel deployment');
-      }
-
-      toast.success('Pending changes canceled successfully', { id: 'cancel' });
-      
-      // Update deployment status
-      setDeploymentStatus((prev: any) => ({
-        ...prev,
-        [selectedDeviceId]: {
-          ...prev[selectedDeviceId],
-          needsDeployment: false,
-        }
-      }));
-
-      // Refetch applications to show reverted state
-      setTimeout(() => {
-        setDevices((prev: any) => [...prev]);
-      }, 500);
-
-    } catch (error: any) {
-      console.error('Error canceling deployment:', error);
-      toast.error(`Failed to cancel: ${error.message}`, { id: 'cancel' });
-    }
-  };
-
-  const handleRemoveApplication = async (appId: string) => {
-    try {
-      const selectedDevice = devices.find(d => d.id === selectedDeviceId);
-      if (!selectedDevice?.deviceUuid) {
-        toast.error('No device selected');
-        return;
-      }
-
-      // Call API to remove application
-      const response = await fetch(
-        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/apps/${appId}`),
-        {
-          method: 'DELETE',
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to remove application');
-      }
-
-      const result = await response.json();
-      toast.success(`Application "${result.appName}" removed successfully!`);
-      
-      // Update local state
-      setApplications(prev => ({
-        ...prev,
-        [selectedDeviceId]: (prev[selectedDeviceId] || []).filter(app => app.id !== appId),
-      }));
-
-    } catch (error: any) {
-      console.error('Error removing application:', error);
-      toast.error(`Failed to remove application: ${error.message}`);
-    }
-  };
-
-  const handleToggleAppStatus = (appId: string) => {
-    setApplications(prev => ({
-      ...prev,
-      [selectedDeviceId]: (prev[selectedDeviceId] || []).map(app =>
-        app.id === appId
-          ? {
-              ...app,
-              status: app.status === "running" ? "stopped" : "running",
-              uptime: app.status === "running" ? "0m" : app.uptime,
-            }
-          : app
-      ),
-    }));
-  };
-
-  const handleToggleServiceStatus = async (appId: string, serviceId: number, action: "start" | "pause" | "stop") => {
-    if (!selectedDeviceId) return;
-
-    const selectedDevice = devices.find(d => d.id === selectedDeviceId);
-    if (!selectedDevice) return;
-
-    // Find the app and service
-    const apps = applications[selectedDeviceId] || [];
-    const app = apps.find(a => a.id === appId);
-    if (!app || !app.services) return;
-
-    try {
-      // Map action to state field for agent
-      const stateMap = {
-        "start": "running",
-        "pause": "paused",
-        "stop": "stopped"
-      };
-
-      // Prepare services array with updated state field
-      const updatedServices = app.services.map(s => {
-        const serviceState = s.serviceId === serviceId 
-          ? stateMap[action]
-          : (s.state || "running"); // Preserve existing state or default to running
-
-        return {
-          serviceName: s.serviceName,
-          image: s.imageName,
-          ports: s.config?.ports || [],
-          environment: s.config?.environment || {},
-          volumes: s.config?.volumes || [],
-          state: serviceState // Include the state field
-        };
-      });
-
-      // Update target state via API
-      const response = await fetch(
-        buildApiUrl(`/api/v1/devices/${selectedDevice.deviceUuid}/apps/${appId}`),
-        {
-          method: 'PATCH',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            appName: app.name,
-            services: updatedServices
-          })
-        }
-      );
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || `Failed to ${action} service`);
-      }
-
-      const actionText = action === "start" ? "started" : action === "pause" ? "paused" : "stopped";
-      const statusMap: Record<string, "running" | "stopped" | "paused"> = {
-        "start": "running",
-        "pause": "paused",
-        "stop": "stopped"
-      };
-      
-  toast.info(`Service will be marked as ${actionText}. Changes will take effect after deployment.`);
-      
-      // Update local service status immediately for better UX
-      setApplications(prev => ({
-        ...prev,
-        [selectedDeviceId]: (prev[selectedDeviceId] || []).map(a => 
-          a.id === appId 
-            ? {
-                ...a,
-                services: a.services.map(s => 
-                  s.serviceId === serviceId
-                    ? { ...s, status: action === "start" || action === "pause" ? "pending" : statusMap[action], state: stateMap[action] as "running" | "stopped" | "paused" }
-                    : s
-                )
-              }
-            : a
-        )
-      }));
-      
-      // Mark as needs deployment
-      setDeploymentStatus((prev: any) => ({
-        ...prev,
-        [selectedDeviceId]: {
-          ...prev[selectedDeviceId],
-          needsDeployment: true,
-        }
-      }));
-
-    } catch (error: any) {
-      console.error(`Error updating service state:`, error);
-      toast.error(`Failed to ${action} service`);
-    }
-  };
+  // Application management now handled entirely by DeviceStateContext via ApplicationsCard
+  // All application handlers (add, update, remove, toggle) removed - managed by context
 
   // No history initialization - charts will populate only with real data from API updates
   // History arrays start empty and fill as new data arrives from device metrics
@@ -955,15 +356,7 @@ export default function App() {
         onLogout={handleLogout}
         userEmail={userEmail}
         userName={userName}
-        deploymentStatus={(() => {
-          const status = selectedDeviceId ? deploymentStatus[selectedDeviceId] : undefined;
-          console.log('App.tsx - selectedDeviceId:', selectedDeviceId);
-          console.log('App.tsx - deploymentStatus object:', deploymentStatus);
-          console.log('App.tsx - passing to Header:', status);
-          return status;
-        })()}
-        onDeploy={handleDeployChanges}
-        onCancelDeploy={handleCancelDeploy}
+        deviceUuid={selectedDevice?.deviceUuid}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -1109,7 +502,7 @@ export default function App() {
               onClick={() => setCurrentView('settings')}
             >
               <Settings className="w-4 h-4 mr-2" />
-              Settings
+              Maintenance
             </Button>
           </div>
 
@@ -1117,23 +510,12 @@ export default function App() {
           {currentView === 'metrics' && (
             <SystemMetrics
               device={selectedDevice}
-              cpuHistory={cpuHistory}
-              memoryHistory={memoryHistory}
-              networkHistory={networkHistory}
               networkInterfaces={networkInterfaces}
             />
           )}
           {currentView === 'applications' && (
             <ApplicationsPage
               device={selectedDevice}
-              applications={deviceApplications}
-              onAddApplication={handleAddApplication}
-              onUpdateApplication={handleUpdateApplication}
-              onRemoveApplication={handleRemoveApplication}
-              onToggleAppStatus={handleToggleAppStatus}
-              onToggleServiceStatus={handleToggleServiceStatus}
-              deploymentStatus={deploymentStatus[selectedDeviceId]}
-              setDeploymentStatus={setDeploymentStatus}
             />
           )}
           {currentView === 'sensors' && (

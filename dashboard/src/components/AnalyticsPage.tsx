@@ -9,10 +9,20 @@
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { MetricCard } from "@/components/ui/metric-card";
 import { Badge } from "@/components/ui/badge";
 import { Smartphone, ArrowDownToLine, ArrowUpFromLine, Radio } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { buildApiUrl } from "@/config/api";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 interface DeviceTrafficStats {
   deviceId: string;
@@ -52,6 +62,9 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
   // Default to selected device's UUID if available, otherwise "all"
   const [selectedDevice, setSelectedDevice] = useState<string>(device?.deviceUuid || "all");
   const [mqttTopics, setMqttTopics] = useState<MqttTopicStats[]>([]);
+  const [mqttCurrentPage, setMqttCurrentPage] = useState(1);
+  const [httpCurrentPage, setHttpCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   // Update selectedDevice when the device prop changes
   useEffect(() => {
@@ -120,6 +133,18 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
   const filteredMqttTopics = selectedDevice === "all"
     ? mqttTopics
     : mqttTopics.filter(t => t.topic.includes(selectedDevice));
+
+  // MQTT Pagination
+  const mqttTotalPages = Math.ceil(filteredMqttTopics.length / itemsPerPage);
+  const mqttStartIndex = (mqttCurrentPage - 1) * itemsPerPage;
+  const mqttEndIndex = mqttStartIndex + itemsPerPage;
+  const paginatedMqttTopics = filteredMqttTopics.slice(mqttStartIndex, mqttEndIndex);
+
+  // HTTP Pagination
+  const httpTotalPages = Math.ceil(filteredDeviceTraffic.length / itemsPerPage);
+  const httpStartIndex = (httpCurrentPage - 1) * itemsPerPage;
+  const httpEndIndex = httpStartIndex + itemsPerPage;
+  const paginatedDeviceTraffic = filteredDeviceTraffic.slice(httpStartIndex, httpEndIndex);
 
   // Always recalculate MQTT summary for filtered topics (even for "all")
   const totalMessages = filteredMqttTopics.reduce((sum, t) => sum + t.messageCount, 0);
@@ -222,67 +247,37 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
 
         {/* Traffic Summary Cards */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          {/* HTTP API Traffic */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>HTTP Inbound</CardDescription>
-                <div className="h-10 w-10 text-blue-600 dark:text-blue-400">
-                  <ArrowDownToLine className="h-full w-full" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardTitle className="text-3xl mb-1">{formatBytes(totalInbound)}</CardTitle>
-              <p className="text-xs text-muted-foreground">Avg: {formatBytes(avgInbound)}</p>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="HTTP Inbound"
+            value={formatBytes(totalInbound)}
+            subtitle={`Avg: ${formatBytes(avgInbound)}`}
+            icon={ArrowDownToLine}
+            iconColor="blue"
+          />
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>HTTP Outbound</CardDescription>
-                <div className="h-10 w-10 text-green-600 dark:text-green-400">
-                  <ArrowUpFromLine className="h-full w-full" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardTitle className="text-3xl mb-1">{formatBytes(totalOutbound)}</CardTitle>
-              <p className="text-xs text-muted-foreground">Avg: {formatBytes(avgOutbound)}</p>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="HTTP Outbound"
+            value={formatBytes(totalOutbound)}
+            subtitle={`Avg: ${formatBytes(avgOutbound)}`}
+            icon={ArrowUpFromLine}
+            iconColor="green"
+          />
 
-          {/* MQTT Traffic */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>MQTT Inbound</CardDescription>
-                <div className="h-10 w-10 text-purple-600 dark:text-purple-400">
-                  <Radio className="h-full w-full" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardTitle className="text-3xl mb-1">{formatBytes(filteredMqttSummary.totalBytes)}</CardTitle>
-              <p className="text-xs text-muted-foreground">Avg: {formatBytes(filteredMqttSummary.avgMessageSize)}</p>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="MQTT Inbound"
+            value={formatBytes(filteredMqttSummary.totalBytes)}
+            subtitle={`Avg: ${formatBytes(filteredMqttSummary.avgMessageSize)}`}
+            icon={Radio}
+            iconColor="purple"
+          />
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardDescription>MQTT Messages</CardDescription>
-                <div className="h-10 w-10 text-orange-600 dark:text-orange-400">
-                  <Radio className="h-full w-full" />
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <CardTitle className="text-3xl mb-1">{filteredMqttSummary.totalMessages.toLocaleString()}</CardTitle>
-              <p className="text-xs text-muted-foreground">{filteredMqttSummary.totalTopics} topics</p>
-            </CardContent>
-          </Card>
+          <MetricCard
+            label="MQTT Messages"
+            value={filteredMqttSummary.totalMessages.toLocaleString()}
+            subtitle={`${filteredMqttSummary.totalTopics} topics`}
+            icon={Radio}
+            iconColor="orange"
+          />
         </div>
 
         {/* MQTT Topics Table */}
@@ -296,7 +291,7 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
                     ? selectedDevice === "all" 
                       ? 'No MQTT traffic tracked yet' 
                       : 'No MQTT topics found for this device'
-                    : `Showing ${filteredMqttTopics.length} topics by incoming traffic (last 24 hours)`}
+                    : `Showing ${mqttStartIndex + 1}-${Math.min(mqttEndIndex, filteredMqttTopics.length)} of ${filteredMqttTopics.length} topics`}
                 </CardDescription>
               </div>
               <div className="flex items-center gap-2">
@@ -307,8 +302,8 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
           </CardHeader>
           <CardContent>
             {filteredMqttTopics.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <Radio className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <div className="text-center py-12 text-muted-foreground">
+                <Radio className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-lg font-medium mb-2">
                   {selectedDevice === "all" ? 'No MQTT data yet' : 'No MQTT topics for this device'}
                 </p>
@@ -317,7 +312,7 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
                     ? 'MQTT topic traffic will appear here when messages are published'
                     : 'This device has no MQTT topics containing its ID'}
                 </p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Data is collected from mqtt_topic_metrics table
                 </p>
               </div>
@@ -325,16 +320,16 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Topic</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Messages</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Total Bytes</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Avg Size</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Last Activity</th>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Topic</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Messages</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Total Bytes</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Avg Size</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Last Activity</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredMqttTopics.map((topic) => (
+                    {paginatedMqttTopics.map((topic) => (
                       <tr 
                         key={topic.topic}
                         className="border-b border-border hover:bg-muted transition-colors"
@@ -360,6 +355,111 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
                 </table>
               </div>
             )}
+            
+            {/* MQTT Pagination */}
+            {filteredMqttTopics.length > itemsPerPage && (
+              <div className="mt-6">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setMqttCurrentPage(prev => Math.max(1, prev - 1));
+                        }}
+                        className={mqttCurrentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                    
+                    {mqttCurrentPage > 2 && (
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setMqttCurrentPage(1);
+                          }}
+                        >
+                          1
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+                    
+                    {mqttCurrentPage > 3 && (
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )}
+                    
+                    {mqttCurrentPage > 1 && (
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setMqttCurrentPage(mqttCurrentPage - 1);
+                          }}
+                        >
+                          {mqttCurrentPage - 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+                    
+                    <PaginationItem>
+                      <PaginationLink href="#" isActive>
+                        {mqttCurrentPage}
+                      </PaginationLink>
+                    </PaginationItem>
+                    
+                    {mqttCurrentPage < mqttTotalPages && (
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setMqttCurrentPage(mqttCurrentPage + 1);
+                          }}
+                        >
+                          {mqttCurrentPage + 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+                    
+                    {mqttCurrentPage < mqttTotalPages - 2 && (
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )}
+                    
+                    {mqttCurrentPage < mqttTotalPages - 1 && (
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setMqttCurrentPage(mqttTotalPages);
+                          }}
+                        >
+                          {mqttTotalPages}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setMqttCurrentPage(prev => Math.min(mqttTotalPages, prev + 1));
+                        }}
+                        className={mqttCurrentPage === mqttTotalPages ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
+              </div>
+            )}
           </CardContent>
         </Card>
 
@@ -372,20 +472,18 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
                 <CardDescription>
                   {deviceTraffic.length === 0 
                     ? 'No device traffic tracked yet' 
-                    : selectedDevice === "all"
-                      ? `Showing ${filteredDeviceTraffic.length} endpoints across all devices`
-                      : `Showing ${filteredDeviceTraffic.length} endpoints for selected device`}
+                    : `Showing ${httpStartIndex + 1}-${Math.min(httpEndIndex, filteredDeviceTraffic.length)} of ${filteredDeviceTraffic.length} endpoints`}
                 </CardDescription>
               </div>
             </div>
           </CardHeader>
           <CardContent>
             {deviceTraffic.length === 0 ? (
-              <div className="text-center py-12 text-gray-500">
-                <Smartphone className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+              <div className="text-center py-12 text-muted-foreground">
+                <Smartphone className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
                 <p className="text-lg font-medium mb-2">No device data yet</p>
                 <p className="text-sm mb-2">Device traffic will appear here when devices make API requests</p>
-                <p className="text-xs text-gray-400">
+                <p className="text-xs text-muted-foreground">
                   Note: Only tracks requests with X-Device-API-Key or Authorization headers
                 </p>
               </div>
@@ -393,21 +491,21 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="border-b border-gray-200">
-                      <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Device ID</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Method</th>
-                      <th className="text-left py-3 px-4 font-semibold text-sm text-gray-700">Endpoint</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Requests</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Success</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Failed</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Total Size</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Avg Size</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Avg Time</th>
-                      <th className="text-right py-3 px-4 font-semibold text-sm text-gray-700">Status Codes</th>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Device ID</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Method</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Endpoint</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Requests</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Success</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Failed</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Total Size</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Avg Size</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Avg Time</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Status Codes</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {filteredDeviceTraffic.map((traffic) => {
+                    {paginatedDeviceTraffic.map((traffic) => {
                       const statusCodes = Object.entries(traffic.statuses || {})
                         .sort(([a], [b]) => Number(a) - Number(b))
                         .map(([code, count]) => `${code}:${count}`)
@@ -455,6 +553,111 @@ export function AnalyticsPage({ device }: AnalyticsPageProps) {
                     })}
                   </tbody>
                 </table>
+              </div>
+            )}
+            
+            {/* HTTP Pagination */}
+            {filteredDeviceTraffic.length > itemsPerPage && (
+              <div className="mt-6">
+                <Pagination>
+                  <PaginationContent>
+                    <PaginationItem>
+                      <PaginationPrevious 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setHttpCurrentPage(prev => Math.max(1, prev - 1));
+                        }}
+                        className={httpCurrentPage === 1 ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                    
+                    {httpCurrentPage > 2 && (
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setHttpCurrentPage(1);
+                          }}
+                        >
+                          1
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+                    
+                    {httpCurrentPage > 3 && (
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )}
+                    
+                    {httpCurrentPage > 1 && (
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setHttpCurrentPage(httpCurrentPage - 1);
+                          }}
+                        >
+                          {httpCurrentPage - 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+                    
+                    <PaginationItem>
+                      <PaginationLink href="#" isActive>
+                        {httpCurrentPage}
+                      </PaginationLink>
+                    </PaginationItem>
+                    
+                    {httpCurrentPage < httpTotalPages && (
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setHttpCurrentPage(httpCurrentPage + 1);
+                          }}
+                        >
+                          {httpCurrentPage + 1}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+                    
+                    {httpCurrentPage < httpTotalPages - 2 && (
+                      <PaginationItem>
+                        <PaginationEllipsis />
+                      </PaginationItem>
+                    )}
+                    
+                    {httpCurrentPage < httpTotalPages - 1 && (
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            setHttpCurrentPage(httpTotalPages);
+                          }}
+                        >
+                          {httpTotalPages}
+                        </PaginationLink>
+                      </PaginationItem>
+                    )}
+                    
+                    <PaginationItem>
+                      <PaginationNext 
+                        href="#"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          setHttpCurrentPage(prev => Math.min(httpTotalPages, prev + 1));
+                        }}
+                        className={httpCurrentPage === httpTotalPages ? 'pointer-events-none opacity-50' : ''}
+                      />
+                    </PaginationItem>
+                  </PaginationContent>
+                </Pagination>
               </div>
             )}
           </CardContent>

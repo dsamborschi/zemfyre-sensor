@@ -21,7 +21,6 @@ import * as deviceActions from './device-api/actions.js';
 import { ApiBinder } from './sync-state.js';
 import * as db from './db.js';
 import { LocalLogBackend } from './logging/local-backend.js';
-import { MqttLogBackend } from './logging/mqtt-backend.js';
 import { CloudLogBackend } from './logging/cloud-backend.js';
 import { ContainerLogMonitor } from './logging/monitor.js';
 import { AgentLogger } from './logging/agent-logger.js';
@@ -344,32 +343,6 @@ export default class DeviceAgent {
 			
 			// Add MQTT backend to logging
 			const enableCloudLogging = process.env.ENABLE_CLOUD_LOGGING !== 'false';
-			if (enableCloudLogging) {
-				try {
-					const mqttLogBackend = new MqttLogBackend({
-						brokerUrl: mqttBrokerUrl,
-						baseTopic: `iot/device/${this.deviceInfo.uuid}/logs`,
-						qos: 1,
-						enableBatching: true,
-						debug: process.env.MQTT_DEBUG === 'true'
-					});
-					await mqttLogBackend.connect();
-					this.logBackends.push(mqttLogBackend);
-					
-					// Update agentLogger with new backend
-					(this.agentLogger as any).logBackends = this.logBackends;
-					
-					this.agentLogger.infoSync('MQTT log backend initialized', {
-						component: 'Agent'
-					});
-				} catch (error) {
-					this.agentLogger.warnSync('Failed to initialize MQTT log backend', {
-						component: 'Agent',
-						error: error instanceof Error ? error.message : String(error),
-						note: 'Continuing without MQTT logging'
-					});
-				}
-			}
 			
 			// Add Cloud backend if configured
 			if (this.CLOUD_API_ENDPOINT && enableCloudLogging) {

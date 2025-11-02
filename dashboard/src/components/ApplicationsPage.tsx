@@ -1,43 +1,43 @@
 import { Application, ApplicationsCard } from "./ApplicationsCard";
 import { Device } from "./DeviceSidebar";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
-import { Badge } from "./ui/badge";
+import { MetricCard } from "./ui/metric-card";
 import { Package, Layers, Activity, AlertCircle } from "lucide-react";
 import { ContainerLogsCard } from "./ContainerLogsCard";
+import { useDeviceState } from "../contexts/DeviceStateContext";
 
 interface ApplicationsPageProps {
   device: Device;
-  applications: Application[];
-  onAddApplication: (app: Omit<Application, "id">) => void;
-  onUpdateApplication: (app: Application) => void;
-  onRemoveApplication: (appId: string) => void;
-  onToggleAppStatus: (appId: string) => void;
-  onToggleServiceStatus: (appId: string, serviceId: number, action: "start" | "pause" | "stop") => void;
-  deploymentStatus?: {
-    needsDeployment: boolean;
-    version: number;
-    lastDeployedAt?: string;
-    deployedBy?: string;
-  };
-  setDeploymentStatus?: React.Dispatch<React.SetStateAction<Record<string, {
-    needsDeployment: boolean;
-    version: number;
-    lastDeployedAt?: string;
-    deployedBy?: string;
-  }>>>;
 }
 
 export function ApplicationsPage({
   device,
-  applications,
-  onAddApplication,
-  onUpdateApplication,
-  onRemoveApplication,
-  onToggleAppStatus,
-  onToggleServiceStatus,
-  deploymentStatus,
-  setDeploymentStatus,
 }: ApplicationsPageProps) {
+  // Get applications from context
+  const { getPendingApps, getTargetApps, hasPendingChanges } = useDeviceState();
+  const pendingAppsMap = getPendingApps(device.deviceUuid);
+  const targetApps = getTargetApps(device.deviceUuid);
+  const apps = Object.keys(pendingAppsMap).length > 0 ? pendingAppsMap : targetApps;
+
+  // Convert to Application format for stats
+  const applications: Application[] = Object.entries(apps).map(([appId, app]: [string, any]) => ({
+    id: appId,
+    appId: app.appId,
+    appName: app.appName,
+    name: app.appName,
+    image: app.services[0]?.imageName || "",
+    status: app.services.some((s: any) => s.state === "running") ? "running" as const : "stopped" as const,
+    syncStatus: hasPendingChanges(device.deviceUuid) ? "pending" as const : "synced" as const,
+    services: app.services.map((s: any) => ({
+      ...s,
+      appId: app.appId,
+      appName: app.appName,
+      status: s.state as "running" | "stopped" | "paused" | undefined,
+      config: {
+        image: s.imageName,
+        ...s.config,
+      },
+    })),
+  }));
   // Calculate application statistics
   const totalApps = applications.length;
   const runningApps = applications.filter(app => 
@@ -55,7 +55,7 @@ export function ApplicationsPage({
   // Calculate sync status for applications
   const syncingApps = applications.filter(app => app.syncStatus === "syncing").length;
   const errorApps = applications.filter(app => app.syncStatus === "error").length;
-  const pendingApps = applications.filter(app => app.syncStatus === "pending").length;
+  const pendingAppsCount = applications.filter(app => app.syncStatus === "pending").length;
   const syncedApps = applications.filter(app => app.syncStatus === "synced").length;
 
   const metrics = [
@@ -90,7 +90,7 @@ export function ApplicationsPage({
       icon: AlertCircle,
       label: "Sync Status",
       value: errorApps > 0 ? `${errorApps} errors` : syncingApps > 0 ? `${syncingApps} syncing` : "All synced",
-      subtitle: pendingApps > 0 ? `${pendingApps} pending deployment` : `${syncedApps} synced`,
+      subtitle: pendingAppsCount > 0 ? `${pendingAppsCount} pending deployment` : `${syncedApps} synced`,
       color: errorApps > 0 ? "red" : syncingApps > 0 ? "blue" : "green",
       bgColor: errorApps > 0 ? "bg-red-50" : syncingApps > 0 ? "bg-blue-50" : "bg-green-50",
       iconColor: errorApps > 0 ? "text-red-600" : syncingApps > 0 ? "text-blue-600" : "text-green-600",
@@ -103,40 +103,22 @@ export function ApplicationsPage({
         <div className="mb-6">
           <h2 className="text-2xl font-bold text-foreground mb-2">Applications</h2>
           <p className="text-muted-foreground">
-            Manage containerized applications and services running on {device.name}
+            Manage containerized applications and services
           </p>
         </div>
 
         {/* Quick Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {metrics.map((metric, index) => {
-            const Icon = metric.icon;
-            const iconColors = {
-              blue: 'text-blue-600 dark:text-blue-400',
-              purple: 'text-purple-600 dark:text-purple-400',
-              green: 'text-green-600 dark:text-green-400',
-              orange: 'text-orange-600 dark:text-orange-400',
-              red: 'text-red-600 dark:text-red-400',
-            };
-            return (
-              <Card key={index}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardDescription>{metric.label}</CardDescription>
-                    <div className={`h-10 w-10 ${iconColors[metric.color as keyof typeof iconColors]}`}>
-                      <Icon className="h-full w-full" />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardTitle className="text-3xl mb-1">{metric.value}</CardTitle>
-                  {metric.subtitle && (
-                    <p className="text-xs text-muted-foreground">{metric.subtitle}</p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+          {metrics.map((metric, index) => (
+            <MetricCard
+              key={index}
+              label={metric.label}
+              value={metric.value}
+              subtitle={metric.subtitle}
+              icon={metric.icon}
+              iconColor={metric.color as any}
+            />
+          ))}
         </div>
 
         {/* Applications and Logs Side by Side */}
@@ -144,21 +126,14 @@ export function ApplicationsPage({
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Applications Card */}
           <ApplicationsCard
-            deviceId={device.id}
             deviceUuid={device.deviceUuid}
             deviceStatus={device.status}
-            applications={applications}
-            onAddApplication={onAddApplication}
-            onUpdateApplication={onUpdateApplication}
-            onRemoveApplication={onRemoveApplication}
-            onToggleStatus={onToggleAppStatus}
-            onToggleServiceStatus={onToggleServiceStatus}
           />
 
           {/* Container Logs Card */}
           <ContainerLogsCard
             deviceUuid={device.deviceUuid}
-            applications={applications}
+            applications={applications as any}
           />
         </div>
       </div>

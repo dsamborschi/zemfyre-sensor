@@ -3,7 +3,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
+import { MetricCard } from "./ui/metric-card";
 import { Badge } from "./ui/badge";
 import { Device } from "./DeviceSidebar";
 import JobsCard from "./JobsCard";
@@ -124,34 +124,16 @@ export function JobsPage({ device }: JobsPageProps) {
 
         {/* Quick Metrics */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          {metrics.map((metric, index) => {
-            const Icon = metric.icon;
-            const iconColors = {
-              blue: 'text-blue-600 dark:text-blue-400',
-              green: 'text-green-600 dark:text-green-400',
-              red: 'text-red-600 dark:text-red-400',
-              purple: 'text-purple-600 dark:text-purple-400',
-              gray: 'text-gray-600 dark:text-gray-400',
-            };
-            return (
-              <Card key={index}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardDescription>{metric.label}</CardDescription>
-                    <div className={`h-10 w-10 ${iconColors[metric.color as keyof typeof iconColors]}`}>
-                      <Icon className="h-full w-full" />
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <CardTitle className="text-3xl mb-1">{metric.value}</CardTitle>
-                  {metric.subtitle && (
-                    <p className="text-xs text-muted-foreground">{metric.subtitle}</p>
-                  )}
-                </CardContent>
-              </Card>
-            );
-          })}
+          {metrics.map((metric, index) => (
+            <MetricCard
+              key={index}
+              label={metric.label}
+              value={metric.value}
+              subtitle={metric.subtitle}
+              icon={metric.icon}
+              iconColor={metric.color as any}
+            />
+          ))}
         </div>
 
         {/* Jobs Card */}
