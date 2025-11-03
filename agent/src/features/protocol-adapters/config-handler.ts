@@ -5,7 +5,7 @@
  * Syncs devices from cloud PostgreSQL to local SQLite.
  * 
  * Responsibilities:
- * - Listen for config.protocolAdapterDevices changes
+ * - Listen for config.sensors changes
  * - Sync devices to SQLite (create/update/delete)
  * - Normalize property names (camelCase → snake_case)
  * - Restart protocol adapters when config changes
@@ -40,7 +40,7 @@ export class ProtocolAdaptersHandler extends BaseConfigHandler {
 	private protocolAdaptersManager?: ProtocolAdaptersManager;
 
 	constructor(options: ProtocolAdaptersHandlerOptions) {
-		super('protocolAdapterDevices', options);
+		super('sensors', options);
 		this.protocolAdaptersManager = options.protocolAdaptersManager;
 	}
 
@@ -48,23 +48,23 @@ export class ProtocolAdaptersHandler extends BaseConfigHandler {
 		const devices = event.value;
 
 		if (!devices || !Array.isArray(devices)) {
-			this.logger?.debug('No protocol adapter devices in config', {
+			this.logger?.debug('No sensors in config', {
 				category: 'ProtocolAdaptersHandler'
 			});
 			return;
 		}
 
-		this.logger?.info('📥 Protocol adapter device configuration detected', {
+		this.logger?.info('📥 Sensor configuration detected', {
 			category: 'ProtocolAdaptersHandler',
 			deviceCount: devices.length,
 			devices: devices.map((d: ProtocolAdapterDevice) => `${d.name} (${d.protocol})`).join(', ')
 		});
 
 		try {
-			const { ProtocolAdapterDeviceModel } = await import('../../models/protocol-adapter-device.model.js');
+			const { DeviceSensorsModel: DeviceSensorModel } = await import('../../models/protocol-adapter-device.model.js');
 
 			// Get current devices from SQLite to detect deletions
-			const currentDevices = await ProtocolAdapterDeviceModel.getAll();
+			const currentDevices = await DeviceSensorsModel.getAll();
 			const targetDeviceNames = new Set(devices.map((d: ProtocolAdapterDevice) => d.name));
 
 			// Sync each device to SQLite
@@ -72,18 +72,18 @@ export class ProtocolAdaptersHandler extends BaseConfigHandler {
 				// Normalize property names from cloud API (camelCase) to SQLite (snake_case)
 				const normalizedDevice = this.normalizeDevice(device);
 
-				const existing = await ProtocolAdapterDeviceModel.getByName(normalizedDevice.name);
+				const existing = await DeviceSensorsModel.getByName(normalizedDevice.name);
 
 				if (existing) {
-					await ProtocolAdapterDeviceModel.update(normalizedDevice.name, normalizedDevice);
-					this.logger?.info('Updated protocol adapter device', {
+					await DeviceSensorsModel.update(normalizedDevice.name, normalizedDevice);
+					this.logger?.info('Updated sensor', {
 						category: 'ProtocolAdaptersHandler',
 						deviceName: normalizedDevice.name,
 						protocol: normalizedDevice.protocol
 					});
 				} else {
-					await ProtocolAdapterDeviceModel.create(normalizedDevice);
-					this.logger?.info('Added protocol adapter device', {
+					await DeviceSensorsModel.create(normalizedDevice);
+					this.logger?.info('Added sensor', {
 						category: 'ProtocolAdaptersHandler',
 						deviceName: normalizedDevice.name,
 						protocol: normalizedDevice.protocol
@@ -94,8 +94,8 @@ export class ProtocolAdaptersHandler extends BaseConfigHandler {
 			// Delete devices that are no longer in target state
 			for (const currentDevice of currentDevices) {
 				if (!targetDeviceNames.has(currentDevice.name)) {
-					await ProtocolAdapterDeviceModel.delete(currentDevice.name);
-					this.logger?.info('Removed protocol adapter device', {
+					await DeviceSensorsModel.delete(currentDevice.name);
+					this.logger?.info('Removed sensor', {
 						category: 'ProtocolAdaptersHandler',
 						deviceName: currentDevice.name,
 						protocol: currentDevice.protocol
@@ -113,7 +113,7 @@ export class ProtocolAdaptersHandler extends BaseConfigHandler {
 			}
 
 		} catch (error) {
-			this.logger?.errorSync('Failed to sync protocol adapter devices', error instanceof Error ? error : new Error(String(error)), {
+			this.logger?.errorSync('Failed to sync sensors', error instanceof Error ? error : new Error(String(error)), {
 				category: 'ProtocolAdaptersHandler'
 			});
 		}

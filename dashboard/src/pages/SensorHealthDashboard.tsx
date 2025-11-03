@@ -45,10 +45,10 @@ export const SensorHealthDashboard: React.FC<SensorHealthDashboardProps> = ({ de
       
       // Get current config
       const currentConfig = getPendingConfig(deviceUuid);
-      const existingDevices = currentConfig.protocolAdapterDevices || [];
+      const existingDevices = currentConfig.sensors || [];
       
       // Add new device to config (marks as pending change)
-      updatePendingConfig(deviceUuid, 'protocolAdapterDevices', [
+      updatePendingConfig(deviceUuid, 'sensors', [
         ...existingDevices,
         {
           ...device,

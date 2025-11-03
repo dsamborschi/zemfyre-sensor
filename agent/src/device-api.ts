@@ -3,7 +3,7 @@
  * Shows how to integrate device API with standalone-application-manager
  */
 
-import { DeviceAPI } from './device-api';
+import { DeviceAPI } from './device-api/index';
 import { router as v1Router } from './device-api/v1';
 import { router as v2Router } from './device-api/v2';
 import * as actions from './device-api/actions';
@@ -46,6 +46,6 @@ export async function startDeviceAPI(
 	return deviceAPI;
 }
 
-export { DeviceAPI } from './device-api';
+export type { DeviceAPI };
 export { router as v1Router } from './device-api/v1';
 export { router as v2Router } from './device-api/v2';

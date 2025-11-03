@@ -32,6 +32,7 @@ import { EventPublisher, objectsAreEqual } from '../services/event-sourcing';
 import EventSourcingConfig from '../config/event-sourcing';
 import deviceAuth, { deviceAuthFromBody } from '../middleware/device-auth';
 import { resolveAppsImages } from '../services/docker-registry';
+import { deviceSensorSync } from '../services/device-sensor-sync';
 
 export const router = express.Router();
 
@@ -218,6 +219,12 @@ router.patch('/device/state', deviceAuthFromBody, async (req, res) => {
         versionType: typeof deviceState.version
       });
 
+      // 🔍 DEBUG: Log what agent is sending
+      console.log('🔍 DEBUG - Agent state report structure:');
+      console.log('  - apps:', deviceState.apps ? Object.keys(deviceState.apps).slice(0, 3) : 'empty');
+      console.log('  - config:', deviceState.config ? Object.keys(deviceState.config).slice(0, 3) : 'empty');
+      console.log('  - config.sensors:', deviceState.config?.sensors ? `${deviceState.config.sensors.length} sensors` : 'missing');
+      
       // Ensure device exists and mark as online
       await DeviceModel.getOrCreate(uuid);
 
@@ -235,6 +242,16 @@ router.patch('/device/state', deviceAuthFromBody, async (req, res) => {
         },
         deviceState.version // Pass version from agent report
       );
+
+      // 🔄 RECONCILIATION: Sync agent's current state to device_sensors table
+      // This closes the Event Sourcing loop: config → agent → current state → table
+      // Table now reflects what's ACTUALLY deployed and running on the agent
+      try {
+        await deviceSensorSync.syncCurrentStateToTable(uuid, deviceState);
+      } catch (error) {
+        console.error(`⚠️  Failed to reconcile sensors for device ${uuid.substring(0, 8)}:`, error);
+        // Don't fail the entire state report if reconciliation fails
+      }
 
       // 🎉 EVENT SOURCING: Publish current state updated event
       // NOTE: Uses EventSourcingConfig to determine if we should publish

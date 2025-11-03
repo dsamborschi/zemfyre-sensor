@@ -257,3 +257,53 @@ export interface ReconciliationResult {
 	}>;
 	timestamp: Date;
 }
+
+// ============================================================================
+// CONFIG MANAGEMENT TYPES
+// ============================================================================
+
+/**
+ * Protocol adapter device configuration
+ */
+export interface ProtocolAdapterDevice {
+	id: string;
+	name: string;
+	protocol: string;
+	connectionString: string;
+	pollInterval: number;
+	enabled: boolean;
+	metadata?: Record<string, any>;
+}
+
+/**
+ * Device configuration state
+ */
+export interface DeviceConfig {
+	sensors?: ProtocolAdapterDevice[];
+	features?: Record<string, any>;
+	[key: string]: any;
+}
+
+/**
+ * Config reconciliation step
+ */
+export interface ConfigStep {
+	action: 'registerDevice' | 'unregisterDevice' | 'updateDevice';
+	device?: ProtocolAdapterDevice;
+	deviceId?: string;
+}
+
+/**
+ * Config reconciliation result
+ */
+export interface ConfigReconciliationResult {
+	success: boolean;
+	devicesRegistered: number;
+	devicesUpdated: number;
+	devicesUnregistered: number;
+	errors: Array<{
+		deviceId: string;
+		error: string;
+	}>;
+	timestamp: Date;
+}

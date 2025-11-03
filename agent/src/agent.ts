@@ -11,6 +11,8 @@
 
 import { createOrchestratorDriver } from './orchestrator/driver-factory.js';
 import type { IOrchestratorDriver } from './orchestrator/driver-interface.js';
+import { StateReconciler } from './orchestrator/state-reconciler.js';
+import type { DeviceState } from './orchestrator/state-reconciler.js';
 import ContainerManager from './compose/container-manager.js';
 import { DeviceManager } from './provisioning/index.js';
 import type { DeviceInfo } from './provisioning/types.js';
@@ -30,10 +32,11 @@ import { JobsFeature } from './features/jobs/src/jobs-feature.js';
 import { SensorPublishFeature } from './features/sensor-publish/index.js';
 import { SensorConfigHandler } from './features/sensor-publish/config-handler.js';
 import { MqttManager } from './mqtt/mqtt-manager.js';
-import { ProtocolAdaptersFeature, ProtocolAdaptersConfig } from './features/protocol-adapters/index.js';
+import { SensorsFeature as SensorsFeature, SensorConfig } from './features/protocol-adapters/index.js';
 
 export default class DeviceAgent {
 	private orchestratorDriver!: IOrchestratorDriver;
+	private stateReconciler!: StateReconciler;  // Main state manager
 	private containerManager!: ContainerManager;  // Keep for backward compatibility with DeviceAPI
 	private deviceManager!: DeviceManager;
 	private deviceInfo!: DeviceInfo;  // Cache device info after initialization
@@ -46,7 +49,7 @@ export default class DeviceAgent {
 	private sshTunnel?: SSHTunnelManager;
 	private jobs?: JobsFeature;
 	private sensorPublish?: SensorPublishFeature;
-	private protocolAdapters?: ProtocolAdaptersFeature;
+	private sensors?: SensorsFeature;
 	private sensorConfigHandler?: SensorConfigHandler;
 
 	// Cached target state (updated when target state changes)
@@ -96,12 +99,12 @@ export default class DeviceAgent {
 		
 		// Get feature flags from config with environment variable fallbacks for local development
 		const enableRemoteAccess = configFeatures.enableRemoteAccess ?? (process.env.ENABLE_REMOTE_ACCESS === 'true');
-		const enableJobEngine = configFeatures.enableJobEngine ?? (process.env.ENABLE_JOB_ENGINE === 'true');
-		const enableCloudJobs = configFeatures.enableCloudJobs ?? (process.env.ENABLE_CLOUD_JOBS === 'true');
+		const enableJobs = configFeatures.enableCloudJobs ?? (process.env.ENABLE_CLOUD_JOBS === 'true');
 		const enableSensorPublish = configFeatures.enableSensorPublish ?? (process.env.ENABLE_SENSOR_PUBLISH === 'true');
-		const enableProtocolAdapters = configFeatures.enableProtocolAdapters ?? (process.env.ENABLE_PROTOCOL_ADAPTERS === 'true');
-		const enableShadow = configFeatures.enableShadow ?? (process.env.ENABLE_SHADOW === 'true');
 		
+		// Auto-enable protocol adapters if sensors are configured in target state
+		const hasSensors = this.cachedTargetState?.config?.sensors && Array.isArray(this.cachedTargetState.config.sensors) && this.cachedTargetState.config.sensors.length > 0;
+	
 		// Get system settings from config (with defaults)
 		const reconciliationIntervalMs = configSettings.reconciliationIntervalMs || this.RECONCILIATION_INTERVAL;
 		const targetStatePollIntervalMs = configSettings.targetStatePollIntervalMs || parseInt(process.env.POLL_INTERVAL_MS || '60000', 10);
@@ -123,11 +126,10 @@ export default class DeviceAgent {
 			component: 'Agent',
 			features: {
 				remoteAccess: enableRemoteAccess,
-				jobEngine: enableJobEngine,
-				cloudJobs: enableCloudJobs,
-				sensorPublish: enableSensorPublish,
-				protocolAdapters: enableProtocolAdapters,
-				shadow: enableShadow
+				jobEngine: enableJobs,
+				cloudJobs: enableJobs,
+				sensorPublish: enableSensorPublish
+			
 			},
 			settings: {
 				reconciliationIntervalMs,
@@ -143,12 +145,12 @@ export default class DeviceAgent {
 		});
 		
 	    // 9. Initialize SSH Reverse Tunnel (if enabled by config)
-		    if (enableRemoteAccess) {
-				await this.initializeRemoteAccess();
-			}			
+		if (enableRemoteAccess) {
+			await this.initializeRemoteAccess();
+		}			
 			
 		// 10. Initialize Jobs Feature (MQTT primary + HTTP fallback)
-		if (enableCloudJobs && enableJobEngine) {
+		if (enableJobs) {
 			await this.initializeJobs(configSettings);
 		}
 
@@ -157,13 +159,14 @@ export default class DeviceAgent {
 			await this.initializeSensorPublish();
 		}
 
-		// 12. Initialize Protocol Adapters Feature (if enabled by config)
-		if (enableProtocolAdapters) {
-			await this.initializeProtocolAdapters(configFeatures);
+		if (hasSensors) {
+		    // 12. Initialize Protocol Adapters Feature (if enabled by config)
+	        await this.initializeDeviceSensors(configFeatures);
 		}
+		
 
 		// 13. Initialize API Binder (AFTER features are initialized so it can access sensor health)
-		await this.initializeApiBinder(configSettings);
+		await this.initializeDeviceSync(configSettings);
 
 		// 14. Initialize Sensor Config Handler (if Sensor Publish enabled)
 		await this.initializeSensorConfigHandler();
@@ -391,64 +394,43 @@ export default class DeviceAgent {
 	}
 
 	private async initializeContainerManager(): Promise<void> {
-		this.agentLogger?.infoSync('Initializing orchestrator driver', { component: 'Agent' });
+		this.agentLogger?.infoSync('Initializing state reconciler', { component: 'Agent' });
 		
-		// Get orchestrator type from env var (config can override after initialization via target state)
-		const orchestratorType = (process.env.ORCHESTRATOR_TYPE as 'docker' | 'k3s') || 'docker';
+		// Create StateReconciler (manages both containers and config)
+		this.stateReconciler = new StateReconciler(this.agentLogger);
+		await this.stateReconciler.init();
 		
-		this.agentLogger?.infoSync('Creating orchestrator driver', {
-			component: 'Agent',
-			type: orchestratorType
-		});
-
-		// Create and initialize orchestrator driver
-		this.orchestratorDriver = await createOrchestratorDriver({
-			orchestrator: orchestratorType,
-			logger: this.agentLogger
-		});
-
 		// For backward compatibility, keep ContainerManager reference for DeviceAPI
-		// The DockerDriver wraps ContainerManager internally
-		if (orchestratorType === 'docker') {
-			const dockerDriver = this.orchestratorDriver as any;
-			if (dockerDriver.containerManager) {
-				this.containerManager = dockerDriver.containerManager;
-			}
+		this.containerManager = this.stateReconciler.getContainerManager();
+
+		// Set up log monitor for Docker containers
+		const docker = this.containerManager.getDocker();
+		if (docker) {
+			// Use all configured log backends
+			this.logMonitor = new ContainerLogMonitor(docker, this.logBackends);
+			this.containerManager.setLogMonitor(this.logMonitor);
+			await this.containerManager.attachLogsToAllContainers();
+			this.agentLogger?.infoSync('Log monitor attached to container manager', {
+				component: 'Agent',
+				backendCount: this.logBackends.length
+			});
 		}
 
-		// Set up log monitor if using Docker
-		if (this.containerManager) {
-			const docker = this.containerManager.getDocker();
-			if (docker) {
-				// Use all configured log backends
-				this.logMonitor = new ContainerLogMonitor(docker, this.logBackends);
-				this.containerManager.setLogMonitor(this.logMonitor);
-				await this.containerManager.attachLogsToAllContainers();
-				this.agentLogger?.infoSync('Log monitor attached to container manager', {
-					component: 'Agent',
-					backendCount: this.logBackends.length
-				});
-			}
-		}
-
-		// Watch for target state changes to dynamically update config and cache
-		this.orchestratorDriver.on('target-state-changed', (newState: any) => {
+		// Watch for target state changes to update cache
+		// Note: Config handling is now done by ConfigManager inside StateReconciler
+		this.stateReconciler.on('target-state-changed', (newState: DeviceState) => {
 			// Update cached target state
 			this.updateCachedTargetState();
 			
-			// Handle config updates
-			if (newState.config) {
-				this.handleConfigUpdate(newState.config);
-			}
+			// Config is now handled by ConfigManager automatically
+			// No need for handleConfigUpdate here
 		});
 
 		// Initialize cache with current target state
 		this.updateCachedTargetState();
 
-		this.agentLogger?.infoSync('Orchestrator driver initialized', {
+		this.agentLogger?.infoSync('State reconciler initialized', {
 			component: 'Agent',
-			driver: this.orchestratorDriver.name,
-			version: this.orchestratorDriver.version
 		});
 	}
 
@@ -484,7 +466,7 @@ export default class DeviceAgent {
 		});
 	}
 
-	private async initializeApiBinder(configSettings: Record<string, any>): Promise<void> {
+	private async initializeDeviceSync(configSettings: Record<string, any>): Promise<void> {
 		if (!this.CLOUD_API_ENDPOINT) {
 			this.agentLogger?.warnSync('Cloud API endpoint not configured - running in standalone mode', {
 				component: 'Agent',
@@ -504,7 +486,7 @@ export default class DeviceAgent {
 		const metricsIntervalMs = configSettings.metricsIntervalMs || parseInt(process.env.METRICS_INTERVAL_MS || '300000', 10);
 		
 		this.apiBinder = new ApiBinder(
-			this.containerManager,
+			this.stateReconciler,  // Use StateReconciler instead of ContainerManager
 			this.deviceManager,
 			{
 				cloudApiEndpoint: this.CLOUD_API_ENDPOINT,
@@ -514,21 +496,14 @@ export default class DeviceAgent {
 			},
 			this.agentLogger,  // Pass the agent logger
 			this.sensorPublish,  // Pass sensor-publish for health reporting
-			this.protocolAdapters  // Pass protocol-adapters for health reporting
+			this.sensors  // Pass protocol-adapters for health reporting
 		);
 		
 		// Reinitialize device actions with apiBinder for connection health endpoint
 		deviceActions.initialize(this.containerManager, this.deviceManager, this.apiBinder);
 
-		// Listen for target state changes to handle config updates
-		this.containerManager.on('target-state-changed', async (targetState) => {
-			if (targetState.config) {
-				this.agentLogger?.infoSync('Processing config from target state update', {
-					component: 'Agent'
-				});
-				await this.handleConfigUpdate(targetState.config);
-			}
-		});
+		// Config updates are now handled automatically by ConfigManager
+		// No need to listen for target-state-changed here
 
 		// Start polling for target state
 		await this.apiBinder.startPoll();
@@ -722,10 +697,10 @@ export default class DeviceAgent {
 		}
 	}
 
-	private async initializeProtocolAdapters(configFeatures: Record<string, any>): Promise<void> {
+	private async initializeDeviceSensors(configFeatures: Record<string, any>): Promise<void> {
 		try {
 			// Get protocol adapters configuration (passed as parameter during init)
-			const protocolAdaptersConfig: ProtocolAdaptersConfig = {
+			const sensorsConfig: SensorConfig = {
 				enabled: true,
 				...configFeatures.protocolAdapters
 			};
@@ -735,7 +710,7 @@ export default class DeviceAgent {
 			if (envConfigStr) {
 				try {
 					const envConfig = JSON.parse(envConfigStr);
-					Object.assign(protocolAdaptersConfig, envConfig);
+					Object.assign(sensorsConfig, envConfig);
 					this.agentLogger?.debugSync('Loaded protocol adapters config from PROTOCOL_ADAPTERS_CONFIG', {
 						component: 'Agent'
 					});
@@ -746,34 +721,20 @@ export default class DeviceAgent {
 				}
 			}
 
-			// Check if any adapters are enabled
-			const hasEnabledAdapters = 
-				protocolAdaptersConfig.modbus?.enabled ||
-				protocolAdaptersConfig.can?.enabled ||
-				protocolAdaptersConfig.opcua?.enabled;
-
-			if (!hasEnabledAdapters) {
-				this.agentLogger?.warnSync('Protocol adapters feature enabled but no adapters configured', {
-					component: 'Agent',
-					note: 'Configure adapters in target state features.protocolAdapters or PROTOCOL_ADAPTERS_CONFIG env var'
-				});
-				return;
-			}
-
 			// Create and start protocol adapters feature using BaseFeature pattern
-			this.protocolAdapters = new ProtocolAdaptersFeature(
-				protocolAdaptersConfig,
+			this.sensors = new SensorsFeature(
+				sensorsConfig,
 				this.agentLogger,
 				this.deviceInfo.uuid
 			);
-			await this.protocolAdapters.start();
+			await this.sensors.start();
 
 		} catch (error) {
 			this.agentLogger?.errorSync('Failed to initialize Protocol Adapters', error instanceof Error ? error : new Error(String(error)), {
 				component: 'Agent',
 				note: 'Continuing without Protocol Adapters'
 			});
-			this.protocolAdapters = undefined;
+			this.sensors = undefined;
 		}
 	}
 
@@ -810,8 +771,8 @@ export default class DeviceAgent {
 				});
 				
 				// Add protocol adapter device statuses (modbus, can, opcua, etc.)
-				if (this.protocolAdapters) {
-					const allDeviceStatuses = this.protocolAdapters.getAllDeviceStatuses();
+				if (this.sensors) {
+					const allDeviceStatuses = this.sensors.getAllDeviceStatuses();
 					
 					// Iterate through each protocol type (modbus, can, opcua, etc.)
 					allDeviceStatuses.forEach((devices, protocolType) => {
@@ -862,8 +823,8 @@ export default class DeviceAgent {
 			category: 'Agent',
 			configKeys: Object.keys(config).length,
 			keys: Object.keys(config),
-			hasProtocolAdapterDevices: !!config.protocolAdapterDevices,
-			protocolDeviceCount: config.protocolAdapterDevices?.length || 0
+			hasSensors: !!config.sensors,
+			sensorCount: config.sensors?.length || 0
 		});
 
 		try {
@@ -1104,27 +1065,6 @@ export default class DeviceAgent {
 					}
 				}
 
-				// Enable/disable Protocol Adapters dynamically
-				if (features.enableProtocolAdapters !== undefined) {
-					const isCurrentlyEnabled = !!this.protocolAdapters;
-					const shouldBeEnabled = features.enableProtocolAdapters;
-					
-					if (shouldBeEnabled === isCurrentlyEnabled) {
-						this.agentLogger?.debugSync('Protocol Adapters already in desired state', {
-							category: 'Agent',
-							enabled: shouldBeEnabled
-						});
-					} else if (shouldBeEnabled && !isCurrentlyEnabled) {
-						this.agentLogger?.infoSync('Enabling Protocol Adapters', { category: 'Agent' });
-						await this.initializeProtocolAdapters(this.getConfigFeatures());
-					} else if (!shouldBeEnabled && isCurrentlyEnabled) {
-						this.agentLogger?.infoSync('Disabling Protocol Adapters', { category: 'Agent' });
-						await this.protocolAdapters!.stop();
-						this.protocolAdapters = undefined;
-						this.agentLogger?.infoSync('Protocol Adapters disabled successfully', { category: 'Agent' });
-					}
-				}
-
 
 				// Log other feature flags for future implementation
 				if (features.pollingIntervalMs !== undefined) {
@@ -1201,22 +1141,30 @@ export default class DeviceAgent {
 			}
 
 			// Protocol Adapter Devices - Update device configurations dynamically
-			if (config.protocolAdapterDevices && Array.isArray(config.protocolAdapterDevices)) {
-				this.agentLogger?.info('📥 Protocol adapter device configuration detected', { 
+			if (config.sensors && Array.isArray(config.sensors)) {
+				this.agentLogger?.info('📥 Sensor configuration detected - Starting sync to sensors table', { 
 					category: 'Agent',
-					deviceCount: config.protocolAdapterDevices.length,
-					devices: config.protocolAdapterDevices.map((d: any) => `${d.name} (${d.protocol})`).join(', ')
+					deviceCount: config.sensors.length,
+					devices: config.sensors.map((d: any) => `${d.name} (${d.protocol})`).join(', ')
 				});
 				
 				try {
-					const { ProtocolAdapterDeviceModel } = await import('./models/protocol-adapter-device.model.js');
+					this.agentLogger?.info('Importing DeviceSensorsModel...', { category: 'Agent' });
+					const { DeviceSensorsModel: DeviceSensorModel } = await import('./models/protocol-adapter-device.model.js');
+					this.agentLogger?.info('DeviceSensorsModel imported successfully', { category: 'Agent' });
 					
 					// Get current devices from SQLite to detect deletions
-					const currentDevices = await ProtocolAdapterDeviceModel.getAll();
-					const targetDeviceNames = new Set(config.protocolAdapterDevices.map(d => d.name));
+					this.agentLogger?.info('Querying current devices from SQLite...', { category: 'Agent' });
+					const currentDevices = await DeviceSensorsModel.getAll();
+					this.agentLogger?.info('Current devices loaded from SQLite', { 
+						category: 'Agent',
+						currentCount: currentDevices.length,
+						currentDevices: currentDevices.map(d => d.name).join(', ')
+					});
+					const targetDeviceNames = new Set(config.sensors.map(d => d.name));
 					
 					// Sync each device to SQLite
-					for (const device of config.protocolAdapterDevices) {
+					for (const device of config.sensors) {
 						// Normalize property names from cloud API (camelCase) to SQLite (snake_case)
 						const normalizedDevice = {
 							name: device.name,
@@ -1228,18 +1176,18 @@ export default class DeviceAgent {
 							metadata: device.metadata
 						};
 						
-						const existing = await ProtocolAdapterDeviceModel.getByName(normalizedDevice.name);
+						const existing = await DeviceSensorsModel.getByName(normalizedDevice.name);
 						
 						if (existing) {
-							await ProtocolAdapterDeviceModel.update(normalizedDevice.name, normalizedDevice);
-							this.agentLogger?.info('Updated protocol adapter device', {
+							await DeviceSensorsModel.update(normalizedDevice.name, normalizedDevice);
+							this.agentLogger?.info('Updated sensor', {
 								category: 'Agent',
 								deviceName: normalizedDevice.name,
 								protocol: normalizedDevice.protocol
 							});
 						} else {
-							await ProtocolAdapterDeviceModel.create(normalizedDevice);
-							this.agentLogger?.info('Added protocol adapter device', {
+							await DeviceSensorsModel.create(normalizedDevice);
+							this.agentLogger?.info('Added sensor', {
 								category: 'Agent',
 								deviceName: normalizedDevice.name,
 								protocol: normalizedDevice.protocol
@@ -1250,49 +1198,45 @@ export default class DeviceAgent {
 					// Delete devices that are no longer in target state
 					for (const currentDevice of currentDevices) {
 						if (!targetDeviceNames.has(currentDevice.name)) {
-							await ProtocolAdapterDeviceModel.delete(currentDevice.name);
-							this.agentLogger?.info('Removed protocol adapter device', {
+							await DeviceSensorsModel.delete(currentDevice.name);
+							this.agentLogger?.info('Removed sensor', {
 								category: 'Agent',
 								deviceName: currentDevice.name,
 								protocol: currentDevice.protocol
 							});
-						}
 					}
-					
-					// Ensure output configurations exist for each protocol
-					const protocols = new Set(config.protocolAdapterDevices.map((d: any) => d.protocol));
-					for (const protocol of protocols) {
-						const existingOutput = await ProtocolAdapterDeviceModel.getOutput(protocol);
-						
-						// Create default output configuration for this protocol
+				}
+				
+				// Ensure output configurations exist for each protocol
+				const protocols = new Set(config.sensors.map((d: any) => d.protocol));
+				for (const protocol of protocols) {
+					const existingOutput = await DeviceSensorsModel.getOutput(protocol as string);						// Create default output configuration for this protocol
 						const defaultSocketPath = process.platform === 'win32' 
 							? `\\\\.\\pipe\\${protocol}-sensors`
 							: `/tmp/${protocol}-sensors.sock`;
 						
-						if (!existingOutput) {
-							// Create new output configuration
-							await ProtocolAdapterDeviceModel.setOutput({
-								protocol: protocol,
-								socket_path: defaultSocketPath,
-								data_format: 'json',
-								delimiter: '\n',
-								include_timestamp: true,
-								include_device_name: true
-							});
-							
-							this.agentLogger?.info('Created default output configuration', {
-								category: 'Agent',
-								protocol: protocol,
-								socketPath: defaultSocketPath
-							});
-						} else if (!existingOutput.delimiter || existingOutput.delimiter === '') {
-							// Fix existing output configuration with missing delimiter
-							await ProtocolAdapterDeviceModel.setOutput({
-								...existingOutput,
-								delimiter: '\n'
-							});
-							
-							this.agentLogger?.info('Fixed output configuration delimiter', {
+					if (!existingOutput) {
+						// Create new output configuration
+						await DeviceSensorsModel.setOutput({
+							protocol: protocol,
+							socket_path: defaultSocketPath,
+							data_format: 'json',
+							delimiter: '\n',
+							include_timestamp: true,
+							include_device_name: true
+						});
+						
+						this.agentLogger?.info('Created default output configuration', {
+							category: 'Agent',
+							protocol: protocol,
+							socketPath: defaultSocketPath
+						});
+					} else if (!existingOutput.delimiter || existingOutput.delimiter === '') {
+						// Fix existing output configuration with missing delimiter
+						await DeviceSensorsModel.setOutput({
+							...existingOutput,
+							delimiter: '\n'
+						});							this.agentLogger?.info('Fixed output configuration delimiter', {
 								category: 'Agent',
 								protocol: protocol
 							});
@@ -1300,16 +1244,16 @@ export default class DeviceAgent {
 					}
 					
 					// Restart protocol adapters to apply changes
-					if (this.protocolAdapters) {
+					if (this.sensors) {
 						this.agentLogger?.info('Restarting protocol adapters to apply configuration changes', {
 							category: 'Agent'
 						});
-						await this.protocolAdapters.stop();
-						await this.initializeProtocolAdapters(this.getConfigFeatures());
+						await this.sensors.stop();
+						await this.initializeDeviceSensors(this.getConfigFeatures());
 					}
 					
 				} catch (error) {
-					this.agentLogger?.errorSync('Failed to sync protocol adapter devices', error instanceof Error ? error : new Error(String(error)), {
+					this.agentLogger?.errorSync('Failed to sync sensors', error instanceof Error ? error : new Error(String(error)), {
 						category: 'Agent'
 					});
 				}
@@ -1337,8 +1281,8 @@ export default class DeviceAgent {
 			}
 
 			// Stop Protocol Adapters
-			if (this.protocolAdapters) {
-				await this.protocolAdapters.stop();
+			if (this.sensors) {
+				await this.sensors.stop();
 				this.agentLogger?.infoSync('Protocol Adapters stopped', { component: 'Agent' });
 			}
 
@@ -1415,7 +1359,7 @@ export default class DeviceAgent {
 	 * Called when target state changes to keep cache in sync
 	 */
 	private updateCachedTargetState(): void {
-		this.cachedTargetState = this.containerManager.getTargetState();
+		this.cachedTargetState = this.stateReconciler.getTargetState();
 	}
 
 	/**

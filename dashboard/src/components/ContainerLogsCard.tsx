@@ -221,7 +221,7 @@ export function ContainerLogsCard({ deviceUuid, applications }: ContainerLogsCar
           
           {selectedOption && (
             <div className="flex items-center gap-2">
-              <Badge variant="outline" className="bg-blue-50">
+              <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 border border-blue-200 dark:border-blue-800">
                 {logs.length} lines
               </Badge>
             </div>

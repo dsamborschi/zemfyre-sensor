@@ -19,6 +19,7 @@ interface HeaderProps {
   userEmail?: string;
   userName?: string;
   deviceUuid?: string; // Device UUID for deployment operations
+  onAccountClick?: () => void; // Callback for opening account page
 }
 
 export function Header({
@@ -26,7 +27,8 @@ export function Header({
   onLogout = () => {},
   userEmail = "john.doe@company.com",
   userName = "John Doe",
-  deviceUuid
+  deviceUuid,
+  onAccountClick = () => {}
 }: HeaderProps) {
   // Get deployment status and functions from context
   const { syncTargetState, cancelDeployment, hasPendingChanges, saveTargetState, getDeviceState } = useDeviceState();
@@ -182,9 +184,9 @@ export function Header({
                     <User className="w-4 h-4 mr-2" />
                     Profile
                   </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => toast.info("Opening settings...")}>
+                  <DropdownMenuItem onClick={onAccountClick}>
                     <Settings className="w-4 h-4 mr-2" />
-                    Settings
+                    Account & License
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => toast.info("Opening help...")}>
                     <HelpCircle className="w-4 h-4 mr-2" />

@@ -2,12 +2,14 @@
  * Sensor Health Management Routes
  * Handles sensor health monitoring and historical data
  * 
+ * NOTE: Main sensor CRUD operations are in device-sensors.ts
+ * 
  * Endpoints:
- * - GET /api/v1/devices/:uuid/sensors - List all sensors for a device (current status)
  * - GET /api/v1/devices/:uuid/sensors/:sensorName/history - Get historical data for charts
  * - GET /api/v1/sensors/unhealthy - Alert dashboard showing all unhealthy sensors
  * - GET /api/v1/devices/:uuid/protocol-adapters - List protocol adapter devices
  * - GET /api/v1/devices/:uuid/protocol-adapters/:adapterName/history - Protocol adapter history
+ * - GET /api/v1/devices/:uuid/sensors/uptime - Sensor uptime statistics
  */
 
 import express from 'express';
@@ -16,128 +18,10 @@ import { query } from '../db/connection';
 export const router = express.Router();
 
 /**
- * List all sensors for a device (current status)
- * Includes both sensor pipeline health AND protocol adapter device status
- * GET /api/v1/devices/:uuid/sensors
+ * NOTE: Main sensor CRUD operations (GET/POST/PUT/DELETE /devices/:uuid/sensors)
+ * are now handled by device-sensors.ts with the dual-write pattern.
+ * This file contains additional sensor health/history endpoints.
  */
-router.get('/devices/:uuid/sensors', async (req, res) => {
-  try {
-    const { uuid } = req.params;
-
-    // Get configured sensors from CURRENT state (what's actually running on the device)
-    const currentStateResult = await query(
-      `SELECT config FROM device_current_state WHERE device_uuid = $1`,
-      [uuid]
-    );
-    
-    const configuredSensors = currentStateResult.rows.length > 0 && currentStateResult.rows[0].config?.sensors
-      ? currentStateResult.rows[0].config.sensors
-      : [];
-
-    // Get sensor pipeline health (named pipe connections - reported by agent)
-    const sensorResult = await query(
-      `SELECT 
-        device_uuid,
-        sensor_name,
-        state,
-        healthy,
-        addr,
-        enabled,
-        messages_received,
-        messages_published,
-        bytes_received,
-        bytes_published,
-        reconnect_attempts,
-        last_error,
-        last_error_time,
-        last_connected_time,
-        last_publish_time,
-        reported_at
-      FROM sensor_health_latest
-      WHERE device_uuid = $1
-      ORDER BY sensor_name`,
-      [uuid]
-    );
-    
-    // Get protocol adapter device health (actual Modbus/CAN/OPC-UA devices)
-    const adapterResult = await query(
-      `SELECT 
-        protocol_type,
-        device_name,
-        connected,
-        last_poll,
-        error_count,
-        last_error,
-        reported_at
-      FROM protocol_adapter_health_latest
-      WHERE device_uuid = $1
-      ORDER BY protocol_type, device_name`,
-      [uuid]
-    );
-
-    // Build pipelines array: Start with ALL sensors from health table (agent-reported)
-    const allPipelines = sensorResult.rows.map((row: any) => ({
-      name: row.sensor_name,
-      state: row.state,
-      healthy: row.healthy,
-      messagesReceived: row.messages_received,
-      messagesPublished: row.messages_published,
-      lastActivity: row.last_publish_time,
-      lastError: row.last_error,
-      lastSeen: row.reported_at,
-      configured: true,
-      addr: row.addr,
-      protocolType: configuredSensors.find((cs: any) => cs.name === row.sensor_name)?.protocolType || null
-    }));
-
-    // Add any configured sensors that haven't reported health yet
-    const reportedNames = new Set(sensorResult.rows.map((r: any) => r.sensor_name));
-    for (const configSensor of configuredSensors) {
-      if (!reportedNames.has(configSensor.name)) {
-        allPipelines.push({
-          name: configSensor.name,
-          state: 'PENDING',
-          healthy: false,
-          messagesReceived: 0,
-          messagesPublished: 0,
-          lastActivity: null,
-          lastError: 'Waiting for agent to start pipeline',
-          lastSeen: null,
-          configured: true,
-          addr: configSensor.addr,
-          protocolType: configSensor.protocolType
-        });
-      }
-    }
-
-    res.json({
-      // Primary: Protocol adapter devices (what users care about)
-      devices: adapterResult.rows.map((row: any) => ({
-        name: row.device_name,
-        protocol: row.protocol_type,
-        connected: row.connected,
-        lastPoll: row.last_poll,
-        errorCount: row.error_count,
-        lastError: row.last_error,
-        lastSeen: row.reported_at
-      })),
-      // Secondary: Sensor pipeline infrastructure (merged from config + health)
-      pipelines: allPipelines,
-      summary: {
-        totalDevices: adapterResult.rows.length,
-        connectedDevices: adapterResult.rows.filter((r: any) => r.connected).length,
-        pipelinesHealthy: allPipelines.filter((p: any) => p.healthy).length,
-        totalPipelines: allPipelines.length
-      }
-    });
-  } catch (error: any) {
-    console.error('Error fetching sensor health:', error);
-    res.status(500).json({
-      error: 'Failed to fetch sensor health',
-      message: error.message
-    });
-  }
-});
 
 /**
  * Get sensor health history for time-series charts
@@ -227,9 +111,8 @@ router.get('/sensors/unhealthy', async (req, res) => {
 });
 
 /**
- * Get device health overview (PRIMARY DASHBOARD VIEW)
- * Shows protocol adapter devices with their connection status
- * This is what users care about most - actual sensor device connectivity
+ * Get device sensor overview
+ * Shows configured sensors (replaces old health monitoring)
  * GET /api/v1/devices/:uuid/device-health
  */
 router.get('/devices/:uuid/device-health', async (req, res) => {
@@ -241,46 +124,47 @@ router.get('/devices/:uuid/device-health', async (req, res) => {
     const params: any[] = [uuid];
 
     if (protocolType) {
-      whereClause += ' AND protocol_type = $2';
+      whereClause += ' AND protocol = $2';
       params.push(protocolType);
     }
 
     const result = await query(
       `SELECT 
-        protocol_type,
-        device_name,
-        connected,
-        last_poll,
-        error_count,
-        last_error,
-        reported_at,
-        CASE 
-          WHEN connected = true THEN 'online'
-          WHEN error_count > 0 THEN 'error'
-          ELSE 'offline'
-        END as status
-      FROM protocol_adapter_health_latest
+        name,
+        protocol,
+        enabled,
+        poll_interval,
+        connection,
+        data_points,
+        metadata,
+        updated_at,
+        synced_to_config
+      FROM device_sensors
       WHERE ${whereClause}
-      ORDER BY protocol_type, device_name`,
+      ORDER BY protocol, name`,
       params
     );
 
     const devices = result.rows.map((row: any) => ({
-      name: row.device_name,
-      protocol: row.protocol_type,
-      status: row.status,
-      connected: row.connected,
-      lastPoll: row.last_poll,
-      errorCount: row.error_count,
-      lastError: row.last_error,
-      lastSeen: row.reported_at
+      name: row.name,
+      protocol: row.protocol,
+      status: row.enabled ? 'configured' : 'disabled',
+      enabled: row.enabled,
+      pollInterval: row.poll_interval,
+      connection: row.connection,
+      dataPoints: row.data_points,
+      lastUpdated: row.updated_at,
+      synced: row.synced_to_config
     }));
 
     const summary = {
       total: devices.length,
-      online: devices.filter((d: any) => d.status === 'online').length,
-      offline: devices.filter((d: any) => d.status === 'offline').length,
-      errors: devices.filter((d: any) => d.status === 'error').length
+      enabled: devices.filter((d: any) => d.enabled).length,
+      disabled: devices.filter((d: any) => !d.enabled).length,
+      byProtocol: result.rows.reduce((acc: any, row: any) => {
+        acc[row.protocol] = (acc[row.protocol] || 0) + 1;
+        return acc;
+      }, {})
     };
 
     res.json({
@@ -289,16 +173,16 @@ router.get('/devices/:uuid/device-health', async (req, res) => {
       devices
     });
   } catch (error: any) {
-    console.error('Error fetching device health:', error);
+    console.error('Error fetching device sensors:', error);
     res.status(500).json({
-      error: 'Failed to fetch device health',
+      error: 'Failed to fetch device sensors',
       message: error.message
     });
   }
 });
 
 /**
- * List all protocol adapter devices for a device
+ * List all configured sensors for a device (alias for compatibility)
  * GET /api/v1/devices/:uuid/protocol-adapters
  */
 router.get('/devices/:uuid/protocol-adapters', async (req, res) => {
@@ -307,28 +191,43 @@ router.get('/devices/:uuid/protocol-adapters', async (req, res) => {
 
     const result = await query(
       `SELECT 
+        id,
         device_uuid,
-        protocol_type,
-        device_name,
-        connected,
-        last_poll,
-        error_count,
-        last_error,
-        reported_at
-      FROM protocol_adapter_health_latest
+        name,
+        protocol,
+        enabled,
+        poll_interval,
+        connection,
+        data_points,
+        metadata,
+        created_at,
+        updated_at
+      FROM device_sensors
       WHERE device_uuid = $1
-      ORDER BY protocol_type, device_name`,
+      ORDER BY protocol, name`,
       [uuid]
     );
 
     res.json({
       count: result.rows.length,
-      protocol_adapters: result.rows
+      protocol_adapters: result.rows.map((row: any) => ({
+        id: row.id,
+        deviceUuid: row.device_uuid,
+        name: row.name,
+        protocol: row.protocol,
+        enabled: row.enabled,
+        pollInterval: row.poll_interval,
+        connection: row.connection,
+        dataPoints: row.data_points,
+        metadata: row.metadata,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      }))
     });
   } catch (error: any) {
-    console.error('Error fetching protocol adapter health:', error);
+    console.error('Error fetching configured sensors:', error);
     res.status(500).json({
-      error: 'Failed to fetch protocol adapter health',
+      error: 'Failed to fetch configured sensors',
       message: error.message
     });
   }

@@ -14,7 +14,10 @@
     "migrate:create": "ts-node scripts/migrate.ts create",
     "migrate:mark-applied": "ts-node scripts/mark-migrations-applied.ts",
     "migrate:unmark": "ts-node scripts/unmark-migrations.ts",
-    "apply-default-target-state": "ts-node src/scripts/apply-default-target-state.ts"
+    "apply-default-target-state": "ts-node src/scripts/apply-default-target-state.ts",
+    "check-partitions": "ts-node scripts/check-event-partitions.ts",
+    "fix-partitions": "ts-node scripts/create-missing-event-partitions.ts",
+    "maintain-partitions": "ts-node scripts/maintain-event-partitions.ts"
   },
   "keywords": [
     "iot",

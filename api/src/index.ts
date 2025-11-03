@@ -24,7 +24,7 @@ import mqttMonitorRoutes from './routes/mqtt-monitor';
 import eventsRoutes from './routes/events';
 import mqttBrokerRoutes from './routes/mqtt-broker';
 import sensorsRoutes from './routes/sensors';
-import { router as protocolDevicesRoutes } from './routes/protocol-devices';
+import { router as protocolDevicesRoutes } from './routes/device-sensors';
 import { router as trafficRoutes } from './routes/traffic';
 import housekeeperRoutes, { setHousekeeperInstance } from './routes/housekeeper';
 import { trafficLogger} from "./middleware/traffic-logger";

@@ -8,7 +8,7 @@
  */
 
 import { useEffect, useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -43,7 +43,6 @@ import {
   Lock,
   Unlock,
   Key,
-  AlertTriangle,
   Users,
   Copy,
   Eye,
@@ -280,17 +279,6 @@ export function SecurityPage() {
     setAclDialogOpen(true);
   };
 
-  const handleEditAcl = (userId: number, acl: MqttAcl) => {
-    setSelectedUserId(userId);
-    setEditingAcl(acl);
-    setAclFormData({
-      topic: acl.topic,
-      access: acl.access,
-      priority: acl.priority
-    });
-    setAclDialogOpen(true);
-  };
-
   const handleSaveAcl = async () => {
     if (!selectedUserId) return;
     
@@ -349,24 +337,6 @@ export function SecurityPage() {
     }
   };
 
-  const getAccessLabel = (access: number) => {
-    switch (access) {
-      case 1: return 'Read (Subscribe)';
-      case 2: return 'Write (Publish)';
-      case 3: return 'Read + Write';
-      default: return 'Unknown';
-    }
-  };
-
-  const getAccessBadgeVariant = (access: number): "default" | "secondary" | "destructive" | "outline" => {
-    switch (access) {
-      case 1: return 'secondary';
-      case 2: return 'default';
-      case 3: return 'destructive';
-      default: return 'outline';
-    }
-  };
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -399,8 +369,8 @@ export function SecurityPage() {
 
         {/* MQTT Users Tab */}
         <TabsContent value="mqtt" className="space-y-4">
-          <div className="flex justify-end">
-            <Button onClick={handleAddUser}>
+          <div className="flex justify-end mb-4">
+            <Button onClick={handleAddUser} className="ml-auto">
               <UserPlus className="w-4 h-4 mr-2" />
               Add MQTT User
             </Button>
@@ -408,151 +378,111 @@ export function SecurityPage() {
 
           {loadingMqtt ? (
             <div className="flex items-center justify-center h-64">
-              <p className="text-gray-500">Loading MQTT users...</p>
+              <p className="text-muted-foreground">Loading MQTT users...</p>
             </div>
           ) : mqttUsers.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <Shield className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-            <p className="text-gray-600 mb-4">No MQTT users configured</p>
-            <Button onClick={handleAddUser}>
-              <UserPlus className="w-4 h-4 mr-2" />
-              Add Your First User
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {mqttUsers.map((user) => (
-            <Card key={user.id}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${user.is_active ? 'bg-green-100' : 'bg-gray-100'}`}>
-                      {user.is_active ? (
-                        <Unlock className="w-5 h-5 text-green-600" />
-                      ) : (
-                        <Lock className="w-5 h-5 text-gray-600" />
-                      )}
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg flex items-center gap-2">
-                        {user.username}
-                        {user.is_superuser && (
-                          <Badge variant="destructive" className="text-xs">
-                            <Key className="w-3 h-3 mr-1" />
-                            Superuser
-                          </Badge>
-                        )}
-                        {!user.is_active && (
-                          <Badge variant="outline" className="text-xs">
-                            Inactive
-                          </Badge>
-                        )}
-                      </CardTitle>
-                      <CardDescription>
-                        Created {new Date(user.created_at).toLocaleDateString()} · 
-                        {user.acls.length} ACL {user.acls.length === 1 ? 'rule' : 'rules'}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleEditUser(user)}
-                    >
-                      <Edit className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setDeleteTarget({ type: 'user', id: user.id });
-                        setDeleteDialogOpen(true);
-                      }}
-                    >
-                      <Trash2 className="w-4 h-4 text-red-600" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {user.is_superuser ? (
-                  <div className="flex items-center gap-2 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <AlertTriangle className="w-5 h-5 text-yellow-600" />
-                    <p className="text-sm text-yellow-800">
-                      This user has superuser privileges and bypasses all ACL checks
-                    </p>
-                  </div>
-                ) : (
-                  <>
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-sm font-medium text-gray-700">ACL Rules</h4>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleAddAcl(user.id)}
-                      >
-                        <Plus className="w-4 h-4 mr-2" />
-                        Add Rule
-                      </Button>
-                    </div>
-                    
-                    {user.acls.length === 0 ? (
-                      <p className="text-sm text-gray-500 text-center py-4">
-                        No ACL rules defined. Click "Add Rule" to create one.
-                      </p>
-                    ) : (
-                      <div className="space-y-2">
-                        {user.acls.map((acl) => (
-                          <div
-                            key={acl.id}
-                            className="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                          >
-                            <div className="flex items-center gap-3 flex-1">
-                              <code className="text-sm font-mono bg-white px-2 py-1 rounded border">
-                                {acl.topic}
-                              </code>
-                              <Badge variant={getAccessBadgeVariant(acl.access)}>
-                                {getAccessLabel(acl.access)}
-                              </Badge>
-                              {acl.priority !== 0 && (
-                                <span className="text-xs text-gray-500">
-                                  Priority: {acl.priority}
-                                </span>
-                              )}
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEditAcl(user.id, acl)}
-                              >
-                                <Edit className="w-3 h-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => {
-                                  setDeleteTarget({ type: 'acl', id: acl.id });
-                                  setDeleteDialogOpen(true);
-                                }}
-                              >
-                                <Trash2 className="w-3 h-3 text-red-600" />
-                              </Button>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </>
-                )}
+            <Card>
+              <CardContent className="py-12 text-center">
+                <Shield className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground mb-4">No MQTT users configured</p>
+                <Button onClick={handleAddUser}>
+                  <UserPlus className="w-4 h-4 mr-2" />
+                  Add Your First User
+                </Button>
               </CardContent>
             </Card>
-          ))}
-        </div>
-      )}
+          ) : (
+            <Card className="p-4 md:p-6">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Status</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Username</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Permissions</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">ACL Rules</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Created</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {mqttUsers.map((user) => (
+                      <tr key={user.id} className="border-b border-border last:border-0 hover:bg-muted">
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            {user.is_active ? (
+                              <Unlock className="w-4 h-4 text-green-600 dark:text-green-400" />
+                            ) : (
+                              <Lock className="w-4 h-4 text-muted-foreground" />
+                            )}
+                            <Badge variant={user.is_active ? "default" : "outline"}>
+                              {user.is_active ? 'Active' : 'Inactive'}
+                            </Badge>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 font-medium text-foreground">{user.username}</td>
+                        <td className="py-3 px-4">
+                          <div className="flex flex-wrap gap-1">
+                            {user.is_superuser && (
+                              <Badge variant="destructive" className="text-xs">
+                                <Key className="w-3 h-3 mr-1" />
+                                Superuser
+                              </Badge>
+                            )}
+                            {user.is_superuser && (
+                              <span className="text-xs text-muted-foreground ml-2">
+                                (bypasses ACLs)
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm text-foreground">{user.acls.length}</span>
+                            {!user.is_superuser && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleAddAcl(user.id)}
+                                className="h-7 text-xs"
+                              >
+                                <Plus className="w-3 h-3 mr-1" />
+                                Add Rule
+                              </Button>
+                            )}
+                          </div>
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center justify-end gap-2 whitespace-nowrap ml-auto">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleEditUser(user)}
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setDeleteTarget({ type: 'user', id: user.id });
+                                setDeleteDialogOpen(true);
+                              }}
+                            >
+                              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
         </TabsContent>
 
         {/* Users & Roles Tab */}
@@ -566,13 +496,13 @@ export function SecurityPage() {
 
           {loadingUsers ? (
             <div className="flex items-center justify-center h-64">
-              <p className="text-gray-500">Loading users...</p>
+              <p className="text-muted-foreground">Loading users...</p>
             </div>
           ) : regularUsers.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <Users className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                <p className="text-gray-600 mb-4">No users configured</p>
+                <Users className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground mb-4">No users configured</p>
                 <Button>
                   <UserPlus className="w-4 h-4 mr-2" />
                   Add Your First User
@@ -580,55 +510,55 @@ export function SecurityPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {regularUsers.map((user) => (
-                <Card key={user.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${user.is_active ? 'bg-green-100' : 'bg-gray-100'}`}>
-                          <Users className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">{user.username}</CardTitle>
-                          <CardDescription>{user.email}</CardDescription>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button variant="outline" size="sm">
-                          <Edit className="w-4 h-4" />
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Role:</span>
-                        <Badge>{user.role}</Badge>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Status:</span>
-                        <Badge variant={user.is_active ? "default" : "secondary"}>
-                          {user.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Last Login:</span>
-                        <span>{user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Created:</span>
-                        <span>{new Date(user.created_at).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <Card className="p-4 md:p-6">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Username</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Email</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Role</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Status</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Last Login</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Created</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {regularUsers.map((user) => (
+                      <tr key={user.id} className="border-b border-border last:border-0 hover:bg-muted">
+                        <td className="py-3 px-4 font-medium text-foreground">{user.username}</td>
+                        <td className="py-3 px-4 text-foreground">{user.email}</td>
+                        <td className="py-3 px-4">
+                          <Badge>{user.role}</Badge>
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge variant={user.is_active ? "default" : "outline"}>
+                            {user.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString() : 'Never'}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {new Date(user.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center justify-end gap-2 whitespace-nowrap ml-auto">
+                            <Button variant="outline" size="sm">
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           )}
         </TabsContent>
 
@@ -643,13 +573,13 @@ export function SecurityPage() {
 
           {loadingApiKeys ? (
             <div className="flex items-center justify-center h-64">
-              <p className="text-gray-500">Loading API keys...</p>
+              <p className="text-muted-foreground">Loading API keys...</p>
             </div>
           ) : apiKeys.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <Key className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-                <p className="text-gray-600 mb-4">No API keys configured</p>
+                <Key className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+                <p className="text-muted-foreground mb-4">No API keys configured</p>
                 <Button>
                   <Plus className="w-4 h-4 mr-2" />
                   Generate Your First API Key
@@ -657,74 +587,79 @@ export function SecurityPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {apiKeys.map((key) => (
-                <Card key={key.id}>
-                  <CardHeader>
-                    <div className="flex items-start justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`p-2 rounded-lg ${key.is_active ? 'bg-blue-100' : 'bg-gray-100'}`}>
-                          <Key className="w-5 h-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <CardTitle className="text-lg">{key.name}</CardTitle>
-                          <CardDescription>{key.key_prefix}...</CardDescription>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setShowApiKey(prev => ({ ...prev, [key.id]: !prev[key.id] }))}
-                        >
-                          {showApiKey[key.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            navigator.clipboard.writeText(key.key);
-                            toast.success("API key copied to clipboard");
-                          }}
-                        >
-                          <Copy className="w-4 h-4" />
-                        </Button>
-                        <Button variant="outline" size="sm">
-                          <Trash2 className="w-4 h-4 text-red-600" />
-                        </Button>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    {showApiKey[key.id] && (
-                      <div className="mb-4 p-2 bg-gray-50 rounded font-mono text-xs break-all">
-                        {key.key}
-                      </div>
-                    )}
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Status:</span>
-                        <Badge variant={key.is_active ? "default" : "secondary"}>
-                          {key.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Last Used:</span>
-                        <span>{key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Never'}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Expires:</span>
-                        <span>{key.expires_at ? new Date(key.expires_at).toLocaleDateString() : 'Never'}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-gray-600">Created:</span>
-                        <span>{new Date(key.created_at).toLocaleDateString()}</span>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
+            <Card className="p-4 md:p-6">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-border">
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Name</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Key</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Status</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Last Used</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Expires</th>
+                      <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Created</th>
+                      <th className="text-right py-3 px-4 font-semibold text-sm text-foreground">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {apiKeys.map((key) => (
+                      <tr key={key.id} className="border-b border-border last:border-0 hover:bg-muted">
+                        <td className="py-3 px-4 font-medium text-foreground">{key.name}</td>
+                        <td className="py-3 px-4">
+                          {showApiKey[key.id] ? (
+                            <code className="text-xs font-mono bg-muted px-2 py-1 rounded break-all">
+                              {key.key}
+                            </code>
+                          ) : (
+                            <code className="text-xs font-mono text-foreground">
+                              {key.key_prefix}...
+                            </code>
+                          )}
+                        </td>
+                        <td className="py-3 px-4">
+                          <Badge variant={key.is_active ? "default" : "outline"}>
+                            {key.is_active ? 'Active' : 'Inactive'}
+                          </Badge>
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {key.last_used_at ? new Date(key.last_used_at).toLocaleDateString() : 'Never'}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {key.expires_at ? new Date(key.expires_at).toLocaleDateString() : 'Never'}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {new Date(key.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center justify-end gap-2 whitespace-nowrap ml-auto">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowApiKey(prev => ({ ...prev, [key.id]: !prev[key.id] }))}
+                            >
+                              {showApiKey[key.id] ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                navigator.clipboard.writeText(key.key);
+                                toast.success("API key copied to clipboard");
+                              }}
+                            >
+                              <Copy className="w-4 h-4" />
+                            </Button>
+                            <Button variant="outline" size="sm">
+                              <Trash2 className="w-4 h-4 text-red-600 dark:text-red-400" />
+                            </Button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
           )}
         </TabsContent>
       </Tabs>
@@ -776,7 +711,7 @@ export function SecurityPage() {
                   setUserFormData({ ...userFormData, is_superuser: checked })
                 }
               />
-              <Label htmlFor="is_superuser" className="cursor-pointer">
+              <Label htmlFor="is_superuser">
                 Superuser (bypass all ACL checks)
               </Label>
             </div>
@@ -789,7 +724,7 @@ export function SecurityPage() {
                   setUserFormData({ ...userFormData, is_active: checked })
                 }
               />
-              <Label htmlFor="is_active" className="cursor-pointer">
+              <Label htmlFor="is_active">
                 Active
               </Label>
             </div>

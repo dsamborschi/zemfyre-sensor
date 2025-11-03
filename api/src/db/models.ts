@@ -5,7 +5,8 @@
 
 import { query, transaction } from './connection';
 import { PoolClient } from 'pg';
- import crypto from 'crypto';
+import crypto from 'crypto';
+import { DeviceSensorSyncService } from '../services/device-sensor-sync';
 
 // Types
 export interface Device {
@@ -278,6 +279,7 @@ export class DeviceTargetStateModel {
   /**
    * Deploy target state to device
    * This increments version so device will pick up changes
+   * Also syncs config.sensors to device_sensors table
    */
   static async deploy(
     deviceUuid: string,
@@ -299,7 +301,20 @@ export class DeviceTargetStateModel {
       throw new Error(`Device ${deviceUuid} has no target state to deploy`);
     }
 
-    return result.rows[0];
+    const deployedState = result.rows[0];
+
+    // Sync config.sensors to device_sensors table
+    if (deployedState.config && deployedState.config.sensors) {
+      const syncService = new DeviceSensorSyncService();
+      await syncService.syncConfigToTable(
+        deviceUuid,
+        deployedState.config.sensors,
+        deployedState.version,
+        deployedBy
+      );
+    }
+
+    return deployedState;
   }
 
   /**

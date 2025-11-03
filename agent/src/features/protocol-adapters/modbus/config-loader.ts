@@ -60,13 +60,13 @@ export class ConfigLoader {
    */
   static async loadFromDatabase(): Promise<ModbusAdapterConfig> {
     try {
-      const { ProtocolAdapterDeviceModel } = await import('../../../models/protocol-adapter-device.model.js');
+      const { DeviceSensorsModel: DeviceSensorModel } = await import('../../../models/protocol-adapter-device.model.js');
       
       // Get all Modbus devices from database
-      const dbDevices = await ProtocolAdapterDeviceModel.getAll('modbus');
+      const dbDevices = await DeviceSensorsModel.getAll('modbus');
       
       // Get output configuration
-      const dbOutput = await ProtocolAdapterDeviceModel.getOutput('modbus');
+      const dbOutput = await DeviceSensorsModel.getOutput('modbus');
       
       if (!dbOutput) {
         throw new Error('Modbus output configuration not found in database');

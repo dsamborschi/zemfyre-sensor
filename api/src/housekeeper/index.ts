@@ -53,27 +53,18 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
     }
 
     runningTasks.add(task.name);
-    console.log(`🧹 Running housekeeper task: '${task.name}'`);
     
     const startTime = Date.now();
     let runId: number | null = null;
     let capturedOutput: string[] = [];
     let capturedError: string | null = null;
 
-    // Capture console output
+    // Save original console methods
     const originalLog = console.log;
     const originalError = console.error;
-    console.log = (...args: any[]) => {
-      capturedOutput.push(args.map(a => String(a)).join(' '));
-      originalLog.apply(console, args);
-    };
-    console.error = (...args: any[]) => {
-      capturedOutput.push(`ERROR: ${args.map(a => String(a)).join(' ')}`);
-      originalError.apply(console, args);
-    };
 
     try {
-      // Create execution record
+      // Create execution record BEFORE console capture (prevents capturing DB async logs)
       const result = await pool.query(
         `INSERT INTO housekeeper_runs (task_name, started_at, status, triggered_by) 
          VALUES ($1, NOW(), 'running', $2) 
@@ -82,9 +73,29 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
       );
       runId = result.rows[0].id;
 
+      // Log task start and begin console capture
+      console.log(`🧹 Running housekeeper task: '${task.name}'`);
+      
+      // Capture console output for task execution only
+      console.log = (...args: any[]) => {
+        capturedOutput.push(args.map(a => String(a)).join(' '));
+        originalLog.apply(console, args);
+      };
+      console.error = (...args: any[]) => {
+        capturedOutput.push(`ERROR: ${args.map(a => String(a)).join(' ')}`);
+        originalError.apply(console, args);
+      };
+
       await task.run();
       
       const duration = Date.now() - startTime;
+      
+      // Log completion BEFORE restoring console (so it's captured)
+      console.log(`✅ Completed task '${task.name}' in ${duration}ms`);
+      
+      // Restore console BEFORE database write to prevent capturing async DB logs
+      console.log = originalLog;
+      console.error = originalError;
       
       // Update execution record with success
       if (runId) {
@@ -95,12 +106,18 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
           [duration, capturedOutput.join('\n'), runId]
         );
       }
-      
-      console.log(`✅ Completed task '${task.name}' in ${duration}ms`);
     } catch (error: any) {
       const duration = Date.now() - startTime;
       const errorMessage = `Error running task '${task.name}' after ${duration}ms: ${error.message}`;
       capturedError = `${error.message}\n${error.stack}`;
+      
+      // Log error BEFORE restoring console (so it's captured)
+      console.error(`❌ ${errorMessage}`);
+      console.error(error.stack);
+      
+      // Restore console BEFORE database write to prevent capturing async DB logs
+      console.log = originalLog;
+      console.error = originalError;
       
       // Update execution record with error
       if (runId) {
@@ -111,14 +128,7 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
           [duration, capturedOutput.join('\n'), capturedError, runId]
         );
       }
-      
-      console.error(`❌ ${errorMessage}`);
-      console.error(error.stack);
     } finally {
-      // Restore console
-      console.log = originalLog;
-      console.error = originalError;
-      
       runningTasks.delete(task.name);
     }
   }
@@ -290,6 +300,7 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
       await import('./tasks/database-vacuum'),
       await import('./tasks/device-logs-retention'),
       await import('./tasks/device-logs-partition-maintenance'),
+      await import('./tasks/events-partition-maintenance'),
       // Add more tasks here
     ];
 

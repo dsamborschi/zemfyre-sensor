@@ -243,7 +243,7 @@ export function UsagePage() {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full">
+                <table className="w-full text-sm">
                   <thead>
                     <tr className="border-b border-border">
                       <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Method</th>

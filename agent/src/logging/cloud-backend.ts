@@ -65,6 +65,7 @@ export class CloudLogBackend implements LogBackend {
 			flushInterval: config.flushInterval ?? 100, // 100ms
 			reconnectInterval: config.reconnectInterval ?? 5000, // 5s
 			maxReconnectInterval: config.maxReconnectInterval ?? 300000, // 5min
+			samplingRates: config.samplingRates ?? { debug: 1, info: 1, warn: 1, error: 1 },
 		};
 		
 		// Initialize sampling rates with defaults

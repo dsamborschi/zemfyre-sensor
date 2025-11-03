@@ -19,9 +19,8 @@
 import { EventEmitter } from 'events';
 import { gzip } from 'zlib';
 import { promisify } from 'util';
-import type ContainerManager from './compose/container-manager';
+import type { StateReconciler, DeviceState } from './orchestrator/state-reconciler';
 import type { DeviceManager } from './provisioning';
-import type { SimpleState } from './compose/container-manager';
 import * as systemMetrics from './system-metrics';
 import { ConnectionMonitor } from './connection-monitor';
 import { OfflineQueue } from './offline-queue';
@@ -87,12 +86,12 @@ interface TargetStateResponse {
 }
 
 export class ApiBinder extends EventEmitter {
-	private containerManager: ContainerManager;
+	private stateReconciler: StateReconciler;
 	private deviceManager: DeviceManager;
 	private config: Required<ApiBinderConfig>;
 	
 	// State management
-	private targetState: SimpleState = { apps: {} };
+	private targetState: DeviceState = { apps: {}, config: {} };
 	private currentVersion: number = 0; // Track which version we've applied
 	private lastReport: DeviceStateReport = {};
 	private lastReportTime: number = -Infinity;
@@ -124,7 +123,7 @@ export class ApiBinder extends EventEmitter {
 	private protocolAdapters?: any; // Optional protocol-adapters feature for health reporting
 	
 	constructor(
-		containerManager: ContainerManager,
+		stateReconciler: StateReconciler,
 		deviceManager: DeviceManager,
 		config: ApiBinderConfig,
 		logger?: AgentLogger,
@@ -132,7 +131,7 @@ export class ApiBinder extends EventEmitter {
 		protocolAdapters?: any
 	) {
 		super();
-		this.containerManager = containerManager;
+		this.stateReconciler = stateReconciler;
 		this.deviceManager = deviceManager;
 		this.logger = logger;
 		this.sensorPublish = sensorPublish;
@@ -231,8 +230,8 @@ export class ApiBinder extends EventEmitter {
 			intervalMs: this.config.reportInterval
 		});
 		
-		// Listen for state changes
-		this.containerManager.on('current-state-changed', () => {
+		// Listen for state changes from reconciler
+		this.stateReconciler.on('reconciliation-complete', () => {
 			this.scheduleReport('state-change');
 		});
 		
@@ -262,7 +261,7 @@ export class ApiBinder extends EventEmitter {
 	/**
 	 * Get current target state
 	 */
-	public getTargetState(): SimpleState {
+	public getTargetState(): DeviceState {
 		return this.targetState;
 	}
 	
@@ -414,17 +413,26 @@ export class ApiBinder extends EventEmitter {
 			hasVersion: !!deviceState.version
 		});
 		
-		// Check if target state changed
-		const newTargetState: SimpleState = { 
-			apps: deviceState.apps || {},
-			config: deviceState.config || {}
-		};
-		
-		// Debug: Log the actual comparison strings
-		const currentStateStr = JSON.stringify(this.targetState);
-		const newStateStr = JSON.stringify(newTargetState);
-		
-		if (currentStateStr !== newStateStr) {
+	// Check if target state changed
+	const newTargetState: DeviceState = { 
+		apps: deviceState.apps || {},
+		config: deviceState.config || {}
+	};
+	
+	// 🔍 DEBUG: Log what we received from API
+	console.log('🔍 API Response - deviceState keys:', Object.keys(deviceState));
+	console.log('🔍 API Response - has config:', !!deviceState.config);
+	console.log('🔍 API Response - config keys:', Object.keys(deviceState.config || {}));
+	console.log('🔍 API Response - sensors count:', deviceState.config?.sensors?.length || 0);
+	console.log('🔍 Built newTargetState:', {
+		apps: Object.keys(newTargetState.apps).length,
+		config: Object.keys(newTargetState.config || {}).length,
+		hasSensors: !!newTargetState.config?.sensors
+	});
+	
+	// Debug: Log the actual comparison strings
+	const currentStateStr = JSON.stringify(this.targetState);
+	const newStateStr = JSON.stringify(newTargetState);		if (currentStateStr !== newStateStr) {
 			this.logger?.infoSync('New target state received from cloud', {
 				component: 'Sync',
 				operation: 'poll',
@@ -436,8 +444,8 @@ export class ApiBinder extends EventEmitter {
 			
 			this.targetState = newTargetState;
 			
-			// Apply target state to container manager
-			await this.containerManager.setTarget(this.targetState);
+			// Apply target state to state reconciler (handles both containers and config)
+			await this.stateReconciler.setTarget(this.targetState);
 			
 			// Trigger reconciliation
 			this.emit('target-state-changed', this.targetState);
@@ -634,7 +642,7 @@ export class ApiBinder extends EventEmitter {
 		}
 		
 		// Build current state report
-		const currentState = await this.containerManager.getCurrentState();
+		const currentState = await this.stateReconciler.getCurrentState();
 		
 		// Get metrics if interval elapsed
 		const includeMetrics = timeSinceLastMetrics >= this.config.metricsInterval;

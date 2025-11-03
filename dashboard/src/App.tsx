@@ -20,6 +20,8 @@ import { buildApiUrl } from "./config/api";
 import { SensorHealthDashboard } from "./pages/SensorHealthDashboard";
 import { SensorsPage } from "./pages/SensorsPage";
 import HousekeeperPage from "./pages/HousekeeperPage";
+import DeviceSettingsPage from "./pages/DeviceSettingsPage";
+import AccountPage from "./pages/AccountPage";
 
 import { toast } from "sonner";
 import { Header } from "./components/Header";
@@ -48,7 +50,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security' | 'settings'>('metrics');
+  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security' | 'maintenance' | 'settings' | 'account'>('metrics');
   const [debugMode, setDebugMode] = useState(false);
   
   // Memoize selected device to prevent unnecessary re-renders
@@ -357,6 +359,7 @@ export default function App() {
         userEmail={userEmail}
         userName={userName}
         deviceUuid={selectedDevice?.deviceUuid}
+        onAccountClick={() => setCurrentView('account')}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -497,12 +500,20 @@ export default function App() {
               Security
             </Button>
             <Button
+              variant={currentView === 'maintenance' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('maintenance')}
+            >
+              <Settings className="w-4 h-4 mr-2" />
+              Housekeeping
+            </Button>
+            <Button
               variant={currentView === 'settings' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setCurrentView('settings')}
             >
-              <Settings className="w-4 h-4 mr-2" />
-              Maintenance
+              <Shield className="w-4 h-4 mr-2" />
+              Settings
             </Button>
           </div>
 
@@ -548,8 +559,14 @@ export default function App() {
               <SecurityPage />
             </div>
           )}
-          {currentView === 'settings' && (
+          {currentView === 'maintenance' && (
             <HousekeeperPage />
+          )}
+          {currentView === 'settings' && (
+            <DeviceSettingsPage deviceUuid={selectedDevice.deviceUuid} />
+          )}
+          {currentView === 'account' && (
+            <AccountPage />
           )}
             </>
           )}

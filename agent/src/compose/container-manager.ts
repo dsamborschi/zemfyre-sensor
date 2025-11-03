@@ -312,18 +312,21 @@ export class ContainerManager extends EventEmitter {
 				.orderBy('createdAt', 'desc')
 				.limit(1);
 
-			if (snapshots.length > 0) {
-				this.targetState = JSON.parse(snapshots[0].state);
-				
-				// Load the hash for future comparisons
-				if (snapshots[0].stateHash) {
-					this.lastSavedTargetStateHash = snapshots[0].stateHash;
-				}
-				
-				// Sanitize loaded state to ensure ports are strings
-				this.sanitizeState(this.targetState);
-				
-				this.logger?.infoSync('Loaded target state from database', {
+		if (snapshots.length > 0) {
+			this.targetState = JSON.parse(snapshots[0].state);
+			
+			// Ensure config field exists (for backward compatibility with old snapshots)
+			if (!this.targetState.config) {
+				this.targetState.config = {};
+			}
+			
+			// Load the hash for future comparisons
+			if (snapshots[0].stateHash) {
+				this.lastSavedTargetStateHash = snapshots[0].stateHash;
+			}
+			
+			// Sanitize loaded state to ensure ports are strings
+			this.sanitizeState(this.targetState);				this.logger?.infoSync('Loaded target state from database', {
 					component: 'ContainerManager',
 					operation: 'loadTargetState',
 					appsCount: Object.keys(this.targetState.apps).length
@@ -349,25 +352,41 @@ export class ContainerManager extends EventEmitter {
 		try {
 			const stateHash = this.getStateHash(this.targetState);
 			
+			// 🔍 DEBUG: Log save attempt
+			console.log('🔍 saveTargetStateToDB called');
+			console.log('  - New hash:', stateHash.substring(0, 8));
+			console.log('  - Last saved hash:', this.lastSavedTargetStateHash?.substring(0, 8) || 'none');
+			console.log('  - Apps count:', Object.keys(this.targetState.apps).length);
+			console.log('  - Config keys:', Object.keys(this.targetState.config || {}).length);
+			console.log('  - Has sensors:', !!this.targetState.config?.sensors);
+			
 			// Skip if state hasn't changed (compare hashes)
 			if (stateHash === this.lastSavedTargetStateHash) {
+				console.log('  ⏭️  Skipping save - state unchanged');
 				return;
 			}
 			
-			this.lastSavedTargetStateHash = stateHash;
-			
-			const stateJson = JSON.stringify(this.targetState);
-			
-			// Delete old target snapshots and insert new (with hash)
-			await db.models('stateSnapshot')
-				.where({ type: 'target' })
-				.delete();
-			
-			await db.models('stateSnapshot').insert({
-				type: 'target',
-				state: stateJson,
-				stateHash: stateHash,
-			});
+		console.log('  💾 Saving to SQLite...');
+		this.lastSavedTargetStateHash = stateHash;
+		
+		const stateJson = JSON.stringify(this.targetState);
+		
+		// 🔍 DEBUG: Log the actual JSON being saved
+		console.log('  📄 State JSON preview (first 500 chars):', stateJson.substring(0, 500));
+		console.log('  📄 State JSON length:', stateJson.length);
+		console.log('  📄 Has "config" in JSON:', stateJson.includes('"config"'));
+		console.log('  📄 Has "sensors" in JSON:', stateJson.includes('"sensors"'));
+		
+		// Delete old target snapshots and insert new (with hash)
+		await db.models('stateSnapshot')
+			.where({ type: 'target' })
+			.delete();
+		
+		await db.models('stateSnapshot').insert({
+			type: 'target',
+			state: stateJson,
+			stateHash: stateHash,
+		});			
 		} catch (error) {
 			this.logger?.errorSync(
 				'Failed to save target state to DB',
@@ -482,9 +501,11 @@ export class ContainerManager extends EventEmitter {
 			// Query Docker for actual state
 			await this.syncCurrentStateFromDocker();
 		}
-		// Include config from target state in current state
+		
+		// NOTE: ContainerManager only returns apps (Docker runtime state)
+		// Config is handled separately by ConfigManager in StateReconciler
 		const state = _.cloneDeep(this.currentState);
-		state.config = this.targetState.config;
+		
 		return state;
 	}
 

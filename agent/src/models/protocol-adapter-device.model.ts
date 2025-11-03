@@ -6,7 +6,7 @@
 import { models, getKnex } from '../db';
 import type { Knex } from 'knex';
 
-export interface ProtocolAdapterDevice {
+export interface DeviceSensor {
   id?: number;
   name: string;
   protocol: 'modbus' | 'can' | 'opcua';
@@ -19,7 +19,7 @@ export interface ProtocolAdapterDevice {
   updated_at?: Date;
 }
 
-export interface ProtocolAdapterOutput {
+export interface DeviceSensorOutput {
   id?: number;
   protocol: 'modbus' | 'can' | 'opcua';
   socket_path: string;
@@ -32,14 +32,14 @@ export interface ProtocolAdapterOutput {
   updated_at?: Date;
 }
 
-export class ProtocolAdapterDeviceModel {
-  private static table = 'protocol_adapter_devices';
-  private static outputTable = 'protocol_adapter_outputs';
+export class DeviceSensorModel {
+  private static table = 'sensors';
+  private static outputTable = 'sensor_outputs';
 
   /**
    * Get all protocol adapter devices
    */
-  static async getAll(protocol?: string): Promise<ProtocolAdapterDevice[]> {
+  static async getAll(protocol?: string): Promise<DeviceSensor[]> {
     const query = models(this.table).select('*');
     if (protocol) {
       query.where('protocol', protocol);
@@ -50,7 +50,7 @@ export class ProtocolAdapterDeviceModel {
   /**
    * Get device by name
    */
-  static async getByName(name: string): Promise<ProtocolAdapterDevice | null> {
+  static async getByName(name: string): Promise<DeviceSensor | null> {
     const device = await models(this.table)
       .where('name', name)
       .first();
@@ -60,7 +60,7 @@ export class ProtocolAdapterDeviceModel {
   /**
    * Get enabled devices for a protocol
    */
-  static async getEnabled(protocol: string): Promise<ProtocolAdapterDevice[]> {
+  static async getEnabled(protocol: string): Promise<DeviceSensor[]> {
     return await models(this.table)
       .where({ protocol, enabled: true })
       .orderBy('name');
@@ -69,7 +69,7 @@ export class ProtocolAdapterDeviceModel {
   /**
    * Create new device
    */
-  static async create(device: ProtocolAdapterDevice): Promise<ProtocolAdapterDevice> {
+  static async create(device: DeviceSensor): Promise<DeviceSensor> {
     const [id] = await models(this.table).insert({
       ...device,
       connection: JSON.stringify(device.connection),
@@ -83,7 +83,7 @@ export class ProtocolAdapterDeviceModel {
   /**
    * Update device
    */
-  static async update(name: string, updates: Partial<ProtocolAdapterDevice>): Promise<ProtocolAdapterDevice | null> {
+  static async update(name: string, updates: Partial<DeviceSensor>): Promise<DeviceSensor | null> {
     const updateData: any = {
       ...updates,
       updated_at: new Date(),
@@ -119,7 +119,7 @@ export class ProtocolAdapterDeviceModel {
   /**
    * Get device by ID
    */
-  private static async getById(id: number): Promise<ProtocolAdapterDevice> {
+  private static async getById(id: number): Promise<DeviceSensor> {
     return await models(this.table)
       .where('id', id)
       .first();
@@ -128,7 +128,7 @@ export class ProtocolAdapterDeviceModel {
   /**
    * Get output configuration for a protocol
    */
-  static async getOutput(protocol: string): Promise<ProtocolAdapterOutput | null> {
+  static async getOutput(protocol: string): Promise<DeviceSensorOutput | null> {
     const output = await models(this.outputTable)
       .where('protocol', protocol)
       .first();
@@ -138,7 +138,7 @@ export class ProtocolAdapterDeviceModel {
   /**
    * Set output configuration for a protocol
    */
-  static async setOutput(output: ProtocolAdapterOutput): Promise<ProtocolAdapterOutput | null> {
+  static async setOutput(output: DeviceSensorOutput): Promise<DeviceSensorOutput | null> {
     const existing = await this.getOutput(output.protocol);
 
     const outputData = {

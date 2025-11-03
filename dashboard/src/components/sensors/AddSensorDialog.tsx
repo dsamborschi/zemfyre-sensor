@@ -18,14 +18,19 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { canPerformDeviceActions, getDisabledActionMessage } from "@/utils/devicePermissions";
 
 
-interface ModbusRegister {
+interface DataPoint {
   name: string;
-  address: number;
-  type: 'coil' | 'discrete' | 'holding' | 'input';
-  dataType: 'int16' | 'uint16' | 'int32' | 'uint32' | 'float32' | 'float64';
+  address?: number; // For Modbus
+  type?: string; // 'coil' | 'discrete' | 'holding' | 'input' for Modbus, or data type
+  dataType?: string; // 'int16' | 'uint16' | 'int32' | 'uint32' | 'float32' | 'float64'
   unit?: string;
   scale?: number;
   offset?: number;
+  // CAN-specific
+  pgn?: number;
+  spn?: number;
+  // OPC-UA-specific
+  nodeId?: string;
 }
 
 interface ProtocolAdapterDevice {
@@ -34,7 +39,7 @@ interface ProtocolAdapterDevice {
   enabled: boolean;
   pollInterval: number;
   connection: any;
-  registers?: ModbusRegister[];
+  dataPoints?: DataPoint[];
   metadata?: Record<string, any>;
 }
 
@@ -63,7 +68,7 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
   
   // JSON configuration (unified for all protocols)
   const [connectionJson, setConnectionJson] = useState('{\n  "type": "tcp",\n  "host": "192.168.1.100",\n  "port": 502,\n  "unitId": 1\n}');
-  const [registersJson, setRegistersJson] = useState('[\n  {\n    "name": "temperature",\n    "address": 0,\n    "type": "holding",\n    "dataType": "float32",\n    "unit": "°C"\n  }\n]');
+  const [dataPointsJson, setDataPointsJson] = useState('[\n  {\n    "name": "temperature",\n    "address": 0,\n    "type": "holding",\n    "dataType": "float32",\n    "unit": "°C"\n  }\n]');
 
   const handleSaveDevice = async () => {
     setError(null);
@@ -75,7 +80,7 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
 
     // Parse and validate JSON
     let connection: any;
-    let registers: any;
+    let dataPoints: any;
 
     try {
       connection = JSON.parse(connectionJson);
@@ -85,9 +90,9 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
     }
 
     try {
-      registers = JSON.parse(registersJson);
+      dataPoints = JSON.parse(dataPointsJson);
     } catch (err) {
-      setError('Invalid registers/nodes JSON: ' + (err as Error).message);
+      setError('Invalid data points JSON: ' + (err as Error).message);
       return;
     }
 
@@ -97,7 +102,7 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
       enabled: deviceEnabled,
       pollInterval: devicePollInterval,
       connection,
-      registers,
+      dataPoints,
       metadata: {
         createdAt: new Date().toISOString(),
         createdBy: 'dashboard'
@@ -122,17 +127,17 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
       case 'modbus':
         return {
           connection: '{\n  "type": "tcp",\n  "host": "192.168.1.100",\n  "port": 502,\n  "unitId": 1\n}',
-          registers: '[\n  {\n    "name": "temperature",\n    "address": 0,\n    "type": "holding",\n    "dataType": "float32",\n    "unit": "°C"\n  }\n]'
+          dataPoints: '[\n  {\n    "name": "temperature",\n    "address": 0,\n    "type": "holding",\n    "dataType": "float32",\n    "unit": "°C"\n  }\n]'
         };
       case 'can':
         return {
           connection: '{\n  "interface": "can0",\n  "bitrate": 500000,\n  "protocol": "j1939"\n}',
-          registers: '[\n  {\n    "pgn": 61444,\n    "name": "engine_speed",\n    "spn": 190,\n    "type": "uint16",\n    "unit": "rpm"\n  }\n]'
+          dataPoints: '[\n  {\n    "pgn": 61444,\n    "name": "engine_speed",\n    "spn": 190,\n    "type": "uint16",\n    "unit": "rpm"\n  }\n]'
         };
       case 'opcua':
         return {
           connection: '{\n  "endpointUrl": "opc.tcp://192.168.1.50:4840",\n  "securityPolicy": "None",\n  "securityMode": "None"\n}',
-          registers: '[\n  {\n    "nodeId": "ns=2;s=Temperature",\n    "name": "temperature",\n    "type": "Double"\n  }\n]'
+          dataPoints: '[\n  {\n    "nodeId": "ns=2;s=Temperature",\n    "name": "temperature",\n    "type": "Double"\n  }\n]'
         };
     }
   };
@@ -140,14 +145,14 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
   const loadProtocolExample = () => {
     const examples = getProtocolExamples();
     setConnectionJson(examples.connection);
-    setRegistersJson(examples.registers);
+    setDataPointsJson(examples.dataPoints);
   };
 
   const handleClose = () => {
     setDeviceName('');
     setError(null);
     setConnectionJson('{\n  "type": "tcp",\n  "host": "192.168.1.100",\n  "port": 502,\n  "unitId": 1\n}');
-    setRegistersJson('[\n  {\n    "name": "temperature",\n    "address": 0,\n    "type": "holding",\n    "dataType": "float32",\n    "unit": "°C"\n  }\n]');
+    setDataPointsJson('[\n  {\n    "name": "temperature",\n    "address": 0,\n    "type": "holding",\n    "dataType": "float32",\n    "unit": "°C"\n  }\n]');
     onOpenChange(false);
   };
 
@@ -258,19 +263,19 @@ export const AddSensorDialog: React.FC<AddSensorDialogProps> = ({
                   </p>
                 </div>
 
-                {/* Registers/Nodes JSON */}
+                {/* Data Points JSON */}
                 <div className="space-y-2">
-                  <Label htmlFor="registersJson">
-                    {deviceProtocol === 'modbus' && 'Registers Configuration'}
-                    {deviceProtocol === 'can' && 'Messages Configuration'}
-                    {deviceProtocol === 'opcua' && 'Nodes Configuration'}
+                  <Label htmlFor="dataPointsJson">
+                    {deviceProtocol === 'modbus' && 'Data Points (Registers)'}
+                    {deviceProtocol === 'can' && 'Data Points (Messages)'}
+                    {deviceProtocol === 'opcua' && 'Data Points (Nodes)'}
                   </Label>
                   <textarea
-                    id="registersJson"
+                    id="dataPointsJson"
                     className="w-full h-48 p-3 border border-input rounded-md font-mono text-sm bg-background text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                    value={registersJson}
-                    onChange={(e) => setRegistersJson(e.target.value)}
-                    placeholder={`Enter ${deviceProtocol} configuration as JSON array`}
+                    value={dataPointsJson}
+                    onChange={(e) => setDataPointsJson(e.target.value)}
+                    placeholder={`Enter ${deviceProtocol} data points as JSON array`}
                   />
                   <p className="text-xs text-muted-foreground">
                     {deviceProtocol === 'modbus' && 'Example: [{"name": "temperature", "address": 0, "type": "holding", "dataType": "float32"}]'}

@@ -12,7 +12,7 @@ import { ModbusAdapter } from './modbus/modbus-adapter.js';
 import { ModbusAdapterConfig } from './modbus/types.js';
 import { ConfigLoader } from './modbus/config-loader.js';
 
-export interface ProtocolAdaptersConfig extends FeatureConfig {
+export interface SensorConfig extends FeatureConfig {
   modbus?: {
     enabled: boolean;
     configPath?: string;
@@ -28,11 +28,11 @@ export interface ProtocolAdaptersConfig extends FeatureConfig {
   };
 }
 
-export class ProtocolAdaptersFeature extends BaseFeature {
+export class SensorsFeature extends BaseFeature {
   private modbusAdapter?: ModbusAdapter;
 
   constructor(
-    config: ProtocolAdaptersConfig,
+    config: SensorConfig,
     agentLogger: AgentLogger,
     deviceUuid: string
   ) {
@@ -51,17 +51,17 @@ export class ProtocolAdaptersFeature extends BaseFeature {
    */
   protected async onStart(): Promise<void> {
     // Start Modbus adapter if enabled
-    if ((this.config as ProtocolAdaptersConfig).modbus?.enabled) {
+    if ((this.config as SensorConfig).modbus?.enabled) {
       await this.startModbusAdapter();
     }
 
     // TODO: Start CAN adapter when implemented
-    if ((this.config as ProtocolAdaptersConfig).can?.enabled) {
+    if ((this.config as SensorConfig).can?.enabled) {
       this.logger.warn('CAN adapter not yet implemented');
     }
 
     // TODO: Start OPC-UA adapter when implemented
-    if ((this.config as ProtocolAdaptersConfig).opcua?.enabled) {
+    if ((this.config as SensorConfig).opcua?.enabled) {
       this.logger.warn('OPC-UA adapter not yet implemented');
     }
 

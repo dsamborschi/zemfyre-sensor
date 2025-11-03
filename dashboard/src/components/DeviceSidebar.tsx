@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Monitor, Smartphone, Server, Laptop, Search, Plus,Filter, Edit, X } from "lucide-react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
@@ -72,9 +72,39 @@ const statusBadgeColors = {
 };
 
 export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDevice , onSelectDevice }: DeviceSidebarProps) {
+  // Get unique statuses and types from actual devices using useMemo for performance
+  const availableStatuses = useMemo(() => 
+    Array.from(new Set(devices.map(d => d.status))), 
+    [devices]
+  );
+  
+  const availableTypes = useMemo(() => 
+    Array.from(new Set(devices.map(d => d.type))), 
+    [devices]
+  );
+
   const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilters, setStatusFilters] = useState<string[]>(["online", "offline", "warning", "pending"]);
-  const [typeFilters, setTypeFilters] = useState<string[]>(["desktop", "laptop", "mobile", "server", "gateway", "edge-device", "iot-hub", "plc", "controller", "sensor-node", "standalone"]);
+  const [statusFilters, setStatusFilters] = useState<string[]>([]);
+  const [typeFilters, setTypeFilters] = useState<string[]>([]);
+
+  // Initialize filters with all available options when component mounts or devices change
+  useEffect(() => {
+    setStatusFilters(prev => {
+      // Only update if empty or if we have new options
+      if (prev.length === 0) return [...availableStatuses];
+      // Keep existing selections that are still valid, add new ones
+      const stillValid = prev.filter(s => (availableStatuses as string[]).includes(s));
+      const newOnes = availableStatuses.filter(s => !prev.includes(s));
+      return [...stillValid, ...newOnes];
+    });
+    
+    setTypeFilters(prev => {
+      if (prev.length === 0) return [...availableTypes];
+      const stillValid = prev.filter(t => (availableTypes as string[]).includes(t));
+      const newOnes = availableTypes.filter(t => !prev.includes(t));
+      return [...stillValid, ...newOnes];
+    });
+  }, [availableStatuses, availableTypes]);
 
   const toggleStatusFilter = (status: string) => {
     setStatusFilters(prev =>
@@ -96,12 +126,14 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
     return matchesSearch && matchesStatus && matchesType;
   });
 
-  const hasActiveFilters = statusFilters.length < 4 || typeFilters.length < 11 || searchQuery.length > 0;
+  const hasActiveFilters = statusFilters.length < availableStatuses.length || 
+                           typeFilters.length < availableTypes.length || 
+                           searchQuery.length > 0;
 
   const clearFilters = () => {
     setSearchQuery("");
-    setStatusFilters(["online", "offline", "warning", "pending"]);
-    setTypeFilters(["desktop", "laptop", "mobile", "server", "gateway", "edge-device", "iot-hub", "plc", "controller", "sensor-node", "standalone"]);
+    setStatusFilters(availableStatuses);
+    setTypeFilters(availableTypes);
   };
 
   return (
@@ -142,107 +174,46 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
                 <Filter className="w-4 h-4 mr-2" />
                 Filters
                 {hasActiveFilters && (
-                  <Badge className="ml-2 bg-blue-600">Active</Badge>
+                  <Badge className="ml-2 bg-blue-600" variant="secondary">
+                    {statusFilters.map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(', ')}
+                    {statusFilters.length > 0 && typeFilters.length > 0 && ' • '}
+                    {typeFilters.map(t => t.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')).join(', ')}
+                  </Badge>
                 )}
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-56">
               <DropdownMenuLabel>Status</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem
-                checked={statusFilters.includes("online")}
-                onCheckedChange={() => toggleStatusFilter("online")}
-              >
-                Online
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={statusFilters.includes("warning")}
-                onCheckedChange={() => toggleStatusFilter("warning")}
-              >
-                Warning
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={statusFilters.includes("offline")}
-                onCheckedChange={() => toggleStatusFilter("offline")}
-              >
-                Offline
-              </DropdownMenuCheckboxItem>
-
-              <DropdownMenuCheckboxItem
-                checked={statusFilters.includes("pending")}
-                onCheckedChange={() => toggleStatusFilter("pending")}
-              >
-                Pending
-              </DropdownMenuCheckboxItem>
+              {availableStatuses.map(status => (
+                <DropdownMenuCheckboxItem
+                  key={status}
+                  checked={statusFilters.includes(status)}
+                  onCheckedChange={() => toggleStatusFilter(status)}
+                >
+                  {status.charAt(0).toUpperCase() + status.slice(1)}
+                </DropdownMenuCheckboxItem>
+              ))}
               
               <DropdownMenuSeparator />
               
               <DropdownMenuLabel>Device Type</DropdownMenuLabel>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("server")}
-                onCheckedChange={() => toggleTypeFilter("server")}
-              >
-                Server
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("desktop")}
-                onCheckedChange={() => toggleTypeFilter("desktop")}
-              >
-                Desktop
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("laptop")}
-                onCheckedChange={() => toggleTypeFilter("laptop")}
-              >
-                Laptop
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("mobile")}
-                onCheckedChange={() => toggleTypeFilter("mobile")}
-              >
-                Mobile
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("gateway")}
-                onCheckedChange={() => toggleTypeFilter("gateway")}
-              >
-                Gateway
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("edge-device")}
-                onCheckedChange={() => toggleTypeFilter("edge-device")}
-              >
-                Edge Device
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("iot-hub")}
-                onCheckedChange={() => toggleTypeFilter("iot-hub")}
-              >
-                IoT Hub
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("plc")}
-                onCheckedChange={() => toggleTypeFilter("plc")}
-              >
-                PLC
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("controller")}
-                onCheckedChange={() => toggleTypeFilter("controller")}
-              >
-                Controller
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("sensor-node")}
-                onCheckedChange={() => toggleTypeFilter("sensor-node")}
-              >
-                Sensor Node
-              </DropdownMenuCheckboxItem>
-              <DropdownMenuCheckboxItem
-                checked={typeFilters.includes("standalone")}
-                onCheckedChange={() => toggleTypeFilter("standalone")}
-              >
-                Standalone
-              </DropdownMenuCheckboxItem>
+              {availableTypes.map(type => {
+                // Format type labels nicely
+                const label = type
+                  .split('-')
+                  .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+                  .join(' ');
+                
+                return (
+                  <DropdownMenuCheckboxItem
+                    key={type}
+                    checked={typeFilters.includes(type)}
+                    onCheckedChange={() => toggleTypeFilter(type)}
+                  >
+                    {label}
+                  </DropdownMenuCheckboxItem>
+                );
+              })}
             </DropdownMenuContent>
           </DropdownMenu>
 

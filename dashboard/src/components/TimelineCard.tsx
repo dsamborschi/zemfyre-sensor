@@ -6,7 +6,6 @@ import {
   XCircle,
   Circle,
   Clock,
-  Server,
   Wifi,
   WifiOff,
   Info,
@@ -136,77 +135,77 @@ export function TimelineCard({
       case "device":
         if (type === "device.online") {
           return {
-            bg: "bg-green-50",
-            text: "text-green-600",
-            border: "border-green-200",
-            badgeBg: "bg-green-100",
-            badgeText: "text-green-700",
-            badgeBorder: "border-green-200",
+            bg: "bg-green-50 dark:bg-green-950/30",
+            text: "text-green-600 dark:text-green-400",
+            border: "border-green-200 dark:border-green-800",
+            badgeBg: "bg-green-100 dark:bg-green-900/50",
+            badgeText: "text-green-700 dark:text-green-300",
+            badgeBorder: "border-green-200 dark:border-green-800",
           };
         }
         if (type === "device.offline") {
           return {
-            bg: "bg-red-50",
-            text: "text-red-600",
-            border: "border-red-200",
-            badgeBg: "bg-red-100",
-            badgeText: "text-red-700",
-            badgeBorder: "border-red-200",
+            bg: "bg-red-50 dark:bg-red-950/30",
+            text: "text-red-600 dark:text-red-400",
+            border: "border-red-200 dark:border-red-800",
+            badgeBg: "bg-red-100 dark:bg-red-900/50",
+            badgeText: "text-red-700 dark:text-red-300",
+            badgeBorder: "border-red-200 dark:border-red-800",
           };
         }
         return {
-          bg: "bg-blue-50",
-          text: "text-blue-600",
-          border: "border-blue-200",
-          badgeBg: "bg-blue-100",
-          badgeText: "text-blue-700",
-          badgeBorder: "border-blue-200",
+          bg: "bg-blue-50 dark:bg-blue-950/30",
+          text: "text-blue-600 dark:text-blue-400",
+          border: "border-blue-200 dark:border-blue-800",
+          badgeBg: "bg-blue-100 dark:bg-blue-900/50",
+          badgeText: "text-blue-700 dark:text-blue-300",
+          badgeBorder: "border-blue-200 dark:border-blue-800",
         };
       case "container":
       case "application":
         return {
-          bg: "bg-purple-50",
-          text: "text-purple-600",
-          border: "border-purple-200",
-          badgeBg: "bg-purple-100",
-          badgeText: "text-purple-700",
-          badgeBorder: "border-purple-200",
+          bg: "bg-purple-50 dark:bg-purple-950/30",
+          text: "text-purple-600 dark:text-purple-400",
+          border: "border-purple-200 dark:border-purple-800",
+          badgeBg: "bg-purple-100 dark:bg-purple-900/50",
+          badgeText: "text-purple-700 dark:text-purple-300",
+          badgeBorder: "border-purple-200 dark:border-purple-800",
         };
       case "configuration":
         return {
-          bg: "bg-yellow-50",
-          text: "text-yellow-600",
-          border: "border-yellow-200",
-          badgeBg: "bg-yellow-100",
-          badgeText: "text-yellow-700",
-          badgeBorder: "border-yellow-200",
+          bg: "bg-yellow-50 dark:bg-yellow-950/30",
+          text: "text-yellow-600 dark:text-yellow-400",
+          border: "border-yellow-200 dark:border-yellow-800",
+          badgeBg: "bg-yellow-100 dark:bg-yellow-900/50",
+          badgeText: "text-yellow-700 dark:text-yellow-300",
+          badgeBorder: "border-yellow-200 dark:border-yellow-800",
         };
       case "system":
         return {
-          bg: "bg-indigo-50",
-          text: "text-indigo-600",
-          border: "border-indigo-200",
-          badgeBg: "bg-indigo-100",
-          badgeText: "text-indigo-700",
-          badgeBorder: "border-indigo-200",
+          bg: "bg-indigo-50 dark:bg-indigo-950/30",
+          text: "text-indigo-600 dark:text-indigo-400",
+          border: "border-indigo-200 dark:border-indigo-800",
+          badgeBg: "bg-indigo-100 dark:bg-indigo-900/50",
+          badgeText: "text-indigo-700 dark:text-indigo-300",
+          badgeBorder: "border-indigo-200 dark:border-indigo-800",
         };
       case "telemetry":
         return {
-          bg: "bg-teal-50",
-          text: "text-teal-600",
-          border: "border-teal-200",
-          badgeBg: "bg-teal-100",
-          badgeText: "text-teal-700",
-          badgeBorder: "border-teal-200",
+          bg: "bg-teal-50 dark:bg-teal-950/30",
+          text: "text-teal-600 dark:text-teal-400",
+          border: "border-teal-200 dark:border-teal-800",
+          badgeBg: "bg-teal-100 dark:bg-teal-900/50",
+          badgeText: "text-teal-700 dark:text-teal-300",
+          badgeBorder: "border-teal-200 dark:border-teal-800",
         };
       default:
         return {
-          bg: "bg-gray-50",
-          text: "text-gray-600",
-          border: "border-gray-200",
-          badgeBg: "bg-gray-100",
-          badgeText: "text-gray-700",
-          badgeBorder: "border-gray-200",
+          bg: "bg-gray-50 dark:bg-gray-900/50",
+          text: "text-gray-600 dark:text-gray-400",
+          border: "border-gray-200 dark:border-gray-700",
+          badgeBg: "bg-gray-100 dark:bg-gray-800",
+          badgeText: "text-gray-700 dark:text-gray-300",
+          badgeBorder: "border-gray-200 dark:border-gray-700",
         };
     }
   };
@@ -303,19 +302,19 @@ export function TimelineCard({
   return (
     <Card className="flex flex-col h-[600px]">
       {/* Sticky Header */}
-      <div className="flex-shrink-0 bg-white border-b border-gray-200 p-4 md:p-6">
+      <div className="flex-shrink-0 bg-background border-b border-border p-4 md:p-6">
         <div className="flex items-start justify-between">
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 bg-indigo-50 rounded-lg flex items-center justify-center flex-shrink-0">
-              <Clock className="w-5 h-5 text-indigo-600" />
+            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/30 rounded-lg flex items-center justify-center flex-shrink-0">
+              <Clock className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
             </div>
             <div>
-              <h3 className="text-lg text-gray-900 font-medium mb-1">Timeline</h3>
-              <p className="text-sm text-gray-00">
+              <h3 className="text-lg text-foreground font-medium mb-1">Timeline</h3>
+              <p className="text-sm text-muted-foreground">
                 {loading ? "Loading events..." : `Device activity and system events`}
               </p>
               {!loading && lastRefresh && (
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-muted-foreground mt-1">
                   Last updated: {lastRefresh.toLocaleTimeString()}
                 </p>
               )}
@@ -323,7 +322,7 @@ export function TimelineCard({
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             {events.length > 0 && (
-              <Badge variant="outline" className="bg-gray-100 text-gray-700 border-gray-200">
+              <Badge variant="outline" className="bg-muted text-muted-foreground border-border">
                 {events.length} {events.length === 1 ? "event" : "events"}
               </Badge>
             )}
@@ -349,11 +348,11 @@ export function TimelineCard({
         <div className="p-4 md:p-6">
         {error ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mb-3">
-              <XCircle className="w-6 h-6 text-red-400" />
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mb-3">
+              <XCircle className="w-6 h-6 text-red-400 dark:text-red-500" />
             </div>
-            <p className="text-red-600 font-medium">Failed to load events</p>
-            <p className="text-sm text-gray-500 mt-1">{error}</p>
+            <p className="text-red-600 dark:text-red-400 font-medium">Failed to load events</p>
+            <p className="text-sm text-muted-foreground mt-1">{error}</p>
             <Button
               variant="outline"
               size="sm"
@@ -366,83 +365,89 @@ export function TimelineCard({
           </div>
         ) : loading ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-3" />
-            <p className="text-gray-600">Loading events...</p>
+            <Loader2 className="w-8 h-8 text-indigo-600 dark:text-indigo-400 animate-spin mb-3" />
+            <p className="text-muted-foreground">Loading events...</p>
           </div>
         ) : events.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="w-12 h-12 bg-gray-100 rounded-full flex items-center justify-center mb-3">
-              <Info className="w-6 h-6 text-gray-400" />
+            <div className="w-12 h-12 bg-muted rounded-full flex items-center justify-center mb-3">
+              <Info className="w-6 h-6 text-muted-foreground" />
             </div>
-            <p className="text-gray-600">No events to display</p>
-            <p className="text-sm text-gray-500 mt-1">Events will appear here as they occur</p>
+            <p className="text-foreground">No events to display</p>
+            <p className="text-sm text-muted-foreground mt-1">Events will appear here as they occur</p>
           </div>
         ) : (
-          <div className="relative">
-            {/* Timeline line */}
-            <div className="absolute left-5 top-0 bottom-0 w-0.5 bg-gray-200" />
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-border">
+                  <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Timestamp</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Category</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Event</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm text-foreground">Description</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm text-foreground hidden lg:table-cell">Details</th>
+                  <th className="text-left py-3 px-4 font-semibold text-sm text-foreground hidden xl:table-cell">Event ID</th>
+                </tr>
+              </thead>
+              <tbody>
+                {events.map((event) => {
+                  const colors = getEventColor(event.type, event.category);
+                  const timestamp = getEventTimestamp(event);
+                  const details = renderEventDetails(event);
 
-            {/* Events */}
-            <div className="space-y-6">
-              {events.map((event, index) => {
-                const colors = getEventColor(event.type, event.category);
-                const timestamp = getEventTimestamp(event);
-                const details = renderEventDetails(event);
-
-                return (
-                  <div key={event.id} className="relative pl-12">
-                    {/* Timeline dot */}
-            
-
-                    {/* Event card */}
-                    <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm hover:shadow-md transition-shadow">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h4 className="text-gray-900 mb-1">{event.title}</h4>
-                          {event.description && (
-                            <p className="text-gray-600">{event.description}</p>
-                          )}
-                        </div>
+                  return (
+                    <tr key={event.id} className="border-b border-border last:border-0 hover:bg-muted">
+                      <td className="py-3 px-4 text-muted-foreground whitespace-nowrap">
+                        {timestamp ? formatDate(timestamp) : '-'}
+                      </td>
+                      <td className="py-3 px-4">
                         <Badge
                           variant="outline"
-                          className={`${colors.badgeBg} ${colors.badgeText} ${colors.badgeBorder} ml-2`}
+                          className={`${colors.badgeBg} ${colors.badgeText} ${colors.badgeBorder}`}
                         >
                           {event.category}
                         </Badge>
-                      </div>
-
-                      {timestamp && (
-                        <div className="flex items-center gap-2 text-gray-500 mb-3">
-                          <Clock className="w-3.5 h-3.5" />
-                          <span className="text-sm">{formatDate(timestamp)}</span>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-2">
+                          <div className={`${colors.text}`}>
+                            {getEventIcon(event.type)}
+                          </div>
+                          <span className="font-medium text-foreground">{event.title}</span>
                         </div>
-                      )}
-
-                      {details.length > 0 && (
-                        <div className="space-y-2 pt-3 border-t border-gray-100">
-                          {details.map((detail, idx) => (
-                            <div
-                              key={idx}
-                              className="flex items-center justify-between text-sm"
-                            >
-                              <span className="text-gray-600">{detail.label}</span>
-                              <span className="text-gray-900">{detail.value}</span>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Event ID */}
-                      <div className="mt-3 pt-3 border-t border-gray-100">
-                        <p className="text-xs text-gray-500">
-                          Event ID: {event.event_id}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+                      </td>
+                      <td className="py-3 px-4 text-foreground max-w-md">
+                        {event.description || '-'}
+                      </td>
+                      <td className="py-3 px-4 hidden lg:table-cell">
+                        {details.length > 0 ? (
+                          <div className="space-y-1">
+                            {details.slice(0, 3).map((detail, idx) => (
+                              <div key={idx} className="text-xs">
+                                <span className="text-muted-foreground">{detail.label}:</span>{' '}
+                                <span className="text-foreground">{detail.value}</span>
+                              </div>
+                            ))}
+                            {details.length > 3 && (
+                              <div className="text-xs text-muted-foreground">
+                                +{details.length - 3} more
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-muted-foreground">-</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 hidden xl:table-cell">
+                        <code className="text-xs font-mono text-muted-foreground">
+                          {event.event_id}
+                        </code>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
         </div>

@@ -59,7 +59,7 @@ interface DeviceConfig {
     stateReportIntervalMs?: number;
     deviceReportIntervalMs?: number;
   };
-  protocolAdapterDevices?: Array<{
+  sensors?: Array<{
     name: string;
     enabled: boolean;
     protocol: string;
@@ -125,6 +125,11 @@ interface DeviceStateContextValue {
   // Config modifiers (device-level configuration)
   updatePendingConfig: (deviceUuid: string, path: string, value: any) => void;
   resetPendingConfig: (deviceUuid: string) => void;
+  
+  // Sensor modifiers (protocol adapter devices in config)
+  addPendingSensor: (deviceUuid: string, sensor: any) => void;
+  updatePendingSensor: (deviceUuid: string, sensorName: string, updates: any) => void;
+  removePendingSensor: (deviceUuid: string, sensorName: string) => void;
   
   // State sync actions (hits API)
   fetchDeviceState: (deviceUuid: string) => Promise<void>;
@@ -399,6 +404,108 @@ export function DeviceStateProvider({ children }: { children: ReactNode }) {
     });
   }, []);
   
+  // Add sensor to config (local only - matches app pattern)
+  const addPendingSensor = useCallback((deviceUuid: string, sensor: any) => {
+    setDeviceStates(prev => {
+      const deviceState = prev[deviceUuid];
+      if (!deviceState) return prev;
+      
+      // Start with target state if no pending changes
+      const currentPending = deviceState.pendingChanges || {
+        apps: { ...deviceState.targetState?.apps },
+        config: { ...deviceState.targetState?.config }
+      };
+      
+      // Generate unique ID for sensor (UUID v4)
+      // This ID persists through: draft → saved → deployed states
+      const sensorWithId = {
+        ...sensor,
+        id: sensor.id || crypto.randomUUID() // Use existing ID or generate new one
+      };
+      
+      // Add sensor to sensors array
+      const updatedConfig = { ...currentPending.config };
+      const existingDevices = updatedConfig.sensors || [];
+      updatedConfig.sensors = [...existingDevices, sensorWithId];
+      
+      return {
+        ...prev,
+        [deviceUuid]: {
+          ...deviceState,
+          pendingChanges: {
+            ...currentPending,
+            config: updatedConfig
+          },
+          isDirty: true
+        }
+      };
+    });
+  }, []);
+  
+  // Update sensor in config (local only)
+  const updatePendingSensor = useCallback((deviceUuid: string, sensorName: string, updates: any) => {
+    setDeviceStates(prev => {
+      const deviceState = prev[deviceUuid];
+      if (!deviceState) return prev;
+      
+      // Start with target state if no pending changes
+      const currentPending = deviceState.pendingChanges || {
+        apps: { ...deviceState.targetState?.apps },
+        config: { ...deviceState.targetState?.config }
+      };
+      
+      // Update sensor in sensors array
+      const updatedConfig = { ...currentPending.config };
+      const existingDevices = updatedConfig.sensors || [];
+      updatedConfig.sensors = existingDevices.map((device: any) =>
+        device.name === sensorName ? { ...device, ...updates } : device
+      );
+      
+      return {
+        ...prev,
+        [deviceUuid]: {
+          ...deviceState,
+          pendingChanges: {
+            ...currentPending,
+            config: updatedConfig
+          },
+          isDirty: true
+        }
+      };
+    });
+  }, []);
+  
+  // Remove sensor from config (local only)
+  const removePendingSensor = useCallback((deviceUuid: string, sensorName: string) => {
+    setDeviceStates(prev => {
+      const deviceState = prev[deviceUuid];
+      if (!deviceState) return prev;
+      
+      // Start with target state if no pending changes
+      const currentPending = deviceState.pendingChanges || {
+        apps: { ...deviceState.targetState?.apps },
+        config: { ...deviceState.targetState?.config }
+      };
+      
+      // Remove sensor from sensors array
+      const updatedConfig = { ...currentPending.config };
+      const existingDevices = updatedConfig.sensors || [];
+      updatedConfig.sensors = existingDevices.filter((device: any) => device.name !== sensorName);
+      
+      return {
+        ...prev,
+        [deviceUuid]: {
+          ...deviceState,
+          pendingChanges: {
+            ...currentPending,
+            config: updatedConfig
+          },
+          isDirty: true
+        }
+      };
+    });
+  }, []);
+  
   // Save to device_target_state (doesn't mark for deployment yet)
   const saveTargetState = useCallback(async (deviceUuid: string) => {
     const deviceState = deviceStates[deviceUuid];
@@ -458,7 +565,7 @@ export function DeviceStateProvider({ children }: { children: ReactNode }) {
     }));
     
     try {
-      // Call /deploy endpoint - increments version, sets needs_deployment = false
+      // Call global deploy endpoint - increments version, syncs sensors to table with deployment_status='pending'
       const response = await fetch(buildApiUrl(`/api/v1/devices/${deviceUuid}/deploy`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -597,6 +704,9 @@ export function DeviceStateProvider({ children }: { children: ReactNode }) {
     removePendingApp,
     updatePendingConfig,
     resetPendingConfig,
+    addPendingSensor,
+    updatePendingSensor,
+    removePendingSensor,
     fetchDeviceState,
     saveTargetState,
     syncTargetState,

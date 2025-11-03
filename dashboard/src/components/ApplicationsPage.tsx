@@ -31,6 +31,7 @@ export function ApplicationsPage({
       ...s,
       appId: app.appId,
       appName: app.appName,
+      name: s.serviceName, // Add name field for ContainerLogsCard
       status: s.state as "running" | "stopped" | "paused" | undefined,
       config: {
         image: s.imageName,

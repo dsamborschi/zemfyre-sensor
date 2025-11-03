@@ -56,8 +56,9 @@ const mqtt_monitor_1 = __importDefault(require("./routes/mqtt-monitor"));
 const events_1 = __importDefault(require("./routes/events"));
 const mqtt_broker_1 = __importDefault(require("./routes/mqtt-broker"));
 const sensors_1 = __importDefault(require("./routes/sensors"));
-const protocol_devices_1 = require("./routes/protocol-devices");
+const device_sensors_1 = require("./routes/device-sensors");
 const traffic_1 = require("./routes/traffic");
+const housekeeper_1 = __importStar(require("./routes/housekeeper"));
 const traffic_logger_1 = require("./middleware/traffic-logger");
 const traffic_flush_service_1 = require("./services/traffic-flush-service");
 const entities_1 = require("./routes/entities");
@@ -69,24 +70,26 @@ const connection_1 = __importDefault(require("./db/connection"));
 const mqtt_1 = require("./mqtt");
 const rotation_scheduler_1 = require("./services/rotation-scheduler");
 const shadow_retention_1 = require("./services/shadow-retention");
-const housekeeper_1 = require("./housekeeper");
+const housekeeper_2 = require("./housekeeper");
 const mqtt_monitor_2 = require("./routes/mqtt-monitor");
 const mqtt_monitor_3 = require("./services/mqtt-monitor");
 const mqtt_database_service_1 = require("./services/mqtt-database-service");
 const license_validator_1 = require("./services/license-validator");
 const license_1 = __importDefault(require("./routes/license"));
 const billing_1 = __importDefault(require("./routes/billing"));
+const websocket_manager_1 = require("./services/websocket-manager");
 const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE = `/api/${API_VERSION}`;
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3002;
-const housekeeper = (0, housekeeper_1.createHousekeeper)();
+const housekeeper = (0, housekeeper_2.createHousekeeper)();
 app.use((0, cors_1.default)({
-    origin: ['http://localhost:5173', 'http://localhost:3000', 'http://localhost:4002'],
+    origin: ['http://localhost:5173', 'http://localhost:3001', 'http://localhost:3000', 'http://localhost:4002'],
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Device-API-Key']
 }));
+app.options('*', (0, cors_1.default)());
 app.use(express_1.default.json({
     limit: '10mb',
     inflate: true
@@ -147,8 +150,9 @@ app.use(`${API_BASE}/mqtt-monitor`, mqtt_monitor_1.default);
 app.use(API_BASE, events_1.default);
 app.use(`${API_BASE}/mqtt`, mqtt_broker_1.default);
 app.use(API_BASE, sensors_1.default);
-app.use(API_BASE, protocol_devices_1.router);
+app.use(API_BASE, device_sensors_1.router);
 app.use(API_BASE, traffic_1.router);
+app.use(`${API_BASE}/housekeeper`, housekeeper_1.default);
 app.use(`${API_BASE}/entities`, (0, entities_1.createEntitiesRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/relationships`, (0, relationships_1.createRelationshipsRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/graph`, (0, graph_1.createGraphRouter)(connection_1.default.pool));
@@ -217,6 +221,7 @@ async function startServer() {
     }
     try {
         await housekeeper.initialize();
+        (0, housekeeper_1.setHousekeeperInstance)(housekeeper);
     }
     catch (error) {
         console.error('⚠️  Failed to start housekeeper:', error);
@@ -250,13 +255,6 @@ async function startServer() {
     catch (error) {
         console.error('⚠️  Failed to start rotation schedulers:', error);
     }
-    try {
-        (0, shadow_retention_1.startRetentionScheduler)();
-        console.log('✅ Shadow history retention scheduler started');
-    }
-    catch (error) {
-        console.error('⚠️  Failed to start retention scheduler:', error);
-    }
     let mqttDbService = null;
     if (process.env.MQTT_MONITOR_ENABLED !== 'false') {
         try {
@@ -286,6 +284,7 @@ async function startServer() {
             });
             await mqttMonitor.start();
             (0, mqtt_monitor_2.setMonitorInstance)(mqttMonitor, mqttDbService);
+            websocket_manager_1.websocketManager.setMqttMonitor(mqttMonitor);
             console.log('✅ MQTT Monitor Service started');
         }
         catch (error) {
@@ -302,8 +301,21 @@ async function startServer() {
         console.log(`Server running on http://localhost:${PORT}`);
         console.log('='.repeat(80) + '\n');
     });
+    try {
+        websocket_manager_1.websocketManager.initialize(server);
+        console.log('✅ WebSocket Server initialized (available at ws://localhost:' + PORT + '/ws)');
+    }
+    catch (error) {
+        console.error('⚠️  Failed to initialize WebSocket server:', error);
+    }
     process.on('SIGTERM', async () => {
         console.log('\nSIGTERM received, shutting down gracefully...');
+        try {
+            websocket_manager_1.websocketManager.shutdown();
+            console.log('✅ WebSocket Server stopped');
+        }
+        catch (error) {
+        }
         try {
             if (mqttMonitor) {
                 await mqttMonitor.stop();
@@ -370,6 +382,12 @@ async function startServer() {
     });
     process.on('SIGINT', async () => {
         console.log('\nSIGINT received, shutting down gracefully...');
+        try {
+            websocket_manager_1.websocketManager.shutdown();
+            console.log('✅ WebSocket Server stopped');
+        }
+        catch (error) {
+        }
         try {
             if (mqttMonitor) {
                 await mqttMonitor.stop();
