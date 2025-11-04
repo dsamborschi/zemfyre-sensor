@@ -28,6 +28,7 @@ COPY package*.json package-lock.json ./
 # Install only production deps, then remove build tools in same layer
 RUN apt-get update \
     && apt-get install -y python3 make g++ curl jq procps \
+    && apt-get install -y openvpn iproute2 iptables net-tools iputils-ping \
     && npm ci --omit=dev --legacy-peer-deps \
     && apt-get purge -y --auto-remove python3 make g++ \
     && rm -rf /var/lib/apt/lists/*
@@ -35,10 +36,13 @@ RUN apt-get update \
 # Copy built app
 COPY --from=builder /app/dist ./dist
 
-# Data volume
-RUN mkdir -p /app/data
+# Data volume for persistent storage
+RUN mkdir -p /app/data/vpn
 VOLUME ["/app/data"]
 
+# Set capabilities for OpenVPN (if running with appropriate Docker/K8s setup)
+# Note: These capabilities must be granted at runtime by Docker/Kubernetes
+# RUN setcap cap_net_admin+ep /usr/sbin/openvpn (requires privileged container)
 
 EXPOSE 3002
 
