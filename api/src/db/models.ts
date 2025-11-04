@@ -523,7 +523,7 @@ export class DeviceLogsModel {
       paramIndex++;
     }
 
-    sql += ' ORDER BY timestamp ASC';
+    sql += ' ORDER BY timestamp DESC';
 
     if (options.limit) {
       sql += ` LIMIT $${paramIndex}`;

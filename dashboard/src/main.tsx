@@ -5,12 +5,15 @@
   import "./index.css";
   import { ThemeProvider } from "./components/theme-provider";
   import { DeviceStateProvider } from "./contexts/DeviceStateContext";
+  import { AuthProvider } from "./contexts/AuthContext";
 
   createRoot(document.getElementById("root")!).render(
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-      <DeviceStateProvider>
-        <App />
-      </DeviceStateProvider>
+      <AuthProvider>
+        <DeviceStateProvider>
+          <App />
+        </DeviceStateProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
   

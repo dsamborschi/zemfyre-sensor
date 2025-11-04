@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server as HTTPServer } from 'http';
 import { URLSearchParams } from 'url';
-import { DeviceModel, DeviceMetricsModel } from '../db/models';
+import { DeviceModel, DeviceMetricsModel, DeviceLogsModel } from '../db/models';
 import poolWrapper from '../db/connection';
 
 interface WebSocketClient {
@@ -9,6 +9,7 @@ interface WebSocketClient {
   deviceUuid: string | null; // null for global connections (e.g., MQTT stats)
   subscriptions: Set<string>;
   intervals: Map<string, NodeJS.Timeout>;
+  serviceName?: string; // For logs channel - which service to stream logs for
 }
 
 interface WebSocketMessage {
@@ -18,6 +19,7 @@ interface WebSocketMessage {
   data?: any;
   timestamp?: string;
   message?: string;
+  serviceName?: string; // For logs channel - which service to filter logs by
 }
 
 export class WebSocketManager {
@@ -233,6 +235,10 @@ export class WebSocketManager {
     switch (message.type) {
       case 'subscribe':
         if (message.channel) {
+          // For logs channel, store serviceName for filtering
+          if (message.channel === 'logs' && message.serviceName) {
+            client.serviceName = message.serviceName;
+          }
           this.handleSubscribe(client, message.channel);
         }
         break;
@@ -330,6 +336,9 @@ export class WebSocketManager {
         break;
       case 'network-interfaces':
         intervalTime = 30000; // 30 seconds
+        break;
+      case 'logs':
+        intervalTime = 2000; // 2 seconds for real-time logs
         break;
       default:
         console.warn(`[WebSocket] Unknown channel: ${channel}`);
@@ -515,6 +524,29 @@ export class WebSocketManager {
     try {
       let data: any;
 
+      // For logs channel, send data to each client individually based on their serviceName filter
+      if (channel === 'logs') {
+        const deviceClients = this.deviceClients.get(deviceUuid);
+        if (deviceClients) {
+          for (const ws of deviceClients) {
+            const client = this.clients.get(ws);
+            if (client?.subscriptions.has('logs')) {
+              const logsData = await this.fetchLogs(deviceUuid, client.serviceName);
+              if (logsData) {
+                this.send(ws, {
+                  type: 'logs',
+                  deviceUuid,
+                  data: logsData,
+                  timestamp: new Date().toISOString(),
+                });
+              }
+            }
+          }
+        }
+        return;
+      }
+
+      // For other channels, fetch once and broadcast to all
       switch (channel) {
         case 'system-info':
           data = await this.fetchSystemInfo(deviceUuid);
@@ -681,6 +713,24 @@ export class WebSocketManager {
       return { interfaces };
     } catch (error) {
       console.error('[WebSocket] Error fetching network interfaces:', error);
+      return null;
+    }
+  }
+
+  private async fetchLogs(deviceUuid: string, serviceName?: string): Promise<any> {
+    try {
+      // Fetch latest logs (limit to 50 per poll to avoid overwhelming the client)
+      const logs = await DeviceLogsModel.get(deviceUuid, {
+        serviceName,
+        limit: 50,
+        offset: 0,
+      });
+
+      console.log(`[WebSocket] Fetched ${logs.length} log entries for device ${deviceUuid}${serviceName ? ` service ${serviceName}` : ''}`);
+
+      return { logs };
+    } catch (error) {
+      console.error('[WebSocket] Error fetching logs:', error);
       return null;
     }
   }

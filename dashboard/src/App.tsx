@@ -15,20 +15,29 @@ import { Toaster } from "./components/ui/sonner";
 import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock, Package, TrendingUp, LineChart, Shield, Settings } from "lucide-react";
+import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock, Package, TrendingUp, LineChart, Shield, Settings, FileText } from "lucide-react";
 import { buildApiUrl } from "./config/api";
 import { SensorHealthDashboard } from "./pages/SensorHealthDashboard";
 import { SensorsPage } from "./pages/SensorsPage";
 import HousekeeperPage from "./pages/HousekeeperPage";
 import DeviceSettingsPage from "./pages/DeviceSettingsPage";
 import AccountPage from "./pages/AccountPage";
+import { LogsPage } from "./pages/LogsPage";
+import { ProfilePage } from "./pages/ProfilePage";
+import { CustomDashboardPage } from "./pages/CustomDashboardPage";
+import { GlobalDashboardPage } from "./pages/GlobalDashboardPage";
 
 import { toast } from "sonner";
 import { Header } from "./components/Header";
 import { useDeviceState } from "./contexts/DeviceStateContext";
+import { useAuth } from "./contexts/AuthContext";
+import { LoginPage } from "./pages/LoginPage";
+import { UserManagementPage } from "./pages/UserManagementPage";
 
 // Initialize API traffic tracking
 import "./lib/apiInterceptor";
+// Initialize auth interceptor
+import "./lib/authInterceptor";
 
 // Initial mock applications for each device
 
@@ -36,9 +45,9 @@ export default function App() {
   // Device state context
   const { fetchDeviceState } = useDeviceState();
   
-  const [isAuthenticated, setIsAuthenticated] = useState(true);
-  const [userEmail, setUserEmail] = useState("");
-  const [userName, setUserName] = useState("");
+  // Auth context
+  const { user, isAuthenticated, isLoading: isAuthLoading, login, logout } = useAuth();
+  
   // Initialize selectedDeviceId from localStorage if available
   const [selectedDeviceId, setSelectedDeviceId] = useState(() => {
     return localStorage.getItem('selectedDeviceId') || "";
@@ -50,7 +59,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security' | 'maintenance' | 'settings' | 'account'>('metrics');
+  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security' | 'maintenance' | 'logs' | 'settings' | 'account' | 'users' | 'profile' | 'custom-dashboard' | 'global-dashboard'>('global-dashboard');
   const [debugMode, setDebugMode] = useState(false);
   
   // Memoize selected device to prevent unnecessary re-renders
@@ -319,9 +328,11 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    setIsAuthenticated(false);
-    setUserEmail("");
-    setUserName("");
+    logout();
+  };
+
+  const handleLogin = (accessToken: string, refreshToken: string, userData: any) => {
+    login(accessToken, refreshToken, userData);
   };
 
   const handleSelectDevice = (deviceId: string) => {
@@ -338,15 +349,27 @@ export default function App() {
   // Disabled mock simulation - using real data from API only
   // Real device metrics are fetched every 30 seconds from /api/v1/devices
 
+  // Show loading while checking auth
+  if (isAuthLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Show login page if not authenticated
-  // if (!isAuthenticated) {
-  //   return (
-  //     <>
-  //       <LoginPage onLogin={handleLogin} />
-  //       <Toaster />
-  //     </>
-  //   );
-  // }
+  if (!isAuthenticated) {
+    return (
+      <>
+        <LoginPage onLogin={handleLogin} />
+        <Toaster />
+      </>
+    );
+  }
 
   return (
 
@@ -356,10 +379,13 @@ export default function App() {
       <Header 
         isAuthenticated={isAuthenticated}
         onLogout={handleLogout}
-        userEmail={userEmail}
-        userName={userName}
+        userEmail={user?.email || ''}
+        userName={user?.username || ''}
         deviceUuid={selectedDevice?.deviceUuid}
         onAccountClick={() => setCurrentView('account')}
+        onUsersClick={() => setCurrentView('users')}
+        onProfileClick={() => setCurrentView('profile')}
+        userRole={user?.role || 'viewer'}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -426,7 +452,23 @@ export default function App() {
           </div>
 
           {/* View Toggle Buttons */}
-          <div className="bg-card border-b border-border px-6 py-3 flex gap-2">
+          <div className="bg-card border-b border-border px-6 py-3 flex gap-2 overflow-x-auto">
+            <Button
+              variant={currentView === 'global-dashboard' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('global-dashboard')}
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Global Dashboard
+            </Button>
+            <Button
+              variant={currentView === 'custom-dashboard' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('custom-dashboard')}
+            >
+              <BarChart3 className="w-4 h-4 mr-2" />
+              Device Dashboard
+            </Button>
             <Button
               variant={currentView === 'metrics' ? 'default' : 'outline'}
               size="sm"
@@ -508,6 +550,14 @@ export default function App() {
               Housekeeping
             </Button>
             <Button
+              variant={currentView === 'logs' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('logs')}
+            >
+              <FileText className="w-4 h-4 mr-2" />
+              Logs
+            </Button>
+            <Button
               variant={currentView === 'settings' ? 'default' : 'outline'}
               size="sm"
               onClick={() => setCurrentView('settings')}
@@ -518,6 +568,18 @@ export default function App() {
           </div>
 
           {/* Conditional Content */}
+          {currentView === 'global-dashboard' && (
+            <GlobalDashboardPage 
+              devices={devices} 
+              onDeviceSelect={(device) => {
+                setSelectedDeviceId(device.id);
+                setCurrentView('custom-dashboard');
+              }} 
+            />
+          )}
+          {currentView === 'custom-dashboard' && (
+            <CustomDashboardPage device={selectedDevice} />
+          )}
           {currentView === 'metrics' && (
             <SystemMetrics
               device={selectedDevice}
@@ -562,11 +624,22 @@ export default function App() {
           {currentView === 'maintenance' && (
             <HousekeeperPage />
           )}
+          {currentView === 'logs' && (
+            <div className="flex-1 bg-background overflow-auto p-6">
+              <LogsPage deviceUuid={selectedDevice.deviceUuid} />
+            </div>
+          )}
           {currentView === 'settings' && (
             <DeviceSettingsPage deviceUuid={selectedDevice.deviceUuid} />
           )}
           {currentView === 'account' && (
             <AccountPage />
+          )}
+          {currentView === 'users' && (
+            <UserManagementPage />
+          )}
+          {currentView === 'profile' && (
+            <ProfilePage />
           )}
             </>
           )}

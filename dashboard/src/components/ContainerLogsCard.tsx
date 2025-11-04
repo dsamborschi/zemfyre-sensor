@@ -13,8 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Terminal, RefreshCw, Download } from "lucide-react";
-import { buildApiUrl } from "@/config/api";
+import { Terminal, RefreshCw, Download, Pause, Play } from "lucide-react";
 
 interface LogEntry {
   id?: number;
@@ -66,7 +65,9 @@ export function ContainerLogsCard({ deviceUuid, applications }: ContainerLogsCar
   const [selectedContainer, setSelectedContainer] = useState<string>("");
   const [isLoading, setIsLoading] = useState(false);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [isPaused, setIsPaused] = useState(false);
   const logContainerRef = useRef<HTMLDivElement>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
   // Build container options from applications
   const containerOptions: ContainerOption[] = applications.flatMap(app => 
@@ -84,37 +85,122 @@ export function ContainerLogsCard({ deviceUuid, applications }: ContainerLogsCar
     }
   }, [containerOptions, selectedContainer]);
 
-  // Fetch logs
-  const fetchLogs = async () => {
-    if (!selectedContainer) return;
+  // WebSocket connection for real-time log streaming
+  useEffect(() => {
+    if (!selectedContainer || !deviceUuid) return;
 
     setIsLoading(true);
-    try {
-      const response = await fetch(
-        buildApiUrl(`/api/v1/devices/${deviceUuid}/logs?service=${selectedContainer}&limit=200`)
-      );
-      
-      if (response.ok) {
-        const data = await response.json();
-        setLogs(data.logs || []);
-      } else {
-        console.error('Failed to fetch logs:', response.status);
-      }
-    } catch (error) {
-      console.error('Error fetching logs:', error);
-    } finally {
+    
+    // Determine WebSocket protocol based on current protocol
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    const wsHost = window.location.hostname;
+    const wsPort = import.meta.env.VITE_API_PORT || '4002';
+    const wsUrl = `${wsProtocol}//${wsHost}:${wsPort}/ws?deviceUuid=${deviceUuid}`;
+
+    console.log('[ContainerLogs] Connecting to WebSocket:', wsUrl);
+    const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
+
+    ws.onopen = () => {
+      console.log('[ContainerLogs] WebSocket connected');
+      // Subscribe to logs channel with serviceName filter
+      ws.send(JSON.stringify({
+        type: 'subscribe',
+        channel: 'logs',
+        serviceName: selectedContainer,
+      }));
       setIsLoading(false);
-    }
+    };
+
+    ws.onmessage = (event) => {
+      try {
+        const message = JSON.parse(event.data);
+        
+        if (message.type === 'logs' && message.data?.logs) {
+          console.log('[ContainerLogs] Received logs:', message.data.logs.length);
+          
+          // Only update logs if not paused
+          setLogs(prev => {
+            // If paused, ignore new logs
+            if (isPaused) {
+              console.log('[ContainerLogs] Logs paused - ignoring updates');
+              return prev;
+            }
+            
+            // Append new logs and keep last 200
+            const combined = [...prev, ...message.data.logs];
+            // Remove duplicates by id, keeping newest
+            const unique = Array.from(
+              new Map(combined.map(log => [log.id || log.timestamp, log])).values()
+            );
+            return unique.slice(-200);
+          });
+        } else if (message.type === 'connected') {
+          console.log('[ContainerLogs] Connection acknowledged');
+        }
+      } catch (error) {
+        console.error('[ContainerLogs] Error parsing WebSocket message:', error);
+      }
+    };
+
+    ws.onerror = (error) => {
+      console.error('[ContainerLogs] WebSocket error:', error);
+      setIsLoading(false);
+    };
+
+    ws.onclose = () => {
+      console.log('[ContainerLogs] WebSocket disconnected');
+      setIsLoading(false);
+    };
+
+    // Cleanup on unmount or when selectedContainer changes
+    return () => {
+      if (ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({
+          type: 'unsubscribe',
+          channel: 'logs',
+        }));
+      }
+      ws.close();
+      wsRef.current = null;
+    };
+  }, [selectedContainer, deviceUuid]);
+
+  // Manual refresh handler - clears logs and reconnects
+  const handleRefresh = () => {
+    setLogs([]);
+    setIsLoading(true);
+    // The WebSocket effect will reconnect automatically
   };
 
-  // Fetch logs on mount and when container changes
-  useEffect(() => {
-    fetchLogs();
-    
-    // Refresh every 5 seconds
-    const interval = setInterval(fetchLogs, 5000);
-    return () => clearInterval(interval);
-  }, [selectedContainer, deviceUuid]);
+  // Toggle pause/resume log streaming
+  const handleTogglePause = () => {
+    setIsPaused(prev => {
+      const newPauseState = !prev;
+      
+      // Send pause/resume message to backend
+      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        if (newPauseState) {
+          // Pause: unsubscribe from logs
+          console.log('[ContainerLogs] Pausing log stream');
+          wsRef.current.send(JSON.stringify({
+            type: 'unsubscribe',
+            channel: 'logs',
+          }));
+        } else {
+          // Resume: resubscribe to logs
+          console.log('[ContainerLogs] Resuming log stream');
+          wsRef.current.send(JSON.stringify({
+            type: 'subscribe',
+            channel: 'logs',
+            serviceName: selectedContainer,
+          }));
+        }
+      }
+      
+      return newPauseState;
+    });
+  };
 
   // Auto-scroll to bottom when new logs arrive
   useEffect(() => {
@@ -123,23 +209,9 @@ export function ContainerLogsCard({ deviceUuid, applications }: ContainerLogsCar
     }
   }, [logs, autoScroll]);
 
-  // Format timestamp
-  const formatTimestamp = (timestamp: string) => {
-    const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { 
-      hour12: false,
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      fractionalSecondDigits: 3,
-    });
-  };
-
-  // Download logs
+  // Download logs (container logs already have timestamps in the message)
   const downloadLogs = () => {
-    const logText = logs.map(log => 
-      `[${formatTimestamp(log.timestamp)}] ${log.message}`
-    ).join('\n');
+    const logText = logs.map(log => log.message).join('\n');
     
     const blob = new Blob([logText], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
@@ -149,8 +221,6 @@ export function ContainerLogsCard({ deviceUuid, applications }: ContainerLogsCar
     a.click();
     URL.revokeObjectURL(url);
   };
-
-  const selectedOption = containerOptions.find(opt => opt.serviceName === selectedContainer);
 
   return (
     <Card className="border-2">
@@ -181,7 +251,26 @@ export function ContainerLogsCard({ deviceUuid, applications }: ContainerLogsCar
             <Button
               variant="outline"
               size="sm"
-              onClick={fetchLogs}
+              onClick={handleTogglePause}
+              className={isPaused ? 'bg-yellow-50 border-yellow-200' : ''}
+            >
+              {isPaused ? (
+                <>
+                  <Play className="h-4 w-4 mr-1" />
+                  Resume
+                </>
+              ) : (
+                <>
+                  <Pause className="h-4 w-4 mr-1" />
+                  Pause
+                </>
+              )}
+            </Button>
+            
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleRefresh}
               disabled={isLoading}
             >
               <RefreshCw className={`h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -218,14 +307,6 @@ export function ContainerLogsCard({ deviceUuid, applications }: ContainerLogsCar
               )}
             </SelectContent>
           </Select>
-          
-          {selectedOption && (
-            <div className="flex items-center gap-2">
-              <Badge className="bg-blue-100 dark:bg-blue-900 text-blue-900 dark:text-blue-100 border border-blue-200 dark:border-blue-800">
-                {logs.length} lines
-              </Badge>
-            </div>
-          )}
         </div>
       </CardHeader>
 
@@ -285,14 +366,11 @@ export function ContainerLogsCard({ deviceUuid, applications }: ContainerLogsCar
                 className="mb-1 hover:bg-gray-800 px-2 py-0.5 rounded"
                 style={{ color: '#fff' }}
               >
-                <span className="select-none" style={{ color: '#9ca3af' }}>
-                  [{formatTimestamp(log.timestamp)}]
-                </span>
                 {levelBadge}
                 {log.is_system && (
                   <span className="ml-2 font-semibold" style={{ color: '#a78bfa' }}>SYSTEM</span>
                 )}
-                <span className="ml-2" style={{ color: messageColor }}>
+                <span className={levelBadge || log.is_system ? "ml-2" : ""} style={{ color: messageColor }}>
                   {log.message}
                 </span>
               </div>

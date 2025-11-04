@@ -9,6 +9,8 @@ import cors from 'cors';
 import authRoutes from './routes/auth';
 import usersRoutes from './routes/users';
 import deviceStateRoutes from './routes/device-state';
+import deviceLogsRoutes from './routes/device-logs';
+import deviceMetricsRoutes from './routes/device-metrics';
 import provisioningRoutes from './routes/provisioning';
 import devicesRoutes from './routes/devices';
 import adminRoutes from './routes/admin';
@@ -27,6 +29,7 @@ import sensorsRoutes from './routes/sensors';
 import { router as protocolDevicesRoutes } from './routes/device-sensors';
 import { router as trafficRoutes } from './routes/traffic';
 import housekeeperRoutes, { setHousekeeperInstance } from './routes/housekeeper';
+import dashboardLayoutsRoutes from './routes/dashboard-layouts';
 import { trafficLogger} from "./middleware/traffic-logger";
 import { startTrafficFlushService, stopTrafficFlushService } from './services/traffic-flush-service';
 // Import entity/graph routes
@@ -136,6 +139,8 @@ app.use(API_BASE, devicesRoutes);
 app.use(API_BASE, adminRoutes);
 app.use(API_BASE, appsRoutes);
 app.use(API_BASE, deviceStateRoutes);
+app.use(API_BASE, deviceLogsRoutes);
+app.use(API_BASE, deviceMetricsRoutes);
 app.use(`${API_BASE}/webhooks`, webhookRoutes);
 app.use(API_BASE, rolloutRoutes);
 app.use(API_BASE, imageRegistryRoutes);
@@ -150,6 +155,7 @@ app.use(API_BASE, sensorsRoutes);
 app.use(API_BASE, protocolDevicesRoutes);
 app.use(API_BASE, trafficRoutes);
 app.use(`${API_BASE}/housekeeper`, housekeeperRoutes);
+app.use(`${API_BASE}/dashboard-layouts`, dashboardLayoutsRoutes);
 
 // Mount entity/graph routes
 app.use(`${API_BASE}/entities`, createEntitiesRouter(poolWrapper.pool));

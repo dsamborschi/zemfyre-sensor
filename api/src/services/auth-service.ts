@@ -75,12 +75,12 @@ export async function registerUser(input: RegisterInput): Promise<LoginResult> {
 
   const user = result.rows[0];
 
-  // Log audit event
-  await logAuditEvent('user_registered', user.id, null, {
+  // Log audit event (non-blocking)
+  logAuditEvent('user_registered', user.id, null, {
     username,
     email,
     role
-  });
+  }).catch(err => logger.warn('Failed to log audit event:', err));
 
   logger.info(`New user registered: ${username} (${email})`);
 
@@ -122,10 +122,10 @@ export async function loginUser(
   );
 
   if (result.rows.length === 0) {
-    await logAuditEvent('login_failed', null, ipAddress, {
+    logAuditEvent('login_failed', null, ipAddress, {
       reason: 'user_not_found',
       usernameOrEmail
-    });
+    }).catch(err => logger.warn('Failed to log audit event:', err));
     throw new Error('Invalid username or password');
   }
 
@@ -133,10 +133,10 @@ export async function loginUser(
 
   // Check if user is active
   if (!user.is_active) {
-    await logAuditEvent('login_failed', user.id, ipAddress, {
+    logAuditEvent('login_failed', user.id, ipAddress, {
       reason: 'account_inactive',
       username: user.username
-    });
+    }).catch(err => logger.warn('Failed to log audit event:', err));
     throw new Error('Account is inactive. Contact administrator.');
   }
 
@@ -144,10 +144,10 @@ export async function loginUser(
   const isValidPassword = await bcrypt.compare(password, user.password_hash);
 
   if (!isValidPassword) {
-    await logAuditEvent('login_failed', user.id, ipAddress, {
+    logAuditEvent('login_failed', user.id, ipAddress, {
       reason: 'invalid_password',
       username: user.username
-    });
+    }).catch(err => logger.warn('Failed to log audit event:', err));
     throw new Error('Invalid username or password');
   }
 
@@ -164,11 +164,11 @@ export async function loginUser(
   // Store refresh token
   await storeRefreshToken(user.id, refreshToken, ipAddress, userAgent);
 
-  // Log successful login
-  await logAuditEvent('user_login', user.id, ipAddress, {
+  // Log successful login (non-blocking)
+  logAuditEvent('user_login', user.id, ipAddress, {
     username: user.username,
     userAgent
-  });
+  }).catch(err => logger.warn('Failed to log audit event:', err));
 
   logger.info(`User logged in: ${user.username} from ${ipAddress || 'unknown'}`);
 
@@ -236,16 +236,16 @@ export async function refreshAccessToken(
       role: tokenData.role
     });
 
-    await logAuditEvent('token_refreshed', tokenData.user_id, ipAddress, {
+    logAuditEvent('token_refreshed', tokenData.user_id, ipAddress, {
       username: tokenData.username
-    });
+    }).catch(err => logger.warn('Failed to log audit event:', err));
 
     return { accessToken };
 
   } catch (error: any) {
-    await logAuditEvent('token_refresh_failed', null, ipAddress, {
+    logAuditEvent('token_refresh_failed', null, ipAddress, {
       error: error.message
-    });
+    }).catch(err => logger.warn('Failed to log audit event:', err));
     throw new Error('Failed to refresh token: ' + error.message);
   }
 }
@@ -272,7 +272,7 @@ export async function logoutUser(userId: number, refreshToken?: string): Promise
     );
   }
 
-  await logAuditEvent('user_logout', userId, null, {});
+  logAuditEvent('user_logout', userId, null, {}).catch(err => logger.warn('Failed to log audit event:', err));
   logger.info(`User logged out: userId=${userId}`);
 }
 
@@ -305,9 +305,9 @@ export async function changePassword(
   const isValidPassword = await bcrypt.compare(currentPassword, user.password_hash);
 
   if (!isValidPassword) {
-    await logAuditEvent('password_change_failed', userId, null, {
+    logAuditEvent('password_change_failed', userId, null, {
       reason: 'invalid_current_password'
-    });
+    }).catch(err => logger.warn('Failed to log audit event:', err));
     throw new Error('Current password is incorrect');
   }
 
@@ -328,9 +328,9 @@ export async function changePassword(
     [userId]
   );
 
-  await logAuditEvent('password_changed', userId, null, {
+  logAuditEvent('password_changed', userId, null, {
     username: user.username
-  });
+  }).catch(err => logger.warn('Failed to log audit event:', err));
 
   logger.info(`Password changed for user: ${user.username}`);
 }

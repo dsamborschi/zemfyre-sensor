@@ -1,4 +1,4 @@
-import { Server, User, LogIn, Settings, HelpCircle, LogOut, RefreshCw, XCircle, Save } from "lucide-react";
+import { Server, User, LogIn, Settings, HelpCircle, LogOut, RefreshCw, XCircle, Save, MessageSquare } from "lucide-react";
 import { Button } from "./ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import {
@@ -12,6 +12,8 @@ import {
 import { toast } from "sonner";
 import { ThemeToggle } from "./theme-toggle";
 import { useDeviceState } from "../contexts/DeviceStateContext";
+import { AIChatWidget } from "./AIChatWidget";
+import { useState } from "react";
 
 interface HeaderProps {
   isAuthenticated?: boolean;
@@ -20,6 +22,9 @@ interface HeaderProps {
   userName?: string;
   deviceUuid?: string; // Device UUID for deployment operations
   onAccountClick?: () => void; // Callback for opening account page
+  onUsersClick?: () => void; // Callback for opening user management page
+  onProfileClick?: () => void; // Callback for opening profile page
+  userRole?: string; // User role for conditional UI
 }
 
 export function Header({
@@ -28,8 +33,14 @@ export function Header({
   userEmail = "john.doe@company.com",
   userName = "John Doe",
   deviceUuid,
-  onAccountClick = () => {}
+  onAccountClick = () => {},
+  onUsersClick = () => {},
+  onProfileClick = () => {},
+  userRole = 'viewer'
 }: HeaderProps) {
+  // AI Chat state
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  
   // Get deployment status and functions from context
   const { syncTargetState, cancelDeployment, hasPendingChanges, saveTargetState, getDeviceState } = useDeviceState();
   
@@ -107,7 +118,7 @@ export function Header({
         <div className="flex items-center gap-3">
           {isAuthenticated ? (
             <>
-              {/* Save Draft + Deploy Buttons */}
+              {/* Save Draft + Deploy Buttons + AI Chat */}
               <div className="flex items-center gap-2">
                 {hasUnsavedChanges && (
                   <Button 
@@ -149,6 +160,23 @@ export function Header({
                     Cancel
                   </Button>
                 )}
+                
+                {/* AI Chat Button */}
+                {deviceUuid && (
+                  <Button
+                    onClick={() => setIsChatOpen(true)}
+                    size="lg"
+                    variant="outline"
+                    className="border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100 font-semibold shadow-md"
+                    style={{ 
+                      padding: '0.75rem 1.5rem',
+                      fontSize: '1rem'
+                    }}
+                  >
+                    <MessageSquare className="w-5 h-5 mr-2" />
+                    AI Assistant
+                  </Button>
+                )}
               </div>
 
               <ThemeToggle />
@@ -166,7 +194,7 @@ export function Header({
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="flex items-center gap-2 px-2">
                     <Avatar className="w-8 h-8">
-                      <AvatarImage src="https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop" />
+                      <AvatarImage src="https://api.dicebear.com/7.x/avataaars/svg?seed=${userName}" />
                       <AvatarFallback>{userName.split(' ').map(n => n[0]).join('')}</AvatarFallback>
                     </Avatar>
                     <span className="hidden md:inline text-foreground">{userName}</span>
@@ -180,7 +208,7 @@ export function Header({
                     </div>
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={() => toast.info("Opening profile...")}>
+                  <DropdownMenuItem onClick={onProfileClick}>
                     <User className="w-4 h-4 mr-2" />
                     Profile
                   </DropdownMenuItem>
@@ -188,6 +216,12 @@ export function Header({
                     <Settings className="w-4 h-4 mr-2" />
                     Account & License
                   </DropdownMenuItem>
+                  {(userRole === 'owner' || userRole === 'admin' || userRole === 'manager') && (
+                    <DropdownMenuItem onClick={onUsersClick}>
+                      <User className="w-4 h-4 mr-2" />
+                      User Management
+                    </DropdownMenuItem>
+                  )}
                   <DropdownMenuItem onClick={() => toast.info("Opening help...")}>
                     <HelpCircle className="w-4 h-4 mr-2" />
                     Help & Support
@@ -213,6 +247,15 @@ export function Header({
           )}
         </div>
       </div>
+      
+      {/* AI Chat Widget */}
+      {deviceUuid && (
+        <AIChatWidget 
+          deviceUuid={deviceUuid} 
+          isOpen={isChatOpen} 
+          onClose={() => setIsChatOpen(false)} 
+        />
+      )}
     </header>
   );
 }
