@@ -10,6 +10,7 @@ interface WebSocketClient {
   subscriptions: Set<string>;
   intervals: Map<string, NodeJS.Timeout>;
   serviceName?: string; // For logs channel - which service to stream logs for
+  redisSubscription?: boolean; // Track if subscribed to Redis pub/sub
 }
 
 interface WebSocketMessage {
@@ -20,6 +21,7 @@ interface WebSocketMessage {
   timestamp?: string;
   message?: string;
   serviceName?: string; // For logs channel - which service to filter logs by
+  source?: string; // Indicate source: 'redis' (real-time) or 'database' (polling)
 }
 
 export class WebSocketManager {
@@ -30,10 +32,224 @@ export class WebSocketManager {
   private globalClients: Set<WebSocket> = new Set(); // Global connections for MQTT stats
   private globalIntervals: Map<string, NodeJS.Timeout> = new Map(); // Global intervals
   private mqttMonitor: any = null; // MQTTMonitorService instance
+  private redisClient: any = null; // Redis client for pub/sub
+  private redisSubscriber: any = null; // Separate Redis subscriber client (required by ioredis)
+  private redisSubscriptions: Map<string, Set<WebSocket>> = new Map(); // Track Redis subscriptions per device
+  
+  // Metrics batching buffers (per device)
+  private metricsBuffers: Map<string, Array<any>> = new Map(); // deviceUuid -> metrics array
+  private flushIntervals: Map<string, NodeJS.Timeout> = new Map(); // deviceUuid -> flush interval
+  private readonly BATCH_FLUSH_INTERVAL_MS = 10000; // 10 seconds
 
   setMqttMonitor(monitor: any): void {
     this.mqttMonitor = monitor;
     console.log('[WebSocket] MQTT Monitor instance set');
+  }
+
+  /**
+   * Initialize Redis pub/sub integration for real-time metrics
+   * Phase 1: Real-time distribution via Redis pub/sub
+   */
+  async initializeRedis(): Promise<void> {
+    try {
+      const { redisClient } =await import('../redis/client');
+      this.redisClient = redisClient;
+      
+      // Import ioredis to create subscriber client
+      const Redis = (await import('ioredis')).default;
+      
+      const host = process.env.REDIS_HOST || 'localhost';
+      const port = parseInt(process.env.REDIS_PORT || '6379', 10);
+      
+      // Create dedicated subscriber client (required by ioredis for pub/sub)
+      this.redisSubscriber = new Redis({
+        host,
+        port,
+        retryStrategy: (times: number) => {
+          if (times > 5) {
+            console.error('[WebSocket] Redis subscriber max retries reached');
+            return null;
+          }
+          return Math.min(times * 1000, 3000);
+        },
+      });
+      
+      // Subscribe to patterns for device metrics and logs
+      const metricsPattern = 'device:*:metrics';
+      const logsPattern = 'device:*:logs';
+      await this.redisSubscriber.psubscribe(metricsPattern, logsPattern);
+      
+      // Handle incoming messages
+      this.redisSubscriber.on('pmessage', (pattern: string, channel: string, message: string) => {
+        try {
+          const data = JSON.parse(message);
+          const parts = channel.split(':');
+          const uuid = parts[1]; // Extract UUID from "device:uuid:metrics" or "device:uuid:logs"
+          const channelType = parts[2]; // "metrics" or "logs"
+          
+          if (channelType === 'metrics') {
+            this.handleRedisMetrics(uuid, data.metrics);
+          } else if (channelType === 'logs') {
+            this.handleRedisLogs(uuid, data.logs);
+          }
+        } catch (error) {
+          console.error('[WebSocket] Error parsing Redis message:', error);
+        }
+      });
+      
+      // Handle subscriber errors
+      this.redisSubscriber.on('error', (error: Error) => {
+        console.error('[WebSocket] Redis subscriber error:', error);
+      });
+      
+      this.redisSubscriber.on('ready', () => {
+        console.log('[WebSocket] ✅ Redis subscriber connected and ready');
+      });
+      
+      console.log('[WebSocket] ✅ Redis pub/sub integration initialized');
+      console.log('[WebSocket] 📡 Subscribed to patterns:', metricsPattern, logsPattern);
+    } catch (error) {
+      console.error('[WebSocket] ⚠️  Failed to initialize Redis pub/sub:', error);
+      console.log('[WebSocket] 🔄 Falling back to database polling');
+    }
+  }
+
+  /**
+   * Handle incoming Redis pub/sub metrics
+   * Called when device:{uuid}:metrics channel receives data
+   * Buffers metrics and flushes in batches every 10 seconds
+   */
+  private handleRedisMetrics(deviceUuid: string, metrics: any): void {
+    // Transform metrics to dashboard history format
+    const time = new Date().toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    
+    const dataPoint = {
+      time,
+      cpu: Math.round(parseFloat(metrics.cpu_usage) || 0),
+      memory_used: Math.round((parseFloat(metrics.memory_usage) || 0) / 1024 / 1024),
+      memory_available: Math.round(((parseFloat(metrics.memory_total) || 0) - (parseFloat(metrics.memory_usage) || 0)) / 1024 / 1024),
+      network_download: 0, // Network metrics coming in future phase
+      network_upload: 0,
+    };
+    
+    // Add to buffer
+    if (!this.metricsBuffers.has(deviceUuid)) {
+      this.metricsBuffers.set(deviceUuid, []);
+    }
+    this.metricsBuffers.get(deviceUuid)!.push(dataPoint);
+    
+    // Start flush interval if not already running
+    if (!this.flushIntervals.has(deviceUuid)) {
+      const interval = setInterval(() => {
+        this.flushMetricsBatch(deviceUuid);
+      }, this.BATCH_FLUSH_INTERVAL_MS);
+      this.flushIntervals.set(deviceUuid, interval);
+      console.log(`[WebSocket] 🔄 Started batch flush interval for device ${deviceUuid.substring(0, 8)}... (every ${this.BATCH_FLUSH_INTERVAL_MS}ms)`);
+    }
+    
+    // Also update processes if present (send immediately, not batched)
+    if (metrics.top_processes) {
+      this.broadcast(deviceUuid, {
+        type: 'processes',
+        deviceUuid,
+        data: { top_processes: metrics.top_processes },
+        timestamp: new Date().toISOString(),
+        source: 'redis',
+      });
+    }
+    
+    // Update network interfaces if present (send immediately, not batched)
+    if (metrics.network_interfaces) {
+      const interfaces = metrics.network_interfaces.map((iface: any) => ({
+        id: iface.name,
+        name: iface.name,
+        type: iface.type || 'ethernet',
+        ipAddress: iface.ip4,
+        ip4: iface.ip4,
+        ip6: iface.ip6,
+        mac: iface.mac,
+        status: iface.operstate === 'up' ? 'connected' : 'disconnected',
+        operstate: iface.operstate,
+        default: iface.default,
+        virtual: iface.virtual,
+        ...(iface.ssid && { ssid: iface.ssid }),
+        ...(iface.signalLevel && { signal: iface.signalLevel }),
+      }));
+      
+      this.broadcast(deviceUuid, {
+        type: 'network-interfaces',
+        deviceUuid,
+        data: { interfaces },
+        timestamp: new Date().toISOString(),
+        source: 'redis',
+      });
+    }
+  }
+
+  /**
+   * Handle incoming Redis pub/sub logs
+   * Called when device:{uuid}:logs channel receives data
+   * Immediately broadcasts to WebSocket clients (no batching for logs)
+   */
+  private handleRedisLogs(deviceUuid: string, logs: any[]): void {
+    if (!logs || logs.length === 0) {
+      return;
+    }
+    
+    console.log(`[WebSocket] 📜 Received ${logs.length} logs from Redis for ${deviceUuid.substring(0, 8)}...`);
+    
+    // Broadcast immediately to all clients subscribed to logs channel
+    this.broadcast(deviceUuid, {
+      type: 'logs',
+      deviceUuid,
+      data: { logs },
+      timestamp: new Date().toISOString(),
+      source: 'redis', // Indicate this came from Redis (real-time)
+    });
+  }
+
+  /**
+   * Flush batched metrics to WebSocket clients
+   * Called every BATCH_FLUSH_INTERVAL_MS (10 seconds)
+   */
+  private flushMetricsBatch(deviceUuid: string): void {
+    const buffer = this.metricsBuffers.get(deviceUuid);
+    
+    if (!buffer || buffer.length === 0) {
+      return; // Nothing to flush
+    }
+    
+    // Transform buffer to dashboard format
+    const historyData = {
+      cpu: buffer.map(point => ({ time: point.time, value: point.cpu })),
+      memory: buffer.map(point => ({ 
+        time: point.time, 
+        used: point.memory_used, 
+        available: point.memory_available 
+      })),
+      network: buffer.map(point => ({ 
+        time: point.time, 
+        download: point.network_download, 
+        upload: point.network_upload 
+      })),
+    };
+    
+    console.log(`[WebSocket] 📦 Flushing ${buffer.length} metrics for device ${deviceUuid.substring(0, 8)}...`);
+    
+    // Broadcast batched data
+    this.broadcast(deviceUuid, {
+      type: 'history',
+      deviceUuid,
+      data: historyData,
+      timestamp: new Date().toISOString(),
+      source: 'redis', // Indicate this came from Redis (real-time)
+    });
+    
+    // Clear buffer
+    this.metricsBuffers.set(deviceUuid, []);
   }
 
   initialize(server: HTTPServer): void {
@@ -323,22 +539,34 @@ export class WebSocketManager {
       return;
     }
 
+    // For real-time channels (history, processes, network-interfaces, logs), use Redis pub/sub if available
+    // Only fall back to polling if Redis unavailable
+    const redisChannels = ['history', 'processes', 'network-interfaces', 'logs'];
+    if (redisChannels.includes(channel) && this.redisClient) {
+      console.log(`[WebSocket] 📡 Using Redis pub/sub for ${channel} (real-time updates for device ${deviceUuid.substring(0, 8)}...)`);
+      // No polling needed - Redis will push updates
+      // But still send initial data immediately
+      this.sendChannelData(deviceUuid, channel);
+      return;
+    }
+
+    // For non-Redis channels or if Redis unavailable, use polling
     let intervalTime: number;
     switch (channel) {
       case 'system-info':
         intervalTime = 30000; // 30 seconds
         break;
       case 'processes':
-        intervalTime = 60000; // 60 seconds
+        intervalTime = 60000; // 60 seconds (fallback)
         break;
       case 'history':
-        intervalTime = 30000; // 30 seconds
+        intervalTime = 30000; // 30 seconds (fallback)
         break;
       case 'network-interfaces':
-        intervalTime = 30000; // 30 seconds
+        intervalTime = 30000; // 30 seconds (fallback)
         break;
       case 'logs':
-        intervalTime = 2000; // 2 seconds for real-time logs
+        intervalTime = 2000; // 2 seconds for real-time logs (fallback)
         break;
       default:
         console.warn(`[WebSocket] Unknown channel: ${channel}`);
@@ -350,7 +578,7 @@ export class WebSocketManager {
     }, intervalTime);
 
     intervals.set(channel, interval);
-    console.log(`[WebSocket] Started ${channel} stream for device ${deviceUuid} (interval: ${intervalTime}ms)`);
+    console.log(`[WebSocket] Started ${channel} stream for device ${deviceUuid} (interval: ${intervalTime}ms, mode: ${this.redisClient ? 'redis-fallback' : 'polling'})`);
   }
 
   private stopDataStream(deviceUuid: string, channel: string): void {
@@ -798,11 +1026,34 @@ export class WebSocketManager {
   shutdown(): void {
     console.log('[WebSocket] Shutting down...');
 
+    // Flush any pending metrics before shutdown
+    this.metricsBuffers.forEach((buffer, deviceUuid) => {
+      if (buffer.length > 0) {
+        console.log(`[WebSocket] 🚨 Flushing ${buffer.length} pending metrics for ${deviceUuid.substring(0, 8)}... before shutdown`);
+        this.flushMetricsBatch(deviceUuid);
+      }
+    });
+
+    // Clear batch flush intervals
+    this.flushIntervals.forEach(interval => clearInterval(interval));
+    this.flushIntervals.clear();
+    this.metricsBuffers.clear();
+
+    // Disconnect Redis subscriber
+    if (this.redisSubscriber) {
+      this.redisSubscriber.disconnect();
+      console.log('[WebSocket] Redis subscriber disconnected');
+    }
+
     // Clear all intervals
     this.deviceIntervals.forEach((intervals) => {
       intervals.forEach(interval => clearInterval(interval));
     });
     this.deviceIntervals.clear();
+
+    // Clear global intervals
+    this.globalIntervals.forEach(interval => clearInterval(interval));
+    this.globalIntervals.clear();
 
     // Close all connections
     this.clients.forEach((client) => {
@@ -811,6 +1062,8 @@ export class WebSocketManager {
 
     this.clients.clear();
     this.deviceClients.clear();
+    this.globalClients.clear();
+    this.redisSubscriptions.clear();
 
     if (this.wss) {
       this.wss.close();

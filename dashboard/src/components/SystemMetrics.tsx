@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Cpu, HardDrive, MemoryStick, Package, Network, Loader2 } from "lucide-react";
 import { Card } from "./ui/card";
 import { useWebSocket } from "@/hooks/useWebSocket";
@@ -214,17 +214,21 @@ export function SystemMetrics({
   // Handle metrics history updates via WebSocket
   const handleMetricsHistory = useCallback((data: MetricsHistoryData) => {
     console.log('[SystemMetrics] Received history data:', data);
+    
+    // Accumulate data points (append new points, keep last 60 for 30-minute window at 30s intervals)
+    const MAX_POINTS = 60; // 30 minutes at 30-second intervals
+    
     if (data.cpu && data.cpu.length > 0) {
-      console.log('[SystemMetrics] Setting CPU history:', data.cpu.length, 'points');
-      setCpuHistory(data.cpu);
+      console.log('[SystemMetrics] Appending CPU history:', data.cpu.length, 'points');
+      setCpuHistory(prev => [...prev, ...data.cpu].slice(-MAX_POINTS));
     }
     if (data.memory && data.memory.length > 0) {
-      console.log('[SystemMetrics] Setting Memory history:', data.memory.length, 'points');
-      setMemoryHistory(data.memory);
+      console.log('[SystemMetrics] Appending Memory history:', data.memory.length, 'points');
+      setMemoryHistory(prev => [...prev, ...data.memory].slice(-MAX_POINTS));
     }
     if (data.network && data.network.length > 0) {
-      console.log('[SystemMetrics] Setting Network history:', data.network.length, 'points');
-      setNetworkHistory(data.network);
+      console.log('[SystemMetrics] Appending Network history:', data.network.length, 'points');
+      setNetworkHistory(prev => [...prev, ...data.network].slice(-MAX_POINTS));
     }
   }, []);
 
@@ -318,7 +322,7 @@ export function SystemMetrics({
                     <Loader2 className="h-8 w-8 animate-spin" />
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={250} key="cpu-chart">
                     <AreaChart data={cpuHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                       <defs>
                         <linearGradient id="colorCpu" x1="0" y1="0" x2="0" y2="1">
@@ -327,8 +331,13 @@ export function SystemMetrics({
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                      <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
+                      <XAxis 
+                        dataKey="time" 
+                        stroke="#6b7280" 
+                        tick={{ fontSize: 10 }} 
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} domain={[0, 100]} />
                       <Tooltip />
                       <Area
                         type="monotone"
@@ -337,6 +346,7 @@ export function SystemMetrics({
                         strokeWidth={2}
                         fillOpacity={1}
                         fill="url(#colorCpu)"
+                        isAnimationActive={false}
                       />
                     </AreaChart>
                   </ResponsiveContainer>
@@ -351,7 +361,7 @@ export function SystemMetrics({
                     <Loader2 className="h-8 w-8 animate-spin" />
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={250} key="memory-chart">
                     <AreaChart data={memoryHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                   <defs>
                     <linearGradient id="colorUsed" x1="0" y1="0" x2="0" y2="1">
@@ -364,8 +374,13 @@ export function SystemMetrics({
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                  <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                  <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
+                  <XAxis 
+                    dataKey="time" 
+                    stroke="#6b7280" 
+                    tick={{ fontSize: 10 }} 
+                    interval="preserveStartEnd"
+                  />
+                  <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} domain={[0, 'dataMax']} />
                   <Tooltip />
                   <Legend />
                   <Area
@@ -376,6 +391,7 @@ export function SystemMetrics({
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorUsed)"
+                    isAnimationActive={false}
                   />
                   <Area
                     type="monotone"
@@ -385,6 +401,7 @@ export function SystemMetrics({
                     strokeWidth={2}
                     fillOpacity={1}
                     fill="url(#colorAvailable)"
+                    isAnimationActive={false}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -399,11 +416,16 @@ export function SystemMetrics({
                     <Loader2 className="h-8 w-8 animate-spin" />
                   </div>
                 ) : (
-                  <ResponsiveContainer width="100%" height={250}>
+                  <ResponsiveContainer width="100%" height={250} key="network-chart">
                     <LineChart data={networkHistory} margin={{ top: 5, right: 5, left: -20, bottom: 5 }}>
                       <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                      <XAxis dataKey="time" stroke="#6b7280" tick={{ fontSize: 10 }} />
-                      <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} />
+                      <XAxis 
+                        dataKey="time" 
+                        stroke="#6b7280" 
+                        tick={{ fontSize: 10 }} 
+                        interval="preserveStartEnd"
+                      />
+                      <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} domain={[0, 'auto']} />
                       <Tooltip />
                       <Legend />
                       <Line
@@ -412,6 +434,7 @@ export function SystemMetrics({
                         stroke="#3b82f6"
                         strokeWidth={2}
                         dot={false}
+                        isAnimationActive={false}
                       />
                       <Line
                         type="monotone"
@@ -419,6 +442,7 @@ export function SystemMetrics({
                         stroke="#10b981"
                         strokeWidth={2}
                         dot={false}
+                        isAnimationActive={false}
                       />
                     </LineChart>
                   </ResponsiveContainer>

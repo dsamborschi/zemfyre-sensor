@@ -96,6 +96,16 @@ router.post('/device/:uuid/logs', deviceAuth, express.text({ type: 'application/
       
       await DeviceLogsModel.store(uuid, transformedLogs);
       console.log(`   ✅ Stored ${logs.length} log entries`);
+      
+      // Publish logs to Redis pub/sub for real-time WebSocket streaming
+      try {
+        const { redisClient } = await import('../redis/client');
+        await redisClient.publish(`device:${uuid}:logs`, JSON.stringify({ logs: transformedLogs }));
+        console.log(`   📡 Published ${transformedLogs.length} logs to Redis pub/sub`);
+      } catch (error) {
+        console.error(`   ⚠️  Failed to publish logs to Redis:`, error);
+        // Don't fail the request if Redis publish fails
+      }
     } else {
       console.log(`   ⚠️  No logs to store or invalid format`);
     }

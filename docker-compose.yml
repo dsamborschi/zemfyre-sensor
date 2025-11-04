@@ -40,44 +40,70 @@ services:
         networks:
            - iotistic-net
 
-    api:
-        build:
-            context: ./api
-            dockerfile: Dockerfile
-        container_name: iotistic-api
-        restart: always
-        tty: true
-        stdin_open: true
-        logging:
-            driver: "json-file"
-            options:
-                max-size: "10m"
-                max-file: "3"
-        environment:
-            - PORT=${PORT:-3002}
-            - NODE_ENV=${NODE_ENV:-development}
-            - DB_HOST=${DB_HOST:-postgres}
-            - DB_PORT=${DB_PORT:-5432}
-            - DB_NAME=${DB_NAME:-iotistic}
-            - DB_USER=${DB_USER:-postgres}
-            - DB_PASSWORD=${DB_PASSWORD:-postgres}
-            - DB_POOL_SIZE=${DB_POOL_SIZE:-20}
-            - FORCE_COLOR=${FORCE_COLOR:-1}
-            - MQTT_BROKER_URL=${MQTT_BROKER_URL:-mqtt://mosquitto:1883}
-            - MQTT_USERNAME=${MQTT_USERNAME:-admin}
-            - MQTT_PASSWORD=${MQTT_PASSWORD:-iotistic42!}
-            - MQTT_PERSIST_TO_DB=${MQTT_PERSIST_TO_DB:-true}
-            - MQTT_DB_SYNC_INTERVAL=${MQTT_DB_SYNC_INTERVAL:-10000}
-            - LOG_COMPRESSION=${LOG_COMPRESSION:-true}
-            - LICENSE_PUBLIC_KEY=${LICENSE_PUBLIC_KEY}
-            - IOTISTIC_LICENSE_KEY=${IOTISTIC_LICENSE_KEY}
+    redis:
+        image: redis:7-alpine
+        container_name: iotistic-redis
+        restart: unless-stopped
+        command: >
+            redis-server
+            --maxmemory 256mb
+            --maxmemory-policy volatile-lru
+            --save 60 1000
+            --appendonly yes
         ports:
-            - "${API_PORT_EXT:-4002}:3002"
-        depends_on:
-            postgres:
-                condition: service_healthy
+            - "${REDIS_PORT_EXT:-6379}:6379"
+        volumes:
+            - iotistic-redis-data:/data
+        healthcheck:
+            test: ["CMD", "redis-cli", "ping"]
+            interval: 10s
+            timeout: 3s
+            retries: 5
         networks:
            - iotistic-net
+
+    # api:
+    #     build:
+    #         context: ./api
+    #         dockerfile: Dockerfile
+    #     container_name: iotistic-api
+    #     restart: always
+    #     tty: true
+    #     stdin_open: true
+    #     logging:
+    #         driver: "json-file"
+    #         options:
+    #             max-size: "10m"
+    #             max-file: "3"
+    #     environment:
+    #         - PORT=${PORT:-3002}
+    #         - NODE_ENV=${NODE_ENV:-development}
+    #         - DB_HOST=${DB_HOST:-postgres}
+    #         - DB_PORT=${DB_PORT:-5432}
+    #         - DB_NAME=${DB_NAME:-iotistic}
+    #         - DB_USER=${DB_USER:-postgres}
+    #         - DB_PASSWORD=${DB_PASSWORD:-postgres}
+    #         - DB_POOL_SIZE=${DB_POOL_SIZE:-20}
+    #         - FORCE_COLOR=${FORCE_COLOR:-1}
+    #         - MQTT_BROKER_URL=${MQTT_BROKER_URL:-mqtt://mosquitto:1883}
+    #         - MQTT_USERNAME=${MQTT_USERNAME:-admin}
+    #         - MQTT_PASSWORD=${MQTT_PASSWORD:-iotistic42!}
+    #         - MQTT_PERSIST_TO_DB=${MQTT_PERSIST_TO_DB:-true}
+    #         - MQTT_DB_SYNC_INTERVAL=${MQTT_DB_SYNC_INTERVAL:-10000}
+    #         - LOG_COMPRESSION=${LOG_COMPRESSION:-true}
+    #         - LICENSE_PUBLIC_KEY=${LICENSE_PUBLIC_KEY}
+    #         - IOTISTIC_LICENSE_KEY=${IOTISTIC_LICENSE_KEY}
+    #         - REDIS_HOST=${REDIS_HOST:-redis}
+    #         - REDIS_PORT=${REDIS_PORT:-6379}
+    #     ports:
+    #         - "${API_PORT_EXT:-4002}:3002"
+    #     depends_on:
+    #         postgres:
+    #             condition: service_healthy
+    #         redis:
+    #             condition: service_healthy
+    #     networks:
+    #        - iotistic-net
     mosquitto:
         image: iegomez/mosquitto-go-auth
         restart: always
@@ -100,6 +126,8 @@ services:
 
 volumes:
   iotistic-pg-data:
+    driver: local
+  iotistic-redis-data:
     driver: local
  
 networks:

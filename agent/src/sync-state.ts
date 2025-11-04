@@ -121,6 +121,7 @@ export class ApiBinder extends EventEmitter {
 	private logger?: AgentLogger;
 	private sensorPublish?: any; // Optional sensor-publish feature for health reporting
 	private protocolAdapters?: any; // Optional protocol-adapters feature for health reporting
+	private mqttManager?: any; // Optional MQTT manager for state reporting
 	
 	constructor(
 		stateReconciler: StateReconciler,
@@ -128,7 +129,8 @@ export class ApiBinder extends EventEmitter {
 		config: ApiBinderConfig,
 		logger?: AgentLogger,
 		sensorPublish?: any,
-		protocolAdapters?: any
+		protocolAdapters?: any,
+		mqttManager?: any
 	) {
 		super();
 		this.stateReconciler = stateReconciler;
@@ -136,6 +138,7 @@ export class ApiBinder extends EventEmitter {
 		this.logger = logger;
 		this.sensorPublish = sensorPublish;
 		this.protocolAdapters = protocolAdapters;
+		this.mqttManager = mqttManager;
 		
 		// Set defaults
 		this.config = {
@@ -835,9 +838,50 @@ export class ApiBinder extends EventEmitter {
 	
 	/**
 	 * Send report to cloud API
+	 * Uses MQTT as primary path with HTTP as fallback
 	 */
 	private async sendReport(report: DeviceStateReport): Promise<void> {
 		const deviceInfo = this.deviceManager.getDeviceInfo();
+		
+		// Try MQTT first if manager is available and connected
+		if (this.mqttManager) {
+			try {
+				const topic = `iot/device/${deviceInfo.uuid}/state`;
+				const payload = JSON.stringify(report);
+				const payloadSize = Buffer.byteLength(payload, 'utf8');
+				
+				this.logger?.debugSync('Sending state report via MQTT', {
+					component: 'Sync',
+					operation: 'mqtt-publish',
+					topic,
+					bytes: payloadSize,
+					transport: 'mqtt'
+				});
+				
+				// Publish with QoS 1 for guaranteed delivery
+				await this.mqttManager.publish(topic, payload, { qos: 1 });
+				
+				this.logger?.debugSync('State report sent via MQTT', {
+					component: 'Sync',
+					operation: 'mqtt-success',
+					bytes: payloadSize,
+					transport: 'mqtt'
+				});
+				
+				return; // Success - no need for HTTP fallback
+				
+			} catch (mqttError) {
+				// MQTT failed - log and fall through to HTTP
+				this.logger?.warnSync('MQTT publish failed, falling back to HTTP', {
+					component: 'Sync',
+					operation: 'mqtt-fallback',
+					error: mqttError instanceof Error ? mqttError.message : String(mqttError),
+					transport: 'mqtt→http'
+				});
+			}
+		}
+		
+		// MQTT not available or failed - use HTTP fallback
 		const endpoint = buildApiEndpoint(this.config.cloudApiEndpoint, '/device/state');
 		
 		// Convert to JSON
@@ -851,13 +895,14 @@ export class ApiBinder extends EventEmitter {
 		// Calculate compression ratio for logging
 		const compressionRatio = ((1 - compressedSize / uncompressedSize) * 100).toFixed(1);
 		
-		this.logger?.debugSync('Sending compressed state report', {
+		this.logger?.debugSync('Sending compressed state report via HTTP', {
 			component: 'Sync',
-			operation: 'compress',
+			operation: 'http-compress',
 			uncompressedBytes: uncompressedSize,
 			compressedBytes: compressedSize,
 			compressionRatio: `${compressionRatio}%`,
-			savings: `${uncompressedSize - compressedSize} bytes`
+			savings: `${uncompressedSize - compressedSize} bytes`,
+			transport: 'http'
 		});
 		
 		const response = await fetch(endpoint, {
@@ -874,6 +919,13 @@ export class ApiBinder extends EventEmitter {
 		if (!response.ok) {
 			throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 		}
+		
+		this.logger?.debugSync('State report sent via HTTP', {
+			component: 'Sync',
+			operation: 'http-success',
+			bytes: compressedSize,
+			transport: 'http'
+		});
 	}
 	
 	/**

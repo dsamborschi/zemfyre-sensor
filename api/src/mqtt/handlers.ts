@@ -6,6 +6,7 @@
 
 import { query } from '../db/connection';
 import type { SensorData, MetricsData } from './mqtt-manager';
+import { processDeviceStateReport } from '../services/device-state-handler';
 
 /**
  * Handle incoming sensor data
@@ -38,62 +39,54 @@ export async function handleSensorData(data: SensorData): Promise<void> {
 }
 
 /**
- * Handle device metrics
+ * Handle device state updates (MQTT primary path)
+ * Processes full device state reports including config, apps, and metrics
+ * Dual-write: PostgreSQL (durable) + Redis pub/sub (real-time)
  */
-export async function handleMetrics(metrics: MetricsData): Promise<void> {
+export async function handleDeviceState(payload: any): Promise<void> {
   try {
-    // Store in device_metrics table (with partitioning)
-    await query(
-      `INSERT INTO device_metrics (
-        device_uuid, 
-        cpu_usage, 
-        memory_usage, 
-        memory_total, 
-        storage_usage, 
-        storage_total, 
-        cpu_temp,
-        network_stats,
-        recorded_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-      [
-        metrics.deviceUuid,
-        metrics.cpu_usage,
-        metrics.memory_usage,
-        metrics.memory_total,
-        metrics.storage_usage,
-        metrics.storage_total,
-        metrics.cpu_temp,
-        JSON.stringify(metrics.network || {}),
-        metrics.timestamp
-      ]
-    );
+    // Use shared service for consistent state processing
+    await processDeviceStateReport(payload, {
+      source: 'mqtt',
+      topic: 'device/+/state'
+    });
 
-    // Update device last_seen timestamp
-    await query(
-      `UPDATE devices 
-       SET 
-         cpu_usage = $2,
-         memory_usage = $3,
-         memory_total = $4,
-         storage_usage = $5,
-         storage_total = $6,
-         cpu_temp = $7,
-         last_connectivity_event = $8
-       WHERE uuid = $1`,
-      [
-        metrics.deviceUuid,
-        metrics.cpu_usage,
-        metrics.memory_usage,
-        metrics.memory_total,
-        metrics.storage_usage,
-        metrics.storage_total,
-        metrics.cpu_temp,
-        new Date()
-      ]
-    );
+    // Publish to Redis for real-time distribution (MQTT-specific, non-blocking)
+    try {
+      const { redisClient } = await import('../redis/client');
+      const deviceUuid = Object.keys(payload)[0];
+      const state = payload[deviceUuid];
+      
+      if (deviceUuid && state) {
+        // Publish full state to device:{uuid}:state channel
+        await redisClient.publishDeviceState(deviceUuid, state);
+        
+        // Publish metrics-only to device:{uuid}:metrics channel (if metrics present)
+        if (
+          state.cpu_usage !== undefined ||
+          state.memory_usage !== undefined ||
+          state.storage_usage !== undefined
+        ) {
+          const metrics = {
+            cpu_usage: state.cpu_usage,
+            cpu_temp: state.temperature,
+            memory_usage: state.memory_usage,
+            memory_total: state.memory_total,
+            storage_usage: state.storage_usage,
+            storage_total: state.storage_total,
+            top_processes: state.top_processes,
+            network_interfaces: state.network_interfaces,
+          };
+          await redisClient.publishDeviceMetrics(deviceUuid, metrics);
+        }
+      }
+    } catch (error) {
+      // Log but don't throw - graceful degradation
+      console.error('⚠️  Failed to publish to Redis (continuing with PostgreSQL only):', error);
+    }
 
   } catch (error) {
-    console.error('❌ Failed to store metrics:', error);
+    console.error('❌ Failed to handle device state:', error);
     throw error;
   }
 }

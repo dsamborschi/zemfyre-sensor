@@ -286,6 +286,25 @@ async function startServer() {
     // Don't exit - this is not critical for API operation
   }
 
+  // Initialize Redis for real-time pub/sub
+  try {
+    const { redisClient } = await import('./redis/client');
+    await redisClient.connect();
+    console.log('✅ Redis client connected');
+  } catch (error) {
+    console.error('⚠️  Failed to initialize Redis:', error);
+    // Don't exit - graceful degradation (continues with PostgreSQL only)
+  }
+
+  // Start Metrics Batch Worker (Phase 2 - Redis Streams)
+  try {
+    const { startMetricsBatchWorker } = await import('./workers/metrics-batch-worker');
+    await startMetricsBatchWorker();
+  } catch (error) {
+    console.error('⚠️  Failed to start metrics batch worker:', error);
+    // Don't exit - will fall back to direct writes
+  }
+
   // Initialize MQTT manager for device messages
   try {
     await initializeMqtt();
@@ -304,14 +323,6 @@ async function startServer() {
     // Don't exit - this is not critical for API operation
   }
 
-  // Initialize shadow history retention scheduler
-  // try {
-  //   startRetentionScheduler();
-  //   console.log('✅ Shadow history retention scheduler started');
-  // } catch (error) {
-  //   console.error('⚠️  Failed to start retention scheduler:', error);
-  //   // Don't exit - this is not critical for API operation
-  // }
 
   // Initialize MQTT Monitor Service
   let mqttDbService: MQTTDatabaseService | null = null;
@@ -379,6 +390,9 @@ async function startServer() {
   try {
     websocketManager.initialize(server);
     console.log('✅ WebSocket Server initialized (available at ws://localhost:' + PORT + '/ws)');
+    
+    // Initialize Redis pub/sub for real-time metrics (Phase 1)
+    await websocketManager.initializeRedis();
   } catch (error) {
     console.error('⚠️  Failed to initialize WebSocket server:', error);
     // Don't exit - this is not critical for API operation
@@ -392,6 +406,22 @@ async function startServer() {
     try {
       websocketManager.shutdown();
       console.log('✅ WebSocket Server stopped');
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
+    // Shutdown Metrics Batch Worker
+    try {
+      const { stopMetricsBatchWorker } = await import('./workers/metrics-batch-worker');
+      await stopMetricsBatchWorker();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
+    // Shutdown Redis
+    try {
+      const { redisClient } = await import('./redis/client');
+      await redisClient.disconnect();
     } catch (error) {
       // Ignore errors during shutdown
     }
@@ -488,6 +518,22 @@ async function startServer() {
     try {
       websocketManager.shutdown();
       console.log('✅ WebSocket Server stopped');
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
+    // Shutdown Metrics Batch Worker
+    try {
+      const { stopMetricsBatchWorker } = await import('./workers/metrics-batch-worker');
+      await stopMetricsBatchWorker();
+    } catch (error) {
+      // Ignore errors during shutdown
+    }
+    
+    // Shutdown Redis
+    try {
+      const { redisClient } = await import('./redis/client');
+      await redisClient.disconnect();
     } catch (error) {
       // Ignore errors during shutdown
     }

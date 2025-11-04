@@ -7,7 +7,7 @@
 import MqttManager from './mqtt-manager';
 import {
   handleSensorData,
-  handleMetrics
+  handleDeviceState
 } from './handlers';
 
 let mqttManager: MqttManager | null = null;
@@ -48,13 +48,11 @@ export async function initializeMqtt(): Promise<MqttManager | null> {
       }
     });
 
-
-
-    mqttManager.on('metrics', async (metrics) => {
+    mqttManager.on('state', async (state) => {
       try {
-        await handleMetrics(metrics);
+        await handleDeviceState(state);
       } catch (error) {
-        console.error('Error handling metrics:', error);
+        console.error('Error handling device state:', error);
       }
     });
 
@@ -66,9 +64,7 @@ export async function initializeMqtt(): Promise<MqttManager | null> {
       console.log('📡 Subscribing to all device topics...');
       mqttManager.subscribeToAll([
         'sensor',
-        'shadow-reported',
-        'shadow-desired',
-        'metrics',
+        'state',
       ]);
     } else {
       console.log('⚠️  MQTT subscription disabled. Set MQTT_SUBSCRIBE_ALL=true to enable.');

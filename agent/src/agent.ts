@@ -496,7 +496,8 @@ export default class DeviceAgent {
 			},
 			this.agentLogger,  // Pass the agent logger
 			this.sensorPublish,  // Pass sensor-publish for health reporting
-			this.sensors  // Pass protocol-adapters for health reporting
+			this.sensors,  // Pass protocol-adapters for health reporting
+			MqttManager.getInstance()  // Pass MQTT manager singleton for state reporting (optional)
 		);
 		
 		// Reinitialize device actions with apiBinder for connection health endpoint

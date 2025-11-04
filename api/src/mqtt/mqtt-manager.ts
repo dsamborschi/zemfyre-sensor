@@ -187,24 +187,9 @@ export class MqttManager extends EventEmitter {
     const topicPatterns = topics.map(type => {
       switch (type) {
         case 'sensor':
-          // Subscribe to IoT sensor data format (matches device agent)
-          // No leading $ - topics starting with $ are reserved for broker system topics
           return `iot/device/${mqttDevicePattern}/sensor/+`;
-        case 'shadow-reported':
-          // Subscribe to IoT Shadow /update topic (device publishes state updates here)
-          // Device publishes to: iot/device/{uuid}/shadow/name/{shadowName}/update
-          return `iot/device/${mqttDevicePattern}/shadow/name/+/update`;
-        case 'shadow-desired':
-          // Subscribe to IoT Shadow update/delta (cloud sets desired state)
-          return `iot/device/${mqttDevicePattern}/shadow/name/+/update/delta`;
-        case 'logs':
-          return `device/${mqttDevicePattern}/logs/+`;
-        case 'metrics':
-          return `device/${mqttDevicePattern}/metrics`;
-        case 'status':
-          return `device/${mqttDevicePattern}/status`;
-        default:
-          return `device/${mqttDevicePattern}/${type}`;
+        case 'state':
+          return `iot/device/${mqttDevicePattern}/state`;
       }
     });
 
@@ -315,29 +300,11 @@ export class MqttManager extends EventEmitter {
         preview: message.substring(0, 200)
       });
       
-      // Check if this is an IoT device topic (sensors/shadows)
-      if (topic.startsWith('iot/device/')) {
-        console.log('✅ Detected IoT device topic');
-        
-        // Check if it's a shadow topic or sensor topic
-        if (topic.includes('/shadow/')) {
-          this.handleIotShadowMessage(topic, message);
-        } else if (topic.includes('/sensor/')) {
-          this.handleIotSensorMessage(topic, message);
-        }
-        return;
-      }
       
-      // Parse standard topic format: device/{uuid}/{type}/...
+      // Parse standard topic format: iot/device/{uuid}/{type}/...
       const parts = topic.split('/');
-      
-      if (parts[0] !== 'device' || parts.length < 3) {
-        console.warn('⚠️  Unknown topic format:', topic);
-        return;
-      }
-
-      const deviceUuid = parts[1];
-      const messageType = parts[2];
+      const deviceUuid = parts[2];
+      const messageType = parts[3];
 
       // Parse JSON payload
       let data: any;
@@ -352,6 +319,11 @@ export class MqttManager extends EventEmitter {
       switch (messageType) {
         case 'sensor':
           this.handleSensorData(deviceUuid, parts[3], data);
+          break;
+        case 'state':
+          // Handle device state updates
+          console.log(`📡 Processing state update for device ${deviceUuid.substring(0, 8)}...`);
+          this.emit('state', data);
           break;
         case 'shadow':
           this.handleShadowUpdate(deviceUuid, parts[3], data);
