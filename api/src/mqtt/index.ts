@@ -7,10 +7,7 @@
 import MqttManager from './mqtt-manager';
 import {
   handleSensorData,
-  handleShadowUpdate,
-  handleLogMessage,
-  handleMetrics,
-  handleDeviceStatus
+  handleMetrics
 } from './handlers';
 
 let mqttManager: MqttManager | null = null;
@@ -51,35 +48,13 @@ export async function initializeMqtt(): Promise<MqttManager | null> {
       }
     });
 
-    mqttManager.on('shadow', async (update) => {
-      try {
-        await handleShadowUpdate(update);
-      } catch (error) {
-        console.error('Error handling shadow update:', error);
-      }
-    });
 
-    mqttManager.on('log', async (log) => {
-      try {
-        await handleLogMessage(log);
-      } catch (error) {
-        console.error('Error handling log message:', error);
-      }
-    });
 
     mqttManager.on('metrics', async (metrics) => {
       try {
         await handleMetrics(metrics);
       } catch (error) {
         console.error('Error handling metrics:', error);
-      }
-    });
-
-    mqttManager.on('status', async ({ deviceUuid, status }) => {
-      try {
-        await handleDeviceStatus(deviceUuid, status);
-      } catch (error) {
-        console.error('Error handling device status:', error);
       }
     });
 
@@ -93,9 +68,7 @@ export async function initializeMqtt(): Promise<MqttManager | null> {
         'sensor',
         'shadow-reported',
         'shadow-desired',
-        'logs',
         'metrics',
-        'status'
       ]);
     } else {
       console.log('⚠️  MQTT subscription disabled. Set MQTT_SUBSCRIBE_ALL=true to enable.');

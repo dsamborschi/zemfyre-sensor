@@ -23,8 +23,23 @@ import {
   BarChart3,
   AlertTriangle,
   Clock,
-  GripVertical
+  GripVertical,
+  LayoutDashboard,
+  Check,
+  Star,
+  Edit2,
+  ChevronDown
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '../components/ui/dialog';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
 import { Device } from '../components/DeviceSidebar';
 
 const ResponsiveGridLayout = WidthProvider(Responsive);
@@ -84,6 +99,15 @@ interface DashboardWidget extends Layout {
   deviceId?: string; // For device-specific widgets
 }
 
+interface DashboardLayout {
+  id: number;
+  layoutName: string;
+  widgetCount: number;
+  isDefault: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
 interface GlobalDashboardPageProps {
   devices: Device[];
   onDeviceSelect: (device: Device) => void;
@@ -96,14 +120,58 @@ export function GlobalDashboardPage({ devices, onDeviceSelect }: GlobalDashboard
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [selectedDeviceForWidget, setSelectedDeviceForWidget] = useState<string>('');
+  const [availableLayouts, setAvailableLayouts] = useState<DashboardLayout[]>([]);
+  const [currentLayoutId, setCurrentLayoutId] = useState<number | null>(null);
+  const [currentLayoutName, setCurrentLayoutName] = useState<string>('Default');
+  const [showNewDashboardDialog, setShowNewDashboardDialog] = useState(false);
+  const [showRenameDashboardDialog, setShowRenameDashboardDialog] = useState(false);
+  const [newDashboardName, setNewDashboardName] = useState('');
 
   useEffect(() => {
+    loadAvailableLayouts();
     loadLayout();
   }, []);
 
-  const loadLayout = async () => {
+  const loadAvailableLayouts = async () => {
+    try {
+      const response = await fetch(`http://localhost:4002/api/v1/dashboard-layouts/global/all`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+
+      if (response.ok) {
+        const layouts = await response.json();
+        setAvailableLayouts(layouts);
+      }
+    } catch (error) {
+      console.error('Error loading available layouts:', error);
+    }
+  };
+
+  const loadLayout = async (layoutId?: number) => {
     try {
       setIsLoading(true);
+      
+      if (layoutId) {
+        // Load specific layout by ID
+        const response = await fetch(`http://localhost:4002/api/v1/dashboard-layouts/by-id/${layoutId}`, {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setWidgets(data.widgets || []);
+          setCurrentLayoutId(layoutId);
+          setCurrentLayoutName(data.layoutName || 'Default');
+          setHasUnsavedChanges(false);
+          return;
+        }
+      }
+
+      // Load default layout
       const response = await fetch(`http://localhost:4002/api/v1/dashboard-layouts/global`, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
@@ -114,6 +182,8 @@ export function GlobalDashboardPage({ devices, onDeviceSelect }: GlobalDashboard
         const data = await response.json();
         if (data.widgets && Array.isArray(data.widgets) && data.widgets.length > 0) {
           setWidgets(data.widgets);
+          setCurrentLayoutId(data.id || null);
+          setCurrentLayoutName(data.layoutName || 'Default');
         } else {
           loadDefaultLayout();
         }
@@ -161,8 +231,8 @@ export function GlobalDashboardPage({ devices, onDeviceSelect }: GlobalDashboard
         },
         body: JSON.stringify({
           widgets: widgetsToSave,
-          layoutName: 'Default',
-          isDefault: true
+          layoutName: currentLayoutName,
+          isDefault: availableLayouts.length === 0 // First layout is default
         })
       });
 
@@ -170,9 +240,18 @@ export function GlobalDashboardPage({ devices, onDeviceSelect }: GlobalDashboard
         throw new Error('Failed to save layout to server');
       }
 
+      const data = await response.json();
+      if (data.id) {
+        setCurrentLayoutId(data.id);
+      }
+
       if (showFeedback) {
         console.log('Global layout saved to server successfully');
       }
+      
+      // Reload available layouts
+      await loadAvailableLayouts();
+      
       return true;
     } catch (error) {
       console.error('Error saving global layout to server:', error);
@@ -193,6 +272,118 @@ export function GlobalDashboardPage({ devices, onDeviceSelect }: GlobalDashboard
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const createNewDashboard = async () => {
+    if (!newDashboardName.trim()) {
+      alert('Please enter a dashboard name');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await fetch(`http://localhost:4002/api/v1/dashboard-layouts/global`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify({
+          widgets: [],
+          layoutName: newDashboardName,
+          isDefault: false
+        })
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setCurrentLayoutId(data.id);
+        setCurrentLayoutName(newDashboardName);
+        setWidgets([]);
+        setHasUnsavedChanges(false);
+        setShowNewDashboardDialog(false);
+        setNewDashboardName('');
+        await loadAvailableLayouts();
+      } else {
+        alert('Failed to create new dashboard');
+      }
+    } catch (error) {
+      console.error('Error creating new dashboard:', error);
+      alert('Failed to create new dashboard');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const renameDashboard = async () => {
+    if (!newDashboardName.trim() || !currentLayoutId) {
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const response = await fetch(`http://localhost:4002/api/v1/dashboard-layouts/${currentLayoutId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        },
+        body: JSON.stringify({
+          layoutName: newDashboardName
+        })
+      });
+
+      if (response.ok) {
+        setCurrentLayoutName(newDashboardName);
+        setShowRenameDashboardDialog(false);
+        setNewDashboardName('');
+        await loadAvailableLayouts();
+      } else {
+        alert('Failed to rename dashboard');
+      }
+    } catch (error) {
+      console.error('Error renaming dashboard:', error);
+      alert('Failed to rename dashboard');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const deleteDashboard = async (layoutId: number) => {
+    if (!confirm('Are you sure you want to delete this dashboard?')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(`http://localhost:4002/api/v1/dashboard-layouts/${layoutId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('accessToken')}`
+        }
+      });
+
+      if (response.ok) {
+        await loadAvailableLayouts();
+        // If we deleted the current layout, load the default
+        if (layoutId === currentLayoutId) {
+          await loadLayout();
+        }
+      } else {
+        alert('Failed to delete dashboard');
+      }
+    } catch (error) {
+      console.error('Error deleting dashboard:', error);
+      alert('Failed to delete dashboard');
+    }
+  };
+
+  const switchDashboard = async (layoutId: number) => {
+    if (hasUnsavedChanges) {
+      if (!confirm('You have unsaved changes. Do you want to switch without saving?')) {
+        return;
+      }
+    }
+    await loadLayout(layoutId);
   };
 
   const resetLayout = () => {
@@ -268,34 +459,36 @@ export function GlobalDashboardPage({ devices, onDeviceSelect }: GlobalDashboard
     const WidgetIcon = WIDGET_TYPES[widget.type].icon;
     
     return (
-      <Card key={widget.i} className="h-full overflow-hidden">
-        <CardHeader className="pb-2 cursor-move card-header">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
+      <div key={widget.i} className="h-full">
+        <Card className="h-full overflow-hidden">
+          <CardHeader className="pb-2 cursor-move card-header">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {isEditMode && (
+                  <GripVertical className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
+                )}
+                <CardTitle className="text-sm font-medium flex items-center gap-2">
+                  <WidgetIcon className="w-4 h-4" />
+                  {widget.title}
+                </CardTitle>
+              </div>
               {isEditMode && (
-                <GripVertical className="w-5 h-5 text-muted-foreground hover:text-foreground transition-colors" />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8"
+                  onClick={() => removeWidget(widget.i)}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               )}
-              <CardTitle className="text-sm font-medium flex items-center gap-2">
-                <WidgetIcon className="w-4 h-4" />
-                {widget.title}
-              </CardTitle>
             </div>
-            {isEditMode && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => removeWidget(widget.i)}
-              >
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent className="p-4 pt-0">
-          {renderWidgetContent(widget)}
-        </CardContent>
-      </Card>
+          </CardHeader>
+          <CardContent className="p-4 pt-0">
+            {renderWidgetContent(widget)}
+          </CardContent>
+        </Card>
+      </div>
     );
   };
 
@@ -440,7 +633,72 @@ export function GlobalDashboardPage({ devices, onDeviceSelect }: GlobalDashboard
       {/* Toolbar */}
       <div className="bg-card border-b border-border p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <h2 className="text-lg font-semibold">Global Dashboard</h2>
+          {/* Dashboard Selector */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="flex items-center gap-2 hover:bg-accent">
+                <LayoutDashboard className="w-4 h-4" />
+                <span className="text-lg font-semibold">{currentLayoutName}</span>
+                <ChevronDown className="w-4 h-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-64">
+              <div className="p-2 text-xs font-semibold text-muted-foreground">YOUR DASHBOARDS</div>
+              {availableLayouts.map((layout) => (
+                <DropdownMenuItem 
+                  key={layout.id}
+                  onClick={() => switchDashboard(layout.id)}
+                  className="flex items-center justify-between group"
+                >
+                  <div className="flex items-center gap-2 flex-1">
+                    {layout.id === currentLayoutId && <Check className="w-4 h-4 text-primary" />}
+                    {layout.id !== currentLayoutId && <div className="w-4" />}
+                    <span className={layout.id === currentLayoutId ? "font-medium" : ""}>
+                      {layout.layoutName}
+                    </span>
+                    {layout.isDefault && <Star className="w-3 h-3 text-yellow-500 fill-yellow-500" />}
+                  </div>
+                  <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100">
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setCurrentLayoutId(layout.id);
+                        setCurrentLayoutName(layout.layoutName);
+                        setNewDashboardName(layout.layoutName);
+                        setShowRenameDashboardDialog(true);
+                      }}
+                    >
+                      <Edit2 className="w-3 h-3" />
+                    </Button>
+                    {!layout.isDefault && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          deleteDashboard(layout.id);
+                        }}
+                      >
+                        <Trash2 className="w-3 h-3" />
+                      </Button>
+                    )}
+                  </div>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuItem 
+                onClick={() => setShowNewDashboardDialog(true)}
+                className="border-t mt-1 pt-2"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create New Dashboard
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          
           {hasUnsavedChanges && (
             <Badge variant="outline" className="bg-yellow-100 text-yellow-700 border-yellow-200">
               Unsaved Changes
@@ -485,15 +743,20 @@ export function GlobalDashboardPage({ devices, onDeviceSelect }: GlobalDashboard
                 <Clock className="w-4 h-4 mr-2" />
                 Recent Events
               </DropdownMenuItem>
-              <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                <div className="flex items-center w-full">
+              <DropdownMenuItem 
+                onSelect={(e) => e.preventDefault()}
+                className="focus:bg-transparent"
+              >
+                <div className="flex items-center w-full" onClick={(e) => e.stopPropagation()}>
                   <Monitor className="w-4 h-4 mr-2" />
                   <select 
-                    className="flex-1 text-sm bg-transparent"
+                    className="flex-1 text-sm bg-transparent border border-input rounded px-2 py-1 cursor-pointer hover:bg-accent"
                     value={selectedDeviceForWidget}
                     onChange={(e) => {
+                      e.stopPropagation();
                       if (e.target.value) {
                         addDeviceWidget(e.target.value);
+                        setSelectedDeviceForWidget('');
                       }
                     }}
                     onClick={(e) => e.stopPropagation()}
@@ -537,6 +800,92 @@ export function GlobalDashboardPage({ devices, onDeviceSelect }: GlobalDashboard
           {widgets.map(widget => renderWidget(widget))}
         </ResponsiveGridLayout>
       </div>
+
+      {/* Create Dashboard Dialog */}
+      <Dialog open={showNewDashboardDialog} onOpenChange={setShowNewDashboardDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create New Dashboard</DialogTitle>
+            <DialogDescription>
+              Enter a name for your new dashboard. You can add widgets after creation.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="dashboard-name" className="text-sm font-medium">
+              Dashboard Name
+            </Label>
+            <Input
+              id="dashboard-name"
+              placeholder="e.g., Production Monitoring"
+              value={newDashboardName}
+              onChange={(e) => setNewDashboardName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  createNewDashboard();
+                }
+              }}
+              className="mt-2"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowNewDashboardDialog(false);
+                setNewDashboardName('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={createNewDashboard} disabled={!newDashboardName.trim() || isSaving}>
+              {isSaving ? 'Creating...' : 'Create Dashboard'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Rename Dashboard Dialog */}
+      <Dialog open={showRenameDashboardDialog} onOpenChange={setShowRenameDashboardDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Rename Dashboard</DialogTitle>
+            <DialogDescription>
+              Enter a new name for "{currentLayoutName}"
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            <Label htmlFor="rename-dashboard" className="text-sm font-medium">
+              Dashboard Name
+            </Label>
+            <Input
+              id="rename-dashboard"
+              placeholder="Dashboard name"
+              value={newDashboardName}
+              onChange={(e) => setNewDashboardName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') {
+                  renameDashboard();
+                }
+              }}
+              className="mt-2"
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setShowRenameDashboardDialog(false);
+                setNewDashboardName('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button onClick={renameDashboard} disabled={!newDashboardName.trim() || isSaving}>
+              {isSaving ? 'Renaming...' : 'Rename Dashboard'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

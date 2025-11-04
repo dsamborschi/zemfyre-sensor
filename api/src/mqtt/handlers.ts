@@ -5,7 +5,7 @@
  */
 
 import { query } from '../db/connection';
-import type { SensorData, ShadowUpdate, LogMessage, MetricsData } from './mqtt-manager';
+import type { SensorData, MetricsData } from './mqtt-manager';
 
 /**
  * Handle incoming sensor data
@@ -34,101 +34,6 @@ export async function handleSensorData(data: SensorData): Promise<void> {
   } catch (error) {
     console.error('❌ Failed to store sensor data:', error);
     throw error;
-  }
-}
-
-/**
- * Handle shadow update from device (reported state)
- */
-export async function handleShadowUpdate(update: ShadowUpdate): Promise<void> {
-  try {
-    if (update.reported) {
-      // Update device shadow reported state
-      await query(
-        `INSERT INTO device_shadows (device_uuid, reported, version, updated_at)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (device_uuid) 
-         DO UPDATE SET
-           reported = $2,
-           version = GREATEST(device_shadows.version, $3),
-           updated_at = $4`,
-        [
-          update.deviceUuid,
-          JSON.stringify(update.reported),
-          update.version,
-          update.timestamp
-        ]
-      );
-
-      // Store in shadow history for time-series analysis (Phase 4)
-      await query(
-        `INSERT INTO device_shadow_history (device_uuid, shadow_name, reported_state, version, timestamp)
-         VALUES ($1, $2, $3, $4, $5)`,
-        [
-          update.deviceUuid,
-          'device-state',
-          JSON.stringify(update.reported),
-          update.version,
-          update.timestamp
-        ]
-      );
-
-      console.log(`✅ Updated shadow reported state: ${update.deviceUuid}`);
-    }
-
-    if (update.desired) {
-      // Update device shadow desired state
-      await query(
-        `INSERT INTO device_shadows (device_uuid, desired, version, updated_at)
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT (device_uuid)
-         DO UPDATE SET
-           desired = $2,
-           version = GREATEST(device_shadows.version, $3),
-           updated_at = $4`,
-        [
-          update.deviceUuid,
-          JSON.stringify(update.desired),
-          update.version,
-          update.timestamp
-        ]
-      );
-
-      console.log(`✅ Updated shadow desired state: ${update.deviceUuid}`);
-    }
-
-  } catch (error) {
-    console.error('❌ Failed to update shadow:', error);
-    throw error;
-  }
-}
-
-/**
- * Handle container logs from device
- */
-export async function handleLogMessage(log: LogMessage): Promise<void> {
-  try {
-    // Store logs in database (consider log retention policies)
-    await query(
-      `INSERT INTO device_logs (device_uuid, container_id, container_name, message, level, stream, timestamp)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [
-        log.deviceUuid,
-        log.containerId,
-        log.containerName,
-        log.message,
-        log.level || 'info',
-        log.stream || 'stdout',
-        log.timestamp
-      ]
-    );
-
-    // Optional: Stream to log aggregation service (e.g., Elasticsearch, Loki)
-    // await forwardToLogAggregator(log);
-
-  } catch (error) {
-    console.error('❌ Failed to store log message:', error);
-    // Don't throw - logs are non-critical
   }
 }
 
@@ -193,26 +98,4 @@ export async function handleMetrics(metrics: MetricsData): Promise<void> {
   }
 }
 
-/**
- * Handle device status updates
- */
-export async function handleDeviceStatus(deviceUuid: string, status: any): Promise<void> {
-  try {
-    const isOnline = status.status === 'online' || status.online === true;
 
-    await query(
-      `UPDATE devices 
-       SET 
-         is_online = $2,
-         last_connectivity_event = CURRENT_TIMESTAMP
-       WHERE uuid = $1`,
-      [deviceUuid, isOnline]
-    );
-
-    console.log(`✅ Updated device status: ${deviceUuid} -> ${isOnline ? 'online' : 'offline'}`);
-
-  } catch (error) {
-    console.error('❌ Failed to update device status:', error);
-    throw error;
-  }
-}

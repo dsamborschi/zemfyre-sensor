@@ -24,7 +24,6 @@ import DeviceSettingsPage from "./pages/DeviceSettingsPage";
 import AccountPage from "./pages/AccountPage";
 import { LogsPage } from "./pages/LogsPage";
 import { ProfilePage } from "./pages/ProfilePage";
-import { CustomDashboardPage } from "./pages/CustomDashboardPage";
 import { GlobalDashboardPage } from "./pages/GlobalDashboardPage";
 
 import { toast } from "sonner";
@@ -59,7 +58,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security' | 'maintenance' | 'logs' | 'settings' | 'account' | 'users' | 'profile' | 'custom-dashboard' | 'global-dashboard'>('global-dashboard');
+  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security' | 'maintenance' | 'logs' | 'settings' | 'account' | 'users' | 'profile' | 'dashboard'>('dashboard');
   const [debugMode, setDebugMode] = useState(false);
   
   // Memoize selected device to prevent unnecessary re-renders
@@ -454,20 +453,12 @@ export default function App() {
           {/* View Toggle Buttons */}
           <div className="bg-card border-b border-border px-6 py-3 flex gap-2 overflow-x-auto">
             <Button
-              variant={currentView === 'global-dashboard' ? 'default' : 'outline'}
+              variant={currentView === 'dashboard' ? 'default' : 'outline'}
               size="sm"
-              onClick={() => setCurrentView('global-dashboard')}
+              onClick={() => setCurrentView('dashboard')}
             >
               <BarChart3 className="w-4 h-4 mr-2" />
-              Global Dashboard
-            </Button>
-            <Button
-              variant={currentView === 'custom-dashboard' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setCurrentView('custom-dashboard')}
-            >
-              <BarChart3 className="w-4 h-4 mr-2" />
-              Device Dashboard
+              Dashboard
             </Button>
             <Button
               variant={currentView === 'metrics' ? 'default' : 'outline'}
@@ -568,17 +559,13 @@ export default function App() {
           </div>
 
           {/* Conditional Content */}
-          {currentView === 'global-dashboard' && (
+          {currentView === 'dashboard' && (
             <GlobalDashboardPage 
               devices={devices} 
               onDeviceSelect={(device) => {
                 setSelectedDeviceId(device.id);
-                setCurrentView('custom-dashboard');
               }} 
             />
-          )}
-          {currentView === 'custom-dashboard' && (
-            <CustomDashboardPage device={selectedDevice} />
           )}
           {currentView === 'metrics' && (
             <SystemMetrics

@@ -224,6 +224,44 @@ router.post('/:deviceUuid', async (req: AuthRequest, res: Response) => {
 });
 
 /**
+ * GET /api/v1/dashboard-layouts/by-id/:layoutId
+ * Get a specific dashboard layout by ID
+ */
+router.get('/by-id/:layoutId', async (req: AuthRequest, res: Response) => {
+  try {
+    const { layoutId } = req.params;
+    const userId = req.user?.id;
+
+    if (!userId) {
+      return res.status(401).json({ error: 'Unauthorized' });
+    }
+
+    const result = await query(`
+      SELECT id, layout_name, widgets, is_default, created_at, updated_at
+      FROM dashboard_layouts
+      WHERE id = $1 AND user_id = $2
+    `, [layoutId, userId]);
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Layout not found' });
+    }
+
+    const layout = result.rows[0];
+    res.json({
+      id: layout.id,
+      layoutName: layout.layout_name,
+      widgets: layout.widgets,
+      isDefault: layout.is_default,
+      createdAt: layout.created_at,
+      updatedAt: layout.updated_at
+    });
+  } catch (error) {
+    console.error('Error fetching layout by ID:', error);
+    res.status(500).json({ error: 'Failed to fetch layout' });
+  }
+});
+
+/**
  * PUT /api/v1/dashboard-layouts/:layoutId
  * Update an existing dashboard layout
  */
