@@ -30,6 +30,7 @@ import { router as protocolDevicesRoutes } from './routes/device-sensors';
 import { router as trafficRoutes } from './routes/traffic';
 import housekeeperRoutes, { setHousekeeperInstance } from './routes/housekeeper';
 import dashboardLayoutsRoutes from './routes/dashboard-layouts';
+import mosquittoAuthRoutes from './routes/mosquitto-auth';
 import { trafficLogger} from "./middleware/traffic-logger";
 import { startTrafficFlushService, stopTrafficFlushService } from './services/traffic-flush-service';
 // Import entity/graph routes
@@ -56,6 +57,7 @@ import { websocketManager } from './services/websocket-manager';
 // API Version Configuration - Change here to update all routesggg
 const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE = `/api/${API_VERSION}`;
+const MQTT_MONITOR_ENABLED = process.env.MQTT_MONITOR_ENABLED === 'true';
 
 const app = express();
 const PORT = process.env.PORT || 3002;
@@ -101,7 +103,6 @@ app.use((req, res, next) => {
 });
 
 
-
 // Root endpoint
 app.get('/', (req, res) => {
   res.json({
@@ -133,6 +134,9 @@ setupApiDocs(app, API_BASE);
 app.use(`${API_BASE}/auth`, authRoutes);
 app.use(`${API_BASE}/users`, usersRoutes);
 app.use(API_BASE, licenseRoutes);
+
+// Mosquitto HTTP Auth Backend (no versioning, called directly by mosquitto-go-auth)
+app.use('/mosquitto-auth', mosquittoAuthRoutes);
 app.use(`${API_BASE}/billing`, billingRoutes);
 app.use(API_BASE, provisioningRoutes);
 app.use(API_BASE, devicesRoutes);
@@ -238,16 +242,6 @@ async function startServer() {
     // Don't exit - this is not critical for API operation
   }
 
-  // Start image monitor for Docker Hub polling
-  // try {
-  //   const { imageMonitor } = await import('./services/image-monitor');
-  //   imageMonitor.start();
-  //   console.log('✅ Image Monitor started');
-  // } catch (error) {
-  //   console.error('⚠️  Failed to start image monitor:', error);
-  //   // Don't exit - this is not critical for API operation
-  // }
-
   // Start job scheduler for scheduled/recurring jobs
   try {
     await jobScheduler.start();
@@ -306,13 +300,15 @@ async function startServer() {
   }
 
   // Initialize MQTT manager for device messages
-  try {
-    await initializeMqtt();
-    // MQTT manager will log its own initialization status
-  } catch (error) {
-    console.error('⚠️  Failed to initialize MQTT:', error);
-    // Don't exit - this is not critical for API operation
-  }
+  (async () => {
+    try {
+      await initializeMqtt();
+      // MQTT manager will log its own initialization status
+    } catch (error) {
+      console.error('⚠️  Failed to initialize MQTT:', error);
+      retryMqttInitialization();
+    }
+  })();
 
   // Initialize API key rotation schedulers
   try {
@@ -323,60 +319,19 @@ async function startServer() {
     // Don't exit - this is not critical for API operation
   }
 
+  //mqttBroker monitor
 
-  // Initialize MQTT Monitor Service
-  let mqttDbService: MQTTDatabaseService | null = null;
-  
-  if (process.env.MQTT_MONITOR_ENABLED !== 'false') {
-    try {
-      const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
-      const username = process.env.MQTT_USERNAME;
-      const password = process.env.MQTT_PASSWORD;
-      const persistToDatabase = true;
+  if (MQTT_MONITOR_ENABLED) {
+    const mqttMonitorBundle = await MQTTMonitorService.initialize(poolWrapper.pool);
 
-      // Initialize database service if persistence is enabled
-      if (persistToDatabase) {
-        mqttDbService = new MQTTDatabaseService(poolWrapper.pool);
-        console.log('✅ MQTT Monitor database persistence enabled');
-      }
-
-      mqttMonitor = new MQTTMonitorService({
-        brokerUrl,
-        username,
-        password,
-        topicTreeEnabled: true,
-        metricsEnabled: true,
-        schemaGenerationEnabled: true,
-        persistToDatabase,
-        dbSyncInterval: parseInt(process.env.MQTT_DB_SYNC_INTERVAL || '30000')
-      }, mqttDbService);
-
-      // Log events
-      mqttMonitor.on('connected', () => {
-        console.log('✅ MQTT Monitor connected to broker at', brokerUrl);
-      });
-
-      mqttMonitor.on('error', (error) => {
-        console.error('⚠️  MQTT Monitor error:', error);
-      });
-
-      // Start the monitor
-      await mqttMonitor.start();
-      
-      // Set monitor instance for routes
-      setMonitorInstance(mqttMonitor, mqttDbService);
-      
-      // Set monitor instance for WebSocket
-      websocketManager.setMqttMonitor(mqttMonitor);
-      
-      console.log('✅ MQTT Monitor Service started');
-    } catch (error) {
-      console.error('⚠️  Failed to start MQTT Monitor:', error);
-      // Don't exit - this is not critical for API operation
+    if (mqttMonitorBundle.instance) {
+      setMonitorInstance(mqttMonitorBundle.instance, mqttMonitorBundle.dbService);
+      websocketManager.setMqttMonitor(mqttMonitorBundle.instance);
     }
   } else {
     console.log('ℹ️  MQTT Monitor disabled via MQTT_MONITOR_ENABLED=false');
   }
+
 
   const server = app.listen(PORT, () => {
     console.log('='.repeat(80));
@@ -622,6 +577,19 @@ async function startServer() {
       process.exit(0);
     });
   });
+}
+
+async function retryMqttInitialization(intervalMs: number = 15000): Promise<void> {
+  const { initializeMqtt } = await import('./mqtt');
+  const interval = setInterval(async () => {
+    try {
+      await initializeMqtt();
+      console.log('✅ MQTT reconnected successfully');
+      clearInterval(interval);
+    } catch (err: any) {
+      console.warn(`⏳ MQTT still unavailable (${err?.message || err})`);
+    }
+  }, intervalMs);
 }
 
 startServer().catch((error) => {

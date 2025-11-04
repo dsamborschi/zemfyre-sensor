@@ -15,6 +15,7 @@
 import mqtt, { MqttClient } from 'mqtt';
 import { EventEmitter } from 'events';
 import isUtf8 from 'is-utf8';
+import { MQTTDatabaseService } from './mqtt-database-service';
 
 // Update interval for metrics (milliseconds)
 const METRICS_UPDATE_INTERVAL = parseInt(process.env.MQTT_METRICS_UPDATE_INTERVAL || '5000');
@@ -308,6 +309,72 @@ export class MQTTMonitorService extends EventEmitter {
       timestamp: Date.now()
     };
   }
+
+
+    static async initialize(dbPool: any): Promise<{
+    instance: MQTTMonitorService;
+    dbService: MQTTDatabaseService | null;
+  }> {
+    const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
+    const username = process.env.MQTT_USERNAME;
+    const password = process.env.MQTT_PASSWORD;
+    const persistToDatabase = process.env.MQTT_PERSIST_DB !== 'false';
+    const dbSyncInterval = parseInt(process.env.MQTT_DB_SYNC_INTERVAL || '30000');
+
+    let dbService: MQTTDatabaseService | null = null;
+
+    try {
+      if (persistToDatabase) {
+        dbService = new MQTTDatabaseService(dbPool);
+      }
+
+      const monitor = new MQTTMonitorService(
+        {
+          brokerUrl,
+          username,
+          password,
+          topicTreeEnabled: true,
+          metricsEnabled: true,
+          schemaGenerationEnabled: true,
+          persistToDatabase,
+          dbSyncInterval,
+        },
+        dbService
+      );
+
+      monitor.on('connected', () => {
+        console.log(`✅ MQTT Monitor connected to broker at ${brokerUrl}`);
+      });
+
+      monitor.on('error', (error) => {
+        console.error('⚠️  MQTT Monitor error:', error);
+      });
+
+      await monitor.start();
+      console.log('✅ MQTT Monitor Service started');
+
+      return { instance: monitor, dbService };
+    } catch (err: any) {
+        console.error('⚠️  Failed to start MQTT Monitor:', err);
+        console.log('Retrying initialization every 15s...');
+        this.retryInitialization(dbPool);
+        return { instance: null as any, dbService };
+    }
+  }
+
+  private static retryInitialization(dbPool: any, intervalMs: number = 15000): void {
+  const timer = setInterval(async () => {
+    try {
+      const { instance } = await this.initialize(dbPool);
+      if (instance) {
+        console.log('✅ MQTT reconnected successfully');
+        clearInterval(timer); // clear the correct interval
+      }
+    } catch (err: any) {
+      console.warn(`⏳ MQTT still unavailable (${err?.message || err})`);
+    }
+  }, intervalMs);
+}
 
   /**
    * Start the monitoring service
