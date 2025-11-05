@@ -31,24 +31,24 @@ init_pki() {
         
         cd /etc/openvpn
         
-        # Initialize easy-rsa
-        /usr/share/easy-rsa/easyrsa init-pki
+        # Initialize easy-rsa (force non-interactive mode)
+        /usr/share/easy-rsa/easyrsa --batch init-pki
         
         # Build CA
-        echo "iotistic-vpn-ca" | /usr/share/easy-rsa/easyrsa build-ca nopass
+        echo "iotistic-vpn-ca" | /usr/share/easy-rsa/easyrsa --batch build-ca nopass
         
         # Generate server certificate
-        echo "server" | /usr/share/easy-rsa/easyrsa gen-req server nopass
-        echo "yes" | /usr/share/easy-rsa/easyrsa sign-req server server
+        echo "server" | /usr/share/easy-rsa/easyrsa --batch gen-req server nopass
+        echo "yes" | /usr/share/easy-rsa/easyrsa --batch sign-req server server
         
         # Generate DH parameters
-        /usr/share/easy-rsa/easyrsa gen-dh
+        /usr/share/easy-rsa/easyrsa --batch gen-dh
         
         # Generate TLS auth key
-        openvpn --genkey --secret pki/ta.key
+        openvpn --genkey secret pki/ta.key
         
         # Generate CRL
-        /usr/share/easy-rsa/easyrsa gen-crl
+        /usr/share/easy-rsa/easyrsa --batch gen-crl
         
         # Set proper permissions
         chown -R openvpn:openvpn /etc/openvpn/pki
@@ -91,17 +91,26 @@ start_vpn_server() {
     mkdir -p /var/log/openvpn
     chown openvpn:openvpn /var/log/openvpn
     
-    # Start OpenVPN in background
-    openvpn --config /etc/openvpn/server.conf --daemon
+    # Start OpenVPN in background with verbose logging
+    openvpn --config /etc/openvpn/server.conf --verb 4 --daemon
     
     # Wait a moment for server to start
-    sleep 5
+    sleep 3
+    
+    # Check log for errors
+    if [ -f "/var/log/openvpn/openvpn.log" ]; then
+        tail -20 /var/log/openvpn/openvpn.log
+    fi
     
     # Check if OpenVPN is running
     if pgrep openvpn > /dev/null; then
         success "OpenVPN server started successfully"
     else
         error "Failed to start OpenVPN server"
+        if [ -f "/var/log/openvpn/openvpn.log" ]; then
+            error "Last log entries:"
+            tail -30 /var/log/openvpn/openvpn.log
+        fi
         exit 1
     fi
 }
