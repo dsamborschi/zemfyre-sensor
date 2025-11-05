@@ -6,7 +6,6 @@
 import * as forge from 'node-forge';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-import { v4 as uuidv4 } from 'uuid';
 import { 
   CertificateInfo, 
   DeviceCertificateRequest, 
@@ -351,7 +350,7 @@ export class CertificateManager {
       throw new Error('CA not loaded');
     }
 
-    const crl = forge.pki.createCaStore();
+    // Get revoked certificates
     const revokedCerts = Array.from(this.certificates.values())
       .filter(cert => cert.revoked);
 

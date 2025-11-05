@@ -93,7 +93,7 @@ export interface APIConfig {
 
 export interface LogConfig {
   level: 'debug' | 'info' | 'warn' | 'error';
-  file?: string;
+  file?: string | undefined;
   maxSize?: string;
   maxFiles?: number;
 }
