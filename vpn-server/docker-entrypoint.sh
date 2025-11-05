@@ -115,52 +115,15 @@ start_vpn_server() {
     fi
 }
 
-# Start the API server
-start_api_server() {
-    log "Starting VPN API server..."
-    
-    cd /app
-    
-    # Wait for database to be ready
-    if [ -n "$DATABASE_URL" ]; then
-        log "Waiting for database connection..."
-        while ! pg_isready -d "$DATABASE_URL" > /dev/null 2>&1; do
-            sleep 2
-        done
-        success "Database connection established"
-    fi
-    
-    # Start Node.js API server
-    node dist/index.js &
-    API_PID=$!
-    
-    # Wait a moment for API to start
-    sleep 3
-    
-    # Check if API is running
-    if kill -0 $API_PID 2>/dev/null; then
-        success "VPN API server started successfully (PID: $API_PID)"
-    else
-        error "Failed to start VPN API server"
-        exit 1
-    fi
-}
-
-# Monitor services
+# Monitor OpenVPN service
 monitor_services() {
-    log "Monitoring VPN and API services..."
+    log "Monitoring OpenVPN service..."
     
     while true; do
-        # Check OpenVPN
+        # Check if OpenVPN is running
         if ! pgrep openvpn > /dev/null; then
             error "OpenVPN server has stopped, restarting..."
             start_vpn_server
-        fi
-        
-        # Check API server
-        if [ -n "$API_PID" ] && ! kill -0 $API_PID 2>/dev/null; then
-            error "API server has stopped, restarting..."
-            start_api_server
         fi
         
         sleep 30
@@ -169,17 +132,12 @@ monitor_services() {
 
 # Graceful shutdown
 cleanup() {
-    log "Shutting down services..."
-    
-    # Stop API server
-    if [ -n "$API_PID" ]; then
-        kill $API_PID 2>/dev/null || true
-    fi
+    log "Shutting down OpenVPN server..."
     
     # Stop OpenVPN
     pkill openvpn 2>/dev/null || true
     
-    success "Services stopped"
+    success "OpenVPN stopped"
     exit 0
 }
 
@@ -193,26 +151,17 @@ case "$1" in
         init_pki
         setup_iptables
         start_vpn_server
-        start_api_server
         monitor_services
         ;;
     "init-pki")
         init_pki
         ;;
-    "vpn-only")
-        init_pki
-        setup_iptables
-        start_vpn_server
-        # Keep container running
+    "logs")
+        # Follow OpenVPN logs
         tail -f /var/log/openvpn/openvpn.log
         ;;
-    "api-only")
-        start_api_server
-        # Keep container running
-        wait $API_PID
-        ;;
     *)
-        echo "Usage: $0 {start|init-pki|vpn-only|api-only}"
+        echo "Usage: $0 {start|init-pki|logs}"
         exit 1
         ;;
 esac
