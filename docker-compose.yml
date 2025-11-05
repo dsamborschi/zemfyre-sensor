@@ -122,61 +122,61 @@ services:
     # VPN Services - Commented out until TypeScript code is complete
     # Missing: vpn-server/src/vpn-server.ts implementation
     # TODO: Complete VPN server implementation before enabling
-    # vpn-server:
-    #     build:
-    #         context: ./vpn-server
-    #         dockerfile: Dockerfile
-    #     container_name: iotistic-vpn-server
-    #     privileged: true
-    #     cap_add:
-    #         - NET_ADMIN
-    #         - SYS_MODULE
-    #     restart: unless-stopped
-    #     ports:
-    #         - "${VPN_SERVER_PORT:-1194}:1194/udp"  # OpenVPN
-    #         - "${VPN_API_PORT:-3200}:3200/tcp"      # API Server
-    #         - "${VPN_MGMT_PORT:-7505}:7505/tcp"     # Management interface
-    #     volumes:
-    #         - vpn-config:/etc/openvpn
-    #         - vpn-logs:/var/log/openvpn
-    #         - ./vpn-server/config:/etc/openvpn/config:ro
-    #         - ./vpn-server/scripts:/etc/openvpn/scripts:ro
-    #     environment:
-    #         - VPN_SERVER_HOST=${VPN_SERVER_HOST:-localhost}
-    #         - VPN_SERVER_PORT=${VPN_SERVER_PORT:-1194}
-    #         - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${VPN_DB_NAME:-iotistic_vpn}
-    #         - REDIS_URL=redis://redis:6379
-    #         - API_PORT=${VPN_API_PORT:-3200}
-    #         - LOG_LEVEL=${VPN_LOG_LEVEL:-info}
-    #         - NODE_ENV=${NODE_ENV:-development}
-    #     depends_on:
-    #         postgres:
-    #             condition: service_healthy
-    #         redis:
-    #             condition: service_healthy
-    #     networks:
-    #         - iotistic-net
-    #     healthcheck:
-    #         test: ["CMD", "curl", "-f", "http://localhost:3200/health"]
-    #         interval: 30s
-    #         timeout: 10s
-    #         retries: 3
-    #         start_period: 60s
+    vpn-server:
+        build:
+            context: ./vpn-server
+            dockerfile: Dockerfile
+        container_name: iotistic-vpn-server
+        privileged: true
+        cap_add:
+            - NET_ADMIN
+            - SYS_MODULE
+        restart: unless-stopped
+        ports:
+            - "${VPN_SERVER_PORT:-1194}:1194/udp"  # OpenVPN
+            - "${VPN_API_PORT:-3200}:3200/tcp"      # API Server
+            - "${VPN_MGMT_PORT:-7505}:7505/tcp"     # Management interface
+        volumes:
+            - vpn-config:/etc/openvpn
+            - vpn-logs:/var/log/openvpn
+            - ./vpn-server/config:/etc/openvpn/config:ro
+            - ./vpn-server/scripts:/etc/openvpn/scripts:ro
+        environment:
+            - VPN_SERVER_HOST=${VPN_SERVER_HOST:-localhost}
+            - VPN_SERVER_PORT=${VPN_SERVER_PORT:-1194}
+            - DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@postgres:5432/${VPN_DB_NAME:-iotistic_vpn}
+            - REDIS_URL=redis://redis:6379
+            - API_PORT=${VPN_API_PORT:-3200}
+            - LOG_LEVEL=${VPN_LOG_LEVEL:-info}
+            - NODE_ENV=${NODE_ENV:-development}
+        depends_on:
+            postgres:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+        networks:
+            - iotistic-net
+        healthcheck:
+            test: ["CMD", "curl", "-f", "http://localhost:3200/health"]
+            interval: 30s
+            timeout: 10s
+            retries: 3
+            start_period: 60s
 
-    # # Optional: Web UI for VPN management
-    # vpn-admin:
-    #     image: nginx:alpine
-    #     container_name: iotistic-vpn-admin
-    #     restart: unless-stopped
-    #     ports:
-    #         - "${VPN_ADMIN_PORT:-8080}:80"
-    #     volumes:
-    #         - ./vpn-server/web:/usr/share/nginx/html:ro
-    #         - ./vpn-server/nginx.conf:/etc/nginx/nginx.conf:ro
-    #     depends_on:
-    #         - vpn-server
-    #     networks:
-    #         - iotistic-net
+    # Optional: Web UI for VPN management
+    vpn-admin:
+        image: nginx:alpine
+        container_name: iotistic-vpn-admin
+        restart: unless-stopped
+        ports:
+            - "${VPN_ADMIN_PORT:-8080}:80"
+        volumes:
+            - ./vpn-server/web:/usr/share/nginx/html:ro
+            - ./vpn-server/nginx.conf:/etc/nginx/nginx.conf:ro
+        depends_on:
+            - vpn-server
+        networks:
+            - iotistic-net
     
     # Protocol Simulators for Testing
     modbus-simulator:
