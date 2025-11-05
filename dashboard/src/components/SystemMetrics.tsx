@@ -33,6 +33,15 @@ import { AnalyticsCard } from "./AnalyticsCard";
 import { GeneralInfoCard } from "./GeneralInfoCard";
 import { buildApiUrl } from "@/config/api";
 
+const MAX_POINTS = 60; // Keep last 60 points (30 minutes)
+
+// Global cache for chart history data per device (persists across component unmounts)
+const chartDataCache = new Map<string, {
+  cpu: Array<{ time: string; value: number }>;
+  memory: Array<{ time: string; used: number; available: number }>;
+  network: Array<{ time: string; download: number; upload: number }>;
+}>();
+
 interface SystemMetricsProps {
   device: Device;
   networkInterfaces?: NetworkInterface[];
@@ -45,10 +54,20 @@ export function SystemMetrics({
   const [selectedMetric, setSelectedMetric] = useState<'cpu' | 'memory' | 'network'>('cpu');
   const [timePeriod, setTimePeriod] = useState<'30min' | '6h' | '12h' | '24h'>('30min');
   
-  // Local state for history data (populated by WebSocket)
-  const [cpuHistory, setCpuHistory] = useState<Array<{ time: string; value: number }>>([]);
-  const [memoryHistory, setMemoryHistory] = useState<Array<{ time: string; used: number; available: number }>>([]);
-  const [networkHistory, setNetworkHistory] = useState<Array<{ time: string; download: number; upload: number }>>([]);
+  // Initialize from cache if available, otherwise empty arrays
+  const deviceCacheKey = device.deviceUuid;
+  const cachedData = chartDataCache.get(deviceCacheKey);
+  
+  // Local state for history data (populated by WebSocket and persisted in cache)
+  const [cpuHistory, setCpuHistory] = useState<Array<{ time: string; value: number }>>(
+    cachedData?.cpu || []
+  );
+  const [memoryHistory, setMemoryHistory] = useState<Array<{ time: string; used: number; available: number }>>(
+    cachedData?.memory || []
+  );
+  const [networkHistory, setNetworkHistory] = useState<Array<{ time: string; download: number; upload: number }>>(
+    cachedData?.network || []
+  );
   
   // Check if we're still waiting for initial data
   const isLoading = device.cpu === 0 && device.memory === 0 && device.disk === 0;
@@ -211,31 +230,83 @@ export function SystemMetrics({
     }
   }, []);
 
-  // Handle metrics history updates via WebSocket
+  // Fetch historical data from API
+  const fetchHistoricalData = useCallback(async (period: string) => {
+    try {
+      const response = await fetch(buildApiUrl(`/api/v1/devices/${device.deviceUuid}/metrics?period=${period}`));
+      if (!response.ok) return;
+      
+      const data = await response.json();
+      if (!data.metrics || data.metrics.length === 0) return;
+      
+      const cpu: Array<{ time: string; value: number }> = [];
+      const memory: Array<{ time: string; used: number; available: number }> = [];
+      const network: Array<{ time: string; download: number; upload: number }> = [];
+      
+      // Format time based on period
+      const formatTime = (timestamp: string) => {
+        const date = new Date(timestamp);
+        if (period === '30min') {
+          return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        } else {
+          return date.toLocaleString([], { 
+            month: 'short', 
+            day: 'numeric', 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+        }
+      };
+      
+      data.metrics.forEach((m: any) => {
+        const time = formatTime(m.recorded_at);
+        cpu.push({ time, value: Math.round(m.cpu_usage || 0) });
+        memory.push({ 
+          time, 
+          used: Math.round((m.memory_usage || 0) / 1024), 
+          available: Math.round(((m.memory_total || 0) - (m.memory_usage || 0)) / 1024)
+        });
+        network.push({
+          time,
+          download: Math.round((m.network_rx_rate || 0) / 1024),
+          upload: Math.round((m.network_tx_rate || 0) / 1024)
+        });
+      });
+      
+      setCpuHistory(cpu);
+      setMemoryHistory(memory);
+      setNetworkHistory(network);
+    } catch (error) {
+      console.error('Failed to fetch historical data:', error);
+    }
+  }, [device.deviceUuid]);
+
+  // Handle metrics history updates via WebSocket (append live data only for 30min period)
   const handleMetricsHistory = useCallback((data: MetricsHistoryData) => {
-    console.log('[SystemMetrics] Received history data:', data);
-    
-    // Accumulate data points (append new points, keep last 60 for 30-minute window at 30s intervals)
-    const MAX_POINTS = 60; // 30 minutes at 30-second intervals
+    // Only append live data for 30min period, ignore for historical periods
+    if (timePeriod !== '30min') return;
     
     if (data.cpu && data.cpu.length > 0) {
-      console.log('[SystemMetrics] Appending CPU history:', data.cpu.length, 'points');
       setCpuHistory(prev => [...prev, ...data.cpu].slice(-MAX_POINTS));
     }
     if (data.memory && data.memory.length > 0) {
-      console.log('[SystemMetrics] Appending Memory history:', data.memory.length, 'points');
       setMemoryHistory(prev => [...prev, ...data.memory].slice(-MAX_POINTS));
     }
     if (data.network && data.network.length > 0) {
-      console.log('[SystemMetrics] Appending Network history:', data.network.length, 'points');
       setNetworkHistory(prev => [...prev, ...data.network].slice(-MAX_POINTS));
     }
-  }, []);
+  }, [timePeriod]);
 
   // Subscribe to WebSocket channels
   useWebSocket(device.deviceUuid, 'system-info', handleSystemInfo);
   useWebSocket(device.deviceUuid, 'processes', handleProcesses);
-  useWebSocket(device.deviceUuid, 'history', handleMetricsHistory);
+  // Only subscribe to history channel for 30min period (live updates)
+  useWebSocket(device.deviceUuid, 'history', timePeriod === '30min' ? handleMetricsHistory : () => {});
+
+  // Fetch historical data when time period changes
+  useEffect(() => {
+    fetchHistoricalData(timePeriod);
+  }, [timePeriod, fetchHistoricalData]);
 
   // Clear data when device changes
   useEffect(() => {
@@ -335,7 +406,8 @@ export function SystemMetrics({
                         dataKey="time" 
                         stroke="#6b7280" 
                         tick={{ fontSize: 10 }} 
-                        interval="preserveStartEnd"
+                        interval={Math.floor(cpuHistory.length / 6)}
+                        minTickGap={30}
                       />
                       <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} domain={[0, 100]} />
                       <Tooltip />
@@ -378,7 +450,8 @@ export function SystemMetrics({
                     dataKey="time" 
                     stroke="#6b7280" 
                     tick={{ fontSize: 10 }} 
-                    interval="preserveStartEnd"
+                    interval={Math.floor(memoryHistory.length / 6)}
+                    minTickGap={30}
                   />
                   <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} domain={[0, 'dataMax']} />
                   <Tooltip />
@@ -423,7 +496,8 @@ export function SystemMetrics({
                         dataKey="time" 
                         stroke="#6b7280" 
                         tick={{ fontSize: 10 }} 
-                        interval="preserveStartEnd"
+                        interval={Math.floor(networkHistory.length / 6)}
+                        minTickGap={30}
                       />
                       <YAxis stroke="#6b7280" width={40} tick={{ fontSize: 10 }} domain={[0, 'auto']} />
                       <Tooltip />

@@ -32,14 +32,45 @@ export const router = express.Router();
 /**
  * Get device metrics
  * GET /api/v1/devices/:uuid/metrics
+ * Query params:
+ * - limit: number of recent records (default 100)
+ * - period: time period (30min, 6h, 12h, 24h)
  * Note: No auth required - called by dashboard, not device
  */
 router.get('/devices/:uuid/metrics', async (req, res) => {
   try {
     const { uuid } = req.params;
     const limit = parseInt(req.query.limit as string) || 100;
+    const period = req.query.period as string;
 
-    const metrics = await DeviceMetricsModel.getRecent(uuid, limit);
+    let metrics;
+    
+    if (period) {
+      const endTime = new Date();
+      const startTime = new Date();
+      const maxPoints = 60;
+      
+      switch (period) {
+        case '30min':
+          startTime.setMinutes(endTime.getMinutes() - 30);
+          break;
+        case '6h':
+          startTime.setHours(endTime.getHours() - 6);
+          break;
+        case '12h':
+          startTime.setHours(endTime.getHours() - 12);
+          break;
+        case '24h':
+          startTime.setHours(endTime.getHours() - 24);
+          break;
+        default:
+          startTime.setMinutes(endTime.getMinutes() - 30);
+      }
+      
+      metrics = await DeviceMetricsModel.getByTimeRange(uuid, startTime, endTime, maxPoints);
+    } else {
+      metrics = await DeviceMetricsModel.getRecent(uuid, limit);
+    }
 
     res.json({
       count: metrics.length,

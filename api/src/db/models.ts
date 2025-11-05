@@ -440,6 +440,34 @@ export class DeviceMetricsModel {
   }
 
   /**
+   * Get metrics by time range with optional sampling
+   */
+  static async getByTimeRange(
+    deviceUuid: string, 
+    startTime: Date, 
+    endTime: Date,
+    maxPoints: number = 60
+  ): Promise<DeviceMetrics[]> {
+    const totalMinutes = Math.floor((endTime.getTime() - startTime.getTime()) / 60000);
+    const interval = Math.max(1, Math.floor(totalMinutes / maxPoints));
+    
+    const result = await query<DeviceMetrics>(
+      `WITH numbered AS (
+        SELECT *, ROW_NUMBER() OVER (ORDER BY recorded_at) as rn
+        FROM device_metrics 
+        WHERE device_uuid = $1 
+          AND recorded_at >= $2 
+          AND recorded_at <= $3
+      )
+      SELECT * FROM numbered 
+      WHERE rn % $4 = 1
+      ORDER BY recorded_at ASC`,
+      [deviceUuid, startTime, endTime, interval]
+    );
+    return result.rows;
+  }
+
+  /**
    * Clean old metrics (keep last 30 days)
    */
   static async cleanup(daysToKeep: number = 30): Promise<number> {
