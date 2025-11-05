@@ -1,3 +1,22 @@
+# Build stage
+FROM node:18-alpine AS builder
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+COPY tsconfig.json ./
+
+# Install all dependencies (including dev dependencies for building)
+RUN npm ci
+
+# Copy source code
+COPY src/ ./src/
+
+# Build TypeScript
+RUN npm run build
+
+# Production stage
 FROM alpine:3.18
 
 # Install required packages
@@ -32,13 +51,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 
-# Copy application source
-COPY dist/ ./dist/
+# Copy built application from builder stage
+COPY --from=builder /app/dist/ ./dist/
 
-# Create openvpn user
-RUN addgroup -g 1001 openvpn && \
-    adduser -D -u 1001 -G openvpn openvpn
-
+# Use existing openvpn user/group created by openvpn package
 # Set permissions
 RUN chown -R openvpn:openvpn /etc/openvpn /var/log/openvpn /app
 
