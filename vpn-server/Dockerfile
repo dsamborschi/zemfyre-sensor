@@ -30,10 +30,19 @@ RUN chmod +x /etc/openvpn/scripts/*.sh
 # Set up application
 WORKDIR /app
 COPY package*.json ./
-RUN npm ci --only=production
 
-# Copy application source
-COPY dist/ ./dist/
+# Install all dependencies (including devDependencies for build)
+RUN npm install
+
+# Copy TypeScript source and tsconfig
+COPY tsconfig.json ./
+COPY src/ ./src/
+
+# Build TypeScript
+RUN npm run build
+
+# Remove devDependencies to reduce image size
+RUN npm prune --production
 
 # Create openvpn user
 RUN addgroup -g 1001 openvpn && \
