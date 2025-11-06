@@ -41,6 +41,8 @@ const cors_1 = __importDefault(require("cors"));
 const auth_1 = __importDefault(require("./routes/auth"));
 const users_1 = __importDefault(require("./routes/users"));
 const device_state_1 = __importDefault(require("./routes/device-state"));
+const device_logs_1 = __importDefault(require("./routes/device-logs"));
+const device_metrics_1 = __importDefault(require("./routes/device-metrics"));
 const provisioning_1 = __importDefault(require("./routes/provisioning"));
 const devices_1 = __importDefault(require("./routes/devices"));
 const admin_1 = __importDefault(require("./routes/admin"));
@@ -59,6 +61,8 @@ const sensors_1 = __importDefault(require("./routes/sensors"));
 const device_sensors_1 = require("./routes/device-sensors");
 const traffic_1 = require("./routes/traffic");
 const housekeeper_1 = __importStar(require("./routes/housekeeper"));
+const dashboard_layouts_1 = __importDefault(require("./routes/dashboard-layouts"));
+const mosquitto_auth_1 = __importDefault(require("./routes/mosquitto-auth"));
 const traffic_logger_1 = require("./middleware/traffic-logger");
 const traffic_flush_service_1 = require("./services/traffic-flush-service");
 const entities_1 = require("./routes/entities");
@@ -73,13 +77,13 @@ const shadow_retention_1 = require("./services/shadow-retention");
 const housekeeper_2 = require("./housekeeper");
 const mqtt_monitor_2 = require("./routes/mqtt-monitor");
 const mqtt_monitor_3 = require("./services/mqtt-monitor");
-const mqtt_database_service_1 = require("./services/mqtt-database-service");
 const license_validator_1 = require("./services/license-validator");
 const license_1 = __importDefault(require("./routes/license"));
 const billing_1 = __importDefault(require("./routes/billing"));
 const websocket_manager_1 = require("./services/websocket-manager");
 const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE = `/api/${API_VERSION}`;
+const MQTT_MONITOR_ENABLED = process.env.MQTT_MONITOR_ENABLED === 'true';
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3002;
 const housekeeper = (0, housekeeper_2.createHousekeeper)();
@@ -133,12 +137,15 @@ const docs_1 = require("./docs");
 app.use(`${API_BASE}/auth`, auth_1.default);
 app.use(`${API_BASE}/users`, users_1.default);
 app.use(API_BASE, license_1.default);
+app.use('/mosquitto-auth', mosquitto_auth_1.default);
 app.use(`${API_BASE}/billing`, billing_1.default);
 app.use(API_BASE, provisioning_1.default);
 app.use(API_BASE, devices_1.default);
 app.use(API_BASE, admin_1.default);
 app.use(API_BASE, apps_1.default);
 app.use(API_BASE, device_state_1.default);
+app.use(API_BASE, device_logs_1.default);
+app.use(API_BASE, device_metrics_1.default);
 app.use(`${API_BASE}/webhooks`, webhooks_1.default);
 app.use(API_BASE, rollouts_1.default);
 app.use(API_BASE, image_registry_1.default);
@@ -153,6 +160,7 @@ app.use(API_BASE, sensors_1.default);
 app.use(API_BASE, device_sensors_1.router);
 app.use(API_BASE, traffic_1.router);
 app.use(`${API_BASE}/housekeeper`, housekeeper_1.default);
+app.use(`${API_BASE}/dashboard-layouts`, dashboard_layouts_1.default);
 app.use(`${API_BASE}/entities`, (0, entities_1.createEntitiesRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/relationships`, (0, relationships_1.createRelationshipsRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/graph`, (0, graph_1.createGraphRouter)(connection_1.default.pool));
@@ -243,11 +251,29 @@ async function startServer() {
         console.error('⚠️  Failed to start MQTT Jobs Subscriber:', error);
     }
     try {
-        await (0, mqtt_1.initializeMqtt)();
+        const { redisClient } = await Promise.resolve().then(() => __importStar(require('./redis/client')));
+        await redisClient.connect();
+        console.log('✅ Redis client connected');
     }
     catch (error) {
-        console.error('⚠️  Failed to initialize MQTT:', error);
+        console.error('⚠️  Failed to initialize Redis:', error);
     }
+    try {
+        const { startMetricsBatchWorker } = await Promise.resolve().then(() => __importStar(require('./workers/metrics-batch-worker')));
+        await startMetricsBatchWorker();
+    }
+    catch (error) {
+        console.error('⚠️  Failed to start metrics batch worker:', error);
+    }
+    (async () => {
+        try {
+            await (0, mqtt_1.initializeMqtt)();
+        }
+        catch (error) {
+            console.error('⚠️  Failed to initialize MQTT:', error);
+            retryMqttInitialization();
+        }
+    })();
     try {
         (0, rotation_scheduler_1.initializeSchedulers)();
         console.log('✅ API key rotation schedulers started');
@@ -255,40 +281,11 @@ async function startServer() {
     catch (error) {
         console.error('⚠️  Failed to start rotation schedulers:', error);
     }
-    let mqttDbService = null;
-    if (process.env.MQTT_MONITOR_ENABLED !== 'false') {
-        try {
-            const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
-            const username = process.env.MQTT_USERNAME;
-            const password = process.env.MQTT_PASSWORD;
-            const persistToDatabase = true;
-            if (persistToDatabase) {
-                mqttDbService = new mqtt_database_service_1.MQTTDatabaseService(connection_1.default.pool);
-                console.log('✅ MQTT Monitor database persistence enabled');
-            }
-            mqttMonitor = new mqtt_monitor_3.MQTTMonitorService({
-                brokerUrl,
-                username,
-                password,
-                topicTreeEnabled: true,
-                metricsEnabled: true,
-                schemaGenerationEnabled: true,
-                persistToDatabase,
-                dbSyncInterval: parseInt(process.env.MQTT_DB_SYNC_INTERVAL || '30000')
-            }, mqttDbService);
-            mqttMonitor.on('connected', () => {
-                console.log('✅ MQTT Monitor connected to broker at', brokerUrl);
-            });
-            mqttMonitor.on('error', (error) => {
-                console.error('⚠️  MQTT Monitor error:', error);
-            });
-            await mqttMonitor.start();
-            (0, mqtt_monitor_2.setMonitorInstance)(mqttMonitor, mqttDbService);
-            websocket_manager_1.websocketManager.setMqttMonitor(mqttMonitor);
-            console.log('✅ MQTT Monitor Service started');
-        }
-        catch (error) {
-            console.error('⚠️  Failed to start MQTT Monitor:', error);
+    if (MQTT_MONITOR_ENABLED) {
+        const mqttMonitorBundle = await mqtt_monitor_3.MQTTMonitorService.initialize(connection_1.default.pool);
+        if (mqttMonitorBundle.instance) {
+            (0, mqtt_monitor_2.setMonitorInstance)(mqttMonitorBundle.instance, mqttMonitorBundle.dbService);
+            websocket_manager_1.websocketManager.setMqttMonitor(mqttMonitorBundle.instance);
         }
     }
     else {
@@ -304,6 +301,7 @@ async function startServer() {
     try {
         websocket_manager_1.websocketManager.initialize(server);
         console.log('✅ WebSocket Server initialized (available at ws://localhost:' + PORT + '/ws)');
+        await websocket_manager_1.websocketManager.initializeRedis();
     }
     catch (error) {
         console.error('⚠️  Failed to initialize WebSocket server:', error);
@@ -313,6 +311,18 @@ async function startServer() {
         try {
             websocket_manager_1.websocketManager.shutdown();
             console.log('✅ WebSocket Server stopped');
+        }
+        catch (error) {
+        }
+        try {
+            const { stopMetricsBatchWorker } = await Promise.resolve().then(() => __importStar(require('./workers/metrics-batch-worker')));
+            await stopMetricsBatchWorker();
+        }
+        catch (error) {
+        }
+        try {
+            const { redisClient } = await Promise.resolve().then(() => __importStar(require('./redis/client')));
+            await redisClient.disconnect();
         }
         catch (error) {
         }
@@ -389,6 +399,18 @@ async function startServer() {
         catch (error) {
         }
         try {
+            const { stopMetricsBatchWorker } = await Promise.resolve().then(() => __importStar(require('./workers/metrics-batch-worker')));
+            await stopMetricsBatchWorker();
+        }
+        catch (error) {
+        }
+        try {
+            const { redisClient } = await Promise.resolve().then(() => __importStar(require('./redis/client')));
+            await redisClient.disconnect();
+        }
+        catch (error) {
+        }
+        try {
             if (mqttMonitor) {
                 await mqttMonitor.stop();
                 console.log('✅ MQTT Monitor stopped');
@@ -452,6 +474,19 @@ async function startServer() {
             process.exit(0);
         });
     });
+}
+async function retryMqttInitialization(intervalMs = 15000) {
+    const { initializeMqtt } = await Promise.resolve().then(() => __importStar(require('./mqtt')));
+    const interval = setInterval(async () => {
+        try {
+            await initializeMqtt();
+            console.log('✅ MQTT reconnected successfully');
+            clearInterval(interval);
+        }
+        catch (err) {
+            console.warn(`⏳ MQTT still unavailable (${err?.message || err})`);
+        }
+    }, intervalMs);
 }
 startServer().catch((error) => {
     console.error('Failed to start server:', error);
