@@ -8,6 +8,7 @@
 import { query, transaction } from './connection';
 import * as fs from 'fs';
 import * as path from 'path';
+import logger from '../utils/logger';
 
 interface Migration {
   id: number;
@@ -65,9 +66,9 @@ function getMigrationFiles(): Migration[] {
   const migrationsDir = path.join(__dirname, '../../database/migrations');
   
   if (!fs.existsSync(migrationsDir)) {
-    console.warn('⚠️  Migrations directory not found:', migrationsDir);
-    console.warn(`   Looked in: ${migrationsDir}`);
-    console.warn(`   __dirname: ${__dirname}`);
+    logger.warn('   Migrations directory not found:', migrationsDir);
+    logger.warn(`   Looked in: ${migrationsDir}`);
+    logger.warn(`   __dirname: ${__dirname}`);
     return [];
   }
 
@@ -81,7 +82,7 @@ function getMigrationFiles(): Migration[] {
     // Extract migration number from filename (e.g., "001_add_security_tables.sql" -> 1)
     const match = filename.match(/^(\d+)_(.+)\.sql$/);
     if (!match) {
-      console.warn(`⚠️  Skipping invalid migration filename: ${filename}`);
+      logger.warn(`  Skipping invalid migration filename: ${filename}`);
       continue;
     }
 
@@ -110,7 +111,7 @@ function calculateChecksum(sql: string): string {
 async function applyMigration(migration: Migration): Promise<void> {
   const startTime = Date.now();
   
-  console.log(`📄 Applying migration ${migration.id}: ${migration.name}`);
+  logger.info(` Applying migration ${migration.id}: ${migration.name}`);
   
   await transaction(async (client) => {
     // Execute migration SQL
@@ -129,14 +130,14 @@ async function applyMigration(migration: Migration): Promise<void> {
   });
   
   const executionTime = Date.now() - startTime;
-  console.log(`   ✅ Applied in ${executionTime}ms`);
+  logger.info(`    Applied in ${executionTime}ms`);
 }
 
 /**
  * Run all pending migrations
  */
 export async function runMigrations(): Promise<void> {
-  console.log('🔄 Checking for database migrations...\n');
+  logger.info(' Checking for database migrations...\n');
   
   try {
     // Ensure migrations tracking table exists
@@ -146,45 +147,44 @@ export async function runMigrations(): Promise<void> {
     const appliedMigrations = await getAppliedMigrations();
     const appliedIds = new Set(appliedMigrations.map(m => m.id));
     
-    console.log(`📊 Applied migrations: ${appliedMigrations.length}`);
+    logger.info(` Applied migrations: ${appliedMigrations.length}`);
     
     // Get all migration files
     const allMigrations = getMigrationFiles();
-    console.log(`📋 Total migrations available: ${allMigrations.length}`);
+    logger.info(` Total migrations available: ${allMigrations.length}`);
     
     if (allMigrations.length === 0) {
-      console.warn('⚠️  No migration files found!');
-      console.warn('   This might indicate a path issue.');
+      logger.warn('  No migration files found!');
+      logger.warn('   This might indicate a path issue.');
       return;
     }
     
-    console.log();
     
     // Find pending migrations
     const pendingMigrations = allMigrations.filter(m => !appliedIds.has(m.id));
     
     if (pendingMigrations.length === 0) {
-      console.log('✅ Database is up to date (no pending migrations)\n');
+      logger.info(' Database is up to date (no pending migrations)\n');
       return;
     }
     
-    console.log(`🔨 Found ${pendingMigrations.length} pending migration(s):\n`);
+    logger.info(`🔨 Found ${pendingMigrations.length} pending migration(s):\n`);
     
     // Apply each pending migration in order
     for (const migration of pendingMigrations) {
       try {
         await applyMigration(migration);
       } catch (error) {
-        console.error(`\n❌ Migration ${migration.id} failed:`, error);
+        console.error(`\n Migration ${migration.id} failed:`, error);
         console.error(`   File: ${migration.filename}`);
         throw new Error(`Migration ${migration.id} failed: ${(error as Error).message}`);
       }
     }
     
-    console.log(`\n✅ Successfully applied ${pendingMigrations.length} migration(s)\n`);
+    logger.info(`\n Successfully applied ${pendingMigrations.length} migration(s)\n`);
     
   } catch (error) {
-    console.error('❌ Migration system error:', error);
+    console.error(' Migration system error:', error);
     throw error;
   }
 }
@@ -216,8 +216,8 @@ export async function getMigrationStatus(): Promise<{
  * Rollback last migration (use with caution!)
  */
 export async function rollbackLastMigration(): Promise<void> {
-  console.warn('⚠️  Rollback functionality not implemented');
-  console.warn('⚠️  Rollbacks should be done manually or with dedicated down migrations');
+  logger.warn('  Rollback functionality not implemented');
+  logger.warn('  Rollbacks should be done manually or with dedicated down migrations');
   throw new Error('Rollback not supported - create a new forward migration instead');
 }
 

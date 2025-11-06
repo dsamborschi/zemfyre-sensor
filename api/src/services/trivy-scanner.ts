@@ -9,7 +9,7 @@ import { exec } from 'child_process';
 import { promisify } from 'util';
 import * as fs from 'fs/promises';
 import * as path from 'path';
-
+import logger from '../utils/logger.js';
 const execAsync = promisify(exec);
 
 export interface TrivyScanResult {
@@ -62,10 +62,10 @@ export class TrivyScanner {
 
     try {
       const { stdout } = await execAsync(`${this.trivyPath} --version`);
-      console.log('[Trivy] Version:', stdout.trim());
+      logger.info('  Version:', stdout.trim());
       return true;
     } catch (error) {
-      console.warn('[Trivy] Not available:', error);
+      logger.warn('  Not available:', error);
       return false;
     }
   }
@@ -77,12 +77,12 @@ export class TrivyScanner {
     const fullImageName = `${imageName}:${tag}`;
     const scannedAt = new Date().toISOString();
 
-    console.log(`[Trivy] Scanning ${fullImageName}...`);
+    logger.info(`  Scanning ${fullImageName}...`);
 
     // Check if Trivy is available
     const available = await this.isAvailable();
     if (!available) {
-      console.warn('[Trivy] Scanner not available, skipping scan');
+      logger.warn('  Scanner not available, skipping scan');
       return {
         success: false,
         scannedAt,
@@ -118,7 +118,7 @@ export class TrivyScanner {
         fullImageName
       ].join(' ');
 
-      console.log('[Trivy] Running:', command);
+      logger.info('  Running:', command);
 
       const { stdout, stderr } = await execAsync(command, {
         timeout: this.scanTimeout,
@@ -126,7 +126,7 @@ export class TrivyScanner {
       });
 
       if (stderr) {
-        console.warn('[Trivy] Warnings:', stderr);
+        logger.warn('  Warnings:', stderr);
       }
 
       // Read and parse results
@@ -139,7 +139,7 @@ export class TrivyScanner {
       // Process results
       const result = this.processScanResults(scanResults, imageName, tag, scannedAt);
 
-      console.log(`[Trivy] Scan complete for ${fullImageName}:`, {
+      logger.info(`  Scan complete for ${fullImageName}:`, {
         status: result.scanStatus,
         vulnerabilities: result.vulnerabilities
       });
@@ -147,7 +147,7 @@ export class TrivyScanner {
       return result;
 
     } catch (error: any) {
-      console.error(`[Trivy] Scan failed for ${fullImageName}:`, error);
+      logger.error(`  Scan failed for ${fullImageName}:`, error);
 
       return {
         success: false,
@@ -258,20 +258,20 @@ export class TrivyScanner {
    */
   getSecuritySummary(scanResult: TrivyScanResult): string {
     if (!scanResult.success) {
-      return '⚠️  Security scan failed';
+      return '  Security scan failed';
     }
 
     const { critical, high, medium, low } = scanResult.vulnerabilities;
 
     if (scanResult.scanStatus === 'failed') {
-      return `❌ CRITICAL: ${critical} critical, ${high} high vulnerabilities`;
+      return ` CRITICAL: ${critical} critical, ${high} high vulnerabilities`;
     }
 
     if (scanResult.scanStatus === 'warning') {
-      return `⚠️  WARNING: ${high} high, ${medium} medium vulnerabilities`;
+      return `  WARNING: ${high} high, ${medium} medium vulnerabilities`;
     }
 
-    return `✅ PASSED: ${medium} medium, ${low} low vulnerabilities`;
+    return ` PASSED: ${medium} medium, ${low} low vulnerabilities`;
   }
 }
 

@@ -4,6 +4,7 @@
 
 import express from 'express';
 import cors from 'cors';
+import logger from './utils/logger';
 
 // Import route modules
 import authRoutes from './routes/auth';
@@ -16,7 +17,6 @@ import devicesRoutes from './routes/devices';
 import adminRoutes from './routes/admin';
 import appsRoutes from './routes/apps';
 import webhookRoutes from './routes/webhooks';
-import rolloutRoutes from './routes/rollouts';
 import imageRegistryRoutes from './routes/image-registry';
 import deviceJobsRoutes from './routes/device-jobs';
 import scheduledJobsRoutes from './routes/scheduled-jobs';
@@ -28,6 +28,7 @@ import mqttBrokerRoutes from './routes/mqtt-broker';
 import sensorsRoutes from './routes/sensors';
 import { router as protocolDevicesRoutes } from './routes/device-sensors';
 import { router as trafficRoutes } from './routes/traffic';
+import { router as deviceTagsRoutes } from './routes/device-tags';
 import housekeeperRoutes, { setHousekeeperInstance } from './routes/housekeeper';
 import dashboardLayoutsRoutes from './routes/dashboard-layouts';
 import mosquittoAuthRoutes from './routes/mosquitto-auth';
@@ -39,12 +40,11 @@ import { createRelationshipsRouter } from './routes/relationships';
 import { createGraphRouter } from './routes/graph';
 
 // Import jobs
-import { getRolloutMonitor } from './jobs/rollout-monitor';
+
 import { jobScheduler } from './services/job-scheduler';
 import poolWrapper from './db/connection';
 import { initializeMqtt, shutdownMqtt } from './mqtt';
 import { initializeSchedulers, shutdownSchedulers } from './services/rotation-scheduler';
-import { startRetentionScheduler, stopRetentionScheduler } from './services/shadow-retention';
 import { createHousekeeper } from './housekeeper';
 import { setMonitorInstance } from './routes/mqtt-monitor';
 import { MQTTMonitorService } from './services/mqtt-monitor';
@@ -86,17 +86,24 @@ app.use(express.urlencoded({
 
 app.use(trafficLogger);
 
-// Request logging
+// Request logging with Winston
 app.use((req, res, next) => {
   const startTime = Date.now();
-  const timestamp = new Date().toISOString();
   
-  console.log(`\n[${timestamp}] ➡️  ${req.method} ${req.path}`);
+  // Log incoming request at debug level (less noisy)
+  logger.debug(`${req.method} ${req.path}`, {
+    method: req.method,
+    path: req.path,
+    query: req.query,
+    ip: req.ip
+  });
   
   res.on('finish', () => {
     const duration = Date.now() - startTime;
-    const responseTimestamp = new Date().toISOString();
-    console.log(`[${responseTimestamp}] ⬅️  ${res.statusCode} ${req.method} ${req.path} - ${duration}ms`);
+    const logLevel = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info';
+    
+    // Log only the message without metadata object
+    logger[logLevel](`${res.statusCode} ${req.method} ${req.path} - ${duration}ms`);
   });
   
   next();
@@ -146,7 +153,6 @@ app.use(API_BASE, deviceStateRoutes);
 app.use(API_BASE, deviceLogsRoutes);
 app.use(API_BASE, deviceMetricsRoutes);
 app.use(`${API_BASE}/webhooks`, webhookRoutes);
-app.use(API_BASE, rolloutRoutes);
 app.use(API_BASE, imageRegistryRoutes);
 app.use(API_BASE, deviceJobsRoutes);
 app.use(API_BASE, scheduledJobsRoutes);
@@ -158,6 +164,7 @@ app.use(`${API_BASE}/mqtt`, mqttBrokerRoutes);
 app.use(API_BASE, sensorsRoutes);
 app.use(API_BASE, protocolDevicesRoutes);
 app.use(API_BASE, trafficRoutes);
+app.use(API_BASE, deviceTagsRoutes);
 app.use(`${API_BASE}/housekeeper`, housekeeperRoutes);
 app.use(`${API_BASE}/dashboard-layouts`, dashboardLayoutsRoutes);
 
@@ -177,7 +184,13 @@ app.use((req, res) => {
 
 // Error handler
 app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Server error:', err);
+  logger.error('Server error', {
+    error: err.message,
+    stack: err.stack,
+    method: req.method,
+    path: req.path
+  });
+  
   res.status(500).json({
     error: 'Internal server error',
     message: err.message
@@ -186,7 +199,7 @@ app.use((err: Error, req: express.Request, res: express.Response, next: express.
 
 // Start server
 async function startServer() {
-  console.log('🚀 Initializing Iotistic Unified API...\n');
+  logger.info('Initializing Iotistic Unified API...');
 
   // MQTT Monitor instance (needs to be accessible in shutdown handlers)
   let mqttMonitor: MQTTMonitorService | null = null;
@@ -197,29 +210,39 @@ async function startServer() {
     const connected = await db.testConnection();
     
     if (!connected) {
-      console.error('❌ Failed to connect to PostgreSQL database');
+      logger.error('Failed to connect to PostgreSQL database');
       process.exit(1);
     }
     
     // Initialize schema
     await db.initializeSchema();
-    console.log('✅ PostgreSQL database initialized successfully\n');
+    logger.info('PostgreSQL database initialized successfully');
     
     // Initialize MQTT admin user (replaces K8s postgres-init-job)
     const { initializeMqttAdmin } = await import('./services/mqtt-bootstrap');
     await initializeMqttAdmin();
   } catch (error) {
-    console.error('❌ Database initialization error:', error);
+    logger.error('Database initialization error', { error });
+    process.exit(1);
+  }
+
+  // Load system configuration (MQTT, VPN, etc.)
+  try {
+    const { SystemConfig } = await import('./config/system-config');
+    await SystemConfig.load();
+    logger.info('System configuration loaded successfully');
+  } catch (error) {
+    logger.error('Failed to load system configuration', { error });
     process.exit(1);
   }
 
   // Initialize license validator
   try {
-    console.log('🔐 Initializing license validator...');
+    logger.info('Initializing license validator...');
     const licenseValidator = LicenseValidator.getInstance();
     await licenseValidator.init();
   } catch (error) {
-    console.error('⚠️  License validator initialization failed:', error);
+    logger.warn('License validator initialization failed', { error });
     // Don't exit - will run in unlicensed mode with limited features
   }
 
@@ -227,27 +250,19 @@ async function startServer() {
   try {
     const heartbeatMonitor = await import('./services/heartbeat-monitor');
     heartbeatMonitor.default.start();
+    logger.info('Heartbeat monitor started');
   } catch (error) {
-    console.error(' Failed to start heartbeat monitor:', error);
+    logger.warn('Failed to start heartbeat monitor', { error });
     // Don't exit - this is not critical for API operation
   }
 
-  // Start rollout monitor for image updates
-  try {
-    const rolloutMonitor = getRolloutMonitor(poolWrapper.pool);
-    rolloutMonitor.start();
-    console.log('✅ Rollout Monitor started');
-  } catch (error) {
-    console.error('⚠️  Failed to start rollout monitor:', error);
-    // Don't exit - this is not critical for API operation
-  }
 
   // Start job scheduler for scheduled/recurring jobs
   try {
     await jobScheduler.start();
-    console.log('✅ Job Scheduler started');
+    logger.info('Job scheduler started');
   } catch (error) {
-    console.error('⚠️  Failed to start job scheduler:', error);
+    logger.warn('Failed to start job scheduler', { error });
     // Don't exit - this is not critical for API operation
   }
 
@@ -255,17 +270,18 @@ async function startServer() {
   try {
     await housekeeper.initialize();
     setHousekeeperInstance(housekeeper);
+    logger.info('Housekeeper started');
   } catch (error) {
-    console.error('⚠️  Failed to start housekeeper:', error);
+    logger.warn('Failed to start housekeeper', { error });
     // Don't exit - this is not critical for API operation
   }
 
   // Start traffic flush service (persists device traffic metrics to database)
   try {
     startTrafficFlushService();
-    console.log('✅ Traffic flush service started');
+    logger.info('Traffic flush service started');
   } catch (error) {
-    console.error('⚠️  Failed to start traffic flush service:', error);
+    logger.warn('Failed to start traffic flush service', { error });
     // Don't exit - this is not critical for API operation
   }
 
@@ -274,9 +290,9 @@ async function startServer() {
     const { getMqttJobsSubscriber } = await import('./services/mqtt-jobs-subscriber');
     const subscriber = getMqttJobsSubscriber();
     await subscriber.initialize();
-    console.log('✅ MQTT Jobs Subscriber started (listening for device job updates)');
+    logger.info('MQTT Jobs Subscriber started');
   } catch (error) {
-    console.error('⚠️  Failed to start MQTT Jobs Subscriber:', error);
+    logger.warn('Failed to start MQTT Jobs Subscriber', { error });
     // Don't exit - this is not critical for API operation
   }
 
@@ -284,9 +300,9 @@ async function startServer() {
   try {
     const { redisClient } = await import('./redis/client');
     await redisClient.connect();
-    console.log('✅ Redis client connected');
+    logger.info('Redis client connected');
   } catch (error) {
-    console.error('⚠️  Failed to initialize Redis:', error);
+    logger.warn('Failed to initialize Redis', { error });
     // Don't exit - graceful degradation (continues with PostgreSQL only)
   }
 
@@ -294,8 +310,9 @@ async function startServer() {
   try {
     const { startMetricsBatchWorker } = await import('./workers/metrics-batch-worker');
     await startMetricsBatchWorker();
+    logger.info('Metrics batch worker started');
   } catch (error) {
-    console.error('⚠️  Failed to start metrics batch worker:', error);
+    logger.warn('Failed to start metrics batch worker', { error });
     // Don't exit - will fall back to direct writes
   }
 
@@ -305,7 +322,7 @@ async function startServer() {
       await initializeMqtt();
       // MQTT manager will log its own initialization status
     } catch (error) {
-      console.error('⚠️  Failed to initialize MQTT:', error);
+      logger.warn('Failed to initialize MQTT', { error });
       retryMqttInitialization();
     }
   })();
@@ -313,54 +330,60 @@ async function startServer() {
   // Initialize API key rotation schedulers
   try {
     initializeSchedulers();
-    console.log('✅ API key rotation schedulers started');
+    logger.info('API key rotation schedulers started');
   } catch (error) {
-    console.error('⚠️  Failed to start rotation schedulers:', error);
+    logger.warn('Failed to start rotation schedulers', { error });
     // Don't exit - this is not critical for API operation
   }
 
-  //mqttBroker monitor
-
+  // MQTT broker monitor
   if (MQTT_MONITOR_ENABLED) {
     const mqttMonitorBundle = await MQTTMonitorService.initialize(poolWrapper.pool);
 
     if (mqttMonitorBundle.instance) {
       setMonitorInstance(mqttMonitorBundle.instance, mqttMonitorBundle.dbService);
       websocketManager.setMqttMonitor(mqttMonitorBundle.instance);
+      logger.info('MQTT Monitor started');
     }
   } else {
-    console.log('ℹ️  MQTT Monitor disabled via MQTT_MONITOR_ENABLED=false');
+    logger.info('MQTT Monitor disabled via MQTT_MONITOR_ENABLED=false');
   }
 
 
   const server = app.listen(PORT, () => {
-    console.log('='.repeat(80));
-    console.log('☁️  Iotistic Unified API Server');
-    console.log('='.repeat(80));
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log('='.repeat(80) + '\n');
+    logger.info('='.repeat(80));
+    logger.info('☁️  Iotistic Unified API Server');
+    logger.info('='.repeat(80));
+    logger.info(`Server running on http://localhost:${PORT}`);
+    logger.info('='.repeat(80));
   });
 
   // Initialize WebSocket server
   try {
     websocketManager.initialize(server);
-    console.log('✅ WebSocket Server initialized (available at ws://localhost:' + PORT + '/ws)');
+    logger.info(`WebSocket Server initialized (ws://localhost:${PORT}/ws)`);
     
     // Initialize Redis pub/sub for real-time metrics (Phase 1)
     await websocketManager.initializeRedis();
   } catch (error) {
-    console.error('⚠️  Failed to initialize WebSocket server:', error);
+    logger.warn('Failed to initialize WebSocket server', { error });
     // Don't exit - this is not critical for API operation
   }
 
   // Graceful shutdown
   process.on('SIGTERM', async () => {
-    console.log('\nSIGTERM received, shutting down gracefully...');
+    logger.info('SIGTERM received, shutting down gracefully...');
+    
+    // Set a timeout to force close if shutdown hangs
+    const forceCloseTimeout = setTimeout(() => {
+      logger.warn('Forcefully closing server after timeout');
+      process.exit(1);
+    }, 10000); // 10 second timeout
     
     // Shutdown WebSocket Server
     try {
       websocketManager.shutdown();
-      console.log('✅ WebSocket Server stopped');
+      logger.info('WebSocket Server stopped');
     } catch (error) {
       // Ignore errors during shutdown
     }
@@ -385,7 +408,7 @@ async function startServer() {
     try {
       if (mqttMonitor) {
         await mqttMonitor.stop();
-        console.log('✅ MQTT Monitor stopped');
+        logger.info('MQTT Monitor stopped');
       }
     } catch (error) {
       // Ignore errors during shutdown
@@ -405,12 +428,6 @@ async function startServer() {
       // Ignore errors during shutdown
     }
     
-    // Shutdown shadow retention scheduler
-    try {
-      stopRetentionScheduler();
-    } catch (error) {
-      // Ignore errors during shutdown
-    }
     
     // Shutdown housekeeper
     try {
@@ -447,7 +464,7 @@ async function startServer() {
       const { getMqttJobsSubscriber } = await import('./services/mqtt-jobs-subscriber');
       const subscriber = getMqttJobsSubscriber();
       await subscriber.stop();
-      console.log('✅ MQTT Jobs Subscriber stopped');
+      logger.info('MQTT Jobs Subscriber stopped');
     } catch (error) {
       // Ignore errors during shutdown
     }
@@ -455,24 +472,31 @@ async function startServer() {
     // Stop traffic flush service (final flush to database)
     try {
       await stopTrafficFlushService();
-      console.log('✅ Traffic flush service stopped');
+      logger.info('Traffic flush service stopped');
     } catch (error) {
       // Ignore errors during shutdown
     }
     
     server.close(() => {
-      console.log('Server closed');
+      logger.info('Server closed');
+      clearTimeout(forceCloseTimeout);
       process.exit(0);
     });
   });
 
   process.on('SIGINT', async () => {
-    console.log('\nSIGINT received, shutting down gracefully...');
+    logger.info('SIGINT received, shutting down gracefully...');
+    
+    // Set a timeout to force close if shutdown hangs
+    const forceCloseTimeout = setTimeout(() => {
+      logger.warn('Forcefully closing server after timeout');
+      process.exit(1);
+    }, 10000); // 10 second timeout
     
     // Shutdown WebSocket Server
     try {
       websocketManager.shutdown();
-      console.log('✅ WebSocket Server stopped');
+      logger.info('WebSocket Server stopped');
     } catch (error) {
       // Ignore errors during shutdown
     }
@@ -497,7 +521,7 @@ async function startServer() {
     try {
       if (mqttMonitor) {
         await mqttMonitor.stop();
-        console.log('✅ MQTT Monitor stopped');
+        logger.info('MQTT Monitor stopped');
       }
     } catch (error) {
       // Ignore errors during shutdown
@@ -517,12 +541,6 @@ async function startServer() {
       // Ignore errors during shutdown
     }
     
-    // Shutdown shadow retention scheduler
-    try {
-      stopRetentionScheduler();
-    } catch (error) {
-      // Ignore errors during shutdown
-    }
     
     // Shutdown housekeeper
     try {
@@ -559,7 +577,7 @@ async function startServer() {
       const { getMqttJobsSubscriber } = await import('./services/mqtt-jobs-subscriber');
       const subscriber = getMqttJobsSubscriber();
       await subscriber.stop();
-      console.log('✅ MQTT Jobs Subscriber stopped');
+      logger.info('MQTT Jobs Subscriber stopped');
     } catch (error) {
       // Ignore errors during shutdown
     }
@@ -567,13 +585,30 @@ async function startServer() {
     // Stop traffic flush service (final flush to database)
     try {
       await stopTrafficFlushService();
-      console.log('✅ Traffic flush service stopped');
+      logger.info('Traffic flush service stopped');
     } catch (error) {
       // Ignore errors during shutdown
     }
     
     server.close(() => {
-      console.log('Server closed');
+      logger.info('Server closed');
+      clearTimeout(forceCloseTimeout);
+      process.exit(0);
+    });
+  });
+
+  // Handle debugger disconnect/restart (VS Code specific)
+  process.on('disconnect', async () => {
+    logger.info('Debugger disconnected, shutting down...');
+    
+    // Set shorter timeout for debugger disconnect
+    const forceCloseTimeout = setTimeout(() => {
+      logger.warn('Forcefully closing server after debugger disconnect timeout');
+      process.exit(1);
+    }, 3000); // 3 second timeout for debugger disconnect
+    
+    server.close(() => {
+      clearTimeout(forceCloseTimeout);
       process.exit(0);
     });
   });
@@ -584,16 +619,16 @@ async function retryMqttInitialization(intervalMs: number = 15000): Promise<void
   const interval = setInterval(async () => {
     try {
       await initializeMqtt();
-      console.log('✅ MQTT reconnected successfully');
+      logger.info('MQTT reconnected successfully');
       clearInterval(interval);
     } catch (err: any) {
-      console.warn(`⏳ MQTT still unavailable (${err?.message || err})`);
+      logger.warn('MQTT still unavailable', { error: err?.message || err });
     }
   }, intervalMs);
 }
 
 startServer().catch((error) => {
-  console.error('Failed to start server:', error);
+  logger.error('Failed to start server', { error });
   process.exit(1);
 });
 

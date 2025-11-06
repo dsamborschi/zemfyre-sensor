@@ -6,6 +6,7 @@
  */
 
 import mqtt from 'mqtt';
+import logger from '../utils/logger';
 
 export interface MqttJobNotification {
   execution: {
@@ -37,7 +38,7 @@ export class MqttJobsNotifier {
    */
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      console.log('[MqttJobsNotifier] Connecting to MQTT broker:', this.brokerUrl);
+       logger.info(' Connecting to MQTT broker:', this.brokerUrl);
 
       this.mqttClient = mqtt.connect(this.brokerUrl, {
         username: this.username,
@@ -48,7 +49,7 @@ export class MqttJobsNotifier {
       });
 
       this.mqttClient.on('connect', () => {
-        console.log('[MqttJobsNotifier] Connected to MQTT broker');
+         logger.info(' Connected to MQTT broker');
         this.isConnected = true;
         
         // Subscribe to job update topics for all devices
@@ -58,13 +59,13 @@ export class MqttJobsNotifier {
       });
 
       this.mqttClient.on('error', (error) => {
-        console.error('[MqttJobsNotifier] MQTT connection error:', error);
+         logger.error(' MQTT connection error:', error);
         this.isConnected = false;
         reject(error);
       });
 
       this.mqttClient.on('close', () => {
-        console.log('[MqttJobsNotifier] MQTT connection closed');
+         logger.info(' MQTT connection closed');
         this.isConnected = false;
       });
     });
@@ -77,7 +78,7 @@ export class MqttJobsNotifier {
     if (this.mqttClient) {
       return new Promise((resolve) => {
         this.mqttClient!.end(false, {}, () => {
-          console.log('[MqttJobsNotifier] Disconnected from MQTT broker');
+           logger.info(' Disconnected from MQTT broker');
           resolve();
         });
       });
@@ -98,9 +99,9 @@ export class MqttJobsNotifier {
     
     this.mqttClient.subscribe(updateTopic, { qos: 1 }, (error) => {
       if (error) {
-        console.error(`[MqttJobsNotifier] Failed to subscribe to ${updateTopic}:`, error);
+         logger.error(` Failed to subscribe to ${updateTopic}:`, error);
       } else {
-        console.log(`[MqttJobsNotifier] Subscribed to job updates: ${updateTopic}`);
+         logger.info(` Subscribed to job updates: ${updateTopic}`);
       }
     });
 
@@ -109,9 +110,9 @@ export class MqttJobsNotifier {
     
     this.mqttClient.subscribe(startNextTopic, { qos: 1 }, (error) => {
       if (error) {
-        console.error(`[MqttJobsNotifier] Failed to subscribe to ${startNextTopic}:`, error);
+         logger.error(` Failed to subscribe to ${startNextTopic}:`, error);
       } else {
-        console.log(`[MqttJobsNotifier] Subscribed to start-next requests: ${startNextTopic}`);
+         logger.info(` Subscribed to start-next requests: ${startNextTopic}`);
       }
     });
 
@@ -130,7 +131,7 @@ export class MqttJobsNotifier {
           this.handleStartNextRequest(topic, message);
         }
       } catch (error) {
-        console.error(`[MqttJobsNotifier] Failed to parse message on ${topic}:`, error);
+         logger.error(` Failed to parse message on ${topic}:`, error);
       }
     });
   }
@@ -144,7 +145,7 @@ export class MqttJobsNotifier {
     const deviceUuid = parts[2];
     const jobId = parts[4];
 
-    console.log(`[MqttJobsNotifier] Received job update for ${jobId} from device ${deviceUuid}:`, {
+     logger.info(` Received job update for ${jobId} from device ${deviceUuid}:`, {
       status: message.status,
       hasStdout: !!message.statusDetails?.stdout,
       hasStderr: !!message.statusDetails?.stderr,
@@ -176,7 +177,7 @@ export class MqttJobsNotifier {
     const parts = topic.split('/');
     const deviceUuid = parts[2];
 
-    console.log(`[MqttJobsNotifier] Received start-next request from device ${deviceUuid}`);
+     logger.info(` Received start-next request from device ${deviceUuid}`);
 
     // Trigger handler if registered
     const handler = this.updateHandlers.get(`start-next:${deviceUuid}`);
@@ -234,7 +235,7 @@ export class MqttJobsNotifier {
     timeout_seconds?: number;
   }): Promise<void> {
     if (!this.isConnected || !this.mqttClient) {
-      console.warn('[MqttJobsNotifier] Not connected to MQTT, skipping notification');
+       logger.warn(' Not connected to MQTT, skipping notification');
       return;
     }
 
@@ -260,10 +261,10 @@ export class MqttJobsNotifier {
         { qos: 1, retain: false },
         (error) => {
           if (error) {
-            console.error(`[MqttJobsNotifier] Failed to publish to ${topic}:`, error);
+             logger.error(` Failed to publish to ${topic}:`, error);
             reject(error);
           } else {
-            console.log(`[MqttJobsNotifier] Published job notification to ${topic}:`, job.job_id);
+             logger.info(` Published job notification to ${topic}:`, job.job_id);
             resolve();
           }
         }
@@ -310,10 +311,10 @@ export class MqttJobsNotifier {
         { qos: 1, retain: false },
         (error) => {
           if (error) {
-            console.error(`[MqttJobsNotifier] Failed to publish to ${topic}:`, error);
+             logger.error(` Failed to publish to ${topic}:`, error);
             reject(error);
           } else {
-            console.log(`[MqttJobsNotifier] Published start-next response to ${topic}`);
+             logger.info(` Published start-next response to ${topic}`);
             resolve();
           }
         }
@@ -348,10 +349,10 @@ export class MqttJobsNotifier {
         { qos: 1, retain: false },
         (error) => {
           if (error) {
-            console.error(`[MqttJobsNotifier] Failed to publish to ${topic}:`, error);
+             logger.error(` Failed to publish to ${topic}:`, error);
             reject(error);
           } else {
-            console.log(`[MqttJobsNotifier] Published update response to ${topic}`);
+             logger.info(` Published update response to ${topic}`);
             resolve();
           }
         }
@@ -380,7 +381,7 @@ export function getMqttJobsNotifier(): MqttJobsNotifier {
     
     // Auto-connect
     instance.connect().catch((error) => {
-      console.error('[MqttJobsNotifier] Failed to connect:', error);
+       logger.error(' Failed to connect:', error);
     });
   }
   

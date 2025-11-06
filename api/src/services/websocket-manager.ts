@@ -1,8 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server as HTTPServer } from 'http';
-import { URLSearchParams } from 'url';
 import { DeviceModel, DeviceMetricsModel, DeviceLogsModel } from '../db/models';
-import poolWrapper from '../db/connection';
+import logger from '../utils/logger';
 
 interface WebSocketClient {
   ws: WebSocket;
@@ -43,7 +42,7 @@ export class WebSocketManager {
 
   setMqttMonitor(monitor: any): void {
     this.mqttMonitor = monitor;
-    console.log('[WebSocket] MQTT Monitor instance set');
+    logger.info(' MQTT Monitor instance set');
   }
 
   /**
@@ -67,7 +66,7 @@ export class WebSocketManager {
         port,
         retryStrategy: (times: number) => {
           if (times > 5) {
-            console.error('[WebSocket] Redis subscriber max retries reached');
+            logger.error(' Redis subscriber max retries reached');
             return null;
           }
           return Math.min(times * 1000, 3000);
@@ -93,24 +92,24 @@ export class WebSocketManager {
             this.handleRedisLogs(uuid, data.logs);
           }
         } catch (error) {
-          console.error('[WebSocket] Error parsing Redis message:', error);
+          logger.error(' Error parsing Redis message:', error);
         }
       });
       
       // Handle subscriber errors
       this.redisSubscriber.on('error', (error: Error) => {
-        console.error('[WebSocket] Redis subscriber error:', error);
+        logger.error(' Redis subscriber error:', error);
       });
       
       this.redisSubscriber.on('ready', () => {
-        console.log('[WebSocket] ✅ Redis subscriber connected and ready');
+        logger.info('  Redis subscriber connected and ready');
       });
       
-      console.log('[WebSocket] ✅ Redis pub/sub integration initialized');
-      console.log('[WebSocket] 📡 Subscribed to patterns:', metricsPattern, logsPattern);
+      logger.info('  Redis pub/sub integration initialized');
+      logger.info(' 📡 Subscribed to patterns:', metricsPattern, logsPattern);
     } catch (error) {
-      console.error('[WebSocket] ⚠️  Failed to initialize Redis pub/sub:', error);
-      console.log('[WebSocket] 🔄 Falling back to database polling');
+      logger.error('   Failed to initialize Redis pub/sub:', error);
+      logger.info('  Falling back to database polling');
     }
   }
 
@@ -147,7 +146,7 @@ export class WebSocketManager {
         this.flushMetricsBatch(deviceUuid);
       }, this.BATCH_FLUSH_INTERVAL_MS);
       this.flushIntervals.set(deviceUuid, interval);
-      console.log(`[WebSocket] 🔄 Started batch flush interval for device ${deviceUuid.substring(0, 8)}... (every ${this.BATCH_FLUSH_INTERVAL_MS}ms)`);
+      logger.info(` 🔄 Started batch flush interval for device ${deviceUuid.substring(0, 8)}... (every ${this.BATCH_FLUSH_INTERVAL_MS}ms)`);
     }
     
     // Also update processes if present (send immediately, not batched)
@@ -199,7 +198,7 @@ export class WebSocketManager {
       return;
     }
     
-    console.log(`[WebSocket] 📜 Received ${logs.length} logs from Redis for ${deviceUuid.substring(0, 8)}...`);
+    logger.info(` 📜 Received ${logs.length} logs from Redis for ${deviceUuid.substring(0, 8)}...`);
     
     // Broadcast immediately to all clients subscribed to logs channel
     this.broadcast(deviceUuid, {
@@ -237,7 +236,7 @@ export class WebSocketManager {
       })),
     };
     
-    console.log(`[WebSocket] 📦 Flushing ${buffer.length} metrics for device ${deviceUuid.substring(0, 8)}...`);
+    logger.info(` 📦 Flushing ${buffer.length} metrics for device ${deviceUuid.substring(0, 8)}...`);
     
     // Broadcast batched data
     this.broadcast(deviceUuid, {
@@ -282,12 +281,12 @@ export class WebSocketManager {
       }
     });
 
-    console.log('[WebSocket] Server initialized');
+    logger.info(' Server initialized');
   }
 
   private handleConnection(ws: WebSocket, deviceUuid: string): void {
-    console.log(`[WebSocket] Client connected for device: ${deviceUuid}`);
-    console.log(`[WebSocket] Total clients: ${this.clients.size + 1}`);
+    logger.info(` Client connected for device: ${deviceUuid}`);
+    logger.info(` Total clients: ${this.clients.size + 1}`);
 
     const client: WebSocketClient = {
       ws,
@@ -314,10 +313,10 @@ export class WebSocketManager {
     ws.on('message', (data) => {
       try {
         const message: WebSocketMessage = JSON.parse(data.toString());
-        console.log(`[WebSocket] Received message from client:`, message);
+        logger.info(` Received message from client:`, message);
         this.handleMessage(client, message);
       } catch (error) {
-        console.error('[WebSocket] Failed to parse message:', error);
+        logger.error(' Failed to parse message:', error);
       }
     });
 
@@ -326,14 +325,14 @@ export class WebSocketManager {
     });
 
     ws.on('error', (error) => {
-      console.error('[WebSocket] Connection error:', error);
+      logger.error(' Connection error:', error);
       this.handleDisconnect(client);
     });
   }
 
   private handleGlobalConnection(ws: WebSocket): void {
-    console.log(`[WebSocket] Global client connected (MQTT stats)`);
-    console.log(`[WebSocket] Total clients: ${this.clients.size + 1}`);
+    logger.info(` Global client connected (MQTT stats)`);
+    logger.info(` Total clients: ${this.clients.size + 1}`);
 
     const client: WebSocketClient = {
       ws,
@@ -354,10 +353,10 @@ export class WebSocketManager {
     ws.on('message', (data) => {
       try {
         const message: WebSocketMessage = JSON.parse(data.toString());
-        console.log(`[WebSocket] Received message from global client:`, message);
+        logger.info(` Received message from global client:`, message);
         this.handleGlobalMessage(client, message);
       } catch (error) {
-        console.error('[WebSocket] Failed to parse message:', error);
+        logger.error(' Failed to parse message:', error);
       }
     });
 
@@ -366,7 +365,7 @@ export class WebSocketManager {
     });
 
     ws.on('error', (error) => {
-      console.error('[WebSocket] Global connection error:', error);
+      logger.error(' Global connection error:', error);
       this.handleGlobalDisconnect(client);
     });
   }
@@ -390,12 +389,12 @@ export class WebSocketManager {
         break;
 
       default:
-        console.warn('[WebSocket] Unknown message type:', message.type);
+        logger.warn(' Unknown message type:', message.type);
     }
   }
 
   private handleGlobalSubscribe(client: WebSocketClient, channel: string): void {
-    console.log(`[WebSocket] Global client subscribed to ${channel}`);
+    logger.info(` Global client subscribed to ${channel}`);
     
     client.subscriptions.add(channel);
 
@@ -413,7 +412,7 @@ export class WebSocketManager {
   }
 
   private handleGlobalUnsubscribe(client: WebSocketClient, channel: string): void {
-    console.log(`[WebSocket] Global client unsubscribed from ${channel}`);
+    logger.info(` Global client unsubscribed from ${channel}`);
     
     client.subscriptions.delete(channel);
 
@@ -428,7 +427,7 @@ export class WebSocketManager {
   }
 
   private handleGlobalDisconnect(client: WebSocketClient): void {
-    console.log(`[WebSocket] Global client disconnected`);
+    logger.info(` Global client disconnected`);
 
     this.globalClients.delete(client.ws);
     this.clients.delete(client.ws);
@@ -444,7 +443,7 @@ export class WebSocketManager {
       }
     });
 
-    console.log(`[WebSocket] Total clients: ${this.clients.size}`);
+    logger.info(` Total clients: ${this.clients.size}`);
   }
 
   private handleMessage(client: WebSocketClient, message: WebSocketMessage): void {
@@ -470,12 +469,12 @@ export class WebSocketManager {
         break;
 
       default:
-        console.warn('[WebSocket] Unknown message type:', message.type);
+        logger.warn(' Unknown message type:', message.type);
     }
   }
 
   private handleSubscribe(client: WebSocketClient, channel: string): void {
-    console.log(`[WebSocket] Client subscribed to ${channel} for device ${client.deviceUuid}`);
+    logger.info(` Client subscribed to ${channel} for device ${client.deviceUuid}`);
     
     client.subscriptions.add(channel);
 
@@ -503,7 +502,7 @@ export class WebSocketManager {
   }
 
   private handleUnsubscribe(client: WebSocketClient, channel: string): void {
-    console.log(`[WebSocket] Client unsubscribed from ${channel} for device ${client.deviceUuid}`);
+    logger.info(` Client unsubscribed from ${channel} for device ${client.deviceUuid}`);
     
     client.subscriptions.delete(channel);
 
@@ -543,7 +542,7 @@ export class WebSocketManager {
     // Only fall back to polling if Redis unavailable
     const redisChannels = ['history', 'processes', 'network-interfaces', 'logs'];
     if (redisChannels.includes(channel) && this.redisClient) {
-      console.log(`[WebSocket] 📡 Using Redis pub/sub for ${channel} (real-time updates for device ${deviceUuid.substring(0, 8)}...)`);
+      logger.info(` 📡 Using Redis pub/sub for ${channel} (real-time updates for device ${deviceUuid.substring(0, 8)}...)`);
       // No polling needed - Redis will push updates
       // But still send initial data immediately
       this.sendChannelData(deviceUuid, channel);
@@ -569,7 +568,7 @@ export class WebSocketManager {
         intervalTime = 2000; // 2 seconds for real-time logs (fallback)
         break;
       default:
-        console.warn(`[WebSocket] Unknown channel: ${channel}`);
+        logger.warn(` Unknown channel: ${channel}`);
         return;
     }
 
@@ -578,7 +577,7 @@ export class WebSocketManager {
     }, intervalTime);
 
     intervals.set(channel, interval);
-    console.log(`[WebSocket] Started ${channel} stream for device ${deviceUuid} (interval: ${intervalTime}ms, mode: ${this.redisClient ? 'redis-fallback' : 'polling'})`);
+    logger.info(` Started ${channel} stream for device ${deviceUuid} (interval: ${intervalTime}ms, mode: ${this.redisClient ? 'redis-fallback' : 'polling'})`);
   }
 
   private stopDataStream(deviceUuid: string, channel: string): void {
@@ -586,7 +585,7 @@ export class WebSocketManager {
     if (intervals?.has(channel)) {
       clearInterval(intervals.get(channel)!);
       intervals.delete(channel);
-      console.log(`[WebSocket] Stopped ${channel} stream for device ${deviceUuid}`);
+      logger.info(` Stopped ${channel} stream for device ${deviceUuid}`);
 
       // Clean up device intervals map if empty
       if (intervals.size === 0) {
@@ -610,7 +609,7 @@ export class WebSocketManager {
         intervalTime = 10000; // 10 seconds
         break;
       default:
-        console.warn(`[WebSocket] Unknown global channel: ${channel}`);
+        logger.warn(` Unknown global channel: ${channel}`);
         return;
     }
 
@@ -619,14 +618,14 @@ export class WebSocketManager {
     }, intervalTime);
 
     this.globalIntervals.set(channel, interval);
-    console.log(`[WebSocket] Started global ${channel} stream (interval: ${intervalTime}ms)`);
+    logger.info(` Started global ${channel} stream (interval: ${intervalTime}ms)`);
   }
 
   private stopGlobalDataStream(channel: string): void {
     if (this.globalIntervals.has(channel)) {
       clearInterval(this.globalIntervals.get(channel)!);
       this.globalIntervals.delete(channel);
-      console.log(`[WebSocket] Stopped global ${channel} stream`);
+      logger.info(` Stopped global ${channel} stream`);
     }
   }
 
@@ -642,7 +641,7 @@ export class WebSocketManager {
           data = await this.fetchMqttTopics();
           break;
         default:
-          console.warn(`[WebSocket] Unknown global channel: ${channel}`);
+          logger.warn(` Unknown global channel: ${channel}`);
           return;
       }
 
@@ -654,7 +653,7 @@ export class WebSocketManager {
         });
       }
     } catch (error) {
-      console.error(`[WebSocket] Error fetching ${channel} data:`, error);
+      logger.error(` Error fetching ${channel} data:`, error);
     }
   }
 
@@ -715,7 +714,7 @@ export class WebSocketManager {
         timestamp: new Date().toISOString()
       };
     } catch (error) {
-      console.error('[WebSocket] Error fetching MQTT stats:', error);
+      logger.error(' Error fetching MQTT stats:', error);
       return null;
     }
   }
@@ -734,7 +733,7 @@ export class WebSocketManager {
         count: topics.length,
       };
     } catch (error) {
-      console.error('[WebSocket] Error fetching MQTT topics:', error);
+      logger.error(' Error fetching MQTT topics:', error);
       return null;
     }
   }
@@ -789,7 +788,7 @@ export class WebSocketManager {
           data = await this.fetchNetworkInterfaces(deviceUuid);
           break;
         default:
-          console.warn(`[WebSocket] Unknown channel: ${channel}`);
+          logger.warn(` Unknown channel: ${channel}`);
           return;
       }
 
@@ -802,7 +801,7 @@ export class WebSocketManager {
         });
       }
     } catch (error) {
-      console.error(`[WebSocket] Error fetching ${channel} data:`, error);
+      logger.error(` Error fetching ${channel} data:`, error);
     }
   }
 
@@ -820,7 +819,7 @@ export class WebSocketManager {
         macAddress: device.mac_address || 'Unknown',
       };
     } catch (error) {
-      console.error('[WebSocket] Error fetching system info:', error);
+      logger.error(' Error fetching system info:', error);
       return null;
     }
   }
@@ -834,7 +833,7 @@ export class WebSocketManager {
         top_processes: device.top_processes || [],
       };
     } catch (error) {
-      console.error('[WebSocket] Error fetching processes:', error);
+      logger.error(' Error fetching processes:', error);
       return null;
     }
   }
@@ -844,7 +843,7 @@ export class WebSocketManager {
       // Use same model as HTTP endpoint /api/v1/devices/:uuid/metrics for consistency
       const metrics = await DeviceMetricsModel.getRecent(deviceUuid, 30);
 
-      console.log(`[WebSocket] Fetched ${metrics.length} metrics rows for device ${deviceUuid}`);
+      logger.info(` Fetched ${metrics.length} metrics rows for device ${deviceUuid}`);
 
       // Transform to dashboard format (same as original App.tsx HTTP polling logic)
       const cpu: Array<{ time: string; value: number }> = [];
@@ -888,7 +887,7 @@ export class WebSocketManager {
 
       return { cpu, memory, network };
     } catch (error) {
-      console.error('[WebSocket] Error fetching metrics history:', error);
+      logger.error(' Error fetching metrics history:', error);
       return null;
     }
   }
@@ -940,7 +939,7 @@ export class WebSocketManager {
 
       return { interfaces };
     } catch (error) {
-      console.error('[WebSocket] Error fetching network interfaces:', error);
+      logger.error(' Error fetching network interfaces:', error);
       return null;
     }
   }
@@ -954,17 +953,17 @@ export class WebSocketManager {
         offset: 0,
       });
 
-      console.log(`[WebSocket] Fetched ${logs.length} log entries for device ${deviceUuid}${serviceName ? ` service ${serviceName}` : ''}`);
+      logger.info(` Fetched ${logs.length} log entries for device ${deviceUuid}${serviceName ? ` service ${serviceName}` : ''}`);
 
       return { logs };
     } catch (error) {
-      console.error('[WebSocket] Error fetching logs:', error);
+      logger.error(' Error fetching logs:', error);
       return null;
     }
   }
 
   private handleDisconnect(client: WebSocketClient): void {
-    console.log(`[WebSocket] Client disconnected from device: ${client.deviceUuid}`);
+    logger.info(` Client disconnected from device: ${client.deviceUuid}`);
 
     // Remove from device clients
     const deviceClients = this.deviceClients.get(client.deviceUuid);
@@ -1013,7 +1012,7 @@ export class WebSocketManager {
     });
 
     if (sentCount > 0) {
-      console.log(`[WebSocket] Broadcasted ${channel} to ${sentCount} client(s) for device ${deviceUuid}`);
+      logger.info(` Broadcasted ${channel} to ${sentCount} client(s) for device ${deviceUuid}`);
     }
   }
 
@@ -1024,12 +1023,12 @@ export class WebSocketManager {
   }
 
   shutdown(): void {
-    console.log('[WebSocket] Shutting down...');
+    logger.info(' Shutting down...');
 
     // Flush any pending metrics before shutdown
     this.metricsBuffers.forEach((buffer, deviceUuid) => {
       if (buffer.length > 0) {
-        console.log(`[WebSocket] 🚨 Flushing ${buffer.length} pending metrics for ${deviceUuid.substring(0, 8)}... before shutdown`);
+        logger.info(` 🚨 Flushing ${buffer.length} pending metrics for ${deviceUuid.substring(0, 8)}... before shutdown`);
         this.flushMetricsBatch(deviceUuid);
       }
     });
@@ -1042,7 +1041,7 @@ export class WebSocketManager {
     // Disconnect Redis subscriber
     if (this.redisSubscriber) {
       this.redisSubscriber.disconnect();
-      console.log('[WebSocket] Redis subscriber disconnected');
+      logger.info(' Redis subscriber disconnected');
     }
 
     // Clear all intervals
@@ -1069,7 +1068,7 @@ export class WebSocketManager {
       this.wss.close();
     }
 
-    console.log('[WebSocket] Shutdown complete');
+    logger.info(' Shutdown complete');
   }
 }
 

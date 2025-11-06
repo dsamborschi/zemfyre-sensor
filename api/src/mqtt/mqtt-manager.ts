@@ -12,6 +12,7 @@
 
 import mqtt from 'mqtt';
 import { EventEmitter } from 'events';
+import logger from '../utils/logger';
 
 export interface MqttConfig {
   brokerUrl: string;
@@ -107,7 +108,7 @@ export class MqttManager extends EventEmitter {
    */
   async connect(): Promise<void> {
     return new Promise((resolve, reject) => {
-      console.log('📡 Connecting to MQTT broker:', this.config.brokerUrl);
+      logger.info('Connecting to MQTT broker', { brokerUrl: this.config.brokerUrl });
 
       const options: mqtt.IClientOptions = {
         clientId: this.config.clientId,
@@ -121,32 +122,33 @@ export class MqttManager extends EventEmitter {
       this.client = mqtt.connect(this.config.brokerUrl, options);
 
       this.client.on('connect', () => {
-        console.log('✅ Connected to MQTT broker');
-        console.log('📋 Client ID:', this.config.clientId);
-        console.log('🔧 QoS:', this.config.qos);
+        logger.info('Connected to MQTT broker', { 
+          clientId: this.config.clientId, 
+          qos: this.config.qos 
+        });
         this.reconnecting = false;
         this.resubscribe();
         resolve();
       });
 
       this.client.on('error', (error) => {
-        console.error('❌ MQTT connection error:', error);
+        logger.error('MQTT connection error', { error });
         if (!this.reconnecting) {
           reject(error);
         }
       });
 
       this.client.on('reconnect', () => {
-        console.log('🔄 Reconnecting to MQTT broker...');
+        logger.info('Reconnecting to MQTT broker');
         this.reconnecting = true;
       });
 
       this.client.on('offline', () => {
-        console.warn('⚠️  MQTT client offline');
+        logger.warn('MQTT client offline');
       });
 
       this.client.on('message', (topic, payload) => {
-        console.log('📨 Raw MQTT message event fired:', topic);
+        logger.debug('Raw MQTT message event fired', { topic });
         this.handleMessage(topic, payload);
       });
     });
@@ -162,7 +164,7 @@ export class MqttManager extends EventEmitter {
 
     return new Promise((resolve) => {
       this.client!.end(false, {}, () => {
-        console.log('✅ Disconnected from MQTT broker');
+        logger.info('Disconnected from MQTT broker');
         this.client = null;
         resolve();
       });
@@ -193,18 +195,20 @@ export class MqttManager extends EventEmitter {
       }
     });
 
-    console.log(`📡 Subscribing to ${topicPatterns.length} topic patterns...`);
+    logger.info('Subscribing to MQTT topic patterns', { 
+      count: topicPatterns.length, 
+      patterns: topicPatterns 
+    });
     
     // Use Promise.all to track all subscriptions
     const subscriptionPromises = topicPatterns.map(pattern => {
       return new Promise<void>((resolve, reject) => {
-        console.log('🔍 Attempting to subscribe to:', pattern);
         this.client!.subscribe(pattern, { qos: this.config.qos }, (err) => {
           if (err) {
-            console.error(`❌ Failed to subscribe to ${pattern}:`, err);
+            logger.error('Failed to subscribe to MQTT topic', { pattern, error: err });
             reject(err);
           } else {
-            console.log(`✅ Subscribed to ${pattern} (QoS: ${this.config.qos})`);
+            logger.debug('Subscribed to MQTT topic', { pattern, qos: this.config.qos });
             this.subscriptions.add(pattern);
             resolve();
           }
@@ -215,10 +219,10 @@ export class MqttManager extends EventEmitter {
     // Wait for all subscriptions and log summary
     Promise.all(subscriptionPromises)
       .then(() => {
-        console.log(`✅ Successfully subscribed to ${topicPatterns.length} topics`);
+        logger.info('Successfully subscribed to all MQTT topics', { count: topicPatterns.length });
       })
       .catch(err => {
-        console.error('❌ Some subscriptions failed:', err);
+        logger.error('Some MQTT subscriptions failed', { error: err });
       });
   }
 
@@ -240,9 +244,9 @@ export class MqttManager extends EventEmitter {
     patterns.forEach(pattern => {
       this.client!.unsubscribe(pattern, {}, (err) => {
         if (err) {
-          console.error(`❌ Failed to unsubscribe from ${pattern}:`, err);
+          logger.error('Failed to unsubscribe from MQTT topic', { pattern, error: err });
         } else {
-          console.log(`✅ Unsubscribed from ${pattern}`);
+          logger.debug('Unsubscribed from MQTT topic', { pattern });
           this.subscriptions.delete(pattern);
         }
       });
@@ -261,7 +265,7 @@ export class MqttManager extends EventEmitter {
 
     this.client.publish(topic, payload, { qos: this.config.qos }, (err) => {
       if (err) {
-        console.error(`❌ Failed to publish to ${topic}:`, err);
+        logger.error('Failed to publish MQTT message', { topic, error: err });
       }
     });
   }
@@ -273,15 +277,13 @@ export class MqttManager extends EventEmitter {
     if (!this.client || this.subscriptions.size === 0) {
       return;
     }
-
-    console.log('🔄 Re-subscribing to topics...');
     const topics = Array.from(this.subscriptions);
 
     this.client.subscribe(topics, { qos: this.config.qos }, (err) => {
       if (err) {
-        console.error('❌ Failed to re-subscribe:', err);
+        logger.error('Failed to re-subscribe:', err);
       } else {
-        console.log(`✅ Re-subscribed to ${topics.length} topics`);
+        logger.info('Re-subscribed to MQTT topics', { count: topics.length });
       }
     });
   }

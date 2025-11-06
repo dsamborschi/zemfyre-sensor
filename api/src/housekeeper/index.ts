@@ -10,6 +10,46 @@
 
 import { CronJob } from 'cron';
 import { pool } from '../db/connection';
+import logger from '../utils/logger';
+import winston from 'winston';
+import Transport from 'winston-transport';
+
+/**
+ * Custom Winston transport that captures logs to an array
+ */
+class CaptureTransport extends Transport {
+  private output: string[];
+
+  constructor(output: string[], opts?: Transport.TransportStreamOptions) {
+    super(opts);
+    this.output = output;
+  }
+
+  log(info: any, callback: () => void) {
+    setImmediate(() => {
+      this.emit('logged', info);
+    });
+
+    // Format log message
+    const level = info.level.toUpperCase();
+    const message = info.message;
+    const timestamp = info.timestamp || new Date().toISOString();
+    
+    // Build log line with metadata if present
+    const metaKeys = Object.keys(info).filter(k => 
+      !['level', 'message', 'timestamp', 'service', Symbol.for('level'), Symbol.for('message')].includes(k)
+    );
+    
+    if (metaKeys.length > 0) {
+      const meta = metaKeys.reduce((acc, key) => ({ ...acc, [key]: info[key] }), {});
+      this.output.push(`[${timestamp}] ${level}: ${message} ${JSON.stringify(meta)}`);
+    } else {
+      this.output.push(`[${timestamp}] ${level}: ${message}`);
+    }
+
+    callback();
+  }
+}
 
 export interface HousekeeperTask {
   name: string;
@@ -48,7 +88,7 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
   async function runTask(task: RegisteredTask, triggeredBy: string = 'scheduler'): Promise<void> {
     // Prevent concurrent runs of same task
     if (runningTasks.has(task.name)) {
-      console.warn(`Task '${task.name}' is already running, skipping`);
+      logger.warn('Task already running, skipping', { taskName: task.name });
       return;
     }
 
@@ -59,12 +99,8 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
     let capturedOutput: string[] = [];
     let capturedError: string | null = null;
 
-    // Save original console methods
-    const originalLog = console.log;
-    const originalError = console.error;
-
     try {
-      // Create execution record BEFORE console capture (prevents capturing DB async logs)
+      // Create execution record
       const result = await pool.query(
         `INSERT INTO housekeeper_runs (task_name, started_at, status, triggered_by) 
          VALUES ($1, NOW(), 'running', $2) 
@@ -73,29 +109,23 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
       );
       runId = result.rows[0].id;
 
-      // Log task start and begin console capture
-      console.log(`🧹 Running housekeeper task: '${task.name}'`);
+      // Create child logger with capture transport
+      const captureTransport = new CaptureTransport(capturedOutput);
+      const taskLogger = logger.child({ taskName: task.name });
+      (taskLogger as any).add(captureTransport);
       
-      // Capture console output for task execution only
-      console.log = (...args: any[]) => {
-        capturedOutput.push(args.map(a => String(a)).join(' '));
-        originalLog.apply(console, args);
-      };
-      console.error = (...args: any[]) => {
-        capturedOutput.push(`ERROR: ${args.map(a => String(a)).join(' ')}`);
-        originalError.apply(console, args);
-      };
+      // Log task start
+      taskLogger.info(`Running housekeeper task: '${task.name}'`);
 
       await task.run();
       
       const duration = Date.now() - startTime;
       
-      // Log completion BEFORE restoring console (so it's captured)
-      console.log(`✅ Completed task '${task.name}' in ${duration}ms`);
+      // Log completion
+      taskLogger.info(`Completed task '${task.name}' in ${duration}ms`);
       
-      // Restore console BEFORE database write to prevent capturing async DB logs
-      console.log = originalLog;
-      console.error = originalError;
+      // Remove capture transport
+      (taskLogger as any).remove(captureTransport);
       
       // Update execution record with success
       if (runId) {
@@ -108,16 +138,15 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
       }
     } catch (error: any) {
       const duration = Date.now() - startTime;
-      const errorMessage = `Error running task '${task.name}' after ${duration}ms: ${error.message}`;
       capturedError = `${error.message}\n${error.stack}`;
       
-      // Log error BEFORE restoring console (so it's captured)
-      console.error(`❌ ${errorMessage}`);
-      console.error(error.stack);
-      
-      // Restore console BEFORE database write to prevent capturing async DB logs
-      console.log = originalLog;
-      console.error = originalError;
+      // Log error
+      logger.error('Task execution failed', {
+        taskName: task.name,
+        duration,
+        error: error.message,
+        stack: error.stack
+      });
       
       // Update execution record with error
       if (runId) {
@@ -138,12 +167,12 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
    */
   async function registerTask(task: HousekeeperTask): Promise<void> {
     if (!enabled) {
-      console.log(`Housekeeper disabled, skipping task '${task.name}'`);
+      logger.info('Housekeeper disabled, skipping task registration', { taskName: task.name });
       return;
     }
 
     if (tasks.has(task.name)) {
-      console.warn(`Task '${task.name}' already registered, skipping`);
+      logger.warn('Task already registered, skipping', { taskName: task.name });
       return;
     }
 
@@ -160,9 +189,15 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
           true, // start
           timezone
         );
-        console.log(`📅 Scheduled task '${task.name}' with cron: ${task.schedule}`);
+        logger.info('Scheduled task with cron', { 
+          taskName: task.name, 
+          schedule: task.schedule 
+        });
       } catch (error: any) {
-        console.error(`Failed to schedule task '${task.name}':`, error.message);
+        logger.error('Failed to schedule task', {
+          taskName: task.name,
+          error: error.message
+        });
       }
     }
   }
@@ -180,7 +215,7 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
     }
 
     tasks.delete(name);
-    console.log(`Unregistered task '${name}'`);
+    logger.info('Unregistered task', { taskName: name });
   }
 
   /**
@@ -288,11 +323,11 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
    */
   async function initialize(): Promise<void> {
     if (!enabled) {
-      console.log('Housekeeper is disabled');
+      logger.info('Housekeeper is disabled');
       return;
     }
 
-    console.log('🧹 Initializing housekeeper...');
+    logger.info('Initializing housekeeper...');
 
     // Register built-in tasks
     const tasksToRegister = [
@@ -309,7 +344,7 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
       try {
         await registerTask(taskModule.default);
       } catch (error: any) {
-        console.error(`Failed to register task:`, error.message);
+        logger.error('Failed to register task', { error: error.message });
       }
     }
 
@@ -318,13 +353,19 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
       if (task.startup === true) {
         // Run immediately on startup
         runTask(task, 'startup').catch(err => {
-          console.error(`Startup task '${task.name}' failed:`, err);
+          logger.error('Startup task failed', {
+            taskName: task.name,
+            error: err.message
+          });
         });
       } else if (typeof task.startup === 'number') {
         // Run after delay
         const timeout = setTimeout(
           () => runTask(task, 'startup').catch(err => {
-            console.error(`Delayed startup task '${task.name}' failed:`, err);
+            logger.error('Delayed startup task failed', {
+              taskName: task.name,
+              error: err.message
+            });
           }),
           task.startup
         );
@@ -332,14 +373,14 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
       }
     }
 
-    console.log(`✅ Housekeeper initialized with ${tasks.size} tasks`);
+    logger.info('Housekeeper initialized', { taskCount: tasks.size });
   }
 
   /**
    * Shutdown housekeeper - stop all scheduled tasks
    */
   async function shutdown(): Promise<void> {
-    console.log('🧹 Shutting down housekeeper...');
+    logger.info('Shutting down housekeeper...');
 
     // Stop all scheduled jobs
     for (const task of tasks.values()) {
@@ -360,16 +401,21 @@ export function createHousekeeper(config: HousekeeperConfig = {}) {
     const startTime = Date.now();
     
     while (runningTasks.size > 0 && Date.now() - startTime < timeout) {
-      console.log(`Waiting for ${runningTasks.size} tasks to complete...`);
+      logger.info('Waiting for tasks to complete', { 
+        remainingTasks: runningTasks.size 
+      });
       await new Promise(resolve => setTimeout(resolve, 1000));
     }
 
     if (runningTasks.size > 0) {
-      console.warn(`Shutdown timeout: ${runningTasks.size} tasks still running`);
+      logger.warn('Shutdown timeout: tasks still running', {
+        remainingTasks: runningTasks.size,
+        tasks: Array.from(runningTasks)
+      });
     }
 
     tasks.clear();
-    console.log('✅ Housekeeper shutdown complete');
+    logger.info('Housekeeper shutdown complete');
   }
 
   return {

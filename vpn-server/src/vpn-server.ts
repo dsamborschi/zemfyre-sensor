@@ -250,6 +250,18 @@ export class VPNServer extends EventEmitter {
    * Start OpenVPN process
    */
   private async startOpenVPNProcess(): Promise<void> {
+    // Check if OpenVPN is already running (managed by docker entrypoint)
+    try {
+      const { execSync } = require('child_process');
+      execSync('pgrep openvpn', { stdio: 'pipe' });
+      this.logger.info('OpenVPN already running, skipping process start');
+      // Server is already running, just mark as started
+      return;
+    } catch (error) {
+      // OpenVPN not running, start it
+      this.logger.info('Starting OpenVPN process');
+    }
+    
     const configPath = path.join(process.cwd(), 'config', 'server.conf');
     
     this.process = spawn('openvpn', [configPath], {
@@ -436,6 +448,18 @@ export class VPNServer extends EventEmitter {
    * Generate OpenVPN server configuration
    */
   private async generateServerConfig(): Promise<void> {
+    // Check if OpenVPN config already exists (managed by docker entrypoint)
+    const openvpnConfigPath = '/etc/openvpn/server.conf';
+    
+    try {
+      await fs.access(openvpnConfigPath);
+      this.logger.info('Using existing OpenVPN configuration', { configPath: openvpnConfigPath });
+      return; // Config already exists, skip generation
+    } catch (error) {
+      // Config doesn't exist, generate it
+      this.logger.info('Generating OpenVPN configuration from template');
+    }
+    
     const configPath = path.join(process.cwd(), 'config', 'server.conf');
     
     // Read template configuration

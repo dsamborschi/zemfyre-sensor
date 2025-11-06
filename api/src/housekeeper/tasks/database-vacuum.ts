@@ -6,6 +6,7 @@
 
 import { HousekeeperTask } from '../index';
 import { query } from '../../db/connection';
+import logger from '../../utils/logger';
 
 const task: HousekeeperTask = {
   name: 'database-vacuum',
@@ -13,15 +14,15 @@ const task: HousekeeperTask = {
   schedule: '0 4 * * 0',
   
   run: async () => {
-    console.log('🧹 Running database maintenance...');
+    logger.info('🧹 Running database maintenance...');
 
     try {
       // PostgreSQL VACUUM ANALYZE
       await query('VACUUM ANALYZE');
-      console.log('✅ PostgreSQL VACUUM ANALYZE completed');
+      logger.info('PostgreSQL VACUUM ANALYZE completed');
 
     } catch (error: any) {
-      console.error('❌ Failed to run database maintenance:', error.message);
+      logger.error('Failed to run database maintenance:', error.message);
       throw error;
     }
   }

@@ -15,7 +15,7 @@ import { Toaster } from "./components/ui/sonner";
 import { Sheet, SheetContent } from "./components/ui/sheet";
 import { Button } from "./components/ui/button";
 import { Badge } from "./components/ui/badge";
-import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock, Package, TrendingUp, LineChart, Shield, Settings, FileText } from "lucide-react";
+import { Menu, Activity, BarChart3, Radio, CalendarClock, Clock, Package, TrendingUp, LineChart, Shield, Settings, FileText, Tag } from "lucide-react";
 import { buildApiUrl } from "./config/api";
 import { SensorHealthDashboard } from "./pages/SensorHealthDashboard";
 import { SensorsPage } from "./pages/SensorsPage";
@@ -25,6 +25,7 @@ import AccountPage from "./pages/AccountPage";
 import { LogsPage } from "./pages/LogsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { GlobalDashboardPage } from "./pages/GlobalDashboardPage";
+import DeviceTagsPage from "./pages/DeviceTagsPage";
 
 import { toast } from "sonner";
 import { Header } from "./components/Header";
@@ -58,7 +59,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security' | 'maintenance' | 'logs' | 'settings' | 'account' | 'users' | 'profile' | 'dashboard'>('dashboard');
+  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security' | 'maintenance' | 'logs' | 'settings' | 'tags' | 'account' | 'users' | 'profile' | 'dashboard'>('dashboard');
   const [debugMode, setDebugMode] = useState(false);
   
   // Memoize selected device to prevent unnecessary re-renders
@@ -211,6 +212,22 @@ export default function App() {
       setNetworkInterfaces([]);
     }
   }, [selectedDeviceId]);
+
+  // Listen for custom event to open tags page
+  useEffect(() => {
+    const handleOpenTags = (event: Event) => {
+      const customEvent = event as CustomEvent<{ deviceUuid: string }>;
+      // Find device by UUID and select it, then switch to tags view
+      const device = devices.find(d => d.deviceUuid === customEvent.detail.deviceUuid);
+      if (device) {
+        setSelectedDeviceId(device.id);
+        setCurrentView('tags');
+      }
+    };
+
+    window.addEventListener('open-device-tags', handleOpenTags);
+    return () => window.removeEventListener('open-device-tags', handleOpenTags);
+  }, [devices]);
 
   // Helper function to format last seen time
   const formatLastSeen = (timestamp: string | null): string => {
@@ -556,6 +573,14 @@ export default function App() {
               <Shield className="w-4 h-4 mr-2" />
               Settings
             </Button>
+            <Button
+              variant={currentView === 'tags' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setCurrentView('tags')}
+            >
+              <Tag className="w-4 h-4 mr-2" />
+              Tags
+            </Button>
           </div>
 
           {/* Conditional Content */}
@@ -618,6 +643,9 @@ export default function App() {
           )}
           {currentView === 'settings' && (
             <DeviceSettingsPage deviceUuid={selectedDevice.deviceUuid} />
+          )}
+          {currentView === 'tags' && (
+            <DeviceTagsPage deviceUuid={selectedDevice.deviceUuid} />
           )}
           {currentView === 'account' && (
             <AccountPage />

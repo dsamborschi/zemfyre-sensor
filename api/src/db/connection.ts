@@ -4,6 +4,7 @@
  */
 
 import { Pool, PoolClient, QueryResult } from 'pg';
+import logger from '../utils/logger';
 
 // Database configuration from environment variables
 const dbConfig = {
@@ -22,7 +23,7 @@ export const pool = new Pool(dbConfig);
 
 // Handle pool errors
 pool.on('error', (err) => {
-  console.error('Unexpected error on idle database client', err);
+  logger.error('Unexpected error on idle database client', err);
   process.exit(-1);
 });
 
@@ -39,7 +40,7 @@ export async function query<T = any>(
     const duration = Date.now() - start;
     return result;
   } catch (error) {
-    console.error('Query error', { text, error });
+    logger.error('Query error', { text, error });
     throw error;
   }
 }
@@ -78,10 +79,10 @@ export async function transaction<T>(
 export async function testConnection(): Promise<boolean> {
   try {
     const result = await query('SELECT NOW() as now');
-    console.log('✅ Database connected successfully at', result.rows[0].now);
+    logger.log(' Database connected successfully at', result.rows[0].now);
     return true;
   } catch (error) {
-    console.error('❌ Database connection failed:', error);
+    logger.error(' Database connection failed:', error);
     return false;
   }
 }
@@ -91,7 +92,7 @@ export async function testConnection(): Promise<boolean> {
  * @deprecated Use runMigrations() from migrations.ts instead
  */
 export async function initializeSchema(): Promise<void> {
-  console.warn('⚠️  initializeSchema() is deprecated, using migration system instead');
+  logger.warn('  initializeSchema() is deprecated, using migration system instead');
   
   // Import and run migrations
   const { runMigrations } = await import('./migrations');
@@ -103,7 +104,7 @@ export async function initializeSchema(): Promise<void> {
  */
 export async function close(): Promise<void> {
   await pool.end();
-  console.log('Database connections closed');
+  logger.info('Database connections closed');
 }
 
 export default {

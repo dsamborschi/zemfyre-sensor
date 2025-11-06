@@ -41,6 +41,7 @@ import {
   buildBrokerUrl,
   formatBrokerConfigForClient
 } from '../utils/mqtt-broker-config';
+import { getVpnConfigForDevice, formatVpnConfigForDevice } from '../utils/vpn-config';
 import { SystemConfigModel } from '../db/system-config-model';
 import { generateDefaultTargetState } from '../services/default-target-state-generator';
 
@@ -511,6 +512,70 @@ async function createMqttCredentials(uuid: string): Promise<{ username: string; 
 }
 
 /**
+ * Create VPN credentials for device
+ */
+async function createVpnCredentials(uuid: string, vpnConfig: any): Promise<{ username: string; password: string; caCert: string }> {
+  const vpnUsername = uuid;
+  const vpnPassword = crypto.randomBytes(32).toString('hex');
+  
+  // Fetch CA certificate from VPN server (use config URL or environment fallback)
+  const vpnCaUrl = vpnConfig.ca_cert_url || process.env.VPN_CA_URL || 'http://vpn-server:8080';
+  console.log(`🔐 Fetching VPN CA certificate from: ${vpnCaUrl}`);
+  
+  try {
+    // Check if CA cert is already in config (cached)
+    let caCert = vpnConfig.ca_cert;
+    
+    if (!caCert) {
+      // Fetch from VPN server
+      const response = await fetch(vpnCaUrl);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch CA certificate: ${response.statusText}`);
+      }
+      caCert = await response.text();
+      console.log(`✅ VPN CA certificate fetched (${caCert.length} bytes)`);
+    } else {
+      console.log(`✅ Using cached VPN CA certificate (${caCert.length} bytes)`);
+    }
+    
+    // Store VPN credentials in device record
+    await query(
+      `UPDATE devices SET vpn_username = $1, vpn_password_hash = $2 WHERE uuid = $3`,
+      [vpnUsername, await bcrypt.hash(vpnPassword, 10), uuid]
+    );
+    
+    console.log(`🔐 VPN credentials created for device: ${vpnUsername}`);
+    return { username: vpnUsername, password: vpnPassword, caCert };
+  } catch (error: any) {
+    console.error(`❌ Failed to create VPN credentials:`, error.message);
+    throw new Error(`VPN setup failed: ${error.message}`);
+  }
+}
+
+/**
+ * Generate OpenVPN client config
+ */
+function generateOvpnConfig(deviceUuid: string, caCert: string, vpnServerHost: string, vpnServerPort: string): string {
+  return `client
+dev tun
+proto udp
+remote ${vpnServerHost} ${vpnServerPort}
+resolv-retry infinite
+nobind
+persist-key
+persist-tun
+auth-user-pass
+remote-cert-tls server
+cipher AES-256-GCM
+verb 3
+
+<ca>
+${caCert}
+</ca>
+`;
+}
+
+/**
  * Publish device provisioned event
  */
 async function publishProvisioningEvent(
@@ -546,13 +611,14 @@ async function publishProvisioningEvent(
 }
 
 /**
- * Build provisioning response with MQTT config
+ * Build provisioning response with MQTT config and optional VPN config
  */
 async function buildProvisioningResponse(
   device: any,
   data: RegistrationRequest,
   provisioningKeyRecord: any,
-  mqttCredentials: { username: string; password: string }
+  mqttCredentials: { username: string; password: string },
+  vpnCredentials?: { username: string; password: string; caCert: string }
 ): Promise<any> {
   const { uuid, deviceName, deviceType, applicationId } = data;
 
@@ -565,11 +631,18 @@ async function buildProvisioningResponse(
     console.log('⚠️  No broker config in database, using environment fallback');
   }
 
+  // Fetch broker configuration (works for both VPN and non-VPN scenarios)
+  // When VPN is enabled, devices connect via VPN tunnel to the same MQTT broker
+  // In Kubernetes: mosquitto is a separate pod with its own service
+  // In Docker Compose: mosquitto is a separate container
+  const vpnEnabled = process.env.VPN_ENABLED === 'true';
   const brokerUrl = brokerConfig 
     ? buildBrokerUrl(brokerConfig)
     : (process.env.MQTT_BROKER_URL || 'mqtt://mosquitto:1883');
 
-  return {
+  console.log(`📡 MQTT broker URL: ${brokerUrl} (VPN: ${vpnEnabled ? 'enabled' : 'disabled'})`);
+
+  const response: any = {
     id: device.id,
     uuid: device.uuid,
     deviceName,
@@ -590,6 +663,30 @@ async function buildProvisioningResponse(
       }
     }
   };
+
+  // Add VPN configuration if enabled
+  if (vpnEnabled && vpnCredentials) {
+    const vpnServerHost = process.env.VPN_SERVER_HOST || 'vpn-server';
+    const vpnServerPort = process.env.VPN_SERVER_PORT || '1194';
+    
+    response.vpn = {
+      enabled: true,
+      credentials: {
+        username: vpnCredentials.username,
+        password: vpnCredentials.password
+      },
+      server: {
+        host: vpnServerHost,
+        port: parseInt(vpnServerPort),
+        protocol: 'udp'
+      },
+      config: generateOvpnConfig(uuid, vpnCredentials.caCert, vpnServerHost, vpnServerPort)
+    };
+    
+    console.log(`🔐 VPN configuration added to provisioning response`);
+  }
+
+  return response;
 }
 
 /**
@@ -762,11 +859,26 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
       // Create MQTT credentials using the activated device UUID
       const mqttCredentials = await createMqttCredentials(activatedDeviceUuid);
       
+      // Create VPN credentials if enabled (check database config)
+      let vpnCredentialsPreReg: { username: string; password: string; caCert: string } | undefined;
+      const vpnConfigPreReg = await getVpnConfigForDevice(activatedDeviceUuid);
+      
+      if (vpnConfigPreReg && vpnConfigPreReg.enabled) {
+        try {
+          vpnCredentialsPreReg = await createVpnCredentials(activatedDeviceUuid, vpnConfigPreReg);
+          console.log(`✅ VPN credentials created for pre-registered device`);
+        } catch (error: any) {
+          console.error(`⚠️  VPN credential creation failed:`, error.message);
+        }
+      }
+      
       // Update device with MQTT username and mark as fully registered
       await DeviceModel.update(activatedDeviceUuid, {
         mqtt_username: mqttCredentials.username,
         provisioned_at: new Date(),
-        provisioning_state: 'registered'
+        provisioning_state: 'registered',
+        vpn_enabled: !!vpnCredentialsPreReg,
+        vpn_config_id: vpnConfigPreReg?.id || null
       });
       
       // Create default target state if not exists
@@ -799,32 +911,32 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
       
       await logProvisioningAttempt(ipAddress!, activatedDeviceUuid, provisioningKeyRecord.id, true, 'Device activated from pre-registration', userAgent);
       
-      // Build response using the same format as normal registration
-      const brokerConfig = await getBrokerConfigForDevice(activatedDeviceUuid);
-      const brokerUrl = brokerConfig 
-        ? buildBrokerUrl(brokerConfig)
-        : (process.env.MQTT_BROKER_URL || 'mqtt://mosquitto:1883');
-      
-      return res.status(200).json({
-        id: preRegisteredDevice.id,
+      // Build response using buildProvisioningResponse helper
+      const responseData = {
         uuid: activatedDeviceUuid,
         deviceName: preRegisteredDevice.device_name,
         deviceType: preRegisteredDevice.device_type,
-        fleetId: provisioningKeyRecord.fleet_id,
-        createdAt: preRegisteredDevice.created_at,
-        mqtt: {
-          username: mqttCredentials.username,
-          password: mqttCredentials.password,
-          broker: brokerUrl,
-          ...(brokerConfig && {
-            brokerConfig: formatBrokerConfigForClient(brokerConfig)
-          }),
-          topics: {
-            publish: [`iot/device/${activatedDeviceUuid}/#`],
-            subscribe: [`iot/device/${activatedDeviceUuid}/#`]
-          }
-        }
-      });
+        deviceApiKey: data.deviceApiKey, // Not used in response, but required by interface
+        applicationId: data.applicationId,
+        macAddress: data.macAddress,
+        osVersion: data.osVersion,
+        agentVersion: data.agentVersion
+      };
+      
+      const deviceForResponse = {
+        ...preRegisteredDevice,
+        uuid: activatedDeviceUuid
+      };
+      
+      const response = await buildProvisioningResponse(
+        deviceForResponse,
+        responseData,
+        provisioningKeyRecord,
+        mqttCredentials,
+        vpnCredentialsPreReg
+      );
+      
+      return res.status(200).json(response);
     }
 
     // Step 6: Create device record
@@ -833,9 +945,34 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
     // Step 7: Create MQTT credentials
     const mqttCredentials = await createMqttCredentials(uuid);
 
-    // Step 7b: Update device with MQTT username (marks provisioning as complete)
+    // Step 7a: Create VPN credentials if enabled (check database config)
+    let vpnCredentials: { username: string; password: string; caCert: string } | undefined;
+    const vpnConfig = await getVpnConfigForDevice(uuid);
+    
+    if (vpnConfig && vpnConfig.enabled) {
+      try {
+        vpnCredentials = await createVpnCredentials(uuid, vpnConfig);
+        console.log(`✅ VPN credentials created for device: ${uuid.substring(0, 8)}...`);
+      } catch (error: any) {
+        console.error(`⚠️  VPN credential creation failed:`, error.message);
+        // Don't fail provisioning if VPN setup fails - continue without VPN
+        await logAuditEvent({
+          eventType: AuditEventType.PROVISIONING_FAILED,
+          deviceUuid: uuid,
+          ipAddress,
+          severity: AuditSeverity.WARNING,
+          details: { 
+            reason: 'VPN credential creation failed',
+            error: error.message
+          }
+        });
+      }
+    }
+
+    // Step 7b: Update device with MQTT username and VPN status (marks provisioning as complete)
     await DeviceModel.update(uuid, {
-      mqtt_username: mqttCredentials.username
+      mqtt_username: mqttCredentials.username,
+      vpn_enabled: !!vpnCredentials
     });
     console.log(`✅ Device record updated with MQTT username: ${mqttCredentials.username}`);
 
@@ -898,7 +1035,7 @@ router.post('/device/register', provisioningLimiter, async (req, res) => {
     await logProvisioningAttempt(ipAddress!, uuid, provisioningKeyRecord.id, true, undefined, userAgent);
 
     // Step 11: Build response
-    const response = await buildProvisioningResponse(device, data, provisioningKeyRecord, mqttCredentials);
+    const response = await buildProvisioningResponse(device, data, provisioningKeyRecord, mqttCredentials, vpnCredentials);
 
     console.log('✅ Device registered successfully:', response.id);
     res.status(200).json(response);

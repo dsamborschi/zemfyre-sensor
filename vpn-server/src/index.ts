@@ -83,15 +83,32 @@ function setupGracefulShutdown(server: VPNServer, logger: any): void {
   process.on('SIGINT', () => shutdown('SIGINT'));
   process.on('SIGHUP', () => shutdown('SIGHUP'));
 
-  // Handle uncaught exceptions
+  // Handle uncaught exceptions with detailed logging
   process.on('uncaughtException', (error) => {
-    logger.error('Uncaught exception', { error });
-    process.exit(1);
+    logger.error('Uncaught exception detected', { 
+      message: error.message,
+      name: error.name,
+      stack: error.stack,
+      code: (error as any).code
+    });
+    
+    // Only exit for critical errors
+    const criticalErrors = ['EADDRINUSE', 'EACCES', 'ENOTFOUND'];
+    if (criticalErrors.some(err => error.message?.includes(err))) {
+      logger.error('Critical error detected, exiting...');
+      process.exit(1);
+    } else {
+      logger.warn('Non-critical error, continuing operation');
+    }
   });
 
   process.on('unhandledRejection', (reason, promise) => {
-    logger.error('Unhandled rejection', { reason, promise });
-    process.exit(1);
+    logger.error('Unhandled promise rejection detected', { 
+      reason,
+      reasonString: String(reason),
+      promiseString: String(promise)
+    });
+    // Don't exit, just log
   });
 }
 
@@ -127,8 +144,21 @@ async function main(): Promise<void> {
       maxClients: config.vpn.maxClients
     });
 
-    // Keep the process alive
-    await new Promise(() => {}); // Run forever until signal
+    // Keep the process alive by waiting on a promise that never resolves
+    logger.info('Process will remain alive until receiving shutdown signal');
+    
+    // Use setInterval to keep the event loop active (prevents Node.js from exiting)
+    const keepAliveInterval = setInterval(() => {
+      logger.debug('VPN server health check', {
+        uptime: process.uptime(),
+        memory: process.memoryUsage()
+      });
+    }, 60000); // Log health every 60 seconds
+    
+    // This promise never resolves - only exits via SIGTERM/SIGINT
+    await new Promise<void>(() => {
+      // Interval above keeps event loop alive
+    });
     
   } catch (error) {
     logger.error('Failed to start VPN server', { error });

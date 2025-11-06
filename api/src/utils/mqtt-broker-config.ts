@@ -4,6 +4,7 @@
  */
 
 import { query } from '../db/connection';
+import { SystemConfig } from '../config/system-config';
 
 export interface MqttBrokerConfig {
   id: number;
@@ -42,23 +43,18 @@ export async function getBrokerConfigForDevice(deviceUuid: string): Promise<Mqtt
       return await getDefaultBrokerConfig();
     }
     
-    // Otherwise query database for device-specific or default broker
-    const result = await query(
-      `SELECT 
-        id, name, protocol, host, port, username, 
-        use_tls, ca_cert, client_cert, verify_certificate,
-        client_id_prefix, keep_alive, clean_session, 
-        reconnect_period, connect_timeout, broker_type
-      FROM mqtt_broker_config 
-      WHERE id = COALESCE(
-        (SELECT mqtt_broker_id FROM devices WHERE uuid = $1),
-        (SELECT id FROM mqtt_broker_config WHERE is_default = true LIMIT 1)
-      )
-      LIMIT 1`,
+    // Otherwise query database for device-specific broker ID, then use SystemConfig
+    const deviceResult = await query(
+      `SELECT mqtt_broker_id FROM devices WHERE uuid = $1`,
       [deviceUuid]
     );
     
-    return result.rows.length > 0 ? result.rows[0] : null;
+    const brokerId = deviceResult.rows[0]?.mqtt_broker_id;
+    
+    // Use SystemConfig to get broker (uses device-specific or default)
+    const config = await SystemConfig.getMqttBroker(brokerId);
+    
+    return config || null;
   } catch (error) {
     console.error('Error fetching broker config for device:', error);
     return null;
@@ -104,25 +100,16 @@ export async function getDefaultBrokerConfig(): Promise<MqttBrokerConfig | null>
       };
     }
     
-    // Priority 2: Fallback to database configuration
-    const result = await query(
-      `SELECT 
-        id, name, protocol, host, port, username, 
-        use_tls, ca_cert, client_cert, verify_certificate,
-        client_id_prefix, keep_alive, clean_session, 
-        reconnect_period, connect_timeout, broker_type
-      FROM mqtt_broker_config 
-      WHERE is_default = true
-      LIMIT 1`
-    );
+    // Priority 2: Fallback to database configuration via SystemConfig
+    const config = await SystemConfig.getMqttBroker(); // No ID = use default
     
-    if (result.rows.length > 0) {
-      console.log(`[MQTT Config] Using database default: ${result.rows[0].host}:${result.rows[0].port}`);
-      return result.rows[0];
+    if (!config) {
+      console.warn('[MQTT Config] No default broker configuration found');
+      return null;
     }
     
-    console.warn('[MQTT Config] No default broker configuration found');
-    return null;
+    console.log(`[MQTT Config] Using database default: ${config.host}:${config.port}`);
+    return config;
   } catch (error) {
     console.error('Error fetching default broker config:', error);
     return null;

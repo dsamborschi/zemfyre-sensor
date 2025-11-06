@@ -105,11 +105,11 @@ async function executeTool(toolName: string, args: any): Promise<string> {
         const device = await DeviceModel.getByUuid(args.deviceUuid);
         if (!device) return 'Device not found';
         return JSON.stringify({
-          name: device.name,
+          name: device.device_name,
           uuid: device.uuid,
           status: device.status,
           isOnline: device.is_online,
-          lastSeen: device.last_seen,
+          lastSeen: device.last_connectivity_event,
         });
       }
 
@@ -208,7 +208,9 @@ If asked to perform actions like restarting containers, explain that you can pro
       throw new Error(`Ollama error: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as {
+      choices: Array<{ message: any }>;
+    };
     const responseMessage = data.choices[0].message;
 
     // Check if AI wants to use tools
@@ -240,7 +242,9 @@ If asked to perform actions like restarting containers, explain that you can pro
         }),
       });
 
-      const secondData = await secondResponse.json();
+      const secondData = await secondResponse.json() as {
+        choices: Array<{ message: { content: string } }>;
+      };
       return secondData.choices[0].message.content || 'No response';
     }
 

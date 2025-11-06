@@ -37,6 +37,16 @@ export interface Device {
   provisioned_at?: Date;
   provisioned_by_key_id?: string;
   mqtt_username?: string;
+  mqtt_broker_id?: number;
+  // VPN fields
+  vpn_enabled?: boolean;
+  vpn_username?: string;
+  vpn_password_hash?: string;
+  vpn_last_connected_at?: Date;
+  vpn_ip_address?: string;
+  vpn_bytes_sent?: number;
+  vpn_bytes_received?: number;
+  vpn_config_id?: number;
   created_at: Date;
   modified_at: Date;
 }

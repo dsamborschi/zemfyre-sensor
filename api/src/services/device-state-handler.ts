@@ -18,7 +18,7 @@ import {
   DeviceMetricsModel,
 } from '../db/models';
 import { EventPublisher, objectsAreEqual } from './event-sourcing';
-import EventSourcingConfig from '../config/event-sourcing';
+import EventSourcingConfig from '../events/event-sourcing';
 import { deviceSensorSync } from './device-sensor-sync';
 
 const eventPublisher = new EventPublisher();

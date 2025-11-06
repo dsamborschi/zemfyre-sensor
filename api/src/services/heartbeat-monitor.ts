@@ -11,6 +11,7 @@
 import { query } from '../db/connection';
 import { logAuditEvent, AuditEventType, AuditSeverity } from '../utils/audit-logger';
 import { EventPublisher } from './event-sourcing';
+import logger from '../utils/logger';
 
 const HEARTBEAT_STATE_KEY = 'heartbeat_last_check';
 
@@ -39,13 +40,13 @@ export class HeartbeatMonitor {
    */
   async start(): Promise<void> {
     if (!this.enabled) {
-      console.log('🫀 Heartbeat monitor disabled via configuration');
+       logger.info('🫀 Heartbeat monitor disabled via configuration');
       return;
     }
 
-    console.log('🫀 Starting heartbeat monitor...');
-    console.log(`   Check interval: ${this.checkInterval / 1000}s`);
-    console.log(`   Offline threshold: ${this.offlineThreshold} minutes`);
+     logger.info('🫀 Starting heartbeat monitor...');
+     logger.info(`   Check interval: ${this.checkInterval / 1000}s`);
+     logger.info(`   Offline threshold: ${this.offlineThreshold} minutes`);
 
     // Load last check time from database
     await this.loadLastCheckTime();
@@ -72,10 +73,10 @@ export class HeartbeatMonitor {
       
       // Save last check time before stopping
       this.saveLastCheckTime().catch(err => {
-        console.error('Failed to save last check time:', err.message);
+         logger.error('Failed to save last check time:', err.message);
       });
       
-      console.log('🫀 Heartbeat monitor stopped');
+       logger.info('🫀 Heartbeat monitor stopped');
     }
   }
 
@@ -92,13 +93,13 @@ export class HeartbeatMonitor {
 
       if (result.rows.length > 0) {
         this.lastCheckTime = new Date(result.rows[0].value.timestamp);
-        console.log(`   Last check was at: ${this.lastCheckTime.toISOString()}`);
+         logger.info(`   Last check was at: ${this.lastCheckTime.toISOString()}`);
       } else {
-        console.log('   No previous check time found (first run)');
+         logger.info('   No previous check time found (first run)');
       }
     } catch (error: any) {
-      console.warn('⚠️  Could not load last check time:', error.message);
-      console.warn('   Make sure to run database migrations: npx ts-node scripts/run-migrations.ts');
+       logger.warn('  Could not load last check time:', error.message);
+       logger.warn('   Make sure to run database migrations: npx ts-node scripts/run-migrations.ts');
       this.lastCheckTime = null;
     }
   }
@@ -123,7 +124,7 @@ export class HeartbeatMonitor {
       );
       this.lastCheckTime = now;
     } catch (error: any) {
-      console.error('❌ Failed to save last check time:', error.message);
+       logger.error(' Failed to save last check time:', error.message);
     }
   }
 
@@ -132,7 +133,7 @@ export class HeartbeatMonitor {
    */
   private async handleApiRestart(): Promise<void> {
     if (!this.lastCheckTime) {
-      console.log('   First run - no previous state to recover');
+       logger.info('   First run - no previous state to recover');
       return;
     }
 
@@ -142,15 +143,15 @@ export class HeartbeatMonitor {
 
     if (apiDowntimeMs > this.checkInterval * 2) {
       // API was down for more than 2 check intervals
-      console.log(`⚠️  API downtime detected: ${apiDowntimeMinutes} minutes`);
-      console.log(`   Last check: ${this.lastCheckTime.toISOString()}`);
-      console.log(`   API restarted: ${now.toISOString()}`);
+       logger.info(`  API downtime detected: ${apiDowntimeMinutes} minutes`);
+       logger.info(`   Last check: ${this.lastCheckTime.toISOString()}`);
+       logger.info(`   API restarted: ${now.toISOString()}`);
       
       // Calculate the cutoff time: devices must have been inactive BEFORE API stopped
       // to be marked offline now
       const safeOfflineThreshold = this.offlineThreshold + apiDowntimeMinutes;
       
-      console.log(`   Adjusted offline threshold: ${safeOfflineThreshold} minutes (includes downtime)`);
+       logger.info(`   Adjusted offline threshold: ${safeOfflineThreshold} minutes (includes downtime)`);
       
       // Mark devices offline only if they were inactive before API went down
       const result = await query(`
@@ -163,16 +164,16 @@ export class HeartbeatMonitor {
       `, [this.lastCheckTime]);
 
       if (result.rows.length > 0) {
-        console.log(`   📋 Marked ${result.rows.length} device(s) offline (were inactive BEFORE API downtime):`);
+         logger.info(`    Marked ${result.rows.length} device(s) offline (were inactive BEFORE API downtime):`);
         
         for (const device of result.rows) {
           const deviceDisplay = device.device_name || device.uuid.substring(0, 8) + '...';
           const lastSeen = device.last_connectivity_event ? 
             new Date(device.last_connectivity_event).toISOString() : 'never';
           
-          console.log(`      - ${deviceDisplay} (last seen: ${lastSeen})`);
+           logger.info(`      - ${deviceDisplay} (last seen: ${lastSeen})`);
           
-          // 🎉 EVENT SOURCING: Publish device offline event
+          //  EVENT SOURCING: Publish device offline event
           await this.eventPublisher.publish(
             'device.offline',
             'device',
@@ -208,7 +209,7 @@ export class HeartbeatMonitor {
           });
         }
       } else {
-        console.log('   ✅ No devices to mark offline (all were active during API downtime)');
+         logger.info('    No devices to mark offline (all were active during API downtime)');
       }
       
       await logAuditEvent({
@@ -222,7 +223,7 @@ export class HeartbeatMonitor {
         }
       });
     } else {
-      console.log('   ✅ Normal operation - no significant downtime detected');
+       logger.info('    Normal operation - no significant downtime detected');
     }
   }
 
@@ -242,16 +243,16 @@ export class HeartbeatMonitor {
       `);
 
       if (result.rows.length > 0) {
-        console.log(`⚠️  Marked ${result.rows.length} device(s) as offline:`);
+         logger.info(`  Marked ${result.rows.length} device(s) as offline:`);
         
         for (const device of result.rows) {
           const deviceDisplay = device.device_name || device.uuid.substring(0, 8) + '...';
           const lastSeen = device.last_connectivity_event ? 
             new Date(device.last_connectivity_event).toISOString() : 'never';
           
-          console.log(`   - ${deviceDisplay} (last seen: ${lastSeen})`);
+           logger.info(`   - ${deviceDisplay} (last seen: ${lastSeen})`);
           
-          // 🎉 EVENT SOURCING: Publish device offline event
+          //  EVENT SOURCING: Publish device offline event
           await this.eventPublisher.publish(
             'device.offline',
             'device',
@@ -290,7 +291,7 @@ export class HeartbeatMonitor {
       await this.saveLastCheckTime();
       
     } catch (error: any) {
-      console.error('❌ Error checking device heartbeats:', error.message);
+       logger.error(' Error checking device heartbeats:', error.message);
     }
   }
 

@@ -29,11 +29,12 @@ import {
   DeviceLogsModel,
 } from '../db/models';
 import { EventPublisher, objectsAreEqual } from '../services/event-sourcing';
-import EventSourcingConfig from '../config/event-sourcing';
+import EventSourcingConfig from '../events/event-sourcing';
 import deviceAuth, { deviceAuthFromBody } from '../middleware/device-auth';
 import { resolveAppsImages } from '../services/docker-registry';
 import { deviceSensorSync } from '../services/device-sensor-sync';
 import { processDeviceStateReport } from '../services/device-state-handler';
+import logger from '../utils/logger';
 
 export const router = express.Router();
 
@@ -61,11 +62,14 @@ router.get('/device/:uuid/state', deviceAuth, async (req, res) => {
     // Get target state
     const targetState = await DeviceTargetStateModel.get(uuid);
 
-    console.log(`📡 Device ${uuid.substring(0, 8)}... polling for target state`);
+    logger.debug('Device polling for target state', { 
+      deviceId: uuid.substring(0, 8),
+      hasTargetState: !!targetState
+    });
     
     if (!targetState) {
       // No target state yet - return empty state
-      console.log('   No target state found - returning empty');
+      logger.debug('No target state found - returning empty', { deviceId: uuid.substring(0, 8) });
       const emptyState = { [uuid]: { apps: {}, config: {} } };
       const etag = Buffer.from(JSON.stringify(emptyState))
         .toString('base64')
@@ -76,11 +80,15 @@ router.get('/device/:uuid/state', deviceAuth, async (req, res) => {
     // Generate ETag
     const etag = DeviceTargetStateModel.generateETag(targetState);
     
-    console.log(`   Version: ${targetState.version}, Updated: ${targetState.updated_at}`);
-    console.log(`   Generated ETag: ${etag}`);
-    console.log(`   Client ETag:    ${ifNoneMatch || 'none'}`);
-    console.log(`   Apps in DB: ${JSON.stringify(Object.keys(targetState.apps || {}))}`);
-    console.log(`   Needs Deployment: ${targetState.needs_deployment || false}`);
+    logger.debug('Target state details', {
+      deviceId: uuid.substring(0, 8),
+      version: targetState.version,
+      updatedAt: targetState.updated_at,
+      generatedETag: etag,
+      clientETag: ifNoneMatch || 'none',
+      appCount: Object.keys(targetState.apps || {}).length,
+      needsDeployment: targetState.needs_deployment || false
+    });
 
     // Prepare response payload (we'll use this for both 200 and 304 size tracking)
     const response = {
@@ -103,22 +111,32 @@ router.get('/device/:uuid/state', deviceAuth, async (req, res) => {
     // Check if changes are pending deployment
     // If needs_deployment is true, return 304 to prevent agent from syncing
     if (targetState.needs_deployment) {
-      console.log('   ⏸️  Changes pending deployment - returning 304 to block sync');
+      logger.debug('Changes pending deployment - returning 304 to block sync', { 
+        deviceId: uuid.substring(0, 8) 
+      });
       return res.set('X-Content-Length', contentSize.toString()).status(304).end();
     }
 
     // Check if client has current version
     if (ifNoneMatch && ifNoneMatch === etag) {
-      console.log('   ✅ ETags match - returning 304 Not Modified');
+      logger.debug('ETags match - returning 304 Not Modified', { 
+        deviceId: uuid.substring(0, 8) 
+      });
       return res.set('X-Content-Length', contentSize.toString()).status(304).end();
     }
     
-    console.log('   🎯 ETags differ - sending new state');
+    logger.debug('ETags differ - sending new state', { 
+      deviceId: uuid.substring(0, 8) 
+    });
 
     // Return target state
     res.set('ETag', etag).json(response);
   } catch (error: any) {
-    console.error('Error getting device state:', error);
+    logger.error('Error getting device state', { 
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to get device state',
       message: error.message
@@ -133,7 +151,7 @@ router.get('/device/:uuid/state', deviceAuth, async (req, res) => {
  * Accepts both JSON array and NDJSON (newline-delimited JSON) formats
  */
 router.post('/device/:uuid/logs', deviceAuth, express.text({ type: 'application/x-ndjson' }), async (req, res) => {
-  console.log(`🔵 POST /device/:uuid/logs endpoint hit! UUID: ${req.params.uuid}`);
+  logger.debug('Device logs upload', { deviceId: req.params.uuid });
   try {
     const { uuid } = req.params;
     let logs: any[];
@@ -151,24 +169,36 @@ router.post('/device/:uuid/logs', deviceAuth, express.text({ type: 'application/
           try {
             return JSON.parse(line);
           } catch (e) {
-            console.warn(`⚠️  Failed to parse NDJSON line: ${line.substring(0, 100)}`);
+            logger.warn('Failed to parse NDJSON line', { 
+              deviceId: uuid.substring(0, 8),
+              linePreview: line.substring(0, 100)
+            });
             return null;
           }
         })
         .filter(log => log !== null);
       
-      console.log(`📥 Received logs from device ${uuid.substring(0, 8)}... (NDJSON format)`);
-      console.log(`   Parsed ${logs.length} log entries from NDJSON`);
+      logger.debug('Received logs from device (NDJSON format)', {
+        deviceId: uuid.substring(0, 8),
+        logCount: logs.length
+      });
     } else {
       // Standard JSON array format
       logs = req.body;
-      console.log(`📥 Received logs from device ${uuid.substring(0, 8)}... (JSON array format)`);
+      logger.debug('Received logs from device (JSON array format)', {
+        deviceId: uuid.substring(0, 8),
+        logCount: Array.isArray(logs) ? logs.length : 0
+      });
     }
 
-    console.log(`   Type: ${typeof logs}, Is Array: ${Array.isArray(logs)}, Length: ${logs?.length}`);
     if (logs && logs.length > 0) {
-      console.log(`   First log:`, JSON.stringify(logs[0], null, 2));
-      console.log(`   First log keys:`, Object.keys(logs[0]));
+      logger.debug('Log details', {
+        deviceId: uuid.substring(0, 8),
+        type: typeof logs,
+        isArray: Array.isArray(logs),
+        length: logs.length,
+        firstLogKeys: Object.keys(logs[0])
+      });
     }
 
     // Ensure device exists
@@ -176,7 +206,10 @@ router.post('/device/:uuid/logs', deviceAuth, express.text({ type: 'application/
 
     // Store logs
     if (Array.isArray(logs) && logs.length > 0) {
-      console.log(`   📝 About to store ${logs.length} logs...`);
+      logger.debug('Storing device logs', {
+        deviceId: uuid.substring(0, 8),
+        logCount: logs.length
+      });
       
       // Transform agent log format to API format
       const transformedLogs = logs.map((log: any) => ({
@@ -188,14 +221,23 @@ router.post('/device/:uuid/logs', deviceAuth, express.text({ type: 'application/
       }));
       
       await DeviceLogsModel.store(uuid, transformedLogs);
-      console.log(`   ✅ Stored ${logs.length} log entries`);
+      logger.info('Device logs stored', {
+        deviceId: uuid.substring(0, 8),
+        logCount: logs.length
+      });
     } else {
-      console.log(`   ⚠️  No logs to store or invalid format`);
+      logger.debug('No logs to store or invalid format', {
+        deviceId: uuid.substring(0, 8)
+      });
     }
 
     res.json({ status: 'ok', received: Array.isArray(logs) ? logs.length : 0 });
   } catch (error: any) {
-    console.error('❌ Error storing logs:', error);
+    logger.error('Error storing logs', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to process logs',
       message: error.message
@@ -220,7 +262,10 @@ router.patch('/device/state', deviceAuthFromBody, async (req, res) => {
 
     res.json({ status: 'ok' });
   } catch (error: any) {
-    console.error('Error processing state report:', error);
+    logger.error('Error processing state report', {
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({
       error: 'Failed to process state report',
       message: error.message
@@ -253,7 +298,11 @@ router.get('/devices/:uuid/target-state', deviceAuth, async (req, res) => {
       updated_at: targetState?.updated_at,
     });
   } catch (error: any) {
-    console.error('Error getting target state:', error);
+    logger.error('Error getting target state', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to get target state',
       message: error.message
@@ -294,12 +343,14 @@ router.post('/devices/:uuid/target-state', deviceAuth, async (req, res) => {
     // 🎯 RESOLVE IMAGE DIGESTS
     // Convert all :latest and floating tags to @sha256:... digests
     // This enables automatic updates when new images are pushed
-    console.log(`🔍 Resolving image digests for device ${uuid.substring(0, 8)}...`);
+    logger.debug('Resolving image digests (POST)', { deviceId: uuid.substring(0, 8) });
     try {
       apps = await resolveAppsImages(apps);
     } catch (error: any) {
-      console.warn(`⚠️  Digest resolution failed: ${error.message}`);
-      console.warn(`   Continuing with tag-based references`);
+      logger.warn('Digest resolution failed, continuing with tag-based references (POST)', {
+        deviceId: uuid.substring(0, 8),
+        error: error.message
+      });
       // Continue with original apps - digest resolution is best-effort
     }
 
@@ -307,9 +358,6 @@ router.post('/devices/:uuid/target-state', deviceAuth, async (req, res) => {
     const oldTargetState = await DeviceTargetStateModel.get(uuid);
 
     const targetState = await DeviceTargetStateModel.set(uuid, apps, config || {});
-
-    console.log(`🎯 Target state updated for device ${uuid.substring(0, 8)}...`);
-    console.log(`   Apps: ${Object.keys(apps).length}, Version: ${targetState.version}`);
 
     // 🎉 EVENT SOURCING: Publish target state updated event
     await eventPublisher.publish(
@@ -405,12 +453,14 @@ router.put('/devices/:uuid/target-state', async (req, res) => {
 
     // 🎯 RESOLVE IMAGE DIGESTS
     // Convert all :latest and floating tags to @sha256:... digests
-    console.log(`🔍 Resolving image digests for device ${uuid.substring(0, 8)}...`);
+    logger.debug('Resolving image digests (PUT)', { deviceId: uuid.substring(0, 8) });
     try {
       apps = await resolveAppsImages(apps);
     } catch (error: any) {
-      console.warn(`⚠️  Digest resolution failed: ${error.message}`);
-      console.warn(`   Continuing with tag-based references`);
+      logger.warn('Digest resolution failed, continuing with tag-based references (PUT)', {
+        deviceId: uuid.substring(0, 8),
+        error: error.message
+      });
     }
 
     // Get old state for diff
@@ -418,10 +468,7 @@ router.put('/devices/:uuid/target-state', async (req, res) => {
 
     const targetState = await DeviceTargetStateModel.set(uuid, apps, config || {});
 
-    console.log(`🎯 Target state updated for device ${uuid.substring(0, 8)}...`);
-    console.log(`   Apps: ${Object.keys(apps).length}, Version: ${targetState.version}`);
-
-    // 🎉 EVENT SOURCING: Publish target state updated event
+    //EVENT SOURCING: Publish target state updated event
     await eventPublisher.publish(
       'target_state.updated',
       'device',
@@ -455,7 +502,11 @@ router.put('/devices/:uuid/target-state', async (req, res) => {
       config,
     });
   } catch (error: any) {
-    console.error('Error setting target state:', error);
+    logger.error('Error setting target state (PUT)', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to set target state',
       message: error.message
@@ -486,7 +537,11 @@ router.get('/devices/:uuid/current-state', async (req, res) => {
       reported_at: currentState.reported_at,
     });
   } catch (error: any) {
-    console.error('Error getting current state:', error);
+    logger.error('Error getting current state', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to get current state',
       message: error.message
@@ -504,14 +559,18 @@ router.delete('/devices/:uuid/target-state', deviceAuth, async (req, res) => {
 
     await DeviceTargetStateModel.clear(uuid);
 
-    console.log(`🧹 Cleared target state for device ${uuid.substring(0, 8)}...`);
+    logger.info('Cleared target state', { deviceId: uuid.substring(0, 8) });
 
     res.json({
       status: 'ok',
       message: 'Target state cleared',
     });
   } catch (error: any) {
-    console.error('Error clearing target state:', error);
+    logger.error('Error clearing target state', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to clear target state',
       message: error.message

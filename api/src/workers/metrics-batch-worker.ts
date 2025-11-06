@@ -19,6 +19,7 @@
 
 import { DeviceMetricsModel } from '../db/models';
 import { redisClient } from '../redis/client';
+import logger from '../utils/logger';
 
 export class MetricsBatchWorker {
   private isRunning: boolean = false;
@@ -39,13 +40,13 @@ export class MetricsBatchWorker {
    */
   public async start(): Promise<void> {
     if (this.isRunning) {
-      console.warn('⚠️  Metrics batch worker already running');
+       logger.warn('  Metrics batch worker already running');
       return;
     }
 
-    console.log('🚀 Starting metrics batch worker...');
-    console.log(`   Batch interval: ${this.batchInterval}ms`);
-    console.log(`   Batch size: ${this.batchSize} metrics`);
+     logger.info('  Starting metrics batch worker...');
+     logger.info(`   Batch interval: ${this.batchInterval}ms`);
+     logger.info(`   Batch size: ${this.batchSize} metrics`);
     
     this.isRunning = true;
 
@@ -57,7 +58,7 @@ export class MetricsBatchWorker {
       await this.processBatch();
     }, this.batchInterval);
 
-    console.log('✅ Metrics batch worker started');
+     logger.info(' Metrics batch worker started');
   }
 
   /**
@@ -68,7 +69,7 @@ export class MetricsBatchWorker {
       return;
     }
 
-    console.log('🛑 Stopping metrics batch worker...');
+     logger.info(' Stopping metrics batch worker...');
     this.isRunning = false;
 
     if (this.intervalId) {
@@ -79,7 +80,7 @@ export class MetricsBatchWorker {
     // Process any remaining metrics before shutdown
     await this.processBatch();
 
-    console.log('✅ Metrics batch worker stopped');
+     logger.info(' Metrics batch worker stopped');
   }
 
   /**
@@ -100,7 +101,7 @@ export class MetricsBatchWorker {
         return;
       }
 
-      console.log(`📊 Processing batch of ${entries.length} metrics from Redis Streams...`);
+       logger.info(` Processing batch of ${entries.length} metrics from Redis Streams...`);
 
       // Group by device for better logging
       const byDevice = new Map<string, number>();
@@ -112,7 +113,7 @@ export class MetricsBatchWorker {
         .map(([uuid, count]) => `${uuid.substring(0, 8)}:${count}`)
         .join(', ');
       
-      console.log(`   Devices: ${deviceSummary}`);
+       logger.info(`   Devices: ${deviceSummary}`);
 
       // Batch insert into PostgreSQL
       const startTime = Date.now();
@@ -124,7 +125,7 @@ export class MetricsBatchWorker {
           await DeviceMetricsModel.record(entry.deviceUuid, entry.metrics);
           successCount++;
         } catch (error) {
-          console.error(`❌ Failed to insert metric for ${entry.deviceUuid.substring(0, 8)}:`, error);
+           logger.error(` Failed to insert metric for ${entry.deviceUuid.substring(0, 8)}:`, error);
           failedEntries.push(entry);
         }
       }
@@ -147,17 +148,17 @@ export class MetricsBatchWorker {
         totalAcked += acked;
       }
 
-      console.log(`✅ Batch complete: ${successCount}/${entries.length} inserted, ${totalAcked} acknowledged (${duration}ms)`);
+       logger.info(` Batch complete: ${successCount}/${entries.length} inserted, ${totalAcked} acknowledged (${duration}ms)`);
 
       if (failedEntries.length > 0) {
-        console.warn(`⚠️  ${failedEntries.length} metrics failed to insert (will retry next batch)`);
+         logger.warn(`  ${failedEntries.length} metrics failed to insert (will retry next batch)`);
       }
 
       // Monitor stream lengths for alerting
       await this.checkStreamLengths();
 
     } catch (error) {
-      console.error('❌ Error processing metrics batch:', error);
+       logger.error(' Error processing metrics batch:', error);
     }
   }
 
@@ -188,22 +189,22 @@ export class MetricsBatchWorker {
       const overloaded = lengths.filter(s => s.length > 500);
       
       if (overloaded.length > 0) {
-        console.warn(`⚠️  ${overloaded.length} device(s) have high metric backlogs:`);
+         logger.warn(`  ${overloaded.length} device(s) have high metric backlogs:`);
         overloaded.forEach(s => {
           const deviceUuid = s.key.replace('metrics:', '');
-          console.warn(`   ${deviceUuid.substring(0, 8)}: ${s.length} pending metrics`);
+           logger.warn(`   ${deviceUuid.substring(0, 8)}: ${s.length} pending metrics`);
         });
-        console.warn('   Consider increasing batch size or frequency');
+         logger.warn('   Consider increasing batch size or frequency');
       }
 
       // Log summary if verbose logging enabled
       if (process.env.LOG_METRICS_WORKER === 'true') {
         const totalPending = lengths.reduce((sum, s) => sum + s.length, 0);
-        console.log(`📈 Stream status: ${streamKeys.length} streams, ${totalPending} pending metrics`);
+         logger.info(`📈 Stream status: ${streamKeys.length} streams, ${totalPending} pending metrics`);
       }
 
     } catch (error) {
-      console.error('❌ Error checking stream lengths:', error);
+       logger.error(' Error checking stream lengths:', error);
     }
   }
 

@@ -15,6 +15,7 @@ import crypto from 'crypto';
 import bcrypt from 'bcrypt';
 import { query } from '../db/connection';
 import { getMqttManager } from '../mqtt';
+import logger from '../utils/logger';
 
 export interface KeyRotationConfig {
   rotationDays: number;          // Days before expiry to rotate
@@ -93,9 +94,12 @@ export async function rotateDeviceApiKey(
     [deviceUuid, newKeyHash, expiresAt]
   );
 
-  console.log(`✅ Rotated API key for device ${device.device_name} (${deviceUuid})`);
-  console.log(`   New key expires: ${expiresAt.toISOString()}`);
-  console.log(`   Grace period ends: ${gracePeriodEnds.toISOString()}`);
+  logger.info('Rotated API key for device', {
+    deviceName: device.device_name,
+    deviceUuid,
+    expiresAt: expiresAt.toISOString(),
+    gracePeriodEnds: gracePeriodEnds.toISOString()
+  });
 
   // Notify device via MQTT
   if (cfg.notifyDevice) {
@@ -131,7 +135,7 @@ export async function rotateDeviceApiKey(
 export async function rotateExpiredKeys(
   config: Partial<KeyRotationConfig> = {}
 ): Promise<DeviceKeyRotation[]> {
-  console.log('🔄 Starting automatic API key rotation...');
+  logger.info('Starting automatic API key rotation');
 
   // Get devices needing rotation (keys expiring soon)
   const result = await query(
@@ -141,11 +145,11 @@ export async function rotateExpiredKeys(
   );
 
   if (result.rows.length === 0) {
-    console.log('✅ No devices need key rotation at this time');
+    logger.info('No devices need key rotation at this time');
     return [];
   }
 
-  console.log(`📋 Found ${result.rows.length} devices needing rotation`);
+  logger.info('Found devices needing rotation', { count: result.rows.length });
 
   const rotations: DeviceKeyRotation[] = [];
 
@@ -154,9 +158,15 @@ export async function rotateExpiredKeys(
       const rotation = await rotateDeviceApiKey(device.uuid, config);
       rotations.push(rotation);
       
-      console.log(`  ✅ ${device.device_name}: ${device.days_until_expiry} days until expiry`);
+      logger.info('Device key rotation successful', {
+        deviceName: device.device_name,
+        daysUntilExpiry: device.days_until_expiry
+      });
     } catch (error) {
-      console.error(`  ❌ ${device.device_name}: Rotation failed:`, error);
+      logger.error('Device key rotation failed', {
+        deviceName: device.device_name,
+        error: (error as Error).message
+      });
       
       await logRotationEvent(device.uuid, 'rotation_failed', {
         error: (error as Error).message
@@ -164,7 +174,10 @@ export async function rotateExpiredKeys(
     }
   }
 
-  console.log(`✅ Rotation complete: ${rotations.length}/${result.rows.length} successful`);
+  logger.info('Rotation complete', {
+    successful: rotations.length,
+    total: result.rows.length
+  });
   
   return rotations;
 }
@@ -181,7 +194,7 @@ async function notifyDeviceOfRotation(
   const mqttManager = getMqttManager();
   
   if (!mqttManager || !mqttManager.isConnected()) {
-    console.warn('⚠️  MQTT not available, cannot notify device of rotation');
+    logger.warn('MQTT not available, cannot notify device of rotation', { deviceUuid });
     return;
   }
 
@@ -198,9 +211,12 @@ async function notifyDeviceOfRotation(
       }
     );
 
-    console.log(`📡 Notified device ${deviceUuid} of key rotation via MQTT`);
+    logger.info('Notified device of key rotation via MQTT', { deviceUuid });
   } catch (error) {
-    console.error('❌ Failed to notify device via MQTT:', error);
+    logger.error('Failed to notify device via MQTT', {
+      deviceUuid,
+      error: (error as Error).message
+    });
   }
 }
 
@@ -222,14 +238,17 @@ async function scheduleOldKeyRevocation(
     [deviceUuid, oldKeyHash, gracePeriodEnds]
   );
 
-  console.log(`⏰ Scheduled revocation of old key for ${deviceUuid} at ${gracePeriodEnds.toISOString()}`);
+  logger.info('Scheduled revocation of old key', {
+    deviceUuid,
+    gracePeriodEnds: gracePeriodEnds.toISOString()
+  });
 }
 
 /**
  * Revoke old API keys that are past grace period
  */
 export async function revokeExpiredKeys(): Promise<number> {
-  console.log('🔒 Revoking expired API keys...');
+  logger.info('Revoking expired API keys');
 
   const result = await query(
     `UPDATE device_api_key_history
@@ -245,7 +264,7 @@ export async function revokeExpiredKeys(): Promise<number> {
   );
 
   if (result.rows.length > 0) {
-    console.log(`✅ Revoked ${result.rows.length} expired API keys`);
+    logger.info('Revoked expired API keys', { count: result.rows.length });
     
     // Log revocation events
     for (const row of result.rows) {
@@ -265,7 +284,7 @@ export async function emergencyRevokeApiKey(
   deviceUuid: string,
   reason: string
 ): Promise<void> {
-  console.log(`🚨 Emergency revocation for device ${deviceUuid}: ${reason}`);
+  logger.warn('Emergency revocation initiated', { deviceUuid, reason });
 
   // Generate new key immediately
   const newApiKey = generateApiKey();
@@ -303,8 +322,10 @@ export async function emergencyRevokeApiKey(
 
   await logRotationEvent(deviceUuid, 'emergency_revocation', { reason });
 
-  console.log(`✅ Emergency revocation complete for ${deviceUuid}`);
-  console.log(`   New API key: ${newApiKey.substring(0, 16)}...`);
+  logger.info('Emergency revocation complete', {
+    deviceUuid,
+    newKeyPrefix: newApiKey.substring(0, 16)
+  });
 }
 
 /**
@@ -322,7 +343,11 @@ async function logRotationEvent(
       [eventType, deviceUuid, 'info', JSON.stringify(details)]
     );
   } catch (error) {
-    console.error('Failed to log rotation event:', error);
+    logger.error('Failed to log rotation event', {
+      deviceUuid,
+      eventType,
+      error: (error as Error).message
+    });
   }
 }
 

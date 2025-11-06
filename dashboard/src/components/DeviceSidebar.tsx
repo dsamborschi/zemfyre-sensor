@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
-import { Monitor, Smartphone, Server, Laptop, Search, Plus,Filter, Edit, X } from "lucide-react";
+import { getDeviceTags } from "@/services/deviceTags";
+import { Monitor, Smartphone, Server, Laptop, Search, Plus, Filter, Edit, X, Tag, ChevronRight } from "lucide-react";
 import { Card } from "./ui/card";
 import { Badge } from "./ui/badge";
 import { Input } from "./ui/input";
@@ -70,6 +71,78 @@ const statusBadgeColors = {
   warning: "bg-yellow-100 text-yellow-700 border-yellow-200",
   pending: "bg-yellow-100 text-yellow-700 border-yellow-200",
 };
+
+// Device Tags Pills Component - shows 2-3 preview tags with "View all" link
+function DeviceTagsPills({ deviceUuid }: { deviceUuid: string }) {
+  const [tags, setTags] = useState<Record<string, string>>({});
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const fetchTags = async () => {
+      if (!deviceUuid) return;
+      
+      try {
+        setLoading(true);
+        const deviceTags = await getDeviceTags(deviceUuid);
+        setTags(deviceTags);
+      } catch (error) {
+        console.error('Error fetching device tags:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchTags();
+  }, [deviceUuid]);
+
+  const tagEntries = Object.entries(tags);
+  const visibleTags = tagEntries.slice(0, 2);
+  const remainingCount = tagEntries.length - visibleTags.length;
+
+  if (loading || tagEntries.length === 0) {
+    return null;
+  }
+
+  return (
+    <div className="flex items-center gap-1 mt-2 flex-wrap">
+      {visibleTags.map(([key, value]) => (
+        <Badge
+          key={key}
+          variant="outline"
+          className="text-xs bg-blue-50 text-blue-700 border-blue-200"
+        >
+          {key}: {value}
+        </Badge>
+      ))}
+      {remainingCount > 0 && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            window.dispatchEvent(new CustomEvent('open-device-tags', { 
+              detail: { deviceUuid } 
+            }));
+          }}
+          className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+        >
+          +{remainingCount} more <ChevronRight className="w-3 h-3" />
+        </button>
+      )}
+      {remainingCount === 0 && tagEntries.length > 0 && (
+        <button
+          onClick={(e) => {
+            e.stopPropagation();
+            window.dispatchEvent(new CustomEvent('open-device-tags', { 
+              detail: { deviceUuid } 
+            }));
+          }}
+          className="text-xs text-blue-600 hover:text-blue-800 flex items-center gap-1"
+        >
+          View all <ChevronRight className="w-3 h-3" />
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDevice , onSelectDevice }: DeviceSidebarProps) {
   // Get unique statuses and types from actual devices using useMemo for performance
@@ -303,6 +376,9 @@ export function DeviceSidebar({ devices, selectedDeviceId, onAddDevice, onEditDe
                     <div className="text-muted-foreground mt-2">
                       Last seen: {device.lastSeen}
                     </div>
+
+                    {/* Device Tags */}
+                    <DeviceTagsPills deviceUuid={device.deviceUuid} />
                   </div>
                 </div>
 

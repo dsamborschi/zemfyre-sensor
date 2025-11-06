@@ -6,6 +6,7 @@
  */
 
 import Redis from 'ioredis';
+import logger from '../utils/logger';
 
 class RedisClient {
   private static instance: RedisClient;
@@ -28,14 +29,14 @@ class RedisClient {
    */
   public async connect(): Promise<void> {
     if (this.client && this.isConnected) {
-      console.log('✅ Redis already connected');
+       logger.info('✅ Redis already connected');
       return;
     }
 
     const host = process.env.REDIS_HOST || 'localhost';
     const port = parseInt(process.env.REDIS_PORT || '6379', 10);
 
-    console.log(`🔄 Connecting to Redis at ${host}:${port}...`);
+     logger.info(`🔄 Connecting to Redis at ${host}:${port}...`);
 
     this.client = new Redis({
       host,
@@ -44,12 +45,12 @@ class RedisClient {
         this.reconnectAttempts = times;
         
         if (times > this.maxReconnectAttempts) {
-          console.error(`❌ Redis max reconnection attempts (${this.maxReconnectAttempts}) reached`);
+           logger.error(` Redis max reconnection attempts (${this.maxReconnectAttempts}) reached`);
           return null; // Stop retrying
         }
 
         const delay = Math.min(times * 1000, 5000); // Max 5s delay
-        console.log(`🔄 Redis reconnecting in ${delay}ms (attempt ${times}/${this.maxReconnectAttempts})`);
+         logger.info(`🔄 Redis reconnecting in ${delay}ms (attempt ${times}/${this.maxReconnectAttempts})`);
         return delay;
       },
       maxRetriesPerRequest: 3,
@@ -59,31 +60,31 @@ class RedisClient {
 
     // Event handlers
     this.client.on('connect', () => {
-      console.log('📡 Redis connection established');
+       logger.info('📡 Redis connection established');
     });
 
     this.client.on('ready', () => {
       this.isConnected = true;
       this.reconnectAttempts = 0;
-      console.log('✅ Redis client ready');
+       logger.info(' Redis client ready');
     });
 
     this.client.on('error', (err: Error) => {
-      console.error('❌ Redis error:', err.message);
+       logger.error(' Redis error:', err.message);
     });
 
     this.client.on('close', () => {
       this.isConnected = false;
-      console.log('⚠️ Redis connection closed');
+       logger.info(' Redis connection closed');
     });
 
     this.client.on('reconnecting', () => {
-      console.log('🔄 Redis reconnecting...');
+       logger.info(' Redis reconnecting...');
     });
 
     this.client.on('end', () => {
       this.isConnected = false;
-      console.log('🛑 Redis connection ended');
+       logger.info(' Redis connection ended');
     });
 
     // Wait for ready state
@@ -132,16 +133,16 @@ class RedisClient {
    */
   public async publish(channel: string, message: string): Promise<boolean> {
     if (!this.isReady()) {
-      console.warn(`⚠️ Redis not ready, skipping publish to ${channel}`);
+       logger.warn(` Redis not ready, skipping publish to ${channel}`);
       return false;
     }
 
     try {
       await this.client!.publish(channel, message);
-      // Uncomment for debugging: console.log(`📤 Published to Redis channel: ${channel}`);
+      // Uncomment for debugging:  logger.info(`📤 Published to Redis channel: ${channel}`);
       return true;
     } catch (error) {
-      console.error(`❌ Failed to publish to Redis channel ${channel}:`, error);
+       logger.error(` Failed to publish to Redis channel ${channel}:`, error);
       return false;
     }
   }
@@ -191,7 +192,7 @@ class RedisClient {
    */
   public async addMetric(deviceUuid: string, metrics: any): Promise<string | null> {
     if (!this.isReady()) {
-      console.warn('⚠️  Redis not ready, skipping metric stream write');
+       logger.warn('  Redis not ready, skipping metric stream write');
       return null;
     }
 
@@ -218,7 +219,7 @@ class RedisClient {
 
       return streamId;
     } catch (error) {
-      console.error('⚠️  Failed to add metric to Redis Stream:', error);
+       logger.error('  Failed to add metric to Redis Stream:', error);
       return null;
     }
   }
@@ -303,7 +304,7 @@ class RedisClient {
 
       return entries;
     } catch (error) {
-      console.error('⚠️  Failed to read metrics from Redis Stream:', error);
+       logger.error('  Failed to read metrics from Redis Stream:', error);
       return [];
     }
   }
@@ -328,7 +329,7 @@ class RedisClient {
       const count = await this.client!.xdel(streamKey, ...messageIds);
       return count;
     } catch (error) {
-      console.error('⚠️  Failed to acknowledge metrics:', error);
+       logger.error('  Failed to acknowledge metrics:', error);
       return 0;
     }
   }
@@ -398,11 +399,11 @@ class RedisClient {
           const uuid = channel.split(':')[1]; // Extract UUID from "device:uuid:metrics"
           callback(uuid, data.metrics);
         } catch (error) {
-          console.error('[Redis] Error parsing metrics message:', error);
+           logger.error('[Redis] Error parsing metrics message:', error);
         }
       });
       
-      console.log(`[Redis] Subscribed to pattern: ${pattern}`);
+       logger.info(`[Redis] Subscribed to pattern: ${pattern}`);
     } else {
       // Single channel subscription
       await subscriber.subscribe(pattern);
@@ -412,16 +413,16 @@ class RedisClient {
           const data = JSON.parse(message);
           callback(deviceUuid, data.metrics);
         } catch (error) {
-          console.error('[Redis] Error parsing metrics message:', error);
+           logger.error('[Redis] Error parsing metrics message:', error);
         }
       });
       
-      console.log(`[Redis] Subscribed to channel: ${pattern}`);
+       logger.info(`[Redis] Subscribed to channel: ${pattern}`);
     }
 
     // Handle subscriber errors
     subscriber.on('error', (error) => {
-      console.error('[Redis] Subscriber error:', error);
+       logger.error('[Redis] Subscriber error:', error);
     });
   }
 
@@ -433,15 +434,15 @@ class RedisClient {
       return;
     }
 
-    console.log('🛑 Disconnecting Redis client...');
+     logger.info(' Disconnecting Redis client...');
 
     try {
       await this.client.quit();
       this.client = null;
       this.isConnected = false;
-      console.log('✅ Redis client disconnected gracefully');
+       logger.info(' Redis client disconnected gracefully');
     } catch (error) {
-      console.error('❌ Error disconnecting Redis:', error);
+       logger.error(' Error disconnecting Redis:', error);
       // Force disconnect
       this.client.disconnect();
       this.client = null;
@@ -461,7 +462,7 @@ class RedisClient {
       const pong = await this.client!.ping();
       return pong === 'PONG';
     } catch (error) {
-      console.error('❌ Redis health check failed:', error);
+       logger.error(' Redis health check failed:', error);
       return false;
     }
   }
@@ -472,13 +473,13 @@ export const redisClient = RedisClient.getInstance();
 
 // Graceful shutdown handlers
 process.on('SIGINT', async () => {
-  console.log('\n🛑 SIGINT received, closing Redis connection...');
+   logger.info('\n SIGINT received, closing Redis connection...');
   await redisClient.disconnect();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
-  console.log('\n🛑 SIGTERM received, closing Redis connection...');
+   logger.info('\n SIGTERM received, closing Redis connection...');
   await redisClient.disconnect();
   process.exit(0);
 });

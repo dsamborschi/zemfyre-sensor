@@ -7,6 +7,7 @@
 import { query } from '../db/connection';
 import type { SensorData, MetricsData } from './mqtt-manager';
 import { processDeviceStateReport } from '../services/device-state-handler';
+import logger from '../utils/logger';
 
 /**
  * Handle incoming sensor data
@@ -30,10 +31,10 @@ export async function handleSensorData(data: SensorData): Promise<void> {
       ]
     );
 
-    console.log(`✅ Stored sensor data: ${data.deviceUuid}/${data.sensorName}`);
+    logger.info(` Stored sensor data: ${data.deviceUuid}/${data.sensorName}`);
 
   } catch (error) {
-    console.error('❌ Failed to store sensor data:', error);
+    logger.error(' Failed to store sensor data:', error);
     throw error;
   }
 }
@@ -82,11 +83,11 @@ export async function handleDeviceState(payload: any): Promise<void> {
       }
     } catch (error) {
       // Log but don't throw - graceful degradation
-      console.error('⚠️  Failed to publish to Redis (continuing with PostgreSQL only):', error);
+      logger.error('  Failed to publish to Redis (continuing with PostgreSQL only):', error);
     }
 
   } catch (error) {
-    console.error('❌ Failed to handle device state:', error);
+    logger.error('  Failed to handle device state:', error);
     throw error;
   }
 }

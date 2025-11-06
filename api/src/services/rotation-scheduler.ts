@@ -6,6 +6,7 @@
  */
 
 import { rotateExpiredKeys, revokeExpiredKeys } from './api-key-rotation';
+import logger from '../utils/logger';
 
 let rotationInterval: NodeJS.Timeout | null = null;
 let revocationInterval: NodeJS.Timeout | null = null;
@@ -18,11 +19,11 @@ const REVOCATION_CHECK_INTERVAL = parseInt(process.env.REVOCATION_CHECK_INTERVAL
  */
 export function startRotationScheduler(): void {
   if (rotationInterval) {
-    console.log('⚠️  Rotation scheduler already running');
+    logger.info('  Rotation scheduler already running');
     return;
   }
 
-  console.log(`🔄 Starting API key rotation scheduler (check every ${ROTATION_CHECK_INTERVAL / 60000} minutes)`);
+  logger.info(` Starting API key rotation scheduler (check every ${ROTATION_CHECK_INTERVAL / 60000} minutes)`);
 
   // Run immediately on startup
   runRotationCheck();
@@ -36,11 +37,11 @@ export function startRotationScheduler(): void {
  */
 export function startRevocationScheduler(): void {
   if (revocationInterval) {
-    console.log('⚠️  Revocation scheduler already running');
+    logger.info('  Revocation scheduler already running');
     return;
   }
 
-  console.log(`🔒 Starting API key revocation scheduler (check every ${REVOCATION_CHECK_INTERVAL / 60000} minutes)`);
+  logger.info(` Starting API key revocation scheduler (check every ${REVOCATION_CHECK_INTERVAL / 60000} minutes)`);
 
   // Run immediately on startup
   runRevocationCheck();
@@ -56,7 +57,7 @@ export function stopRotationScheduler(): void {
   if (rotationInterval) {
     clearInterval(rotationInterval);
     rotationInterval = null;
-    console.log('✅ Rotation scheduler stopped');
+    logger.info(' Rotation scheduler stopped');
   }
 }
 
@@ -67,7 +68,7 @@ export function stopRevocationScheduler(): void {
   if (revocationInterval) {
     clearInterval(revocationInterval);
     revocationInterval = null;
-    console.log('✅ Revocation scheduler stopped');
+    logger.info(' Revocation scheduler stopped');
   }
 }
 
@@ -76,14 +77,14 @@ export function stopRevocationScheduler(): void {
  */
 async function runRotationCheck(): Promise<void> {
   try {
-    console.log('\n🔄 Running scheduled API key rotation check...');
+    logger.info('\n Running scheduled API key rotation check...');
     const rotations = await rotateExpiredKeys();
     
     if (rotations.length > 0) {
-      console.log(`✅ Rotation check complete: ${rotations.length} keys rotated`);
+      logger.info(` Rotation check complete: ${rotations.length} keys rotated`);
     }
   } catch (error) {
-    console.error('❌ Rotation check failed:', error);
+    logger.error(' Rotation check failed:', error);
   }
 }
 
@@ -92,14 +93,14 @@ async function runRotationCheck(): Promise<void> {
  */
 async function runRevocationCheck(): Promise<void> {
   try {
-    console.log('\n🔒 Running scheduled API key revocation check...');
+    logger.info('\n Running scheduled API key revocation check...');
     const revokedCount = await revokeExpiredKeys();
     
     if (revokedCount > 0) {
-      console.log(`✅ Revocation check complete: ${revokedCount} old keys revoked`);
+      logger.info(` Revocation check complete: ${revokedCount} old keys revoked`);
     }
   } catch (error) {
-    console.error('❌ Revocation check failed:', error);
+    logger.error(' Revocation check failed:', error);
   }
 }
 
@@ -113,13 +114,13 @@ export function initializeSchedulers(): void {
   if (rotationEnabled) {
     startRotationScheduler();
   } else {
-    console.log('⏸️  API key rotation scheduler disabled (ENABLE_API_KEY_ROTATION=false)');
+    logger.info('  API key rotation scheduler disabled (ENABLE_API_KEY_ROTATION=false)');
   }
 
   if (revocationEnabled) {
     startRevocationScheduler();
   } else {
-    console.log('⏸️  API key revocation scheduler disabled (ENABLE_API_KEY_REVOCATION=false)');
+    logger.info('  API key revocation scheduler disabled (ENABLE_API_KEY_REVOCATION=false)');
   }
 }
 

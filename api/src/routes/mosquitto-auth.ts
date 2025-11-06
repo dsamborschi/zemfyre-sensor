@@ -1,6 +1,10 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcrypt';
 import { pool } from '../db/connection';
+import baseLogger from '../utils/logger';
+
+// Create child logger with Mosquitto Auth context
+const authLogger = baseLogger.child({ module: 'MosquittoAuth' });
 
 const router = Router();
 
@@ -74,11 +78,11 @@ router.post('/user', async (req: Request, res: Response) => {
   const { username, password } = req.body;
 
   if (!username || !password) {
-    console.log('[Mosquitto Auth] Missing credentials in request');
+    authLogger.info('Missing credentials in request');
     return res.status(403).json({ error: 'Missing credentials' });
   }
 
-  console.log(`[Mosquitto Auth] User authentication request: username=${username}`);
+  authLogger.info('User authentication request', { username });
 
   try {
     // Query user from database
@@ -88,7 +92,7 @@ router.post('/user', async (req: Request, res: Response) => {
     );
 
     if (result.rows.length === 0) {
-      console.log(`[Mosquitto Auth] User not found: ${username}`);
+      authLogger.info('User not found', { username });
       return res.status(403).json({ error: 'User not found' });
     }
 
@@ -96,7 +100,7 @@ router.post('/user', async (req: Request, res: Response) => {
 
     // Check if user is active
     if (!user.is_active) {
-      console.log(`[Mosquitto Auth] User inactive: ${username}`);
+      authLogger.info('User inactive', { username });
       return res.status(403).json({ error: 'User inactive' });
     }
 
@@ -104,15 +108,15 @@ router.post('/user', async (req: Request, res: Response) => {
     const passwordMatch = await bcrypt.compare(password, user.password_hash);
 
     if (!passwordMatch) {
-      console.log(`[Mosquitto Auth] Invalid password for user: ${username}`);
+      authLogger.info('Invalid password for user', { username });
       return res.status(403).json({ error: 'Invalid password' });
     }
 
-    console.log(`[Mosquitto Auth] User authenticated successfully: ${username}`);
+    authLogger.info('User authenticated successfully', { username });
     return res.status(200).json({ success: true });
 
   } catch (error) {
-    console.error('[Mosquitto Auth] Database error during user authentication:', error);
+    authLogger.error('Database error during user authentication', { username, error: error instanceof Error ? error.message : String(error) });
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -137,11 +141,11 @@ router.post('/superuser', async (req: Request, res: Response) => {
   const { username } = req.body;
 
   if (!username) {
-    console.log('[Mosquitto Auth] Missing username for superuser check');
+    authLogger.info('Missing username for superuser check');
     return res.status(403).json({ error: 'Missing username' });
   }
 
-  console.log(`[Mosquitto Auth] Superuser check request: username=${username}`);
+  authLogger.info('Superuser check request', { username });
 
   try {
     // Query superuser status
@@ -151,22 +155,22 @@ router.post('/superuser', async (req: Request, res: Response) => {
     );
 
     if (result.rows.length === 0) {
-      console.log(`[Mosquitto Auth] User not found or inactive: ${username}`);
+      authLogger.info('User not found or inactive', { username });
       return res.status(403).json({ error: 'User not found or inactive' });
     }
 
     const isSuperuser = result.rows[0].is_superuser;
 
     if (isSuperuser) {
-      console.log(`[Mosquitto Auth] User IS a superuser: ${username}`);
+      authLogger.info('User IS a superuser', { username, isSuperuser: true });
       return res.status(200).json({ success: true });
     } else {
-      console.log(`[Mosquitto Auth] User is NOT a superuser: ${username}`);
+      authLogger.info('User is NOT a superuser', { username, isSuperuser: false });
       return res.status(403).json({ error: 'Not a superuser' });
     }
 
   } catch (error) {
-    console.error('[Mosquitto Auth] Database error during superuser check:', error);
+    authLogger.error('Database error during superuser check', { username, error: error instanceof Error ? error.message : String(error) });
     return res.status(500).json({ error: 'Internal server error' });
   }
 });
@@ -198,12 +202,12 @@ router.post('/acl', async (req: Request, res: Response) => {
   const { username, topic, acc } = req.body;
 
   if (!username || !topic || acc === undefined) {
-    console.log('[Mosquitto Auth] Missing ACL parameters');
+    authLogger.info('Missing ACL parameters');
     return res.status(403).json({ error: 'Missing parameters' });
   }
 
   const accessType = acc === 1 ? 'READ' : acc === 2 ? 'WRITE' : `UNKNOWN(${acc})`;
-  console.log(`[Mosquitto Auth] ACL check: username=${username}, topic=${topic}, access=${accessType}`);
+  authLogger.info('ACL check', { username, topic, accessType });
 
   try {
     // First check if user is a superuser (superusers have full access)
@@ -213,7 +217,7 @@ router.post('/acl', async (req: Request, res: Response) => {
     );
 
     if (superuserResult.rows.length > 0 && superuserResult.rows[0].is_superuser) {
-      console.log(`[Mosquitto Auth] User is superuser, access GRANTED: ${username}`);
+      authLogger.info('User is superuser, access GRANTED', { username, topic });
       return res.status(200).json({ success: true });
     }
 
@@ -224,7 +228,7 @@ router.post('/acl', async (req: Request, res: Response) => {
     );
 
     if (aclResult.rows.length === 0) {
-      console.log(`[Mosquitto Auth] No ACL rules found for user: ${username}, access DENIED`);
+      authLogger.info('No ACL rules found for user, access DENIED', { username, topic });
       return res.status(403).json({ error: 'No ACL rules found' });
     }
 
@@ -236,21 +240,21 @@ router.post('/acl', async (req: Request, res: Response) => {
         const hasAccess = (rule.access & acc) === acc;
 
         if (hasAccess) {
-          console.log(`[Mosquitto Auth] ACL matched pattern '${rule.topic}', access GRANTED`);
+          authLogger.info('ACL matched pattern, access GRANTED', { username, topic, pattern: rule.topic });
           return res.status(200).json({ success: true });
         } else {
-          console.log(`[Mosquitto Auth] ACL matched pattern '${rule.topic}' but insufficient access level, access DENIED`);
+          authLogger.info('ACL matched pattern but insufficient access level, access DENIED', { username, topic, pattern: rule.topic });
           // Continue checking other rules
         }
       }
     }
 
     // No matching rule found or all matched rules had insufficient access
-    console.log(`[Mosquitto Auth] No matching ACL rule for topic '${topic}', access DENIED`);
+    authLogger.info('No matching ACL rule for topic, access DENIED', { username, topic });
     return res.status(403).json({ error: 'Access denied' });
 
   } catch (error) {
-    console.error('[Mosquitto Auth] Database error during ACL check:', error);
+    authLogger.error('Database error during ACL check', { username, topic, error: error instanceof Error ? error.message : String(error) });
     return res.status(500).json({ error: 'Internal server error' });
   }
 });

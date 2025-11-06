@@ -38,15 +38,17 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
+const logger_1 = __importDefault(require("./utils/logger"));
 const auth_1 = __importDefault(require("./routes/auth"));
 const users_1 = __importDefault(require("./routes/users"));
 const device_state_1 = __importDefault(require("./routes/device-state"));
+const device_logs_1 = __importDefault(require("./routes/device-logs"));
+const device_metrics_1 = __importDefault(require("./routes/device-metrics"));
 const provisioning_1 = __importDefault(require("./routes/provisioning"));
 const devices_1 = __importDefault(require("./routes/devices"));
 const admin_1 = __importDefault(require("./routes/admin"));
 const apps_1 = __importDefault(require("./routes/apps"));
 const webhooks_1 = __importDefault(require("./routes/webhooks"));
-const rollouts_1 = __importDefault(require("./routes/rollouts"));
 const image_registry_1 = __importDefault(require("./routes/image-registry"));
 const device_jobs_1 = __importDefault(require("./routes/device-jobs"));
 const scheduled_jobs_1 = __importDefault(require("./routes/scheduled-jobs"));
@@ -59,12 +61,13 @@ const sensors_1 = __importDefault(require("./routes/sensors"));
 const device_sensors_1 = require("./routes/device-sensors");
 const traffic_1 = require("./routes/traffic");
 const housekeeper_1 = __importStar(require("./routes/housekeeper"));
+const dashboard_layouts_1 = __importDefault(require("./routes/dashboard-layouts"));
+const mosquitto_auth_1 = __importDefault(require("./routes/mosquitto-auth"));
 const traffic_logger_1 = require("./middleware/traffic-logger");
 const traffic_flush_service_1 = require("./services/traffic-flush-service");
 const entities_1 = require("./routes/entities");
 const relationships_1 = require("./routes/relationships");
 const graph_1 = require("./routes/graph");
-const rollout_monitor_1 = require("./jobs/rollout-monitor");
 const job_scheduler_1 = require("./services/job-scheduler");
 const connection_1 = __importDefault(require("./db/connection"));
 const mqtt_1 = require("./mqtt");
@@ -73,13 +76,13 @@ const shadow_retention_1 = require("./services/shadow-retention");
 const housekeeper_2 = require("./housekeeper");
 const mqtt_monitor_2 = require("./routes/mqtt-monitor");
 const mqtt_monitor_3 = require("./services/mqtt-monitor");
-const mqtt_database_service_1 = require("./services/mqtt-database-service");
 const license_validator_1 = require("./services/license-validator");
 const license_1 = __importDefault(require("./routes/license"));
 const billing_1 = __importDefault(require("./routes/billing"));
 const websocket_manager_1 = require("./services/websocket-manager");
 const API_VERSION = process.env.API_VERSION || 'v1';
 const API_BASE = `/api/${API_VERSION}`;
+const MQTT_MONITOR_ENABLED = process.env.MQTT_MONITOR_ENABLED === 'true';
 const app = (0, express_1.default)();
 const PORT = process.env.PORT || 3002;
 const housekeeper = (0, housekeeper_2.createHousekeeper)();
@@ -102,12 +105,16 @@ app.use(express_1.default.urlencoded({
 app.use(traffic_logger_1.trafficLogger);
 app.use((req, res, next) => {
     const startTime = Date.now();
-    const timestamp = new Date().toISOString();
-    console.log(`\n[${timestamp}] ➡️  ${req.method} ${req.path}`);
+    logger_1.default.debug(`${req.method} ${req.path}`, {
+        method: req.method,
+        path: req.path,
+        query: req.query,
+        ip: req.ip
+    });
     res.on('finish', () => {
         const duration = Date.now() - startTime;
-        const responseTimestamp = new Date().toISOString();
-        console.log(`[${responseTimestamp}] ⬅️  ${res.statusCode} ${req.method} ${req.path} - ${duration}ms`);
+        const logLevel = res.statusCode >= 500 ? 'error' : res.statusCode >= 400 ? 'warn' : 'info';
+        logger_1.default[logLevel](`${res.statusCode} ${req.method} ${req.path} - ${duration}ms`);
     });
     next();
 });
@@ -133,14 +140,16 @@ const docs_1 = require("./docs");
 app.use(`${API_BASE}/auth`, auth_1.default);
 app.use(`${API_BASE}/users`, users_1.default);
 app.use(API_BASE, license_1.default);
+app.use('/mosquitto-auth', mosquitto_auth_1.default);
 app.use(`${API_BASE}/billing`, billing_1.default);
 app.use(API_BASE, provisioning_1.default);
 app.use(API_BASE, devices_1.default);
 app.use(API_BASE, admin_1.default);
 app.use(API_BASE, apps_1.default);
 app.use(API_BASE, device_state_1.default);
+app.use(API_BASE, device_logs_1.default);
+app.use(API_BASE, device_metrics_1.default);
 app.use(`${API_BASE}/webhooks`, webhooks_1.default);
-app.use(API_BASE, rollouts_1.default);
 app.use(API_BASE, image_registry_1.default);
 app.use(API_BASE, device_jobs_1.default);
 app.use(API_BASE, scheduled_jobs_1.default);
@@ -153,6 +162,7 @@ app.use(API_BASE, sensors_1.default);
 app.use(API_BASE, device_sensors_1.router);
 app.use(API_BASE, traffic_1.router);
 app.use(`${API_BASE}/housekeeper`, housekeeper_1.default);
+app.use(`${API_BASE}/dashboard-layouts`, dashboard_layouts_1.default);
 app.use(`${API_BASE}/entities`, (0, entities_1.createEntitiesRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/relationships`, (0, relationships_1.createRelationshipsRouter)(connection_1.default.pool));
 app.use(`${API_BASE}/graph`, (0, graph_1.createGraphRouter)(connection_1.default.pool));
@@ -164,162 +174,178 @@ app.use((req, res) => {
     });
 });
 app.use((err, req, res, next) => {
-    console.error('Server error:', err);
+    logger_1.default.error('Server error', {
+        error: err.message,
+        stack: err.stack,
+        method: req.method,
+        path: req.path
+    });
     res.status(500).json({
         error: 'Internal server error',
         message: err.message
     });
 });
 async function startServer() {
-    console.log('🚀 Initializing Iotistic Unified API...\n');
+    logger_1.default.info('Initializing Iotistic Unified API...');
     let mqttMonitor = null;
     try {
         const db = await Promise.resolve().then(() => __importStar(require('./db/connection')));
         const connected = await db.testConnection();
         if (!connected) {
-            console.error('❌ Failed to connect to PostgreSQL database');
+            logger_1.default.error('Failed to connect to PostgreSQL database');
             process.exit(1);
         }
         await db.initializeSchema();
-        console.log('✅ PostgreSQL database initialized successfully\n');
+        logger_1.default.info('PostgreSQL database initialized successfully');
         const { initializeMqttAdmin } = await Promise.resolve().then(() => __importStar(require('./services/mqtt-bootstrap')));
         await initializeMqttAdmin();
     }
     catch (error) {
-        console.error('❌ Database initialization error:', error);
+        logger_1.default.error('Database initialization error', { error });
         process.exit(1);
     }
     try {
-        console.log('🔐 Initializing license validator...');
+        const { SystemConfig } = await Promise.resolve().then(() => __importStar(require('./config/system-config')));
+        await SystemConfig.load();
+        logger_1.default.info('System configuration loaded successfully');
+    }
+    catch (error) {
+        logger_1.default.error('Failed to load system configuration', { error });
+        process.exit(1);
+    }
+    try {
+        logger_1.default.info('Initializing license validator...');
         const licenseValidator = license_validator_1.LicenseValidator.getInstance();
         await licenseValidator.init();
     }
     catch (error) {
-        console.error('⚠️  License validator initialization failed:', error);
+        logger_1.default.warn('License validator initialization failed', { error });
     }
     try {
         const heartbeatMonitor = await Promise.resolve().then(() => __importStar(require('./services/heartbeat-monitor')));
         heartbeatMonitor.default.start();
+        logger_1.default.info('Heartbeat monitor started');
     }
     catch (error) {
-        console.error(' Failed to start heartbeat monitor:', error);
-    }
-    try {
-        const rolloutMonitor = (0, rollout_monitor_1.getRolloutMonitor)(connection_1.default.pool);
-        rolloutMonitor.start();
-        console.log('✅ Rollout Monitor started');
-    }
-    catch (error) {
-        console.error('⚠️  Failed to start rollout monitor:', error);
+        logger_1.default.warn('Failed to start heartbeat monitor', { error });
     }
     try {
         await job_scheduler_1.jobScheduler.start();
-        console.log('✅ Job Scheduler started');
+        logger_1.default.info('Job scheduler started');
     }
     catch (error) {
-        console.error('⚠️  Failed to start job scheduler:', error);
+        logger_1.default.warn('Failed to start job scheduler', { error });
     }
     try {
         await housekeeper.initialize();
         (0, housekeeper_1.setHousekeeperInstance)(housekeeper);
+        logger_1.default.info('Housekeeper started');
     }
     catch (error) {
-        console.error('⚠️  Failed to start housekeeper:', error);
+        logger_1.default.warn('Failed to start housekeeper', { error });
     }
     try {
         (0, traffic_flush_service_1.startTrafficFlushService)();
-        console.log('✅ Traffic flush service started');
+        logger_1.default.info('Traffic flush service started');
     }
     catch (error) {
-        console.error('⚠️  Failed to start traffic flush service:', error);
+        logger_1.default.warn('Failed to start traffic flush service', { error });
     }
     try {
         const { getMqttJobsSubscriber } = await Promise.resolve().then(() => __importStar(require('./services/mqtt-jobs-subscriber')));
         const subscriber = getMqttJobsSubscriber();
         await subscriber.initialize();
-        console.log('✅ MQTT Jobs Subscriber started (listening for device job updates)');
+        logger_1.default.info('MQTT Jobs Subscriber started');
     }
     catch (error) {
-        console.error('⚠️  Failed to start MQTT Jobs Subscriber:', error);
+        logger_1.default.warn('Failed to start MQTT Jobs Subscriber', { error });
     }
     try {
-        await (0, mqtt_1.initializeMqtt)();
+        const { redisClient } = await Promise.resolve().then(() => __importStar(require('./redis/client')));
+        await redisClient.connect();
+        logger_1.default.info('Redis client connected');
     }
     catch (error) {
-        console.error('⚠️  Failed to initialize MQTT:', error);
+        logger_1.default.warn('Failed to initialize Redis', { error });
     }
     try {
-        (0, rotation_scheduler_1.initializeSchedulers)();
-        console.log('✅ API key rotation schedulers started');
+        const { startMetricsBatchWorker } = await Promise.resolve().then(() => __importStar(require('./workers/metrics-batch-worker')));
+        await startMetricsBatchWorker();
+        logger_1.default.info('Metrics batch worker started');
     }
     catch (error) {
-        console.error('⚠️  Failed to start rotation schedulers:', error);
+        logger_1.default.warn('Failed to start metrics batch worker', { error });
     }
-    let mqttDbService = null;
-    if (process.env.MQTT_MONITOR_ENABLED !== 'false') {
+    (async () => {
         try {
-            const brokerUrl = process.env.MQTT_BROKER_URL || 'mqtt://localhost:1883';
-            const username = process.env.MQTT_USERNAME;
-            const password = process.env.MQTT_PASSWORD;
-            const persistToDatabase = true;
-            if (persistToDatabase) {
-                mqttDbService = new mqtt_database_service_1.MQTTDatabaseService(connection_1.default.pool);
-                console.log('✅ MQTT Monitor database persistence enabled');
-            }
-            mqttMonitor = new mqtt_monitor_3.MQTTMonitorService({
-                brokerUrl,
-                username,
-                password,
-                topicTreeEnabled: true,
-                metricsEnabled: true,
-                schemaGenerationEnabled: true,
-                persistToDatabase,
-                dbSyncInterval: parseInt(process.env.MQTT_DB_SYNC_INTERVAL || '30000')
-            }, mqttDbService);
-            mqttMonitor.on('connected', () => {
-                console.log('✅ MQTT Monitor connected to broker at', brokerUrl);
-            });
-            mqttMonitor.on('error', (error) => {
-                console.error('⚠️  MQTT Monitor error:', error);
-            });
-            await mqttMonitor.start();
-            (0, mqtt_monitor_2.setMonitorInstance)(mqttMonitor, mqttDbService);
-            websocket_manager_1.websocketManager.setMqttMonitor(mqttMonitor);
-            console.log('✅ MQTT Monitor Service started');
+            await (0, mqtt_1.initializeMqtt)();
         }
         catch (error) {
-            console.error('⚠️  Failed to start MQTT Monitor:', error);
+            logger_1.default.warn('Failed to initialize MQTT', { error });
+            retryMqttInitialization();
+        }
+    })();
+    try {
+        (0, rotation_scheduler_1.initializeSchedulers)();
+        logger_1.default.info('API key rotation schedulers started');
+    }
+    catch (error) {
+        logger_1.default.warn('Failed to start rotation schedulers', { error });
+    }
+    if (MQTT_MONITOR_ENABLED) {
+        const mqttMonitorBundle = await mqtt_monitor_3.MQTTMonitorService.initialize(connection_1.default.pool);
+        if (mqttMonitorBundle.instance) {
+            (0, mqtt_monitor_2.setMonitorInstance)(mqttMonitorBundle.instance, mqttMonitorBundle.dbService);
+            websocket_manager_1.websocketManager.setMqttMonitor(mqttMonitorBundle.instance);
+            logger_1.default.info('MQTT Monitor started');
         }
     }
     else {
-        console.log('ℹ️  MQTT Monitor disabled via MQTT_MONITOR_ENABLED=false');
+        logger_1.default.info('MQTT Monitor disabled via MQTT_MONITOR_ENABLED=false');
     }
     const server = app.listen(PORT, () => {
-        console.log('='.repeat(80));
-        console.log('☁️  Iotistic Unified API Server');
-        console.log('='.repeat(80));
-        console.log(`Server running on http://localhost:${PORT}`);
-        console.log('='.repeat(80) + '\n');
+        logger_1.default.info('='.repeat(80));
+        logger_1.default.info('☁️  Iotistic Unified API Server');
+        logger_1.default.info('='.repeat(80));
+        logger_1.default.info(`Server running on http://localhost:${PORT}`);
+        logger_1.default.info('='.repeat(80));
     });
     try {
         websocket_manager_1.websocketManager.initialize(server);
-        console.log('✅ WebSocket Server initialized (available at ws://localhost:' + PORT + '/ws)');
+        logger_1.default.info(`WebSocket Server initialized (ws://localhost:${PORT}/ws)`);
+        await websocket_manager_1.websocketManager.initializeRedis();
     }
     catch (error) {
-        console.error('⚠️  Failed to initialize WebSocket server:', error);
+        logger_1.default.warn('Failed to initialize WebSocket server', { error });
     }
     process.on('SIGTERM', async () => {
-        console.log('\nSIGTERM received, shutting down gracefully...');
+        logger_1.default.info('SIGTERM received, shutting down gracefully...');
+        const forceCloseTimeout = setTimeout(() => {
+            logger_1.default.warn('Forcefully closing server after timeout');
+            process.exit(1);
+        }, 10000);
         try {
             websocket_manager_1.websocketManager.shutdown();
-            console.log('✅ WebSocket Server stopped');
+            logger_1.default.info('WebSocket Server stopped');
+        }
+        catch (error) {
+        }
+        try {
+            const { stopMetricsBatchWorker } = await Promise.resolve().then(() => __importStar(require('./workers/metrics-batch-worker')));
+            await stopMetricsBatchWorker();
+        }
+        catch (error) {
+        }
+        try {
+            const { redisClient } = await Promise.resolve().then(() => __importStar(require('./redis/client')));
+            await redisClient.disconnect();
         }
         catch (error) {
         }
         try {
             if (mqttMonitor) {
                 await mqttMonitor.stop();
-                console.log('✅ MQTT Monitor stopped');
+                logger_1.default.info('MQTT Monitor stopped');
             }
         }
         catch (error) {
@@ -365,33 +391,50 @@ async function startServer() {
             const { getMqttJobsSubscriber } = await Promise.resolve().then(() => __importStar(require('./services/mqtt-jobs-subscriber')));
             const subscriber = getMqttJobsSubscriber();
             await subscriber.stop();
-            console.log('✅ MQTT Jobs Subscriber stopped');
+            logger_1.default.info('MQTT Jobs Subscriber stopped');
         }
         catch (error) {
         }
         try {
             await (0, traffic_flush_service_1.stopTrafficFlushService)();
-            console.log('✅ Traffic flush service stopped');
+            logger_1.default.info('Traffic flush service stopped');
         }
         catch (error) {
         }
         server.close(() => {
-            console.log('Server closed');
+            logger_1.default.info('Server closed');
+            clearTimeout(forceCloseTimeout);
             process.exit(0);
         });
     });
     process.on('SIGINT', async () => {
-        console.log('\nSIGINT received, shutting down gracefully...');
+        logger_1.default.info('SIGINT received, shutting down gracefully...');
+        const forceCloseTimeout = setTimeout(() => {
+            logger_1.default.warn('Forcefully closing server after timeout');
+            process.exit(1);
+        }, 10000);
         try {
             websocket_manager_1.websocketManager.shutdown();
-            console.log('✅ WebSocket Server stopped');
+            logger_1.default.info('WebSocket Server stopped');
+        }
+        catch (error) {
+        }
+        try {
+            const { stopMetricsBatchWorker } = await Promise.resolve().then(() => __importStar(require('./workers/metrics-batch-worker')));
+            await stopMetricsBatchWorker();
+        }
+        catch (error) {
+        }
+        try {
+            const { redisClient } = await Promise.resolve().then(() => __importStar(require('./redis/client')));
+            await redisClient.disconnect();
         }
         catch (error) {
         }
         try {
             if (mqttMonitor) {
                 await mqttMonitor.stop();
-                console.log('✅ MQTT Monitor stopped');
+                logger_1.default.info('MQTT Monitor stopped');
             }
         }
         catch (error) {
@@ -437,24 +480,49 @@ async function startServer() {
             const { getMqttJobsSubscriber } = await Promise.resolve().then(() => __importStar(require('./services/mqtt-jobs-subscriber')));
             const subscriber = getMqttJobsSubscriber();
             await subscriber.stop();
-            console.log('✅ MQTT Jobs Subscriber stopped');
+            logger_1.default.info('MQTT Jobs Subscriber stopped');
         }
         catch (error) {
         }
         try {
             await (0, traffic_flush_service_1.stopTrafficFlushService)();
-            console.log('✅ Traffic flush service stopped');
+            logger_1.default.info('Traffic flush service stopped');
         }
         catch (error) {
         }
         server.close(() => {
-            console.log('Server closed');
+            logger_1.default.info('Server closed');
+            clearTimeout(forceCloseTimeout);
+            process.exit(0);
+        });
+    });
+    process.on('disconnect', async () => {
+        logger_1.default.info('Debugger disconnected, shutting down...');
+        const forceCloseTimeout = setTimeout(() => {
+            logger_1.default.warn('Forcefully closing server after debugger disconnect timeout');
+            process.exit(1);
+        }, 3000);
+        server.close(() => {
+            clearTimeout(forceCloseTimeout);
             process.exit(0);
         });
     });
 }
+async function retryMqttInitialization(intervalMs = 15000) {
+    const { initializeMqtt } = await Promise.resolve().then(() => __importStar(require('./mqtt')));
+    const interval = setInterval(async () => {
+        try {
+            await initializeMqtt();
+            logger_1.default.info('MQTT reconnected successfully');
+            clearInterval(interval);
+        }
+        catch (err) {
+            logger_1.default.warn('MQTT still unavailable', { error: err?.message || err });
+        }
+    }, intervalMs);
+}
 startServer().catch((error) => {
-    console.error('Failed to start server:', error);
+    logger_1.default.error('Failed to start server', { error });
     process.exit(1);
 });
 exports.default = app;

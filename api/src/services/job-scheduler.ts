@@ -8,7 +8,7 @@
 import * as cron from 'node-cron';
 import { randomUUID } from 'crypto';
 import poolWrapper from '../db/connection';
-
+import logger from '../utils/logger';
 const pool = poolWrapper.pool;
 
 interface ScheduledJobConfig {
@@ -38,19 +38,19 @@ class JobSchedulerService {
    */
   async start(): Promise<void> {
     if (this.isRunning) {
-      console.log('[JobScheduler] Already running');
+      logger.info('[JobScheduler] Already running');
       return;
     }
 
     this.isRunning = true;
-    console.log('[JobScheduler] 🚀 Starting job scheduler service...');
+    logger.info('[JobScheduler] 🚀 Starting job scheduler service...');
 
     try {
       // Load all active scheduled jobs from database
       await this.loadScheduledJobs();
-      console.log('[JobScheduler] ✅ Job scheduler started successfully');
+      logger.info('[JobScheduler] ✅ Job scheduler started successfully');
     } catch (error) {
-      console.error('[JobScheduler] ❌ Failed to start:', error);
+      logger.error('[JobScheduler] ❌ Failed to start:', error);
       throw error;
     }
   }
@@ -63,26 +63,26 @@ class JobSchedulerService {
       return;
     }
 
-    console.log('[JobScheduler] 🛑 Stopping job scheduler service...');
+    logger.info('[JobScheduler]  Stopping job scheduler service...');
 
     // Stop all cron tasks
     for (const [scheduleId, task] of this.scheduledTasks) {
       task.stop();
-      console.log(`[JobScheduler] Stopped cron task: ${scheduleId}`);
+      logger.info(`[JobScheduler] Stopped cron task: ${scheduleId}`);
     }
     this.scheduledTasks.clear();
 
     // Clear all interval timers
     for (const [scheduleId, timer] of this.intervalTimers) {
       clearInterval(timer);
-      console.log(`[JobScheduler] Stopped interval timer: ${scheduleId}`);
+      logger.info(`[JobScheduler] Stopped interval timer: ${scheduleId}`);
     }
     this.intervalTimers.clear();
 
     this.executionCounts.clear();
     this.isRunning = false;
 
-    console.log('[JobScheduler] ✅ Job scheduler stopped');
+    logger.info('[JobScheduler]  Job scheduler stopped');
   }
 
   /**
@@ -94,13 +94,13 @@ class JobSchedulerService {
         `SELECT * FROM scheduled_jobs WHERE is_active = true`
       );
 
-      console.log(`[JobScheduler] Loading ${result.rows.length} active scheduled jobs`);
+      logger.info(`[JobScheduler] Loading ${result.rows.length} active scheduled jobs`);
 
       for (const config of result.rows) {
         await this.scheduleJob(config);
       }
     } catch (error) {
-      console.error('[JobScheduler] Error loading scheduled jobs:', error);
+      logger.error('[JobScheduler] Error loading scheduled jobs:', error);
       throw error;
     }
   }
@@ -126,7 +126,7 @@ class JobSchedulerService {
       });
 
       this.scheduledTasks.set(schedule_id, task);
-      console.log(`[JobScheduler] 📅 Scheduled cron job: ${config.job_name} (${cron_expression})`);
+      logger.info(`[JobScheduler]  Scheduled cron job: ${config.job_name} (${cron_expression})`);
 
     } else if (schedule_type === 'interval' && interval_minutes) {
       // Schedule interval job
@@ -136,7 +136,7 @@ class JobSchedulerService {
       }, intervalMs);
 
       this.intervalTimers.set(schedule_id, timer);
-      console.log(`[JobScheduler] ⏱️  Scheduled interval job: ${config.job_name} (every ${interval_minutes} minutes)`);
+      logger.info(`[JobScheduler]   Scheduled interval job: ${config.job_name} (every ${interval_minutes} minutes)`);
 
     } else {
       throw new Error(`Invalid schedule configuration for job: ${config.job_name}`);
@@ -153,18 +153,18 @@ class JobSchedulerService {
       // Check if max executions reached
       const currentCount = this.executionCounts.get(schedule_id) || 0;
       if (max_executions && currentCount >= max_executions) {
-        console.log(`[JobScheduler] ⚠️  Job ${job_name} reached max executions (${max_executions}), deactivating...`);
+        logger.info(`[JobScheduler]   Job ${job_name} reached max executions (${max_executions}), deactivating...`);
         await this.deactivateSchedule(schedule_id);
         return;
       }
 
-      console.log(`[JobScheduler] ▶️  Triggering scheduled job: ${job_name} (execution #${currentCount + 1})`);
+      logger.info(`[JobScheduler]  Triggering scheduled job: ${job_name} (execution #${currentCount + 1})`);
 
       // Get target devices
       const deviceUuids = await this.getTargetDevices(config);
 
       if (deviceUuids.length === 0) {
-        console.warn(`[JobScheduler] ⚠️  No target devices found for job: ${job_name}`);
+        logger.warn(`[JobScheduler]   No target devices found for job: ${job_name}`);
         return;
       }
 
@@ -203,10 +203,10 @@ class JobSchedulerService {
         [newCount, schedule_id]
       );
 
-      console.log(`[JobScheduler] ✅ Created job execution ${jobId} for ${deviceUuids.length} device(s)`);
+      logger.info(`[JobScheduler]  Created job execution ${jobId} for ${deviceUuids.length} device(s)`);
 
     } catch (error) {
-      console.error(`[JobScheduler] ❌ Error executing scheduled job ${job_name}:`, error);
+      logger.error(`[JobScheduler]  Error executing scheduled job ${job_name}:`, error);
     }
   }
 
@@ -257,9 +257,9 @@ class JobSchedulerService {
       // Stop the task/timer
       this.unscheduleJob(scheduleId);
 
-      console.log(`[JobScheduler] 🔴 Deactivated schedule: ${scheduleId}`);
+      logger.info(`[JobScheduler]  Deactivated schedule: ${scheduleId}`);
     } catch (error) {
-      console.error(`[JobScheduler] Error deactivating schedule ${scheduleId}:`, error);
+      logger.error(`[JobScheduler] Error deactivating schedule ${scheduleId}:`, error);
     }
   }
 
@@ -272,7 +272,7 @@ class JobSchedulerService {
     if (task) {
       task.stop();
       this.scheduledTasks.delete(scheduleId);
-      console.log(`[JobScheduler] Unscheduled cron task: ${scheduleId}`);
+      logger.info(`[JobScheduler] Unscheduled cron task: ${scheduleId}`);
     }
 
     // Clear interval timer if exists
@@ -280,7 +280,7 @@ class JobSchedulerService {
     if (timer) {
       clearInterval(timer);
       this.intervalTimers.delete(scheduleId);
-      console.log(`[JobScheduler] Unscheduled interval timer: ${scheduleId}`);
+      logger.info(`[JobScheduler] Unscheduled interval timer: ${scheduleId}`);
     }
 
     this.executionCounts.delete(scheduleId);
@@ -321,11 +321,11 @@ class JobSchedulerService {
         await this.scheduleJob({ ...config, schedule_id: scheduleId, execution_count: 0 });
       }
 
-      console.log(`[JobScheduler] 📝 Added new scheduled job: ${config.job_name} (${scheduleId})`);
+      logger.info(`[JobScheduler]  Added new scheduled job: ${config.job_name} (${scheduleId})`);
       return scheduleId;
 
     } catch (error) {
-      console.error('[JobScheduler] Error adding scheduled job:', error);
+      logger.error('[JobScheduler] Error adding scheduled job:', error);
       throw error;
     }
   }
@@ -344,9 +344,9 @@ class JobSchedulerService {
         [scheduleId]
       );
 
-      console.log(`[JobScheduler] 🗑️  Removed scheduled job: ${scheduleId}`);
+      logger.info(`[JobScheduler]   Removed scheduled job: ${scheduleId}`);
     } catch (error) {
-      console.error('[JobScheduler] Error removing scheduled job:', error);
+      logger.error('[JobScheduler] Error removing scheduled job:', error);
       throw error;
     }
   }

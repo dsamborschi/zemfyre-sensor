@@ -115,6 +115,19 @@ start_vpn_server() {
     fi
 }
 
+# Start simple HTTP server for CA certificate
+start_ca_server() {
+    log "Starting CA certificate HTTP server on port 8080..."
+    
+    # Create a simple HTTP response with CA cert
+    while true; do
+        { echo -ne "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\n\r\n"; cat /etc/openvpn/pki/ca.crt; } | nc -l -p 8080 > /dev/null 2>&1
+    done &
+    
+    CA_PID=$!
+    success "CA certificate server started on port 8080 (PID: $CA_PID)"
+}
+
 # Monitor OpenVPN service
 monitor_services() {
     log "Monitoring OpenVPN service..."
@@ -150,6 +163,7 @@ case "$1" in
         log "Starting Iotistic VPN Server..."
         init_pki
         setup_iptables
+        start_ca_server
         start_vpn_server
         monitor_services
         ;;

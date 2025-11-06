@@ -7,18 +7,19 @@
 
 import bcrypt from 'bcrypt';
 import { query } from '../db/connection';
+import logger from '../utils/logger';
 
 export async function initializeMqttAdmin() {
   const username = process.env.MQTT_USERNAME || 'admin';
   const password = process.env.MQTT_PASSWORD;
 
   if (!password) {
-    console.warn('⚠️  MQTT_PASSWORD not set, skipping MQTT admin user creation');
+    logger.warn('MQTT_PASSWORD not set, skipping MQTT admin user creation');
     return;
   }
 
   try {
-    console.log('🔐 Initializing MQTT admin user...');
+    logger.info('Initializing MQTT admin user...');
     
     // Hash password with bcrypt (same as K8s job did)
     const passwordHash = await bcrypt.hash(password, 10);
@@ -48,9 +49,9 @@ export async function initializeMqttAdmin() {
       `, [username]);
     }
 
-    console.log(`✅ MQTT admin user '${username}' initialized`);
+    logger.info(`MQTT admin user '${username}' initialized`);
   } catch (error) {
-    console.error('⚠️  Failed to initialize MQTT admin user:', error);
+    logger.error('Failed to initialize MQTT admin user:', error);
     // Don't throw - not critical for API startup
   }
 }

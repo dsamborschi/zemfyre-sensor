@@ -12,6 +12,7 @@ import express from 'express';
 import swaggerUi from 'swagger-ui-express';
 import { openApiSpec } from './openapi';
 import { paths } from './routes';
+import logger from '../utils/logger'
 
 // Merge paths into spec
 const completeSpec = {
@@ -281,11 +282,11 @@ export function setupApiDocs(app: express.Application, basePath: string = '/api/
     `);
   });
 
-  console.log('✅ API Documentation available at:');
-  console.log('   - Swagger UI:  http://localhost:' + (process.env.PORT || 3002) + '/api/docs');
-  console.log('   - ReDoc:       http://localhost:' + (process.env.PORT || 3002) + '/api/docs/redoc');
-  console.log('   - RapiDoc:     http://localhost:' + (process.env.PORT || 3002) + '/api/docs/rapidoc');
-  console.log('   - Landing:     http://localhost:' + (process.env.PORT || 3002) + '/api/docs/index');
+  logger.info(' API Documentation available at:');
+  logger.info('   - Swagger UI:  http://localhost:' + (process.env.PORT || 3002) + '/api/docs');
+  logger.info('   - ReDoc:       http://localhost:' + (process.env.PORT || 3002) + '/api/docs/redoc');
+  logger.info('   - RapiDoc:     http://localhost:' + (process.env.PORT || 3002) + '/api/docs/rapidoc');
+  logger.info('   - Landing:     http://localhost:' + (process.env.PORT || 3002) + '/api/docs/index');
 }
 
 /**

@@ -29,7 +29,7 @@ RUN chmod +x /etc/openvpn/scripts/*.sh
 RUN chown -R openvpn:openvpn /etc/openvpn /var/log/openvpn
 
 # Expose ports
-EXPOSE 1194/udp 7505/tcp
+EXPOSE 1194/udp 7505/tcp 8080/tcp
 
 # Health check - verify OpenVPN is running
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \

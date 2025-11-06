@@ -94,6 +94,35 @@ spec:
           value: {{ if .Values.mqtt.broker.protocol }}{{ .Values.mqtt.broker.protocol | quote }}{{ else }}"mqtt"{{ end }}
         - name: MQTT_BROKER_USE_TLS
           value: {{ if .Values.mqtt.broker.useTls }}{{ .Values.mqtt.broker.useTls | quote }}{{ else }}"false"{{ end }}
+        # VPN configuration (for device provisioning)
+        {{- if .Values.vpn.enabled }}
+        - name: VPN_ENABLED
+          value: "true"
+        - name: VPN_SERVER_HOST
+          {{- if eq .Values.vpn.serviceType "NodePort" }}
+          value: "localhost"
+          {{- else }}
+          # For LoadBalancer, use the external DNS name (set during deployment)
+          # Format: vpn-{customer-id}.{domain.base}
+          value: {{ printf "vpn-%s.%s" .Values.customer.id .Values.domain.base | quote }}
+          {{- end }}
+        - name: VPN_SERVER_PORT
+          {{- if eq .Values.vpn.serviceType "NodePort" }}
+          value: {{ .Values.vpn.nodePorts.openvpn | quote }}
+          {{- else }}
+          value: {{ .Values.vpn.ports.openvpn | quote }}
+          {{- end }}
+        - name: VPN_CA_URL
+          {{- if eq .Values.vpn.serviceType "NodePort" }}
+          value: {{ printf "http://localhost:%d" (.Values.vpn.nodePorts.caCert | int) | quote }}
+          {{- else }}
+          # Internal cluster access to VPN CA cert server
+          value: {{ printf "http://%s-vpn:%d" (include "customer-instance.fullname" .) (.Values.vpn.ports.caCert | int) | quote }}
+          {{- end }}
+        {{- else }}
+        - name: VPN_ENABLED
+          value: "false"
+        {{- end }}
         # Customer info
         - name: CUSTOMER_ID
           valueFrom:

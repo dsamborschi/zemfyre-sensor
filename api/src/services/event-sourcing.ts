@@ -6,7 +6,7 @@
 import pool from '../db/connection';
 import crypto from 'crypto';
 import { EventEmitter } from 'events';
-import EventSourcingConfig from '../config/event-sourcing';
+import EventSourcingConfig from '../events/event-sourcing';
 
 // ============================================================================
 // TYPE DEFINITIONS

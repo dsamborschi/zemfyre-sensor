@@ -102,6 +102,48 @@ mqtt:
     protocol: ""  # If not set, defaults to "mqtt"
     useTls: ""  # If not set, defaults to false
 
+# VPN Server (OpenVPN)
+vpn:
+  enabled: false  # Enable for secure device connectivity
+  image:
+    repository: iotistic/vpn-server
+    tag: latest
+  # Service type: LoadBalancer (production) or NodePort (local dev)
+  serviceType: LoadBalancer
+  # Optional NodePort values (only used if serviceType=NodePort)
+  nodePorts:
+    openvpn: 31194  # Expose on localhost:31194 in Docker Desktop
+    management: 31505  # Management interface
+    caCert: 31080  # CA certificate HTTP server
+  ports:
+    openvpn: 1194  # OpenVPN UDP port
+    management: 7505  # Management interface (TCP)
+    caCert: 8080  # CA certificate HTTP server (TCP)
+  # VPN network configuration
+  network:
+    subnet: "10.8.0.0"
+    netmask: "255.255.0.0"  # /16 = 65,536 addresses
+  # PKI (Certificate Authority) configuration
+  pki:
+    country: "CA"
+    province: "ON"
+    city: "Toronto"
+    org: "Iotistic"
+    orgUnit: "IoT Services"
+    commonName: ""  # Auto-generated from customer ID if empty
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  # Persistence for VPN state
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+
 # API service
 api:
   enabled: true

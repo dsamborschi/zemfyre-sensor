@@ -11,6 +11,8 @@ import poolWrapper from '../db/connection';
 import deviceAuth, { deviceAuthFromBody } from '../middleware/device-auth';
 import { validateProvisioningKey } from '../utils/provisioning-keys';
 import { getMqttJobsNotifier } from '../services/mqtt-jobs-notifier';
+import { hasPermission, hasAnyPermission } from '../middleware/permissions';
+import { PERMISSIONS } from '../types/permissions';
 
 const router = express.Router();
 const pool = poolWrapper.pool;
@@ -23,8 +25,11 @@ const mqttNotifier = getMqttJobsNotifier();
 /**
  * GET /api/v1/jobs/templates
  * List all job templates
+ * Requires: SETTINGS_READ permission (viewers and up)
  */
-router.get('/jobs/templates', async (req: Request, res: Response) => {
+router.get('/jobs/templates', 
+  hasPermission(PERMISSIONS.SETTINGS_READ),
+  async (req: Request, res: Response) => {
   try {
     const { category, active } = req.query;
 
@@ -64,8 +69,11 @@ router.get('/jobs/templates', async (req: Request, res: Response) => {
 /**
  * GET /api/v1/jobs/templates/:id
  * Get a specific job template
+ * Requires: SETTINGS_READ permission
  */
-router.get('/jobs/templates/:id', async (req: Request, res: Response) => {
+router.get('/jobs/templates/:id', 
+  hasPermission(PERMISSIONS.SETTINGS_READ),
+  async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
 

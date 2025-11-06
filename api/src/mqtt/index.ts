@@ -5,6 +5,7 @@
  */
 
 import MqttManager from './mqtt-manager';
+import logger from '../utils/logger';
 import {
   handleSensorData,
   handleDeviceState
@@ -19,12 +20,12 @@ export async function initializeMqtt(): Promise<MqttManager | null> {
   const mqttBrokerUrl = process.env.MQTT_BROKER_URL || process.env.MQTT_BROKER;
   
   if (!mqttBrokerUrl) {
-    console.log('⚠️  MQTT broker not configured. Set MQTT_BROKER_URL to enable MQTT features.');
+    logger.warn('MQTT broker not configured. Set MQTT_BROKER_URL to enable MQTT features.');
     return null;
   }
 
   try {
-    console.log('🔌 Initializing MQTT service...');
+    logger.info('Initializing MQTT service...');
 
     mqttManager = new MqttManager({
       brokerUrl: mqttBrokerUrl,
@@ -44,7 +45,7 @@ export async function initializeMqtt(): Promise<MqttManager | null> {
       try {
         await handleSensorData(data);
       } catch (error) {
-        console.error('Error handling sensor data:', error);
+        logger.error('Error handling sensor data:', error);
       }
     });
 
@@ -52,7 +53,7 @@ export async function initializeMqtt(): Promise<MqttManager | null> {
       try {
         await handleDeviceState(state);
       } catch (error) {
-        console.error('Error handling device state:', error);
+        logger.error('Error handling device state:', error);
       }
     });
 
@@ -67,14 +68,14 @@ export async function initializeMqtt(): Promise<MqttManager | null> {
         'state',
       ]);
     } else {
-      console.log('⚠️  MQTT subscription disabled. Set MQTT_SUBSCRIBE_ALL=true to enable.');
+      logger.warn('MQTT subscription disabled. Set MQTT_SUBSCRIBE_ALL=true to enable.');
     }
 
-    console.log('✅ MQTT service initialized');
+    logger.info('MQTT service initialized');
     return mqttManager;
 
   } catch (error) {
-    console.error('❌ Failed to initialize MQTT service:', error);
+    logger.error('Failed to initialize MQTT service:', error);
     return null;
   }
 }
@@ -91,10 +92,10 @@ export function getMqttManager(): MqttManager | null {
  */
 export async function shutdownMqtt(): Promise<void> {
   if (mqttManager) {
-    console.log('🔌 Shutting down MQTT service...');
+    logger.info('Shutting down MQTT service...');
     await mqttManager.disconnect();
     mqttManager = null;
-    console.log('✅ MQTT service shut down');
+    logger.info('MQTT service shut down');
   }
 }
 

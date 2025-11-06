@@ -24,6 +24,8 @@ import {
   AuditSeverity
 } from '../utils/audit-logger';
 import { EventPublisher } from '../services/event-sourcing';
+import logger from '../utils/logger';
+import { SystemConfig } from '../config/system-config';
 
 export const router = express.Router();
 
@@ -86,7 +88,11 @@ router.patch('/devices/:uuid', async (req, res) => {
       }
     });
   } catch (error: any) {
-    console.error('Error updating device:', error);
+    logger.error('Error updating device (duplicate route)', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to update device',
       message: error.message
@@ -220,7 +226,10 @@ router.get('/devices', async (req, res) => {
       devices: enhancedDevices,
     });
   } catch (error: any) {
-    console.error('Error listing devices:', error);
+    logger.error('Error listing devices', {
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({
       error: 'Failed to list devices',
       message: error.message
@@ -267,7 +276,11 @@ router.get('/devices/:uuid', async (req, res) => {
       } : null,
     });
   } catch (error: any) {
-    console.error('Error getting device:', error);
+    logger.error('Error getting device', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to get device',
       message: error.message
@@ -370,7 +383,10 @@ router.post('/devices', async (req, res) => {
       }
     });
 
-    console.log(`✅ Device pre-registered: ${deviceName} (${deviceUuid})`);
+    logger.info('Device pre-registered', {
+      deviceName,
+      deviceId: deviceUuid
+    });
 
     res.status(201).json({
       success: true,
@@ -386,7 +402,10 @@ router.post('/devices', async (req, res) => {
       }
     });
   } catch (error: any) {
-    console.error('Error registering device:', error);
+    logger.error('Error registering device', {
+      error: error.message,
+      stack: error.stack
+    });
     res.status(500).json({
       error: 'Failed to register device',
       message: error.message
@@ -421,7 +440,11 @@ router.patch('/devices/:uuid/active', async (req, res) => {
     const updatedDevice = await DeviceModel.update(uuid, { is_active });
 
     const action = is_active ? 'enabled' : 'disabled';
-    console.log(`${is_active ? '✅' : '🚫'} Device ${action}: ${device.device_name || uuid.substring(0, 8) + '...'}`);
+    logger.info(`Device ${action}`, {
+      deviceId: uuid.substring(0, 8),
+      deviceName: device.device_name,
+      isActive: is_active
+    });
 
     // 🎉 EVENT SOURCING: Publish device online/offline event
     await eventPublisher.publish(
@@ -468,7 +491,11 @@ router.patch('/devices/:uuid/active', async (req, res) => {
       }
     });
   } catch (error: any) {
-    console.error('Error updating device active status:', error);
+    logger.error('Error updating device active status', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to update device status',
       message: error.message
@@ -494,14 +521,18 @@ router.delete('/devices/:uuid', async (req, res) => {
 
     await DeviceModel.delete(uuid);
 
-    console.log(`🗑️  Deleted device ${uuid.substring(0, 8)}...`);
+    logger.info('Device deleted', { deviceId: uuid.substring(0, 8) });
 
     res.json({
       status: 'ok',
       message: 'Device deleted',
     });
   } catch (error: any) {
-    console.error('Error deleting device:', error);
+    logger.error('Error deleting device', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to delete device',
       message: error.message
@@ -638,8 +669,13 @@ router.post('/devices/:uuid/apps', async (req, res) => {
     // Update target state
     await DeviceTargetStateModel.set(uuid, newApps, currentTarget?.config || {});
 
-    console.log(`🚀 Deployed app ${appId} (${appNameToUse}) to device ${uuid.substring(0, 8)}...`);
-    console.log(`   Services: ${servicesWithIds.map(s => s.serviceName).join(', ')}`);
+    logger.info('App deployed to device', {
+      deviceId: uuid.substring(0, 8),
+      appId,
+      appName: appNameToUse,
+      serviceCount: servicesWithIds.length,
+      services: servicesWithIds.map(s => s.serviceName)
+    });
 
     res.status(201).json({
       status: 'ok',
@@ -651,7 +687,11 @@ router.post('/devices/:uuid/apps', async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error('Error deploying application:', error);
+    logger.error('Error deploying application', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to deploy application',
       message: error.message
@@ -748,7 +788,12 @@ router.patch('/devices/:uuid/apps/:appId', async (req, res) => {
     // Save updated state
     await DeviceTargetStateModel.set(uuid, currentApps, currentTarget.config || {});
 
-    console.log(`✅ Updated app ${appId} on device ${uuid.substring(0, 8)}...`);
+    logger.info('App updated on device', {
+      deviceId: uuid.substring(0, 8),
+      appId,
+      appName: currentApps[appId].appName,
+      serviceCount: servicesWithIds.length
+    });
 
     res.json({
       status: 'ok',
@@ -760,7 +805,12 @@ router.patch('/devices/:uuid/apps/:appId', async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error('Error updating application:', error);
+    logger.error('Error updating application', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid,
+      appId: req.params.appId
+    });
     res.status(500).json({
       error: 'Failed to update application',
       message: error.message
@@ -810,7 +860,11 @@ router.delete('/devices/:uuid/apps/:appId', async (req, res) => {
     // Save updated state
     await DeviceTargetStateModel.set(uuid, currentApps, currentTarget.config || {});
 
-    console.log(`🗑️  Removed app ${appId} (${appName}) from device ${uuid.substring(0, 8)}...`);
+    logger.info('App removed from device', {
+      deviceId: uuid.substring(0, 8),
+      appId,
+      appName
+    });
 
     res.json({
       status: 'ok',
@@ -821,7 +875,12 @@ router.delete('/devices/:uuid/apps/:appId', async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error('Error removing application:', error);
+    logger.error('Error removing application', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid,
+      appId: req.params.appId
+    });
     res.status(500).json({
       error: 'Failed to remove application',
       message: error.message
@@ -848,7 +907,11 @@ router.post('/devices/:uuid/apps/:appId/deploy', async (req, res) => {
       });
     }
 
-    console.log(`🚀 Deploying app ${appId} to device ${uuid.substring(0, 8)}... by ${deployedBy}`);
+    logger.info('Deploying app to device', {
+      deviceId: uuid.substring(0, 8),
+      appId,
+      deployedBy
+    });
 
     // Verify device exists
     const device = await DeviceModel.getByUuid(uuid);
@@ -894,7 +957,13 @@ router.post('/devices/:uuid/apps/:appId/deploy', async (req, res) => {
       }
     });
 
-    console.log(`✅ Deployed app ${appId} (${appName}) - version ${deployedState.version} to device ${uuid.substring(0, 8)}...`);
+    logger.info('App deployed successfully', {
+      deviceId: uuid.substring(0, 8),
+      appId,
+      appName,
+      version: deployedState.version,
+      deployedBy
+    });
 
     res.json({
       status: 'ok',
@@ -906,7 +975,12 @@ router.post('/devices/:uuid/apps/:appId/deploy', async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error('Error deploying app:', error);
+    logger.error('Error deploying app', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid,
+      appId: req.params.appId
+    });
     res.status(500).json({
       error: 'Failed to deploy application',
       message: error.message
@@ -925,7 +999,10 @@ router.post('/devices/:uuid/deploy', async (req, res) => {
     const { uuid } = req.params;
     const deployedBy = req.body.deployedBy || 'dashboard';
 
-    console.log(`🚀 Deploying target state to device ${uuid.substring(0, 8)}... by ${deployedBy}`);
+    logger.info('Deploying target state to device', {
+      deviceId: uuid.substring(0, 8),
+      deployedBy
+    });
 
     // Verify device exists
     const device = await DeviceModel.getByUuid(uuid);
@@ -968,7 +1045,12 @@ router.post('/devices/:uuid/deploy', async (req, res) => {
       }
     });
 
-    console.log(`✅ Deployed version ${deployedState.version} to device ${uuid.substring(0, 8)}...`);
+    logger.info('Target state deployed successfully', {
+      deviceId: uuid.substring(0, 8),
+      version: deployedState.version,
+      appsCount: Object.keys(deployedState.apps || {}).length,
+      deployedBy
+    });
 
     res.json({
       status: 'ok',
@@ -981,7 +1063,11 @@ router.post('/devices/:uuid/deploy', async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error('Error deploying target state:', error);
+    logger.error('Error deploying target state', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to deploy target state',
       message: error.message
@@ -1000,7 +1086,7 @@ router.post('/devices/:uuid/deploy/cancel', async (req, res) => {
   try {
     const { uuid } = req.params;
 
-    console.log(`❌ Canceling pending deployment for device ${uuid.substring(0, 8)}...`);
+    logger.info('Canceling pending deployment', { deviceId: uuid.substring(0, 8) });
 
     // Verify device exists
     const device = await DeviceModel.getByUuid(uuid);
@@ -1070,7 +1156,10 @@ router.post('/devices/:uuid/deploy/cancel', async (req, res) => {
       }
     });
 
-    console.log(`✅ Canceled pending deployment for device ${uuid.substring(0, 8)}...`);
+    logger.info('Pending deployment canceled', {
+      deviceId: uuid.substring(0, 8),
+      version: currentTarget.version
+    });
 
     res.json({
       status: 'ok',
@@ -1080,7 +1169,11 @@ router.post('/devices/:uuid/deploy/cancel', async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error('Error canceling deployment:', error);
+    logger.error('Error canceling deployment', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid
+    });
     res.status(500).json({
       error: 'Failed to cancel deployment',
       message: error.message
@@ -1110,7 +1203,10 @@ router.put('/devices/:uuid/broker', async (req, res) => {
       });
     }
 
-    console.log(`🔄 Assigning device ${uuid.substring(0, 8)}... to broker ${brokerId}`);
+    logger.info('Assigning device to broker', {
+      deviceId: uuid.substring(0, 8),
+      brokerId
+    });
 
     // 1. Verify device exists
     const device = await DeviceModel.getByUuid(uuid);
@@ -1122,25 +1218,14 @@ router.put('/devices/:uuid/broker', async (req, res) => {
     }
 
     // 2. Verify broker exists
-    const brokerResult = await query(
-      `SELECT 
-        id, name, description, protocol, host, port, username,
-        use_tls, ca_cert, client_cert, verify_certificate,
-        client_id_prefix, keep_alive, clean_session,
-        reconnect_period, connect_timeout
-      FROM mqtt_broker_config 
-      WHERE id = $1 AND is_active = true`,
-      [brokerId]
-    );
-
-    if (brokerResult.rows.length === 0) {
+    const broker = await SystemConfig.getMqttBroker(brokerId);
+    
+    if (!broker) {
       return res.status(404).json({
         error: 'Broker not found',
         message: `Broker ${brokerId} not found or inactive`
       });
     }
-
-    const broker = brokerResult.rows[0];
     const brokerUrl = `${broker.protocol}://${broker.host}:${broker.port}`;
 
     // 3. Update device broker assignment in database
@@ -1151,7 +1236,10 @@ router.put('/devices/:uuid/broker', async (req, res) => {
       [brokerId, uuid]
     );
 
-    console.log(`✅ Device broker updated in database`);
+    logger.debug('Device broker updated in database', {
+      deviceId: uuid.substring(0, 8),
+      brokerId
+    });
 
     // 4. Prepare broker configuration for device
     const brokerConfig = {
@@ -1190,7 +1278,10 @@ router.put('/devices/:uuid/broker', async (req, res) => {
     );
 
     const version = shadowResult.rows[0].version;
-    console.log(`📋 Shadow updated (version ${version})`);
+    logger.debug('Shadow updated', {
+      deviceId: uuid.substring(0, 8),
+      version
+    });
 
     // 6. Try to publish MQTT delta message (if MQTT manager available)
     let mqttPublished = false;
@@ -1216,12 +1307,19 @@ router.put('/devices/:uuid/broker', async (req, res) => {
           { qos: 1 }
         );
         mqttPublished = true;
-        console.log(`📡 Published shadow delta via MQTT`);
+        logger.debug('Published shadow delta via MQTT', {
+          deviceId: uuid.substring(0, 8)
+        });
       } else {
-        console.log(`⚠️  MQTT manager not available, device will get update on next shadow sync`);
+        logger.debug('MQTT manager not available, device will get update on next shadow sync', {
+          deviceId: uuid.substring(0, 8)
+        });
       }
     } catch (error) {
-      console.warn('⚠️  Could not publish shadow delta via MQTT:', error);
+      logger.warn('Could not publish shadow delta via MQTT', {
+        deviceId: uuid.substring(0, 8),
+        error: error instanceof Error ? error.message : String(error)
+      });
       // Non-fatal - device will get update via shadow sync
     }
 
@@ -1262,7 +1360,12 @@ router.put('/devices/:uuid/broker', async (req, res) => {
     });
 
   } catch (error: any) {
-    console.error('❌ Error assigning device to broker:', error);
+    logger.error('Error assigning device to broker', {
+      error: error.message,
+      stack: error.stack,
+      deviceId: req.params.uuid,
+      brokerId: req.body.brokerId
+    });
     
     await logAuditEvent({
       eventType: 'device.config.update.failed' as any,  // Custom event type
