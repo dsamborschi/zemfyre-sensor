@@ -704,6 +704,9 @@ export default function App() {
           {currentView === 'tags' && (
             <DeviceTagsPage deviceUuid={selectedDevice.deviceUuid} />
           )}
+          {currentView === 'tag-definitions' && (
+            <TagDefinitionsPage />
+          )}
           {currentView === 'account' && (
             <AccountPage />
           )}
