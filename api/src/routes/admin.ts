@@ -4,6 +4,7 @@
  */
 
 import express from 'express';
+import logger from '../utils/logger';
 
 export const router = express.Router();
 
@@ -25,7 +26,7 @@ router.get('/admin/heartbeat', async (req, res) => {
       heartbeat: config
     });
   } catch (error: any) {
-    console.error('Error getting heartbeat config:', error);
+    logger.error('Error getting heartbeat config:', error);
     res.status(500).json({
       error: 'Failed to get heartbeat configuration',
       message: error.message
@@ -39,7 +40,7 @@ router.get('/admin/heartbeat', async (req, res) => {
  */
 router.post('/admin/heartbeat/check', async (req, res) => {
   try {
-    console.log('🔍 Manual heartbeat check triggered');
+    logger.info('🔍 Manual heartbeat check triggered');
     
     const heartbeatMonitor = await import('../services/heartbeat-monitor');
     await heartbeatMonitor.default.checkNow();
@@ -49,7 +50,7 @@ router.post('/admin/heartbeat/check', async (req, res) => {
       message: 'Heartbeat check completed'
     });
   } catch (error: any) {
-    console.error('Error during manual heartbeat check:', error);
+    logger.error('Error during manual heartbeat check:', error);
     res.status(500).json({
       error: 'Failed to perform heartbeat check',
       message: error.message
