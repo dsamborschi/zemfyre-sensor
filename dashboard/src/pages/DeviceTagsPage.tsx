@@ -44,6 +44,20 @@ export default function DeviceTagsPage({ deviceUuid }: Props) {
     }
   }, [deviceUuid]);
 
+  // Listen for tag updates from other components (e.g., AddEditDeviceDialog)
+  useEffect(() => {
+    const handleTagsUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<{ deviceUuid: string }>;
+      if (customEvent.detail.deviceUuid === deviceUuid) {
+        console.log('[DeviceTagsPage] Tags updated externally, reloading...');
+        loadTags();
+      }
+    };
+
+    window.addEventListener('device-tags-updated', handleTagsUpdated);
+    return () => window.removeEventListener('device-tags-updated', handleTagsUpdated);
+  }, [deviceUuid]);
+
   useEffect(() => {
     if (newTagKey && newTagKey.length > 0) {
       loadTagValues(newTagKey);

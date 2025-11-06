@@ -26,6 +26,7 @@ import { LogsPage } from "./pages/LogsPage";
 import { ProfilePage } from "./pages/ProfilePage";
 import { GlobalDashboardPage } from "./pages/GlobalDashboardPage";
 import DeviceTagsPage from "./pages/DeviceTagsPage";
+import TagDefinitionsPage from "./pages/TagDefinitionsPage";
 
 import { toast } from "sonner";
 import { Header } from "./components/Header";
@@ -59,7 +60,7 @@ export default function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [deviceDialogOpen, setDeviceDialogOpen] = useState(false);
   const [editingDevice, setEditingDevice] = useState<Device | null>(null);
-  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security' | 'maintenance' | 'logs' | 'settings' | 'tags' | 'account' | 'users' | 'profile' | 'dashboard'>('dashboard');
+  const [currentView, setCurrentView] = useState<'metrics' | 'sensors' | 'mqtt' | 'jobs' | 'applications' | 'timeline' | 'usage' | 'analytics' | 'security' | 'maintenance' | 'logs' | 'settings' | 'tags' | 'tag-definitions' | 'account' | 'users' | 'profile' | 'dashboard'>('dashboard');
   const [debugMode, setDebugMode] = useState(false);
   
   // Memoize selected device to prevent unnecessary re-renders
@@ -257,11 +258,13 @@ export default function App() {
     setDeviceDialogOpen(true);
   };
 
-  const handleSaveDevice = async (deviceData: Omit<Device, "id"> & { id?: string }) => {
+  const handleSaveDevice = async (deviceData: Omit<Device, "id"> & { id?: string; tags?: Record<string, string> }) => {
     if (deviceData.id) {
       // Edit existing device - persist changes to API
       try {
         toast.loading('Updating device...', { id: 'update-device' });
+        
+        // Update device basic info
         const response = await fetch(buildApiUrl(`/api/v1/devices/${deviceData.id}`), {
           method: 'PATCH',
           headers: {
@@ -274,11 +277,40 @@ export default function App() {
             macAddress: deviceData.macAddress
           })
         });
+        
         if (!response.ok) {
           const error = await response.json();
           throw new Error(error.message || 'Failed to update device');
         }
+        
         await response.json();
+        
+        // Update tags if provided
+        if (deviceData.tags !== undefined) {
+          const tagsResponse = await fetch(buildApiUrl(`/api/v1/devices/${deviceData.deviceUuid}/tags`), {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              tags: deviceData.tags
+            })
+          });
+          
+          if (!tagsResponse.ok) {
+            const error = await tagsResponse.json();
+            console.error('Failed to update tags:', error);
+            // Don't throw - device update succeeded, just log tag update failure
+            toast.warning('Device updated but tags may not have saved', { id: 'update-device' });
+            return;
+          }
+          
+          // Dispatch event to notify DeviceTagsPage to reload tags
+          window.dispatchEvent(new CustomEvent('device-tags-updated', { 
+            detail: { deviceUuid: deviceData.deviceUuid } 
+          }));
+        }
+        
         setDevices(prev =>
           prev.map(d => (d.id === deviceData.id ? { ...d, ...deviceData } : d))
         );
@@ -311,6 +343,31 @@ export default function App() {
         }
 
         const result = await response.json();
+        
+        // Add tags if provided
+        if (deviceData.tags && Object.keys(deviceData.tags).length > 0) {
+          const tagsResponse = await fetch(buildApiUrl(`/api/v1/devices/${result.device.uuid}/tags`), {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              tags: deviceData.tags
+            })
+          });
+          
+          if (!tagsResponse.ok) {
+            const error = await tagsResponse.json();
+            console.error('Failed to add tags:', error);
+            // Don't throw - device creation succeeded
+          } else {
+            // Dispatch event to notify DeviceTagsPage to reload tags
+            window.dispatchEvent(new CustomEvent('device-tags-updated', { 
+              detail: { deviceUuid: result.device.uuid } 
+            }));
+          }
+        }
+        
         toast.success('Device registered successfully! Waiting for agent to connect.', { id: 'register-device' });
 
         // Add device to local state with offline status

@@ -61,10 +61,10 @@ export class ProtocolAdaptersHandler extends BaseConfigHandler {
 		});
 
 		try {
-			const { DeviceSensorsModel: DeviceSensorModel } = await import('../../models/protocol-adapter-device.model.js');
+			const { DeviceSensorModel: DeviceSensorModel } = await import('../../models/protocol-adapter-device.model.js');
 
 			// Get current devices from SQLite to detect deletions
-			const currentDevices = await DeviceSensorsModel.getAll();
+			const currentDevices = await DeviceSensorModel.getAll();
 			const targetDeviceNames = new Set(devices.map((d: ProtocolAdapterDevice) => d.name));
 
 			// Sync each device to SQLite
@@ -72,17 +72,17 @@ export class ProtocolAdaptersHandler extends BaseConfigHandler {
 				// Normalize property names from cloud API (camelCase) to SQLite (snake_case)
 				const normalizedDevice = this.normalizeDevice(device);
 
-				const existing = await DeviceSensorsModel.getByName(normalizedDevice.name);
+				const existing = await DeviceSensorModel.getByName(normalizedDevice.name);
 
 				if (existing) {
-					await DeviceSensorsModel.update(normalizedDevice.name, normalizedDevice);
+					await DeviceSensorModel.update(normalizedDevice.name, normalizedDevice);
 					this.logger?.info('Updated sensor', {
 						category: 'ProtocolAdaptersHandler',
 						deviceName: normalizedDevice.name,
 						protocol: normalizedDevice.protocol
 					});
 				} else {
-					await DeviceSensorsModel.create(normalizedDevice);
+					await DeviceSensorModel.create(normalizedDevice);
 					this.logger?.info('Added sensor', {
 						category: 'ProtocolAdaptersHandler',
 						deviceName: normalizedDevice.name,
@@ -94,7 +94,7 @@ export class ProtocolAdaptersHandler extends BaseConfigHandler {
 			// Delete devices that are no longer in target state
 			for (const currentDevice of currentDevices) {
 				if (!targetDeviceNames.has(currentDevice.name)) {
-					await DeviceSensorsModel.delete(currentDevice.name);
+					await DeviceSensorModel.delete(currentDevice.name);
 					this.logger?.info('Removed sensor', {
 						category: 'ProtocolAdaptersHandler',
 						deviceName: currentDevice.name,
@@ -135,3 +135,4 @@ export class ProtocolAdaptersHandler extends BaseConfigHandler {
 		};
 	}
 }
+

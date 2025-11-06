@@ -296,7 +296,7 @@ export class ConfigManager extends EventEmitter {
 
 		// Save device to SQLite sensors table
 		try {
-			const { DeviceSensorsModel: DeviceSensorModel } = await import('../models/protocol-adapter-device.model.js');
+			const { DeviceSensorModel: DeviceSensorModel } = await import('../models/protocol-adapter-device.model.js');
 			
 			// Handle both connectionString and connection formats
 			let connection: Record<string, any> = {};
@@ -340,7 +340,7 @@ export class ConfigManager extends EventEmitter {
 				metadata: metadata
 			};
 			
-			await DeviceSensorsModel.create(normalizedDevice);
+			await DeviceSensorModel.create(normalizedDevice);
 			
 			this.logger?.infoSync('Device saved to sensors table', {
 				component: 'ConfigManager',
@@ -389,7 +389,7 @@ export class ConfigManager extends EventEmitter {
 
 		// Update device in SQLite sensors table (or create if doesn't exist)
 		try {
-			const { DeviceSensorsModel: DeviceSensorModel } = await import('../models/protocol-adapter-device.model.js');
+			const { DeviceSensorModel: DeviceSensorModel } = await import('../models/protocol-adapter-device.model.js');
 			
 			// Handle both connectionString and connection formats
 			let connection: Record<string, any> = {};
@@ -433,11 +433,11 @@ export class ConfigManager extends EventEmitter {
 			};
 			
 			// Try to update first
-			const existing = await DeviceSensorsModel.getByName(device.name);
+			const existing = await DeviceSensorModel.getByName(device.name);
 			
 			if (existing) {
 				// Device exists - update it
-				await DeviceSensorsModel.update(device.name, normalizedDevice);
+				await DeviceSensorModel.update(device.name, normalizedDevice);
 				
 				this.logger?.infoSync('Device updated in sensors table', {
 					component: 'ConfigManager',
@@ -446,7 +446,7 @@ export class ConfigManager extends EventEmitter {
 				});
 			} else {
 				// Device doesn't exist - create it (upsert behavior)
-				await DeviceSensorsModel.create({
+				await DeviceSensorModel.create({
 					name: device.name,
 					...normalizedDevice
 				});
@@ -508,8 +508,8 @@ export class ConfigManager extends EventEmitter {
 		// Remove device from SQLite sensors table
 		if (device) {
 			try {
-				const { DeviceSensorsModel: DeviceSensorModel } = await import('../models/protocol-adapter-device.model.js');
-				await DeviceSensorsModel.delete(device.name);
+				const { DeviceSensorModel: DeviceSensorModel } = await import('../models/protocol-adapter-device.model.js');
+				await DeviceSensorModel.delete(device.name);
 				
 				this.logger?.infoSync('Device removed from sensors table', {
 					component: 'ConfigManager',
@@ -635,3 +635,4 @@ export class ConfigManager extends EventEmitter {
 		return super.emit(event, ...args);
 	}
 }
+

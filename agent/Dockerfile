@@ -3,8 +3,8 @@ FROM node:20-slim AS builder
 
 WORKDIR /app
 
-# Install build tools for native deps
-RUN apt-get update && apt-get install -y python3 make g++ \
+# Install build tools for native deps and SQLite3
+RUN apt-get update && apt-get install -y python3 make g++ sqlite3 libsqlite3-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY package*.json tsconfig.json tsconfig.build.json ./
@@ -27,7 +27,7 @@ COPY package*.json package-lock.json ./
 
 # Install only production deps, then remove build tools in same layer
 RUN apt-get update \
-    && apt-get install -y python3 make g++ curl jq procps \
+    && apt-get install -y python3 make g++ curl jq procps sqlite3 libsqlite3-dev \
     && apt-get install -y openvpn iproute2 iptables net-tools iputils-ping \
     && npm ci --omit=dev --legacy-peer-deps \
     && apt-get purge -y --auto-remove python3 make g++ \

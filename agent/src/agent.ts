@@ -1150,13 +1150,13 @@ export default class DeviceAgent {
 				});
 				
 				try {
-					this.agentLogger?.info('Importing DeviceSensorsModel...', { category: 'Agent' });
-					const { DeviceSensorsModel: DeviceSensorModel } = await import('./models/protocol-adapter-device.model.js');
-					this.agentLogger?.info('DeviceSensorsModel imported successfully', { category: 'Agent' });
+					this.agentLogger?.info('Importing DeviceSensorModel...', { category: 'Agent' });
+					const { DeviceSensorModel: DeviceSensorModel } = await import('./models/protocol-adapter-device.model.js');
+					this.agentLogger?.info('DeviceSensorModel imported successfully', { category: 'Agent' });
 					
 					// Get current devices from SQLite to detect deletions
 					this.agentLogger?.info('Querying current devices from SQLite...', { category: 'Agent' });
-					const currentDevices = await DeviceSensorsModel.getAll();
+					const currentDevices = await DeviceSensorModel.getAll();
 					this.agentLogger?.info('Current devices loaded from SQLite', { 
 						category: 'Agent',
 						currentCount: currentDevices.length,
@@ -1177,17 +1177,17 @@ export default class DeviceAgent {
 							metadata: device.metadata
 						};
 						
-						const existing = await DeviceSensorsModel.getByName(normalizedDevice.name);
+						const existing = await DeviceSensorModel.getByName(normalizedDevice.name);
 						
 						if (existing) {
-							await DeviceSensorsModel.update(normalizedDevice.name, normalizedDevice);
+							await DeviceSensorModel.update(normalizedDevice.name, normalizedDevice);
 							this.agentLogger?.info('Updated sensor', {
 								category: 'Agent',
 								deviceName: normalizedDevice.name,
 								protocol: normalizedDevice.protocol
 							});
 						} else {
-							await DeviceSensorsModel.create(normalizedDevice);
+							await DeviceSensorModel.create(normalizedDevice);
 							this.agentLogger?.info('Added sensor', {
 								category: 'Agent',
 								deviceName: normalizedDevice.name,
@@ -1199,7 +1199,7 @@ export default class DeviceAgent {
 					// Delete devices that are no longer in target state
 					for (const currentDevice of currentDevices) {
 						if (!targetDeviceNames.has(currentDevice.name)) {
-							await DeviceSensorsModel.delete(currentDevice.name);
+							await DeviceSensorModel.delete(currentDevice.name);
 							this.agentLogger?.info('Removed sensor', {
 								category: 'Agent',
 								deviceName: currentDevice.name,
@@ -1211,14 +1211,14 @@ export default class DeviceAgent {
 				// Ensure output configurations exist for each protocol
 				const protocols = new Set(config.sensors.map((d: any) => d.protocol));
 				for (const protocol of protocols) {
-					const existingOutput = await DeviceSensorsModel.getOutput(protocol as string);						// Create default output configuration for this protocol
+					const existingOutput = await DeviceSensorModel.getOutput(protocol as string);						// Create default output configuration for this protocol
 						const defaultSocketPath = process.platform === 'win32' 
 							? `\\\\.\\pipe\\${protocol}-sensors`
 							: `/tmp/${protocol}-sensors.sock`;
 						
 					if (!existingOutput) {
 						// Create new output configuration
-						await DeviceSensorsModel.setOutput({
+						await DeviceSensorModel.setOutput({
 							protocol: protocol,
 							socket_path: defaultSocketPath,
 							data_format: 'json',
@@ -1234,7 +1234,7 @@ export default class DeviceAgent {
 						});
 					} else if (!existingOutput.delimiter || existingOutput.delimiter === '') {
 						// Fix existing output configuration with missing delimiter
-						await DeviceSensorsModel.setOutput({
+						await DeviceSensorModel.setOutput({
 							...existingOutput,
 							delimiter: '\n'
 						});							this.agentLogger?.info('Fixed output configuration delimiter', {
@@ -1401,3 +1401,4 @@ export default class DeviceAgent {
 		return this.jobs?.getJobEngine();
 	}
 }
+

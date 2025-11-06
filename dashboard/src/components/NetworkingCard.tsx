@@ -47,7 +47,7 @@ export function NetworkingCard({ interfaces }: NetworkingCardProps) {
       ) : (
         <div className="space-y-3">
           {interfaces.map((iface) => {
-            const Icon = interfaceIcons[iface.type];
+            const Icon = interfaceIcons[iface.type] || Network;
             return (
               <div
                 key={iface.id}

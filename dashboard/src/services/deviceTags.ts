@@ -121,6 +121,72 @@ export async function getTagDefinitions(): Promise<TagDefinition[]> {
 }
 
 /**
+ * Create a new tag definition
+ */
+export async function createTagDefinition(
+  key: string,
+  description?: string,
+  allowedValues?: string[],
+  isRequired?: boolean
+): Promise<TagDefinition> {
+  const response = await fetch(buildApiUrl('/api/v1/tags/definitions'), {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ key, description, allowedValues, isRequired }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to create tag definition');
+  }
+  
+  const data = await response.json();
+  return data.definition;
+}
+
+/**
+ * Update an existing tag definition
+ */
+export async function updateTagDefinition(
+  key: string,
+  description?: string,
+  allowedValues?: string[],
+  isRequired?: boolean
+): Promise<TagDefinition> {
+  const response = await fetch(buildApiUrl(`/api/v1/tags/definitions/${key}`), {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ description, allowedValues, isRequired }),
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || 'Failed to update tag definition');
+  }
+  
+  const data = await response.json();
+  return data.definition;
+}
+
+/**
+ * Delete a tag definition
+ */
+export async function deleteTagDefinition(key: string): Promise<void> {
+  const response = await fetch(buildApiUrl(`/api/v1/tags/definitions/${key}`), {
+    method: 'DELETE',
+  });
+  
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.message || error.error || 'Failed to delete tag definition');
+  }
+}
+
+/**
  * Get all unique tag keys
  */
 export async function getTagKeys(): Promise<TagKey[]> {

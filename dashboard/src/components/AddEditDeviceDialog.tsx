@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Copy, Check, RefreshCw } from "lucide-react";
+import { Copy, Check, RefreshCw, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select";
+import { Badge } from "./ui/badge";
 import { toast } from "sonner";
 import { Device } from "./DeviceSidebar";
 import { buildApiUrl } from "../config/api";
@@ -21,15 +21,8 @@ interface AddEditDeviceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   device?: Device | null;
-  onSave: (device: Omit<Device, "id"> & { id?: string; provisioningKeyId?: string }) => void;
+  onSave: (device: Omit<Device, "id"> & { id?: string; provisioningKeyId?: string; tags?: Record<string, string> }) => void;
 }
-
-const deviceGroups = [
-  { value: "server", label: "Server" },
-  { value: "desktop", label: "Desktop" },
-  { value: "laptop", label: "Laptop" },
-  { value: "mobile", label: "Mobile Device" },
-];
 
 // Helper function to generate UUID v4
 const generateUuid = () => {
@@ -52,6 +45,9 @@ export function AddEditDeviceDialog({
   const [provisioningKey, setProvisioningKey] = useState("");
   const [provisioningKeyId, setProvisioningKeyId] = useState<string | null>(null);
   const [isLoadingKey, setIsLoadingKey] = useState(false);
+  const [tags, setTags] = useState<Record<string, string>>({});
+  const [newTagKey, setNewTagKey] = useState("");
+  const [newTagValue, setNewTagValue] = useState("");
   const [formData, setFormData] = useState({
     name: "",
     type: "server" as Device['type'],
@@ -116,6 +112,25 @@ export function AddEditDeviceDialog({
         memory: device.memory,
         disk: device.disk,
       });
+      
+      // Fetch tags from API for this device
+      const fetchDeviceTags = async () => {
+        try {
+          const response = await fetch(buildApiUrl(`/api/v1/devices/${device.deviceUuid}/tags`));
+          if (response.ok) {
+            const data = await response.json();
+            setTags(data.tags || {});
+          } else {
+            // Device might not have tags yet, that's okay
+            setTags({});
+          }
+        } catch (error) {
+          console.error('Error fetching device tags:', error);
+          setTags({});
+        }
+      };
+      
+      fetchDeviceTags();
     } else {
       setFormData({
         name: "",
@@ -129,6 +144,7 @@ export function AddEditDeviceDialog({
         memory: 0,
         disk: 0,
       });
+      setTags({});
       // Generate new provisioning key from API when opening for new device
       if (open && !provisioningKey) {
         fetchProvisioningKey(false);
@@ -177,6 +193,7 @@ export function AddEditDeviceDialog({
       cpu: formData.cpu,
       memory: formData.memory,
       disk: formData.disk,
+      tags: tags,
     });
 
     // Note: Don't show success toast here - let the parent handle it since it's async now
@@ -201,6 +218,42 @@ export function AddEditDeviceDialog({
     await fetchProvisioningKey(true);
   };
 
+  const handleAddTag = () => {
+    if (!newTagKey.trim()) {
+      toast.error("Tag key cannot be empty");
+      return;
+    }
+    if (!newTagValue.trim()) {
+      toast.error("Tag value cannot be empty");
+      return;
+    }
+    if (tags[newTagKey]) {
+      toast.error(`Tag "${newTagKey}" already exists`);
+      return;
+    }
+    
+    setTags({ ...tags, [newTagKey]: newTagValue });
+    setNewTagKey("");
+    setNewTagValue("");
+    toast.success(`Tag "${newTagKey}" added`);
+  };
+
+  const handleRemoveTag = (key: string) => {
+    const newTags = { ...tags };
+    delete newTags[key];
+    setTags(newTags);
+    toast.success(`Tag "${key}" removed`);
+  };
+
+  const handleTagKeyKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (newTagKey.trim() && newTagValue.trim()) {
+        handleAddTag();
+      }
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[95vh] overflow-hidden flex flex-col">
@@ -214,35 +267,14 @@ export function AddEditDeviceDialog({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="device-group">Device Group *</Label>
-              <Select
-                value={formData.type}
-                onValueChange={(value: any) => setFormData({ ...formData, type: value })}
-              >
-                <SelectTrigger id="device-group">
-                  <SelectValue placeholder="Select device type" />
-                </SelectTrigger>
-                <SelectContent>
-                  {deviceGroups.map((group) => (
-                    <SelectItem key={group.value} value={group.value}>
-                      {group.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="device-name">Device Name *</Label>
-              <Input
-                id="device-name"
-                placeholder="Raspberry-01"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="device-name">Device Name *</Label>
+            <Input
+              id="device-name"
+              placeholder="Raspberry-01"
+              value={formData.name}
+              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+            />
           </div>
 
           <div className="space-y-2">
@@ -255,6 +287,63 @@ export function AddEditDeviceDialog({
               rows={3}
             />
           </div>
+
+          <div className="space-y-2">
+            <Label>Device Tags</Label>
+            <div className="space-y-2">
+              <div className="flex flex-wrap gap-2 min-h-[40px] p-2 border border-border rounded-md bg-muted/30">
+                {Object.keys(tags).length === 0 ? (
+                  <span className="text-sm text-muted-foreground">No tags added yet</span>
+                ) : (
+                  Object.entries(tags).map(([key, value]) => (
+                    <Badge
+                      key={key}
+                      variant="secondary"
+                      className="gap-1 pr-1 bg-blue-100 text-blue-700 border-blue-200 dark:bg-blue-900/30 dark:text-blue-300 dark:border-blue-800"
+                    >
+                      <span className="font-semibold">{key}</span>
+                      <span>=</span>
+                      <span>{value}</span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveTag(key)}
+                        className="ml-1 rounded-sm hover:bg-blue-200 dark:hover:bg-blue-800 p-0.5"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+                <Input
+                  placeholder="Key (e.g., environment)"
+                  value={newTagKey}
+                  onChange={(e) => setNewTagKey(e.target.value)}
+                  onKeyPress={handleTagKeyKeyPress}
+                />
+                <Input
+                  placeholder="Value (e.g., production)"
+                  value={newTagValue}
+                  onChange={(e) => setNewTagValue(e.target.value)}
+                  onKeyPress={handleTagKeyKeyPress}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleAddTag}
+                  disabled={!newTagKey.trim() || !newTagValue.trim()}
+                >
+                  Add Tag
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Tags help you organize and filter devices. Common tags: environment, location, type, owner
+              </p>
+            </div>
+          </div>
+
           {isEditMode && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">

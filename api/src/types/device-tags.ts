@@ -57,3 +57,16 @@ export interface DeviceQueryResponse {
     tags: Record<string, string>;
   }>;
 }
+
+export interface TagDefinitionRequest {
+  key: string;
+  description?: string;
+  allowedValues?: string[];
+  isRequired?: boolean;
+}
+
+export interface TagDefinitionUpdateRequest {
+  description?: string;
+  allowedValues?: string[];
+  isRequired?: boolean;
+}

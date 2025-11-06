@@ -77,22 +77,36 @@ function DeviceTagsPills({ deviceUuid }: { deviceUuid: string }) {
   const [tags, setTags] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
 
+  const fetchTags = async () => {
+    if (!deviceUuid) return;
+    
+    try {
+      setLoading(true);
+      const deviceTags = await getDeviceTags(deviceUuid);
+      setTags(deviceTags);
+    } catch (error) {
+      console.error('Error fetching device tags:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchTags = async () => {
-      if (!deviceUuid) return;
-      
-      try {
-        setLoading(true);
-        const deviceTags = await getDeviceTags(deviceUuid);
-        setTags(deviceTags);
-      } catch (error) {
-        console.error('Error fetching device tags:', error);
-      } finally {
-        setLoading(false);
+    fetchTags();
+  }, [deviceUuid]);
+
+  // Listen for tag updates from other components (e.g., AddEditDeviceDialog)
+  useEffect(() => {
+    const handleTagsUpdated = (event: Event) => {
+      const customEvent = event as CustomEvent<{ deviceUuid: string }>;
+      if (customEvent.detail.deviceUuid === deviceUuid) {
+        console.log('[DeviceTagsPills] Tags updated externally, reloading...');
+        fetchTags();
       }
     };
 
-    fetchTags();
+    window.addEventListener('device-tags-updated', handleTagsUpdated);
+    return () => window.removeEventListener('device-tags-updated', handleTagsUpdated);
   }, [deviceUuid]);
 
   const tagEntries = Object.entries(tags);

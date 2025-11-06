@@ -456,6 +456,192 @@ router.get('/tags/definitions', async (req, res) => {
 });
 
 /**
+ * POST /api/v1/tags/definitions
+ * Create a new tag definition
+ */
+router.post('/tags/definitions', async (req, res) => {
+  try {
+    const { key, description, allowedValues, isRequired } = req.body;
+
+    // Validate required fields
+    if (!key) {
+      return res.status(400).json({
+        error: 'Missing required field: key'
+      });
+    }
+
+    // Validate key format
+    const keyRegex = /^[a-z0-9][a-z0-9._-]*[a-z0-9]$/;
+    if (!keyRegex.test(key)) {
+      return res.status(400).json({
+        error: 'Invalid tag key format',
+        message: 'Key must be lowercase alphanumeric with dashes/underscores'
+      });
+    }
+
+    const result = await query(
+      `INSERT INTO tag_definitions (key, description, allowed_values, is_required)
+       VALUES ($1, $2, $3, $4)
+       RETURNING id, key, description, allowed_values, is_required, created_at, updated_at`,
+      [key, description || null, allowedValues || null, isRequired || false]
+    );
+
+    const definition = result.rows[0];
+
+    moduleLogger.info('Tag definition created', {
+      key,
+      description,
+      allowedValues
+    });
+
+    res.status(201).json({
+      success: true,
+      definition: {
+        id: definition.id,
+        key: definition.key,
+        description: definition.description,
+        allowedValues: definition.allowed_values,
+        isRequired: definition.is_required,
+        createdAt: definition.created_at,
+        updatedAt: definition.updated_at
+      }
+    });
+  } catch (error: any) {
+    if (error.code === '23505') { // Unique violation
+      return res.status(409).json({
+        error: 'Tag definition already exists',
+        message: `A tag definition with key '${req.body.key}' already exists`
+      });
+    }
+
+    moduleLogger.error('Error creating tag definition', {
+      error: error.message,
+      stack: error.stack
+    });
+    res.status(500).json({
+      error: 'Failed to create tag definition',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * PUT /api/v1/tags/definitions/:key
+ * Update an existing tag definition
+ */
+router.put('/tags/definitions/:key', async (req, res) => {
+  try {
+    const { key } = req.params;
+    const { description, allowedValues, isRequired } = req.body;
+
+    const result = await query(
+      `UPDATE tag_definitions
+       SET description = COALESCE($2, description),
+           allowed_values = COALESCE($3, allowed_values),
+           is_required = COALESCE($4, is_required),
+           updated_at = CURRENT_TIMESTAMP
+       WHERE key = $1
+       RETURNING id, key, description, allowed_values, is_required, created_at, updated_at`,
+      [key, description, allowedValues, isRequired]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Tag definition not found',
+        message: `Tag definition with key '${key}' not found`
+      });
+    }
+
+    const definition = result.rows[0];
+
+    moduleLogger.info('Tag definition updated', {
+      key,
+      changes: { description, allowedValues, isRequired }
+    });
+
+    res.json({
+      success: true,
+      definition: {
+        id: definition.id,
+        key: definition.key,
+        description: definition.description,
+        allowedValues: definition.allowed_values,
+        isRequired: definition.is_required,
+        createdAt: definition.created_at,
+        updatedAt: definition.updated_at
+      }
+    });
+  } catch (error: any) {
+    moduleLogger.error('Error updating tag definition', {
+      error: error.message,
+      stack: error.stack,
+      key: req.params.key
+    });
+    res.status(500).json({
+      error: 'Failed to update tag definition',
+      message: error.message
+    });
+  }
+});
+
+/**
+ * DELETE /api/v1/tags/definitions/:key
+ * Delete a tag definition
+ */
+router.delete('/tags/definitions/:key', async (req, res) => {
+  try {
+    const { key } = req.params;
+
+    // Check if tag is in use
+    const usageCheck = await query(
+      'SELECT COUNT(*) as count FROM device_tags WHERE key = $1',
+      [key]
+    );
+
+    const inUseCount = parseInt(usageCheck.rows[0].count);
+    if (inUseCount > 0) {
+      return res.status(409).json({
+        error: 'Tag definition in use',
+        message: `Cannot delete tag definition '${key}' as it is used by ${inUseCount} device(s)`,
+        devicesAffected: inUseCount
+      });
+    }
+
+    const result = await query(
+      'DELETE FROM tag_definitions WHERE key = $1 RETURNING key',
+      [key]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({
+        error: 'Tag definition not found',
+        message: `Tag definition with key '${key}' not found`
+      });
+    }
+
+    moduleLogger.info('Tag definition deleted', {
+      key
+    });
+
+    res.json({
+      success: true,
+      message: 'Tag definition deleted successfully',
+      key
+    });
+  } catch (error: any) {
+    moduleLogger.error('Error deleting tag definition', {
+      error: error.message,
+      stack: error.stack,
+      key: req.params.key
+    });
+    res.status(500).json({
+      error: 'Failed to delete tag definition',
+      message: error.message
+    });
+  }
+});
+
+/**
  * GET /api/v1/tags/keys
  * Get all unique tag keys in use
  */

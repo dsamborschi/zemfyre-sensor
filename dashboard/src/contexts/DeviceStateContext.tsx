@@ -653,6 +653,9 @@ export function DeviceStateProvider({ children }: { children: ReactNode }) {
     const deviceState = deviceStates[deviceUuid];
     if (!deviceState) return false;
     
+    // If device hasn't reported yet (no currentState), no deployment needed
+    if (!deviceState.currentState) return false;
+    
     // Check if there are unsaved local changes OR saved changes that need deployment
     return !!deviceState.isDirty || !!deviceState.targetState?.needsDeployment;
   }, [deviceStates]);
