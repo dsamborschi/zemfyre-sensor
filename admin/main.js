@@ -566,6 +566,16 @@ function HomeSlides() {
 function App() {
   const [view, setView] = React.useState("dashboard");
   const [kioskMode, setKioskMode] = React.useState(true);
+
+  // Sync Pi system clock to browser time on load
+  React.useEffect(() => {
+    fetch(`${API_BASE_URL}/sync-time`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timestamp: new Date().toISOString() })
+    }).catch(err => console.warn('Time sync failed:', err));
+  }, []);
+
   // Grafana dashboards state
   const [dashboards, setDashboards] = React.useState([]);
   const [dashboardsLoading, setDashboardsLoading] = React.useState(false);
