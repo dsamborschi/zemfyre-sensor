@@ -124,6 +124,8 @@ services:
             dockerfile: Dockerfile
         container_name: zemfyre-api
         restart: always
+        cap_add:
+          - SYS_TIME
         environment:
             - GRAFANA_API_TOKEN=${GRAFANA_API_TOKEN}
             - DISPLAY=${DISPLAY}

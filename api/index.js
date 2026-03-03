@@ -2,7 +2,7 @@ import fetch from "node-fetch";
 import express from "express";
 import Docker from "dockerode";
 import cors from "cors";
-import { exec } from "child_process";
+import { exec, execFile } from "child_process";
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -203,6 +203,26 @@ app.post("/grafana/dashboards/:uid/variables/:varName", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+app.post("/sync-time", (req, res) => {
+  const { timestamp } = req.body;
+  if (!timestamp) {
+    return res.status(400).json({ error: "timestamp is required" });
+  }
+  const date = new Date(timestamp);
+  if (isNaN(date.getTime())) {
+    return res.status(400).json({ error: "Invalid timestamp" });
+  }
+  const unixSeconds = Math.floor(date.getTime() / 1000);
+  execFile("date", ["-s", `@${unixSeconds}`], (error) => {
+    if (error) {
+      console.error("Time sync error:", error);
+      return res.status(500).json({ error: error.message });
+    }
+    console.log(`[${new Date().toISOString()}] System time synced to: ${date.toISOString()}`);
+    res.json({ message: "System time synchronized", time: date.toISOString() });
+  });
 });
 
 app.post("/notify", (req, res) => {
