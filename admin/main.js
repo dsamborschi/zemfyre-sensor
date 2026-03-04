@@ -6,6 +6,56 @@ function Settings() {
   const [thresholdEdits, setThresholdEdits] = React.useState({});
   const [thresholdStatus, setThresholdStatus] = React.useState({});
 
+  // Time sync state
+  const [systemTime, setSystemTime] = React.useState(null);
+  const [timeSyncStatus, setTimeSyncStatus] = React.useState(null);
+  const [timeSyncLoading, setTimeSyncLoading] = React.useState(false);
+  const [lastSyncInfo, setLastSyncInfo] = React.useState(null);
+
+  // Fetch current system time
+  const fetchSystemTime = () => {
+    fetch(`${API_BASE_URL}/system-time`)
+      .then(res => res.json())
+      .then(data => setSystemTime(data))
+      .catch(err => console.error("Failed to fetch system time:", err));
+  };
+
+  // Sync time manually
+  const handleTimeSync = () => {
+    setTimeSyncLoading(true);
+    setTimeSyncStatus(null);
+    fetch(`${API_BASE_URL}/sync-time`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timestamp: new Date().toISOString() })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setTimeSyncLoading(false);
+        if (data.error) {
+          setTimeSyncStatus({ type: 'error', message: data.error });
+        } else if (data.skipped) {
+          setTimeSyncStatus({ type: 'warning', message: data.message });
+        } else {
+          setTimeSyncStatus({ type: 'success', message: data.message });
+          setLastSyncInfo(data);
+        }
+        fetchSystemTime();
+        setTimeout(() => setTimeSyncStatus(null), 5000);
+      })
+      .catch(err => {
+        setTimeSyncLoading(false);
+        setTimeSyncStatus({ type: 'error', message: err.message });
+      });
+  };
+
+  // Fetch system time on mount
+  React.useEffect(() => {
+    fetchSystemTime();
+    const interval = setInterval(fetchSystemTime, 5000);
+    return () => clearInterval(interval);
+  }, []);
+
   // Fetch alert rules on mount
   React.useEffect(() => {
     setAlertRulesLoading(true);
@@ -264,6 +314,78 @@ function Settings() {
             <Typography>No alert rules found.</Typography>
           )
         )}
+      </Box>
+
+      {/* System Time Sync Section */}
+      <Box mt={4}>
+        <Typography variant="h5" gutterBottom>System Time</Typography>
+        <Paper sx={{ p: 2, maxWidth: 600 }}>
+          <Box display="flex" flexDirection="column" gap={2}>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary">Current System Time:</Typography>
+              <Typography variant="h6">
+                {systemTime ? new Date(systemTime.time).toLocaleString() : 'Loading...'}
+              </Typography>
+              {systemTime && (
+                <Typography variant="caption" color="text.secondary">
+                  Platform: {systemTime.platform}
+                </Typography>
+              )}
+            </Box>
+            
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                Browser Time: {new Date().toLocaleString()}
+              </Typography>
+            </Box>
+
+            {lastSyncInfo && (
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary">Last Sync:</Typography>
+                <Typography variant="body2">
+                  {lastSyncInfo.previousTime ? 
+                    `${new Date(lastSyncInfo.previousTime).toLocaleString()} → ${new Date(lastSyncInfo.time).toLocaleString()}` :
+                    new Date(lastSyncInfo.time).toLocaleString()
+                  }
+                </Typography>
+                {lastSyncInfo.differenceMs !== undefined && (
+                  <Typography variant="caption" color="text.secondary">
+                    Time difference: {lastSyncInfo.differenceMs}ms
+                  </Typography>
+                )}
+              </Box>
+            )}
+
+            <Box>
+              <Button
+                variant="contained"
+                color="primary"
+                onClick={handleTimeSync}
+                disabled={timeSyncLoading}
+                startIcon={timeSyncLoading ? <CircularProgress size={16} /> : null}
+              >
+                {timeSyncLoading ? 'Syncing...' : 'Sync Time with Browser'}
+              </Button>
+              {timeSyncStatus && (
+                <Box mt={1}>
+                  <Typography 
+                    variant="body2" 
+                    color={
+                      timeSyncStatus.type === 'success' ? 'success.main' : 
+                      timeSyncStatus.type === 'error' ? 'error.main' : 
+                      'warning.main'
+                    }
+                  >
+                    {timeSyncStatus.type === 'success' ? '✔ ' : 
+                     timeSyncStatus.type === 'error' ? '✖ ' : 
+                     '⚠ '}
+                    {timeSyncStatus.message}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          </Box>
+        </Paper>
       </Box>
     </Box>
   );

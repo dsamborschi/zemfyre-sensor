@@ -210,19 +210,64 @@ app.post("/sync-time", (req, res) => {
   if (!timestamp) {
     return res.status(400).json({ error: "timestamp is required" });
   }
+  
+  // Skip time sync on Windows hosts
+  if (process.platform === 'win32') {
+    console.log(`[${new Date().toISOString()}] Time sync skipped on Windows host`);
+    return res.json({ 
+      message: "Time sync not supported on Windows host", 
+      skipped: true,
+      platform: process.platform,
+      currentTime: new Date().toISOString()
+    });
+  }
+  
   const date = new Date(timestamp);
   if (isNaN(date.getTime())) {
     return res.status(400).json({ error: "Invalid timestamp" });
   }
+  
+  // Validate time is reasonable (not more than 10 years in past/future)
+  const now = Date.now();
+  const tenYears = 10 * 365 * 24 * 60 * 60 * 1000;
+  if (Math.abs(date.getTime() - now) > tenYears) {
+    return res.status(400).json({ 
+      error: "Timestamp too far from current time", 
+      provided: date.toISOString(),
+      current: new Date().toISOString()
+    });
+  }
+  
+  const oldTime = new Date();
+  const timeDiff = Math.abs(date.getTime() - oldTime.getTime());
   const unixSeconds = Math.floor(date.getTime() / 1000);
+  
   execFile("date", ["-s", `@${unixSeconds}`], (error) => {
     if (error) {
       console.error("Time sync error:", error);
+      // Check if it's a permission error
+      if (error.message.includes("Operation not permitted") || error.message.includes("Permission denied")) {
+        return res.status(403).json({ 
+          error: "Permission denied - time sync requires elevated privileges",
+          details: "Run the container with appropriate privileges or CAP_SYS_TIME capability",
+          skipped: true
+        });
+      }
       return res.status(500).json({ error: error.message });
     }
-    console.log(`[${new Date().toISOString()}] System time synced to: ${date.toISOString()}`);
-    res.json({ message: "System time synchronized", time: date.toISOString() });
+    console.log(`[${new Date().toISOString()}] System time synced: ${oldTime.toISOString()} → ${date.toISOString()} (diff: ${timeDiff}ms)`);
+    res.json({ 
+      message: "System time synchronized", 
+      time: date.toISOString(),
+      previousTime: oldTime.toISOString(),
+      differenceMs: timeDiff
+    });
   });
+});
+
+// Get current system time
+app.get("/system-time", (req, res) => {
+  res.json({ time: new Date().toISOString(), platform: process.platform });
 });
 
 app.post("/notify", (req, res) => {

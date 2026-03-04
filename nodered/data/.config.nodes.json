@@ -1,7 +1,7 @@
 {
     "node-red": {
         "name": "node-red",
-        "version": "4.1.0",
+        "version": "4.1.6",
         "local": false,
         "user": false,
         "nodes": {
@@ -1156,7 +1156,7 @@
     },
     "node-red-contrib-opcua": {
         "name": "node-red-contrib-opcua",
-        "version": "0.2.340",
+        "version": "0.2.348",
         "local": true,
         "user": true,
         "nodes": {
