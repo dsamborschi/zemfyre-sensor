@@ -56,7 +56,8 @@ function Settings() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch alert rules on mount
+  // Fetch alert rules on mount - COMMENTED OUT
+  /*
   React.useEffect(() => {
     setAlertRulesLoading(true);
     fetch(`${API_BASE_URL}/grafana/alert-rules`)
@@ -73,6 +74,7 @@ function Settings() {
         setAlertRulesLoading(false);
       });
   }, []);
+  */
 
   const handleThresholdEdit = (uid, value) => {
     setThresholdEdits(prev => ({ ...prev, [uid]: value }));
@@ -106,7 +108,8 @@ function Settings() {
   const [varEdits, setVarEdits] = React.useState({});
   const [updateStatus, setUpdateStatus] = React.useState({});
 
-  // Fetch dashboards on mount
+  // Fetch dashboards on mount - COMMENTED OUT
+  /*
   React.useEffect(() => {
     setDashboardsLoading(true);
     fetch(`${API_BASE_URL}/grafana/dashboards`)
@@ -131,8 +134,10 @@ function Settings() {
         setDashboardsLoading(false);
       });
   }, []);
+  */
 
-  // Fetch variables when dashboard selected
+  // Fetch variables when dashboard selected - COMMENTED OUT
+  /*
   React.useEffect(() => {
     if (!selectedDashboard) return;
     setVariablesLoading(true);
@@ -153,6 +158,7 @@ function Settings() {
         setVariablesLoading(false);
       });
   }, [selectedDashboard]);
+  */
 
   const handleVarEdit = (name, value) => {
     setVarEdits(prev => ({ ...prev, [name]: value }));
@@ -180,6 +186,7 @@ function Settings() {
 
   return (
     <Box width="100%" textAlign="left" mt={2}>
+      {/* Grafana Variables section commented out
       <Typography variant="h5" gutterBottom>Grafana Variables</Typography>
       {dashboardsLoading && <Typography>Loading dashboards...</Typography>}
       {dashboardsError && <Typography color="error">{dashboardsError}</Typography>}
@@ -252,8 +259,9 @@ function Settings() {
           </TableContainer>
         </Box>
       )}
+      */}
 
-      {/* Alert Rules Section */}
+      {/* Alert Rules Section - COMMENTED OUT
       <Box mt={4}>
         <Typography variant="h5" gutterBottom>Grafana Alert Rules</Typography>
         {alertRulesLoading && <Typography>Loading alert rules...</Typography>}
@@ -315,6 +323,7 @@ function Settings() {
           )
         )}
       </Box>
+      */}
 
       {/* System Time Sync Section */}
       <Box mt={4}>
@@ -705,7 +714,8 @@ function App() {
   const [selectedDashboard, setSelectedDashboard] = React.useState(null);
   const [dashboardMenuAnchor, setDashboardMenuAnchor] = React.useState(null);
 
-  // Fetch dashboards from backend API (which proxies Grafana)
+  // Fetch dashboards from backend API (which proxies Grafana) - COMMENTED OUT
+  /*
   React.useEffect(() => {
     setDashboardsLoading(true);
     fetch(GRAFANA_API_URL)
@@ -722,13 +732,13 @@ function App() {
         setDashboardsLoading(false);
       });
   }, []);
+  */
 
   // Compute Grafana iframe URL
   const grafanaURL = selectedDashboard
     ? `http://localhost:53000/d/${selectedDashboard.uid || selectedDashboard.id}/${selectedDashboard.slug || selectedDashboard.uri.replace('db/', '')}?orgId=1&refresh=auto&from=now-5m&to=now&kiosk`
     : "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
   const noderedURL = "http://localhost:51880";
-  const appsURL = "http://localhost:59000/#!/3/docker/containers";
 
   return (
     <Box display="flex" flexDirection="column" height="100vh">
@@ -752,17 +762,7 @@ function App() {
             >
               Home
             </Button>
-            <Button 
-              color="inherit" 
-              onClick={() => setView("apps")}
-              style={{ 
-                backgroundColor: view === "apps" ? "rgba(255,255,255,0.1)" : "transparent",
-                fontWeight: view === "apps" ? "bold" : "normal"
-              }}
-            >
-              Apps
-            </Button>
-            {/* Dashboards dropdown */}
+            {/* Dashboards dropdown commented out
             <Button
               color="inherit"
               onClick={e => setDashboardMenuAnchor(e.currentTarget)}
@@ -800,6 +800,7 @@ function App() {
                 <MenuItem disabled>No dashboards found</MenuItem>
               )}
             </Menu>
+            */}
             <Button 
               color="inherit" 
               onClick={() => setView("nodered")}
@@ -949,38 +950,6 @@ function App() {
             <iframe
               src={noderedURL}
               title="Node-Red"
-              width="100%"
-              height="100%"
-              frameBorder="0"
-              style={{ border: 0 }}
-            ></iframe>
-          </Box>
-        )}
-         {view === "apps" && (
-          <Box height="100%" position="relative">
-            {kioskMode && (
-              <Button
-                variant="contained"
-                size="small"
-                style={{
-                  position: "absolute",
-                  top: 10,
-                  right: 10,
-                  zIndex: 10,
-                  minWidth: 36,
-                  padding: 4
-                }}
-                onClick={() => setKioskMode(false)}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="3" y="5" width="14" height="10" rx="2" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M7 13L13 7M13 13L7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </Button>
-            )}
-            <iframe
-              src={appsURL}
-              title="Apps"
               width="100%"
               height="100%"
               frameBorder="0"

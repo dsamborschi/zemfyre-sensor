@@ -11,3 +11,4 @@ influx/data/influxd.sqlite
 ansible/.env.pi
 
 
+portainer/data/portainer.db
