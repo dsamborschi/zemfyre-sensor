@@ -52,6 +52,30 @@
   failed_when: false
   changed_when: false
 
+- name: Aggressive cleanup - stop all containers
+  ansible.builtin.shell: |
+    docker stop $(docker ps -aq) 2>/dev/null || true
+  become: true
+  changed_when: false
+
+- name: Aggressive cleanup - remove all containers
+  ansible.builtin.shell: |
+    docker rm -f $(docker ps -aq) 2>/dev/null || true
+  become: true
+  changed_when: false
+
+- name: Aggressive cleanup - remove unused volumes
+  ansible.builtin.shell: |
+    docker volume prune -f 2>/dev/null || true
+  become: true
+  changed_when: false
+
+- name: Aggressive cleanup - remove unused networks
+  ansible.builtin.shell: |
+    docker network prune -f 2>/dev/null || true
+  become: true
+  changed_when: false
+
 - name: Stop and remove existing containers (if any)
   ansible.builtin.shell: |
     cd {{ repo_dir }}
