@@ -53,14 +53,13 @@
   changed_when: false
 
 - name: Run Docker Compose (Headless mode with Pi override)
-  community.docker.docker_compose_v2:
-    project_src: "{{ repo_dir }}"
-    files:
-      - docker-compose.yml
-    state: present
-    build: always
-  become: true
+  ansible.builtin.shell: |
+    cd {{ repo_dir }}
+    docker compose -f docker-compose.yml up -d --build 2>&1 | tail -50
   register: compose_output
+  changed_when: "'up-to-date' not in compose_output.stdout and 'already exists' not in compose_output.stdout"
+  become: true
+  become_user: "{{ kiosk_user }}"
 
 - name: Prune unused Docker images (dangling only)
   community.docker.docker_prune:
