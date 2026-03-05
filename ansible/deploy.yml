@@ -4,7 +4,8 @@
   become: yes
   vars:
     repo_url: "https://github.com/dsamborschi/zemfyre-sensor.git"
-    repo_dir: "iotistic"
+    repo_dir_name: "iotistic"
+    repo_dir: "/home/zemfyre/iotistic"
     kiosk_user: "zemfyre"
     ntp_server_ip: "192.168.2.121"
     nm_ip: "192.168.2.30/24"

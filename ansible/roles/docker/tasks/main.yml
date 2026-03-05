@@ -4,6 +4,15 @@
   failed_when: false
   changed_when: false
 
+- name: Clone repository if not present
+  ansible.builtin.git:
+    repo: "{{ repo_url }}"
+    dest: "{{ repo_dir }}"
+    version: master
+    update: yes
+  become_user: "{{ kiosk_user }}"
+  when: repo_url is defined and repo_dir is defined
+
 - name: Install Docker if not present
   block:
     - name: Download Docker installation script
