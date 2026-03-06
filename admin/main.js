@@ -762,6 +762,16 @@ function App() {
             >
               Home
             </Button>
+            <Button 
+              color="inherit" 
+              onClick={() => setView("dashboard")}
+              style={{ 
+                backgroundColor: view === "dashboard" ? "rgba(255,255,255,0.1)" : "transparent",
+                fontWeight: view === "dashboard" ? "bold" : "normal"
+              }}
+            >
+              Grafana
+            </Button>
             {/* Dashboards dropdown commented out
             <Button
               color="inherit"
