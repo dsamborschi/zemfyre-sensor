@@ -9,6 +9,3 @@ influx/data/influxd.sqlite
 .env.production
 .env.staging
 ansible/.env.pi
-
-
-portainer/data/portainer.db

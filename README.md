@@ -285,8 +285,7 @@ zemfyre-sensor/
 ├── bme688/                # Environmental sensor code
 ├── mosquitto/             # MQTT broker config
 ├── nginx/                 # Reverse proxy config
-├── nodered/               # Node-RED flows and nodes
-└── portainer/             # Container management
+└── nodered/               # Node-RED flows and nodes
 ```
 
 3. **Add to Docker Compose**:
