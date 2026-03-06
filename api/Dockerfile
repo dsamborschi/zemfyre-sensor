@@ -4,10 +4,11 @@ WORKDIR /usr/src/app
 
 COPY package*.json ./
 RUN npm install --production
-RUN apt-get update && apt-get install -y libnotify-bin
+
+# Install libnotify-bin, but don't fail if it's not available
+RUN apt-get update && apt-get install -y libnotify-bin || true
 
 COPY . .
 
 EXPOSE 3001
-# cd api && npm start
 CMD ["npm", "start"]
