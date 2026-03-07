@@ -22,8 +22,10 @@
 
 - name: Set gateway
   command: nmcli connection modify eth0 ipv4.gateway "{{ nm_gateway }}"
+  when: nm_gateway is defined and (nm_gateway | trim | length) > 0
   become: true
 
 - name: Set DNS
   command: nmcli connection modify eth0 ipv4.dns "{{ nm_dns }}"
+  when: nm_dns is defined and (nm_dns | trim | length) > 0
   become: true

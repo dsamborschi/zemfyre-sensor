@@ -14,6 +14,17 @@
   become_user: "{{ kiosk_user }}"
   when: repo_url is defined and repo_dir is defined
 
+- name: Force repository to match remote master
+  ansible.builtin.shell: |
+    cd {{ repo_dir }}
+    git fetch --all --prune
+    git reset --hard origin/master
+    git clean -fd
+  become: true
+  become_user: "{{ kiosk_user }}"
+  when: repo_url is defined and repo_dir is defined
+  changed_when: false
+
 - name: Install Docker if not present
   block:
     - name: Download Docker installation script
