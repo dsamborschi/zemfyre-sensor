@@ -11,6 +11,7 @@ function Settings() {
   const [timeSyncStatus, setTimeSyncStatus] = React.useState(null);
   const [timeSyncLoading, setTimeSyncLoading] = React.useState(false);
   const [lastSyncInfo, setLastSyncInfo] = React.useState(null);
+  const [refreshPaused, setRefreshPaused] = React.useState(false);
 
   // Fetch current system time
   const fetchSystemTime = () => {
@@ -24,6 +25,9 @@ function Settings() {
   const handleTimeSync = () => {
     // Capture current system time before sync
     const beforeTime = systemTime ? systemTime.time : null;
+    
+    // Pause auto-refresh so user can see the sync action clearly
+    setRefreshPaused(true);
     
     setTimeSyncLoading(true);
     setTimeSyncStatus(null);
@@ -56,22 +60,32 @@ function Settings() {
           setLastSyncInfo(data);
         }
         fetchSystemTime();
-        // Keep success message visible longer (15 seconds)
-        setTimeout(() => setTimeSyncStatus(null), 15000);
+        // Resume auto-refresh after 15 seconds
+        setTimeout(() => {
+          setTimeSyncStatus(null);
+          setRefreshPaused(false);
+        }, 15000);
       })
       .catch(err => {
         setTimeSyncLoading(false);
         setTimeSyncStatus({ type: 'error', message: err.message });
-        setTimeout(() => setTimeSyncStatus(null), 10000);
+        setTimeout(() => {
+          setTimeSyncStatus(null);
+          setRefreshPaused(false);
+        }, 10000);
       });
   };
 
   // Fetch system time on mount
   React.useEffect(() => {
     fetchSystemTime();
-    const interval = setInterval(fetchSystemTime, 5000);
+    const interval = setInterval(() => {
+      if (!refreshPaused) {
+        fetchSystemTime();
+      }
+    }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [refreshPaused]);
 
   // Fetch alert rules on mount - COMMENTED OUT
   /*
@@ -383,15 +397,32 @@ function Settings() {
             )}
 
             <Box>
-              <Button
-                variant="contained"
-                color="primary"
-                onClick={handleTimeSync}
-                disabled={timeSyncLoading}
-                startIcon={timeSyncLoading ? <CircularProgress size={16} /> : null}
-              >
-                {timeSyncLoading ? 'Syncing...' : 'Sync Time with Browser'}
-              </Button>
+              <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={handleTimeSync}
+                  disabled={timeSyncLoading}
+                  startIcon={timeSyncLoading ? <CircularProgress size={16} /> : null}
+                >
+                  {timeSyncLoading ? 'Syncing...' : 'Sync Time with Browser'}
+                </Button>
+                
+                <Button
+                  variant="outlined"
+                  color={refreshPaused ? 'warning' : 'secondary'}
+                  onClick={() => setRefreshPaused(!refreshPaused)}
+                >
+                  {refreshPaused ? '▶ Resume Auto-Refresh' : '⏸ Pause Auto-Refresh'}
+                </Button>
+                
+                {!refreshPaused && (
+                  <Typography variant="caption" color="text.secondary">
+                    (Auto-refreshing every 5s)
+                  </Typography>
+                )}
+              </Box>
+              
               {timeSyncStatus && (
                 <Box mt={1}>
                   <Typography 
