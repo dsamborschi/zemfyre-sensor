@@ -61,6 +61,12 @@ cat /home/${USER}/iotistic/docker-compose.yml.tmpl \
     | envsubst \
     > /home/${USER}/iotistic/docker-compose.yml
 
+# Force git repository to match remote before building containers
+cd /home/${USER}/iotistic
+git fetch origin ${GIT_BRANCH}
+git reset --hard origin/${GIT_BRANCH}
+git clean -fd
+
 if [[ "$DEVICE_TYPE" =~ ^(x86|pi5)$ ]]; then
     sed -i '/devices:/ {N; /\n.*\/dev\/vchiq:\/dev\/vchiq/d}' \
         /home/${USER}/iotistic/docker-compose.yml
@@ -76,4 +82,4 @@ fi
 
 sudo -E docker compose \
     -f /home/${USER}/iotistic/docker-compose.yml \
-    up -d
+    up -d --build --force-recreate --pull always
