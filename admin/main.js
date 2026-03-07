@@ -14,7 +14,10 @@ function Settings() {
   const [refreshPaused, setRefreshPaused] = React.useState(false);
   const [browserNow, setBrowserNow] = React.useState(new Date());
   const [lastRemoteRefreshAt, setLastRemoteRefreshAt] = React.useState(null);
-  const [autoSyncEnabled, setAutoSyncEnabled] = React.useState(true);
+  const [autoSyncEnabled, setAutoSyncEnabled] = React.useState(() => {
+    const stored = localStorage.getItem('autoSyncEnabled');
+    return stored !== null ? stored === 'true' : true;
+  });
   const [lastAutoSyncAt, setLastAutoSyncAt] = React.useState(null);
 
   const AUTO_SYNC_THRESHOLD_MS = 30000;
@@ -138,6 +141,11 @@ function Settings() {
 
     return () => clearInterval(browserClockInterval);
   }, []);
+
+  // Persist autoSyncEnabled to localStorage
+  React.useEffect(() => {
+    localStorage.setItem('autoSyncEnabled', autoSyncEnabled.toString());
+  }, [autoSyncEnabled]);
 
   React.useEffect(() => {
     if (!autoSyncEnabled || refreshPaused || timeSyncLoading) return;
