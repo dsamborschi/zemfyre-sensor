@@ -14,6 +14,11 @@ function Settings() {
   const [refreshPaused, setRefreshPaused] = React.useState(false);
   const [browserNow, setBrowserNow] = React.useState(new Date());
   const [lastRemoteRefreshAt, setLastRemoteRefreshAt] = React.useState(null);
+  const [autoSyncEnabled, setAutoSyncEnabled] = React.useState(true);
+  const [lastAutoSyncAt, setLastAutoSyncAt] = React.useState(null);
+
+  const AUTO_SYNC_THRESHOLD_MS = 30000;
+  const AUTO_SYNC_COOLDOWN_MS = 120000;
 
   // Fetch current system time
   const fetchSystemTime = () => {
@@ -81,6 +86,39 @@ function Settings() {
       });
   };
 
+  const handleAutoTimeSync = () => {
+    if (timeSyncLoading) return;
+
+    setTimeSyncLoading(true);
+    fetch(`${API_BASE_URL}/sync-time`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ timestamp: new Date().toISOString() })
+    })
+      .then(res => res.json())
+      .then(data => {
+        setTimeSyncLoading(false);
+        if (data.error || data.skipped) {
+          return;
+        }
+
+        const timeDiff = data.differenceMs || 0;
+        const diffSeconds = Math.abs(timeDiff / 1000).toFixed(1);
+        setLastAutoSyncAt(new Date());
+        setLastSyncInfo(data);
+        setTimeSyncStatus({
+          type: 'success',
+          message: `Auto-sync applied (${diffSeconds}s adjustment).`
+        });
+
+        fetchSystemTime();
+        setTimeout(() => setTimeSyncStatus(null), 5000);
+      })
+      .catch(() => {
+        setTimeSyncLoading(false);
+      });
+  };
+
   // Fetch system time on mount
   React.useEffect(() => {
     fetchSystemTime();
@@ -100,6 +138,22 @@ function Settings() {
 
     return () => clearInterval(browserClockInterval);
   }, []);
+
+  React.useEffect(() => {
+    if (!autoSyncEnabled || refreshPaused || timeSyncLoading) return;
+
+    const remoteDate = systemTime ? new Date(systemTime.time) : null;
+    if (!remoteDate) return;
+
+    const driftMs = Math.abs(remoteDate.getTime() - browserNow.getTime());
+    if (driftMs < AUTO_SYNC_THRESHOLD_MS) return;
+
+    if (lastAutoSyncAt && (Date.now() - lastAutoSyncAt.getTime()) < AUTO_SYNC_COOLDOWN_MS) {
+      return;
+    }
+
+    handleAutoTimeSync();
+  }, [autoSyncEnabled, refreshPaused, timeSyncLoading, systemTime, browserNow, lastAutoSyncAt]);
 
   // Fetch alert rules on mount - COMMENTED OUT
   /*
@@ -441,6 +495,14 @@ function Settings() {
 
                 <Button
                   variant="outlined"
+                  color={autoSyncEnabled ? 'success' : 'inherit'}
+                  onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}
+                >
+                  {autoSyncEnabled ? 'Auto Sync: ON' : 'Auto Sync: OFF'}
+                </Button>
+
+                <Button
+                  variant="outlined"
                   color="info"
                   onClick={fetchSystemTime}
                   disabled={timeSyncLoading}
@@ -461,6 +523,16 @@ function Settings() {
                 {lastRemoteRefreshAt && (
                   <Typography variant="caption" color="text.secondary">
                     Last remote fetch: {lastRemoteRefreshAt.toLocaleTimeString()}
+                  </Typography>
+                )}
+                {autoSyncEnabled && (
+                  <Typography variant="caption" color="text.secondary">
+                    Auto-sync if delta {'>'} 30s (cooldown 2m)
+                  </Typography>
+                )}
+                {lastAutoSyncAt && (
+                  <Typography variant="caption" color="text.secondary">
+                    Last auto-sync: {lastAutoSyncAt.toLocaleTimeString()}
                   </Typography>
                 )}
               </Box>
