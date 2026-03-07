@@ -905,11 +905,12 @@ function App() {
   }, []);
   */
 
-  // Compute Grafana iframe URL
+  // Compute Grafana iframe URL (use dynamic hostname like API_BASE_URL)
+  const grafanaBaseURL = `${window.location.protocol}//${window.location.hostname}:53000`;
   const grafanaURL = selectedDashboard
-    ? `http://localhost:53000/d/${selectedDashboard.uid || selectedDashboard.id}/${selectedDashboard.slug || selectedDashboard.uri.replace('db/', '')}?orgId=1&refresh=auto&from=now-5m&to=now&kiosk`
-    : "http://localhost:53000/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk";
-  const noderedURL = "http://localhost:51880";
+    ? `${grafanaBaseURL}/d/${selectedDashboard.uid || selectedDashboard.id}/${selectedDashboard.slug || selectedDashboard.uri.replace('db/', '')}?orgId=1&refresh=auto&from=now-5m&to=now&kiosk`
+    : `${grafanaBaseURL}/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk`;
+  const noderedURL = `${window.location.protocol}//${window.location.hostname}:51880`;
 
   return (
     <Box display="flex" flexDirection="column" height="100vh">
