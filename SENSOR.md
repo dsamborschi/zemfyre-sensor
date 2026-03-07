@@ -272,6 +272,29 @@ ss -ltnp | grep 1883
 # 3) Watch messages locally at broker
 mosquitto_sub -h 127.0.0.1 -p 1883 -t '#' -v
 
+## TESTING TIME SYNC
+
+
+# 1) Stop NTP
+
+sudo timedatectl set-ntp false
+sudo systemctl stop systemd-timesyncd
+
+# 2) Confirm it is off
+
+timedatectl
+
+
+# 3) Now your manual time change will stick:
+
+sudo date -s "+5 minutes"
+date
+
+# 4) After testing, re-enable normal syncing:
+
+sudo systemctl start systemd-timesyncd
+sudo timedatectl set-ntp true
+
 ---
 
 *For technical support and additional resources, visit [zemfyre.com](https://zemfyre.com)*
