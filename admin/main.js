@@ -22,6 +22,9 @@ function Settings() {
 
   // Sync time manually
   const handleTimeSync = () => {
+    // Capture current system time before sync
+    const beforeTime = systemTime ? systemTime.time : null;
+    
     setTimeSyncLoading(true);
     setTimeSyncStatus(null);
     fetch(`${API_BASE_URL}/sync-time`, {
@@ -37,15 +40,29 @@ function Settings() {
         } else if (data.skipped) {
           setTimeSyncStatus({ type: 'warning', message: data.message });
         } else {
-          setTimeSyncStatus({ type: 'success', message: data.message });
+          // Calculate time difference for display
+          const timeDiff = data.differenceMs || 0;
+          const diffSeconds = Math.abs(timeDiff / 1000).toFixed(1);
+          
+          setTimeSyncStatus({ 
+            type: 'success', 
+            message: `✓ Time synced successfully! Adjusted by ${diffSeconds} seconds.`,
+            details: {
+              before: beforeTime,
+              after: data.time,
+              difference: timeDiff
+            }
+          });
           setLastSyncInfo(data);
         }
         fetchSystemTime();
-        setTimeout(() => setTimeSyncStatus(null), 5000);
+        // Keep success message visible longer (15 seconds)
+        setTimeout(() => setTimeSyncStatus(null), 15000);
       })
       .catch(err => {
         setTimeSyncLoading(false);
         setTimeSyncStatus({ type: 'error', message: err.message });
+        setTimeout(() => setTimeSyncStatus(null), 10000);
       });
   };
 
