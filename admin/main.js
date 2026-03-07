@@ -12,12 +12,17 @@ function Settings() {
   const [timeSyncLoading, setTimeSyncLoading] = React.useState(false);
   const [lastSyncInfo, setLastSyncInfo] = React.useState(null);
   const [refreshPaused, setRefreshPaused] = React.useState(false);
+  const [browserNow, setBrowserNow] = React.useState(new Date());
+  const [lastRemoteRefreshAt, setLastRemoteRefreshAt] = React.useState(null);
 
   // Fetch current system time
   const fetchSystemTime = () => {
     fetch(`${API_BASE_URL}/system-time`)
       .then(res => res.json())
-      .then(data => setSystemTime(data))
+      .then(data => {
+        setSystemTime(data);
+        setLastRemoteRefreshAt(new Date());
+      })
       .catch(err => console.error("Failed to fetch system time:", err));
   };
 
@@ -86,6 +91,15 @@ function Settings() {
     }, 5000);
     return () => clearInterval(interval);
   }, [refreshPaused]);
+
+  // Keep browser clock live so comparison is easy to read.
+  React.useEffect(() => {
+    const browserClockInterval = setInterval(() => {
+      setBrowserNow(new Date());
+    }, 1000);
+
+    return () => clearInterval(browserClockInterval);
+  }, []);
 
   // Fetch alert rules on mount - COMMENTED OUT
   /*
@@ -214,6 +228,11 @@ function Settings() {
       })
       .catch(() => setUpdateStatus(prev => ({ ...prev, [name]: 'error' })));
   };
+
+  const remoteDate = systemTime ? new Date(systemTime.time) : null;
+  const skewMs = remoteDate ? remoteDate.getTime() - browserNow.getTime() : null;
+  const skewAbsMs = skewMs !== null ? Math.abs(skewMs) : null;
+  const skewDirection = skewMs !== null ? (skewMs >= 0 ? "ahead" : "behind") : null;
 
   return (
     <Box width="100%" textAlign="left" mt={2}>
@@ -362,9 +381,9 @@ function Settings() {
         <Paper sx={{ p: 2, maxWidth: 600 }}>
           <Box display="flex" flexDirection="column" gap={2}>
             <Box>
-              <Typography variant="subtitle2" color="text.secondary">Current System Time:</Typography>
+              <Typography variant="subtitle2" color="text.secondary">Remote Time (Pi/API):</Typography>
               <Typography variant="h6">
-                {systemTime ? new Date(systemTime.time).toLocaleString() : 'Loading...'}
+                {remoteDate ? remoteDate.toLocaleString() : 'Loading...'}
               </Typography>
               {systemTime && (
                 <Typography variant="caption" color="text.secondary">
@@ -374,9 +393,13 @@ function Settings() {
             </Box>
             
             <Box>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Browser Time: {new Date().toLocaleString()}
-              </Typography>
+              <Typography variant="subtitle2" color="text.secondary">Browser Time:</Typography>
+              <Typography variant="h6">{browserNow.toLocaleString()}</Typography>
+              {skewMs !== null && (
+                <Typography variant="caption" color={skewAbsMs > 1000 ? "warning.main" : "text.secondary"}>
+                  Delta (Remote - Browser): {skewMs}ms ({skewAbsMs}ms {skewDirection})
+                </Typography>
+              )}
             </Box>
 
             {lastSyncInfo && (
@@ -415,10 +438,29 @@ function Settings() {
                 >
                   {refreshPaused ? '▶ Resume Auto-Refresh' : '⏸ Pause Auto-Refresh'}
                 </Button>
+
+                <Button
+                  variant="outlined"
+                  color="info"
+                  onClick={fetchSystemTime}
+                  disabled={timeSyncLoading}
+                >
+                  Refresh Remote Time
+                </Button>
                 
                 {!refreshPaused && (
                   <Typography variant="caption" color="text.secondary">
                     (Auto-refreshing every 5s)
+                  </Typography>
+                )}
+                {refreshPaused && (
+                  <Typography variant="caption" color="warning.main">
+                    Auto-refresh paused. Change Pi time, then click "Refresh Remote Time".
+                  </Typography>
+                )}
+                {lastRemoteRefreshAt && (
+                  <Typography variant="caption" color="text.secondary">
+                    Last remote fetch: {lastRemoteRefreshAt.toLocaleTimeString()}
                   </Typography>
                 )}
               </Box>
