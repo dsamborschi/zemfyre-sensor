@@ -265,9 +265,27 @@ app.post("/sync-time", (req, res) => {
   });
 });
 
-// Get current system time
+// Get current system time from host
 app.get("/system-time", (req, res) => {
-  res.json({ time: new Date().toISOString(), platform: process.platform });
+  // Try to get host time using 'date' command
+  exec("date --iso-8601=seconds", (error, stdout, stderr) => {
+    if (error) {
+      console.error("Failed to get system time:", error);
+      // Fallback to container time
+      return res.json({ 
+        time: new Date().toISOString(), 
+        platform: process.platform,
+        source: "container"
+      });
+    }
+    
+    const hostTime = stdout.trim();
+    res.json({ 
+      time: hostTime, 
+      platform: process.platform,
+      source: "host"
+    });
+  });
 });
 
 app.post("/notify", (req, res) => {
