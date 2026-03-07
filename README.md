@@ -373,6 +373,72 @@ docker stats
 df -h
 ```
 
+## 🔧 Troubleshooting
+
+### System Time Out of Sync (APT Release File Invalid)
+
+If you see errors like `Release file for http://archive.raspberrypi.com/debian/dists/bookworm/InRelease is not valid yet`, your Pi's system time is ahead. Fix it immediately:
+
+```bash
+# Disable NTP temporarily to prevent further drift
+sudo timedatectl set-ntp false
+
+# Switch to public NTP pools for reliable time sync
+sudo sed -i 's/^NTP=.*/NTP=0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org 3.pool.ntp.org/' /etc/systemd/timesyncd.conf
+
+# Restart time sync service
+sudo systemctl restart systemd-timesyncd
+
+# Wait for sync to complete
+sleep 3
+
+# Verify time is correct
+timedatectl
+date
+```
+
+**Note**: If system time drifts again, check network connectivity:
+```bash
+# Verify gateway is configured (required for NTP)
+nmcli connection show eth0 | grep ipv4
+
+# If gateway is missing, add it:
+sudo nmcli connection modify eth0 ipv4.gateway 192.168.2.1
+sudo nmcli connection up eth0
+
+# Then re-enable NTP
+sudo timedatectl set-ntp true
+```
+
+### Container Build Failures
+
+If `docker compose up --build` fails:
+
+```bash
+# Clean up broken images and volumes
+docker system prune -af
+docker volume prune -f
+
+# Rebuild from scratch
+cd /home/zemfyre/iotistic
+docker compose up -d --build --force-recreate --pull always
+```
+
+### API Endpoint Not Responding
+
+If `/system-time` or other API endpoints return connection errors:
+
+```bash
+# Check if API container is running
+docker ps | grep zemfyre-api
+
+# View logs
+docker logs zemfyre-api --tail 50
+
+# Restart API service
+docker compose restart api
+```
+
 ## 🤝 Contributing
 
 We welcome contributions! Please:
