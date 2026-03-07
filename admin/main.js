@@ -402,7 +402,8 @@ function Settings() {
 // VariablesSection: Settings page dashboard/variable management
 const { AppBar, Toolbar, Typography, Button, Box, TreeView, TreeItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Tooltip, Menu, MenuItem, CircularProgress } = MaterialUI;
 
-const API_BASE_URL = "http://localhost:53001";
+// Always target the API on the same host that serves the admin UI.
+const API_BASE_URL = `${window.location.protocol}//${window.location.hostname}:53001`;
 const GRAFANA_API_URL = `${API_BASE_URL}/grafana/dashboards`;
 
 
