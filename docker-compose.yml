@@ -85,6 +85,8 @@ services:
             - NODE_ENV=production
         volumes:
           - /var/run/docker.sock:/var/run/docker.sock
+          - /etc/localtime:/etc/localtime:ro
+          - /etc/timezone:/etc/timezone:ro
         ports:
             - "${API_PORT_EXT:-53001}:3001"
         networks:
