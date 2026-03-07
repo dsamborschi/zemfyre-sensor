@@ -4869,11 +4869,12 @@
         "id": "2f66a05cd6773804",
         "type": "mqtt in",
         "z": "887b6fb15f0f5070",
+        "d": true,
         "name": "Subscribe to ZEM-SB mqtt topic",
         "topic": "ZEM-SB",
         "qos": "2",
         "datatype": "auto-detect",
-        "broker": "ca4f07abb4d962ad",
+        "broker": "3103516c9e0d4edc",
         "nl": false,
         "rap": true,
         "rh": 0,
@@ -4882,7 +4883,8 @@
         "y": 80,
         "wires": [
             [
-                "c3b68be215c18f46"
+                "c3b68be215c18f46",
+                "4ecb03a67a545a4e"
             ]
         ]
     },
@@ -5077,5 +5079,21 @@
                 "e9d2511af1a4fd57"
             ]
         ]
+    },
+    {
+        "id": "4ecb03a67a545a4e",
+        "type": "debug",
+        "z": "887b6fb15f0f5070",
+        "name": "debug 1",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 520,
+        "y": 60,
+        "wires": []
     }
 ]

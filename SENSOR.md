@@ -255,6 +255,23 @@ sensor -status         # Sensor initialization status
 **SPE Technology**: Provided by [Zemfyre Inc](https://zemfyre.com) - Leader in SPE technology  
 **Software Development**: IoT software experts team by [iotistic.ca](http://www.iotistic.ca)
 
+
+
+
+## TROUBLESHOOTING
+
+# 1) Ensure eth0 is up with the sensor subnet IP
+sudo nmcli connection modify eth0 ipv4.method manual ipv4.addresses "192.168.2.30/24"
+sudo nmcli connection up eth0
+ip -4 addr show eth0
+
+# 2) Verify Mosquitto is listening on host port 1883
+docker ps | grep mosquitto
+ss -ltnp | grep 1883
+
+# 3) Watch messages locally at broker
+mosquitto_sub -h 127.0.0.1 -p 1883 -t '#' -v
+
 ---
 
 *For technical support and additional resources, visit [zemfyre.com](https://zemfyre.com)*
