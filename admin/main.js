@@ -1,49 +1,24 @@
 function Settings() {
-  // Alert rules state
-  const [alertRules, setAlertRules] = React.useState([]);
-  const [alertRulesLoading, setAlertRulesLoading] = React.useState(false);
-  const [alertRulesError, setAlertRulesError] = React.useState(null);
-  const [thresholdEdits, setThresholdEdits] = React.useState({});
-  const [thresholdStatus, setThresholdStatus] = React.useState({});
-
-  // Time sync state
-  const [systemTime, setSystemTime] = React.useState(null);
-  const [timeSyncStatus, setTimeSyncStatus] = React.useState(null);
-  const [timeSyncLoading, setTimeSyncLoading] = React.useState(false);
-  const [lastSyncInfo, setLastSyncInfo] = React.useState(null);
-  const [refreshPaused, setRefreshPaused] = React.useState(false);
+  const [piTime, setPiTime] = React.useState(null);
   const [browserNow, setBrowserNow] = React.useState(new Date());
-  const [lastRemoteRefreshAt, setLastRemoteRefreshAt] = React.useState(null);
-  const [autoSyncEnabled, setAutoSyncEnabled] = React.useState(() => {
-    const stored = localStorage.getItem('autoSyncEnabled');
-    return stored !== null ? stored === 'true' : true;
-  });
-  const [lastAutoSyncAt, setLastAutoSyncAt] = React.useState(null);
+  const [syncing, setSyncing] = React.useState(false);
+  const [syncMsg, setSyncMsg] = React.useState(null);
+  const lastAutoSync = React.useRef(0);
 
   const AUTO_SYNC_THRESHOLD_MS = 30000;
   const AUTO_SYNC_COOLDOWN_MS = 120000;
 
-  // Fetch current system time
-  const fetchSystemTime = () => {
+  const fetchPiTime = () => {
     fetch(`${API_BASE_URL}/system-time`)
       .then(res => res.json())
-      .then(data => {
-        setSystemTime(data);
-        setLastRemoteRefreshAt(new Date());
-      })
-      .catch(err => console.error("Failed to fetch system time:", err));
+      .then(data => setPiTime(new Date(data.time)))
+      .catch(() => {});
   };
 
-  // Sync time manually
-  const handleTimeSync = () => {
-    // Capture current system time before sync
-    const beforeTime = systemTime ? systemTime.time : null;
-    
-    // Pause auto-refresh so user can see the sync action clearly
-    setRefreshPaused(true);
-    
-    setTimeSyncLoading(true);
-    setTimeSyncStatus(null);
+  const doSync = (silent) => {
+    if (syncing) return;
+    setSyncing(true);
+    if (!silent) setSyncMsg(null);
     fetch(`${API_BASE_URL}/sync-time`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -51,521 +26,81 @@ function Settings() {
     })
       .then(res => res.json())
       .then(data => {
-        setTimeSyncLoading(false);
-        if (data.error) {
-          setTimeSyncStatus({ type: 'error', message: data.error });
-        } else if (data.skipped) {
-          setTimeSyncStatus({ type: 'warning', message: data.message });
-        } else {
-          // Calculate time difference for display
-          const timeDiff = data.differenceMs || 0;
-          const diffSeconds = Math.abs(timeDiff / 1000).toFixed(1);
-          
-          setTimeSyncStatus({ 
-            type: 'success', 
-            message: `✓ Time synced successfully! Adjusted by ${diffSeconds} seconds.`,
-            details: {
-              before: beforeTime,
-              after: data.time,
-              difference: timeDiff
-            }
-          });
-          setLastSyncInfo(data);
+        setSyncing(false);
+        lastAutoSync.current = Date.now();
+        fetchPiTime();
+        if (!silent) {
+          const adj = data.differenceMs ? `${Math.abs(data.differenceMs / 1000).toFixed(1)}s` : '';
+          setSyncMsg({ ok: !data.error, text: data.error || `Synced${adj ? ` (adjusted ${adj})` : ''}` });
+          setTimeout(() => setSyncMsg(null), 5000);
         }
-        fetchSystemTime();
-        // Resume auto-refresh after 15 seconds
-        setTimeout(() => {
-          setTimeSyncStatus(null);
-          setRefreshPaused(false);
-        }, 15000);
       })
       .catch(err => {
-        setTimeSyncLoading(false);
-        setTimeSyncStatus({ type: 'error', message: err.message });
-        setTimeout(() => {
-          setTimeSyncStatus(null);
-          setRefreshPaused(false);
-        }, 10000);
+        setSyncing(false);
+        if (!silent) setSyncMsg({ ok: false, text: err.message });
       });
   };
 
-  const handleAutoTimeSync = () => {
-    if (timeSyncLoading) return;
-
-    setTimeSyncLoading(true);
-    fetch(`${API_BASE_URL}/sync-time`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ timestamp: new Date().toISOString() })
-    })
-      .then(res => res.json())
-      .then(data => {
-        setTimeSyncLoading(false);
-        if (data.error || data.skipped) {
-          return;
-        }
-
-        const timeDiff = data.differenceMs || 0;
-        const diffSeconds = Math.abs(timeDiff / 1000).toFixed(1);
-        setLastAutoSyncAt(new Date());
-        setLastSyncInfo(data);
-        setTimeSyncStatus({
-          type: 'success',
-          message: `Auto-sync applied (${diffSeconds}s adjustment).`
-        });
-
-        fetchSystemTime();
-        setTimeout(() => setTimeSyncStatus(null), 5000);
-      })
-      .catch(() => {
-        setTimeSyncLoading(false);
-      });
-  };
-
-  // Fetch system time on mount
   React.useEffect(() => {
-    fetchSystemTime();
-    const interval = setInterval(() => {
-      if (!refreshPaused) {
-        fetchSystemTime();
-      }
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [refreshPaused]);
-
-  // Keep browser clock live so comparison is easy to read.
-  React.useEffect(() => {
-    const browserClockInterval = setInterval(() => {
-      setBrowserNow(new Date());
-    }, 1000);
-
-    return () => clearInterval(browserClockInterval);
+    fetchPiTime();
+    const t = setInterval(fetchPiTime, 5000);
+    return () => clearInterval(t);
   }, []);
 
-  // Persist autoSyncEnabled to localStorage
   React.useEffect(() => {
-    localStorage.setItem('autoSyncEnabled', autoSyncEnabled.toString());
-  }, [autoSyncEnabled]);
-
-  React.useEffect(() => {
-    if (!autoSyncEnabled || refreshPaused || timeSyncLoading) return;
-
-    const remoteDate = systemTime ? new Date(systemTime.time) : null;
-    if (!remoteDate) return;
-
-    const driftMs = Math.abs(remoteDate.getTime() - browserNow.getTime());
-    if (driftMs < AUTO_SYNC_THRESHOLD_MS) return;
-
-    if (lastAutoSyncAt && (Date.now() - lastAutoSyncAt.getTime()) < AUTO_SYNC_COOLDOWN_MS) {
-      return;
-    }
-
-    handleAutoTimeSync();
-  }, [autoSyncEnabled, refreshPaused, timeSyncLoading, systemTime, browserNow, lastAutoSyncAt]);
-
-  // Fetch alert rules on mount - COMMENTED OUT
-  /*
-  React.useEffect(() => {
-    setAlertRulesLoading(true);
-    fetch(`${API_BASE_URL}/grafana/alert-rules`)
-      .then(res => {
-        if (!res.ok) throw new Error("Failed to fetch alert rules");
-        return res.json();
-      })
-      .then(data => {
-        setAlertRules(data);
-        setAlertRulesLoading(false);
-      })
-      .catch(err => {
-        setAlertRulesError(err.message);
-        setAlertRulesLoading(false);
-      });
+    const t = setInterval(() => setBrowserNow(new Date()), 1000);
+    return () => clearInterval(t);
   }, []);
-  */
 
-  const handleThresholdEdit = (uid, value) => {
-    setThresholdEdits(prev => ({ ...prev, [uid]: value }));
-  };
-
-  const handleThresholdUpdate = (uid) => {
-    const new_threshold = thresholdEdits[uid];
-    if (new_threshold === undefined || new_threshold === "") return;
-    setThresholdStatus(prev => ({ ...prev, [uid]: "updating" }));
-    fetch(`${API_BASE_URL}/grafana/update-alert-threshold`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rule_uid: uid, new_threshold })
-    })
-      .then(res => res.json())
-      .then(data => {
-        setThresholdStatus(prev => ({ ...prev, [uid]: data.error ? "error" : "success" }));
-        if (!data.error) {
-          setTimeout(() => setThresholdStatus(prev => ({ ...prev, [uid]: undefined })), 2000);
-        }
-      })
-      .catch(() => setThresholdStatus(prev => ({ ...prev, [uid]: "error" })));
-  };
-  const [dashboards, setDashboards] = React.useState([]);
-  const [dashboardsLoading, setDashboardsLoading] = React.useState(false);
-  const [dashboardsError, setDashboardsError] = React.useState(null);
-  const [selectedDashboard, setSelectedDashboard] = React.useState(null);
-  const [variables, setVariables] = React.useState([]);
-  const [variablesLoading, setVariablesLoading] = React.useState(false);
-  const [variablesError, setVariablesError] = React.useState(null);
-  const [varEdits, setVarEdits] = React.useState({});
-  const [updateStatus, setUpdateStatus] = React.useState({});
-
-  // Fetch dashboards on mount - COMMENTED OUT
-  /*
   React.useEffect(() => {
-    setDashboardsLoading(true);
-    fetch(`${API_BASE_URL}/grafana/dashboards`)
-      .then(res => {
-        if (!res.ok) throw new Error("Failed to fetch dashboards");
-        return res.json();
-      })
-      .then(data => {
-        setDashboards(data);
-        // Preselect ZUS80LP_compact dashboard if present
-        const zusDashboard = data.find(d => {
-          const title = (d.title || d.name || d.uri || "").toLowerCase();
-          return title.includes("zus80lp_compact");
-        });
-        if (zusDashboard) {
-          setSelectedDashboard(zusDashboard);
-        }
-        setDashboardsLoading(false);
-      })
-      .catch(err => {
-        setDashboardsError(err.message);
-        setDashboardsLoading(false);
-      });
-  }, []);
-  */
+    if (!piTime || syncing) return;
+    const drift = Math.abs(piTime.getTime() - browserNow.getTime());
+    if (drift < AUTO_SYNC_THRESHOLD_MS) return;
+    if (Date.now() - lastAutoSync.current < AUTO_SYNC_COOLDOWN_MS) return;
+    doSync(true);
+  }, [piTime, browserNow]);
 
-  // Fetch variables when dashboard selected - COMMENTED OUT
-  /*
-  React.useEffect(() => {
-    if (!selectedDashboard) return;
-    setVariablesLoading(true);
-    setVariables([]);
-    setVariablesError(null);
-    fetch(`${API_BASE_URL}/grafana/dashboards/${selectedDashboard.uid}/variables`)
-      .then(res => {
-        if (!res.ok) throw new Error("Failed to fetch variables");
-        return res.json();
-      })
-      .then(data => {
-        setVariables(data);
-        setVarEdits({});
-        setVariablesLoading(false);
-      })
-      .catch(err => {
-        setVariablesError(err.message);
-        setVariablesLoading(false);
-      });
-  }, [selectedDashboard]);
-  */
-
-  const handleVarEdit = (name, value) => {
-    setVarEdits(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleVarUpdate = (name) => {
-    const value = varEdits[name];
-    if (!value) return;
-    setUpdateStatus(prev => ({ ...prev, [name]: 'updating' }));
-    fetch(`${API_BASE_URL}/grafana/dashboards/${selectedDashboard.uid}/variables/${name}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ value })
-    })
-      .then(res => res.json())
-      .then(data => {
-        setUpdateStatus(prev => ({ ...prev, [name]: data.error ? 'error' : 'success' }));
-        // Optionally refresh variables
-        if (!data.error) {
-          setTimeout(() => setUpdateStatus(prev => ({ ...prev, [name]: undefined })), 2000);
-        }
-      })
-      .catch(() => setUpdateStatus(prev => ({ ...prev, [name]: 'error' })));
-  };
-
-  const remoteDate = systemTime ? new Date(systemTime.time) : null;
-  const skewMs = remoteDate ? remoteDate.getTime() - browserNow.getTime() : null;
-  const skewAbsMs = skewMs !== null ? Math.abs(skewMs) : null;
-  const skewDirection = skewMs !== null ? (skewMs >= 0 ? "ahead" : "behind") : null;
+  const skewMs = piTime ? piTime.getTime() - browserNow.getTime() : null;
+  const skewAbs = skewMs !== null ? Math.abs(skewMs) : null;
+  const inSync = skewAbs !== null && skewAbs < 2000;
 
   return (
     <Box width="100%" textAlign="left" mt={2}>
-      {/* Grafana Variables section commented out
-      <Typography variant="h5" gutterBottom>Grafana Variables</Typography>
-      {dashboardsLoading && <Typography>Loading dashboards...</Typography>}
-      {dashboardsError && <Typography color="error">{dashboardsError}</Typography>}
-      <Box mb={2}>
-        <Typography variant="subtitle1">Select Dashboard:</Typography>
-        <Box sx={{ minWidth: 250, mt: 1, mb: 2 }}>
-          <MaterialUI.FormControl fullWidth size="small">
-            <MaterialUI.Select
-              labelId="dashboard-select-label"
-              value={selectedDashboard ? selectedDashboard.uid : ''}
-              label="Dashboard"
-              onChange={e => {
-                const d = dashboards.find(d => d.uid === e.target.value);
-                setSelectedDashboard(d || null);
-              }}
-            >
-              <MaterialUI.MenuItem value="">-- Select --</MaterialUI.MenuItem>
-              {dashboards.map(d => (
-                <MaterialUI.MenuItem key={d.uid || d.id} value={d.uid}>{d.title || d.name || d.uri}</MaterialUI.MenuItem>
-              ))}
-            </MaterialUI.Select>
-          </MaterialUI.FormControl>
-        </Box>
-      </Box>
-      {variablesLoading && <Typography>Loading variables...</Typography>}
-      {variablesError && <Typography color="error">{variablesError}</Typography>}
-      {selectedDashboard && !variablesLoading && variables.length === 0 && (
-        <Typography>No variables found for this dashboard.</Typography>
-      )}
-      {variables.length > 0 && (
-        <Box component="form" autoComplete="off" onSubmit={e => e.preventDefault()}>
-          <TableContainer component={Paper} sx={{ maxWidth: 600 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Variable</TableCell>
-                  <TableCell>Current Value</TableCell>
-                  <TableCell></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {variables.map(v => (
-                  <TableRow key={v.name}>
-                    <TableCell>{v.label}</TableCell>
-                    <TableCell>
-                      <MaterialUI.TextField
-                        size="small"
-                        value={varEdits[v.name] !== undefined ? varEdits[v.name] : (v.current?.value || '')}
-                        onChange={e => handleVarEdit(v.name, e.target.value)}
-                        variant="outlined"
-                        sx={{ width: 120 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="contained"
-                        size="small"
-                        onClick={() => handleVarUpdate(v.name)}
-                        disabled={updateStatus[v.name] === 'updating'}
-                      >
-                        {updateStatus[v.name] === 'updating' ? 'Updating...' : 'Update'}
-                      </Button>
-                      {updateStatus[v.name] === 'success' && <span style={{ color: 'green', marginLeft: 8 }}>✔</span>}
-                      {updateStatus[v.name] === 'error' && <span style={{ color: 'red', marginLeft: 8 }}>✖</span>}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Box>
-      )}
-      */}
-
-      {/* Alert Rules Section - COMMENTED OUT
-      <Box mt={4}>
-        <Typography variant="h5" gutterBottom>Grafana Alert Rules</Typography>
-        {alertRulesLoading && <Typography>Loading alert rules...</Typography>}
-        {alertRulesError && <Typography color="error">{alertRulesError}</Typography>}
-        {(alertRules && alertRules.length > 0) ? (
-          <TableContainer component={Paper} sx={{ maxWidth: 700 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Rule Name</TableCell>
-                  <TableCell>Threshold</TableCell>
-                  <TableCell></TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {alertRules.map(rule => {
-                  // Find threshold value from rule data (refId C)
-                  let threshold = "";
-                  if (rule.data) {
-                    const cData = rule.data.find(d => d.refId === "C");
-                    if (cData && cData.model && cData.model.conditions && cData.model.conditions[0] && cData.model.conditions[0].evaluator && Array.isArray(cData.model.conditions[0].evaluator.params)) {
-                      threshold = cData.model.conditions[0].evaluator.params[0];
-                    }
-                  }
-                  return (
-                    <TableRow key={rule.uid}>
-                      <TableCell>{rule.title || rule.name || rule.uid}</TableCell>
-                      <TableCell>
-                        <MaterialUI.TextField
-                          size="small"
-                          type="number"
-                          value={thresholdEdits[rule.uid] !== undefined ? thresholdEdits[rule.uid] : threshold}
-                          onChange={e => handleThresholdEdit(rule.uid, e.target.value)}
-                          variant="outlined"
-                          sx={{ width: 100 }}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <Button
-                          variant="contained"
-                          size="small"
-                          onClick={() => handleThresholdUpdate(rule.uid)}
-                          disabled={thresholdStatus[rule.uid] === "updating"}
-                        >
-                          {thresholdStatus[rule.uid] === "updating" ? "Updating..." : "Update"}
-                        </Button>
-                        {thresholdStatus[rule.uid] === "success" && <span style={{ color: "green", marginLeft: 8 }}>✔</span>}
-                        {thresholdStatus[rule.uid] === "error" && <span style={{ color: "red", marginLeft: 8 }}>✖</span>}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        ) : (
-          (!alertRulesLoading && alertRules && alertRules.length === 0) && (
-            <Typography>No alert rules found.</Typography>
-          )
-        )}
-      </Box>
-      */}
-
-      {/* System Time Sync Section */}
-      <Box mt={4}>
-        <Typography variant="h5" gutterBottom>System Time</Typography>
-        <Paper sx={{ p: 2, maxWidth: 600 }}>
-          <Box display="flex" flexDirection="column" gap={2}>
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">Remote Time (Pi/API):</Typography>
-              <Typography variant="h6">
-                {remoteDate ? remoteDate.toLocaleString() : 'Loading...'}
-              </Typography>
-              {systemTime && (
-                <Typography variant="caption" color="text.secondary">
-                  Platform: {systemTime.platform}
-                </Typography>
-              )}
-            </Box>
-            
-            <Box>
-              <Typography variant="subtitle2" color="text.secondary">Browser Time:</Typography>
-              <Typography variant="h6">{browserNow.toLocaleString()}</Typography>
-              {skewMs !== null && (
-                <Typography variant="caption" color={skewAbsMs > 1000 ? "warning.main" : "text.secondary"}>
-                  Delta (Remote - Browser): {skewMs}ms ({skewAbsMs}ms {skewDirection})
-                </Typography>
-              )}
-            </Box>
-
-            {lastSyncInfo && (
-              <Box>
-                <Typography variant="subtitle2" color="text.secondary">Last Sync:</Typography>
-                <Typography variant="body2">
-                  {lastSyncInfo.previousTime ? 
-                    `${new Date(lastSyncInfo.previousTime).toLocaleString()} → ${new Date(lastSyncInfo.time).toLocaleString()}` :
-                    new Date(lastSyncInfo.time).toLocaleString()
-                  }
-                </Typography>
-                {lastSyncInfo.differenceMs !== undefined && (
-                  <Typography variant="caption" color="text.secondary">
-                    Time difference: {lastSyncInfo.differenceMs}ms
-                  </Typography>
-                )}
-              </Box>
-            )}
-
-            <Box>
-              <Box display="flex" gap={2} alignItems="center" flexWrap="wrap">
-                <Button
-                  variant="contained"
-                  color="primary"
-                  onClick={handleTimeSync}
-                  disabled={timeSyncLoading}
-                  startIcon={timeSyncLoading ? <CircularProgress size={16} /> : null}
-                >
-                  {timeSyncLoading ? 'Syncing...' : 'Sync Time with Browser'}
-                </Button>
-                
-                <Button
-                  variant="outlined"
-                  color={refreshPaused ? 'warning' : 'secondary'}
-                  onClick={() => setRefreshPaused(!refreshPaused)}
-                >
-                  {refreshPaused ? '▶ Resume Auto-Refresh' : '⏸ Pause Auto-Refresh'}
-                </Button>
-
-                <Button
-                  variant="outlined"
-                  color={autoSyncEnabled ? 'success' : 'inherit'}
-                  onClick={() => setAutoSyncEnabled(!autoSyncEnabled)}
-                >
-                  {autoSyncEnabled ? 'Auto Sync: ON' : 'Auto Sync: OFF'}
-                </Button>
-
-                <Button
-                  variant="outlined"
-                  color="info"
-                  onClick={fetchSystemTime}
-                  disabled={timeSyncLoading}
-                >
-                  Refresh Remote Time
-                </Button>
-                
-                {!refreshPaused && (
-                  <Typography variant="caption" color="text.secondary">
-                    (Auto-refreshing every 5s)
-                  </Typography>
-                )}
-                {refreshPaused && (
-                  <Typography variant="caption" color="warning.main">
-                    Auto-refresh paused. Change Pi time, then click "Refresh Remote Time".
-                  </Typography>
-                )}
-                {lastRemoteRefreshAt && (
-                  <Typography variant="caption" color="text.secondary">
-                    Last remote fetch: {lastRemoteRefreshAt.toLocaleTimeString()}
-                  </Typography>
-                )}
-                {autoSyncEnabled && (
-                  <Typography variant="caption" color="text.secondary">
-                    Auto-sync if delta {'>'} 30s (cooldown 2m)
-                  </Typography>
-                )}
-                {lastAutoSyncAt && (
-                  <Typography variant="caption" color="text.secondary">
-                    Last auto-sync: {lastAutoSyncAt.toLocaleTimeString()}
-                  </Typography>
-                )}
-              </Box>
-              
-              {timeSyncStatus && (
-                <Box mt={1}>
-                  <Typography 
-                    variant="body2" 
-                    color={
-                      timeSyncStatus.type === 'success' ? 'success.main' : 
-                      timeSyncStatus.type === 'error' ? 'error.main' : 
-                      'warning.main'
-                    }
-                  >
-                    {timeSyncStatus.type === 'success' ? '✔ ' : 
-                     timeSyncStatus.type === 'error' ? '✖ ' : 
-                     '⚠ '}
-                    {timeSyncStatus.message}
-                  </Typography>
-                </Box>
-              )}
-            </Box>
+      <Typography variant="h5" gutterBottom>System Time</Typography>
+      <Paper sx={{ p: 3, maxWidth: 480 }}>
+        <Box display="flex" flexDirection="column" gap={1.5}>
+          <Box display="flex" justifyContent="space-between">
+            <Typography variant="body2" color="text.secondary">Pi</Typography>
+            <Typography variant="body2">{piTime ? piTime.toLocaleString() : '—'}</Typography>
           </Box>
-        </Paper>
-      </Box>
+          <Box display="flex" justifyContent="space-between">
+            <Typography variant="body2" color="text.secondary">Browser</Typography>
+            <Typography variant="body2">{browserNow.toLocaleString()}</Typography>
+          </Box>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="body2" color="text.secondary">Delta</Typography>
+            <Typography variant="body2" color={inSync ? 'success.main' : skewAbs > 30000 ? 'error.main' : 'warning.main'}>
+              {skewMs === null ? '—' : inSync ? '✔ In sync' : `${(skewMs / 1000).toFixed(1)}s`}
+            </Typography>
+          </Box>
+          <Box mt={1} display="flex" alignItems="center" gap={2}>
+            <Button
+              variant="contained"
+              size="small"
+              onClick={() => doSync(false)}
+              disabled={syncing}
+              startIcon={syncing ? <CircularProgress size={14} /> : null}
+            >
+              {syncing ? 'Syncing…' : 'Sync Now'}
+            </Button>
+            {syncMsg && (
+              <Typography variant="body2" color={syncMsg.ok ? 'success.main' : 'error.main'}>
+                {syncMsg.ok ? '✔' : '✖'} {syncMsg.text}
+              </Typography>
+            )}
+          </Box>
+        </Box>
+      </Paper>
     </Box>
   );
 }
