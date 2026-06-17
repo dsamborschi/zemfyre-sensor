@@ -47,7 +47,6 @@ services:
             - influx
         container_name: grafana
         restart: always
-   
         user: "grafana"
         environment:
             - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME}
@@ -56,8 +55,13 @@ services:
             - GF_AUTH_ANONYMOUS_ORG_ROLE=${GRAFANA_AUTH_ANONYMOUS_ORG_ROLE}
             - GF_AUTH_DISABLE_LOGIN_FORM=${GRAFANA_AUTH_DISABLE_LOGIN_FORM}
             - GF_HTTP_ALLOW_ORIGIN=*
+            - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
         ports:
             - "${GRAFANA_PORT_EXT:-53000}:3000"
+        volumes:
+            - grafana_data:/var/lib/grafana
+            - ./grafana/provisioning:/etc/grafana/provisioning
+            - ./grafana/dashboards:/etc/grafana/dashboards
         networks:
            - zemfyre-net
 
@@ -95,5 +99,8 @@ services:
 networks:
   zemfyre-net:
     driver: bridge
+
+volumes:
+  grafana_data:
 
 

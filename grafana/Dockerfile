@@ -111,10 +111,13 @@ RUN if [ ! -z "${GF_INSTALL_PLUGINS}" ]; then \
     fi
 
 
-# copy database, config files and provisioning files
-COPY data /var/lib/grafana
+# copy config files, provisioning files and dashboards
 COPY config/grafana.ini /etc/grafana/grafana.ini
-# COPY ./provisioning /etc/grafana/provisioning
+COPY provisioning /etc/grafana/provisioning
+COPY dashboards /etc/grafana/dashboards
+
+# fix ownership so grafana user can read provisioning and dashboard files
+RUN chown -R grafana:${GF_GID} /etc/grafana/provisioning /etc/grafana/dashboards
 
 # set permissions
 USER grafana

@@ -102,20 +102,9 @@
     architecture: >-
       {{
         'amd64' if ansible_architecture == 'x86_64'
-        else ('arm64' if device_type == 'pi4' and system_bits.stdout == '64'
+        else ('arm64' if ansible_architecture == 'aarch64'
         else 'armhf')
       }}
-  when: |
-    device_type == "pi1" or
-    device_type == "pi2" or
-    device_type == "pi3" or
-    device_type == "pi4" or
-    device_type == "x86"
-
-- name: Set architecture
-  ansible.builtin.set_fact:
-    architecture: "arm64"
-  when: device_type == "pi5"
 
 - name: Check whether Docker is already installed
   ansible.builtin.command: docker --version
@@ -143,8 +132,8 @@
 
 - name: Add user to Docker group (all platforms)
   ansible.builtin.user:
-    name: "{{ lookup('env', 'USER') }}"
-    group: "{{ lookup('env', 'USER') }}"
+    name: "{{ kiosk_user }}"
+    group: "{{ kiosk_user }}"
     groups:
       - docker
       - adm
@@ -158,8 +147,8 @@
 
 - name: Add user to Docker group (Raspberry Pi)
   ansible.builtin.user:
-    name: "{{ lookup('env', 'USER') }}"
-    group: "{{ lookup('env', 'USER') }}"
+    name: "{{ kiosk_user }}"
+    group: "{{ kiosk_user }}"
     groups:
       - docker
       - adm
@@ -198,7 +187,8 @@
 - name: Remove deprecated pip dependencies (>= Debian 12)
   ansible.builtin.pip:
     name: supervisor
-    executable: /home/{{ lookup('env', 'USER') }}/installer_venv/bin/pip
+    executable: /home/{{ kiosk_user }}/installer_venv/bin/pip
     state: absent
+  failed_when: false
   when:
     - ansible_distribution_major_version | int >= 12

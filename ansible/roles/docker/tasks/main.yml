@@ -25,6 +25,23 @@
   when: repo_url is defined and repo_dir is defined
   changed_when: false
 
+- name: Deploy .env file for Docker Compose
+  ansible.builtin.copy:
+    dest: "{{ repo_dir }}/.env"
+    owner: "{{ kiosk_user }}"
+    group: "{{ kiosk_user }}"
+    mode: "0600"
+    content: |
+      GRAFANA_USERNAME={{ lookup('env', 'GRAFANA_USERNAME') | default('admin') }}
+      GRAFANA_PASSWORD={{ lookup('env', 'GRAFANA_PASSWORD') | default('admin') }}
+      GRAFANA_AUTH_ANONYMOUS_ENABLED={{ lookup('env', 'GRAFANA_AUTH_ANONYMOUS_ENABLED') | default('true') }}
+      GRAFANA_AUTH_ANONYMOUS_ORG_ROLE={{ lookup('env', 'GRAFANA_AUTH_ANONYMOUS_ORG_ROLE') | default('Admin') }}
+      GRAFANA_AUTH_DISABLE_LOGIN_FORM={{ lookup('env', 'GRAFANA_AUTH_DISABLE_LOGIN_FORM') | default('false') }}
+      INFLUXDB_TOKEN={{ lookup('env', 'INFLUXDB_TOKEN') }}
+      GRAFANA_API_TOKEN={{ lookup('env', 'GRAFANA_API_TOKEN') | default('') }}
+  become: true
+  become_user: "{{ kiosk_user }}"
+
 - name: Install Docker if not present
   block:
     - name: Download Docker installation script
