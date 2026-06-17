@@ -14,6 +14,12 @@
   become_user: "{{ kiosk_user }}"
   when: repo_url is defined and repo_dir is defined
 
+- name: Remove root-owned directories that block git clean
+  ansible.builtin.file:
+    path: "{{ repo_dir }}/portainer"
+    state: absent
+  become: true
+
 - name: Force repository to match remote master
   ansible.builtin.shell: |
     cd {{ repo_dir }}

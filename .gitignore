@@ -3,8 +3,7 @@ nodered/data/lib/*
 nodered/data/.npm
 influx/data/engine/*
 influx/data/influxd.sqlite
-portainer/data/*.db
-portainer/data/backups/*
+portainer/
 .env
 .env.local
 .env.development
