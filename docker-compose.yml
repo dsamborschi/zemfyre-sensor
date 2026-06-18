@@ -16,6 +16,8 @@ services:
         restart: always
         ports:
             - "${NODERED_PORT_EXT:-51880}:1880"
+        environment:
+            - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
         volumes:
             - ./nodered/data:/data
             - ./nodered/nodes:/data/nodes
