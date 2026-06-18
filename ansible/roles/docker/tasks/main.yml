@@ -43,7 +43,7 @@
       GRAFANA_AUTH_ANONYMOUS_ENABLED={{ lookup('env', 'GRAFANA_AUTH_ANONYMOUS_ENABLED') | default('true') }}
       GRAFANA_AUTH_ANONYMOUS_ORG_ROLE={{ lookup('env', 'GRAFANA_AUTH_ANONYMOUS_ORG_ROLE') | default('Admin') }}
       GRAFANA_AUTH_DISABLE_LOGIN_FORM={{ lookup('env', 'GRAFANA_AUTH_DISABLE_LOGIN_FORM') | default('false') }}
-      INFLUXDB_TOKEN={{ lookup('env', 'INFLUXDB_TOKEN') }}
+      INFLUXDB_TOKEN={{ lookup('env', 'INFLUXDB_TOKEN') | default('WlCwhfDUAxeBgcLDQfnS7SW8NQzs6zHGLlY4DrUbpcqtZfY9ZeLVu9bt5UVgVIfPG3k0q9NOUJS2PgAxft_YYQ==', true) }}
       GRAFANA_API_TOKEN={{ lookup('env', 'GRAFANA_API_TOKEN') | default('') }}
   become: true
   become_user: "{{ kiosk_user }}"
