@@ -1,8 +1,7 @@
 nodered/data/node-modules/*
 nodered/data/lib/*
 nodered/data/.npm
-influx/data/engine/*
-influx/data/influxd.sqlite
+influx/data/
 portainer/
 .env
 .env.local
