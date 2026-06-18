@@ -99,9 +99,9 @@
   become: true
   changed_when: false
 
-- name: Aggressive cleanup - remove unused volumes
+- name: Remove Grafana volume so datasource is re-provisioned with current token
   ansible.builtin.shell: |
-    docker volume prune -f 2>/dev/null || true
+    docker volume ls -q | grep 'grafana_data' | xargs -r docker volume rm || true
   become: true
   changed_when: false
 

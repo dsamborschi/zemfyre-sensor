@@ -211,6 +211,16 @@ function run_ansible_playbook() {
     sudo -u ${USER} ${SUDO_ARGS[@]} ansible localhost \
         -m git \
         -a "repo=$REPOSITORY dest=${IOTISTIC_REPO_DIR} version=${BRANCH} force=yes"
+
+    # Source existing .env so tokens (INFLUXDB_TOKEN etc.) survive the redeploy.
+    # The file is gitignored and lives outside the repo update path.
+    if [ -f "${IOTISTIC_REPO_DIR}/.env" ]; then
+        set -a
+        # shellcheck source=/dev/null
+        source "${IOTISTIC_REPO_DIR}/.env"
+        set +a
+    fi
+
     cd ${IOTISTIC_REPO_DIR}/ansible
 
     if [ "$ARCHITECTURE" == "x86_64" ]; then
