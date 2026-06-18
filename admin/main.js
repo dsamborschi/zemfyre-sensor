@@ -459,25 +459,15 @@ function App() {
                 style={{ height: 40 }}
               />
             </Box>
-            <Button 
-              color="inherit" 
-              onClick={() => setView("home")}
-              style={{ 
-                backgroundColor: view === "home" ? "rgba(255,255,255,0.1)" : "transparent",
-                fontWeight: view === "home" ? "bold" : "normal"
-              }}
-            >
-              Home
-            </Button>
-            <Button 
-              color="inherit" 
+            <Button
+              color="inherit"
               onClick={() => setView("dashboard")}
-              style={{ 
+              style={{
                 backgroundColor: view === "dashboard" ? "rgba(255,255,255,0.1)" : "transparent",
                 fontWeight: view === "dashboard" ? "bold" : "normal"
               }}
             >
-              Grafana
+              Dashboard
             </Button>
             {/* Dashboards dropdown commented out
             <Button
@@ -518,18 +508,7 @@ function App() {
               )}
             </Menu>
             */}
-            <Button 
-              color="inherit" 
-              onClick={() => setView("nodered")}
-              style={{ 
-                backgroundColor: view === "nodered" ? "rgba(255,255,255,0.1)" : "transparent",
-                fontWeight: view === "nodered" ? "bold" : "normal"
-              }}
-            >
-              Node-Red
-            </Button>
-  
-            <Button 
+            <Button
               color="inherit" 
               onClick={() => setView("settings")}
               style={{ 
