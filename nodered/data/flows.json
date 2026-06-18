@@ -1503,7 +1503,7 @@
         "usetls": false,
         "tls": "",
         "influxdbVersion": "2.0",
-        "url": "http://influxdb:8086",
+        "url": "http://influx:8086",
         "timeout": 10,
         "rejectUnauthorized": true
     },
@@ -1511,7 +1511,7 @@
         "id": "3103516c9e0d4edc",
         "type": "mqtt-broker",
         "name": "",
-        "broker": "10.0.0.198",
+        "broker": "10.0.0.60",
         "port": "1883",
         "clientid": "",
         "autoConnect": true,
@@ -4882,7 +4882,8 @@
         "y": 80,
         "wires": [
             [
-                "c3b68be215c18f46"
+                "c3b68be215c18f46",
+                "dcb6529059f43129"
             ]
         ]
     },
@@ -5004,8 +5005,8 @@
         "targetType": "msg",
         "statusVal": "",
         "statusType": "auto",
-        "x": 1090,
-        "y": 180,
+        "x": 1130,
+        "y": 100,
         "wires": []
     },
     {
@@ -5024,8 +5025,7 @@
         "y": 300,
         "wires": [
             [
-                "2c26485ee2352420",
-                "dcb6529059f43129"
+                "2c26485ee2352420"
             ]
         ]
     },
