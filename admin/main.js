@@ -104,6 +104,53 @@ function Settings() {
     </Box>
   );
 }
+
+function Diagnostics() {
+  const [services, setServices] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+
+  const fetchDiagnostics = () => {
+    fetch(`${API_BASE_URL}/diagnostics`)
+      .then(res => res.json())
+      .then(data => { setServices(data); setLoading(false); })
+      .catch(() => setLoading(false));
+  };
+
+  React.useEffect(() => {
+    fetchDiagnostics();
+    const t = setInterval(fetchDiagnostics, 10000);
+    return () => clearInterval(t);
+  }, []);
+
+  return (
+    <Box width="100%" textAlign="left" mt={3}>
+      <Typography variant="h5" gutterBottom>Diagnostics</Typography>
+      <Paper sx={{ p: 2, maxWidth: 480 }}>
+        {loading ? (
+          <CircularProgress size={20} />
+        ) : (
+          <Box display="flex" flexDirection="column" gap={1}>
+            {services.map(svc => (
+              <Box key={svc.name} display="flex" justifyContent="space-between" alignItems="center">
+                <Typography variant="body2" color="text.secondary" sx={{ width: 90 }}>{svc.name}</Typography>
+                <Typography variant="body2" color={svc.ok ? 'success.main' : 'error.main'} sx={{ width: 16 }}>
+                  {svc.ok ? '●' : '●'}
+                </Typography>
+                <Typography variant="body2" color={svc.ok ? 'success.main' : 'error.main'} sx={{ width: 70 }}>
+                  {svc.ok ? 'Online' : 'Offline'}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ flex: 1, textAlign: 'right' }}>
+                  {svc.detail}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </Paper>
+    </Box>
+  );
+}
+
 // VariablesSection: Settings page dashboard/variable management
 const { AppBar, Toolbar, Typography, Button, Box, TreeView, TreeItem, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, Tooltip, Menu, MenuItem, CircularProgress } = MaterialUI;
 
@@ -572,6 +619,7 @@ function App() {
               Settings
             </Typography>
             <Settings />
+            <Diagnostics />
           </Box>
         )}
 

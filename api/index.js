@@ -303,6 +303,44 @@ app.post("/notify", (req, res) => {
     res.json({ message: "Critical notification sent", title, body: message });
   });
 });
+app.get("/diagnostics", async (req, res) => {
+  const services = [
+    { name: "MQTT",     container: "mosquitto", url: null },
+    { name: "InfluxDB", container: "influxdb",  url: "http://influx:8086/health" },
+    { name: "Node-RED", container: "nodered",   url: "http://nodered:1880/" },
+    { name: "Grafana",  container: "grafana",   url: "http://grafana:3000/api/health" },
+  ];
+
+  const containers = await docker.listContainers({ all: true }).catch(() => []);
+  const containerMap = {};
+  containers.forEach(c => {
+    c.Names.forEach(n => { containerMap[n.replace(/^\//, "")] = c; });
+  });
+
+  const results = await Promise.all(services.map(async svc => {
+    const c = containerMap[svc.container];
+    const containerState = c ? c.State : "missing";
+
+    let httpStatus = null;
+    let detail = containerState;
+    if (svc.url && containerState === "running") {
+      try {
+        const r = await fetch(svc.url, { signal: AbortSignal.timeout(3000) });
+        const body = await r.json().catch(() => ({}));
+        httpStatus = r.status;
+        detail = body.status || body.message || (r.ok ? "ok" : `http ${r.status}`);
+      } catch {
+        detail = "unreachable";
+      }
+    }
+
+    const ok = containerState === "running" && (svc.url === null || httpStatus === 200);
+    return { name: svc.name, ok, state: containerState, detail };
+  }));
+
+  res.json(results);
+});
+
 app.listen(port, () => {
   console.log(`API server listening on port ${port}`);
 });
