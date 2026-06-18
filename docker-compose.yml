@@ -91,6 +91,7 @@ services:
             - SYS_TIME
         environment:
             - GRAFANA_API_TOKEN=${GRAFANA_API_TOKEN}
+            - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
             - NODE_ENV=production
         volumes:
           - /var/run/docker.sock:/var/run/docker.sock

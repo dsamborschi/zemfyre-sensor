@@ -105,6 +105,54 @@ function Settings() {
   );
 }
 
+function CleanDatabase() {
+  const [confirm, setConfirm] = React.useState(false);
+  const [busy, setBusy] = React.useState(false);
+  const [result, setResult] = React.useState(null);
+
+  const handleDelete = () => {
+    setBusy(true);
+    setResult(null);
+    fetch(`${API_BASE_URL}/influxdb/delete-all`, { method: 'POST' })
+      .then(r => r.json())
+      .then(data => {
+        setResult(data.ok ? { ok: true, text: 'All data deleted.' } : { ok: false, text: data.error });
+      })
+      .catch(e => setResult({ ok: false, text: e.message }))
+      .finally(() => { setBusy(false); setConfirm(false); });
+  };
+
+  return (
+    <Box width="100%" textAlign="left" mt={3}>
+      <Typography variant="h5" gutterBottom>Database</Typography>
+      <Paper sx={{ p: 3, maxWidth: 480 }}>
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          Permanently deletes all measurements from the ZUS80LP bucket.
+        </Typography>
+        {!confirm ? (
+          <Button variant="outlined" color="error" size="small" onClick={() => { setConfirm(true); setResult(null); }}>
+            Clean Database
+          </Button>
+        ) : (
+          <Box display="flex" alignItems="center" gap={2}>
+            <Typography variant="body2" color="error.main">Are you sure? This cannot be undone.</Typography>
+            <Button variant="contained" color="error" size="small" onClick={handleDelete} disabled={busy}
+              startIcon={busy ? <CircularProgress size={14} /> : null}>
+              {busy ? 'Deleting…' : 'Yes, delete all'}
+            </Button>
+            <Button variant="text" size="small" onClick={() => setConfirm(false)} disabled={busy}>Cancel</Button>
+          </Box>
+        )}
+        {result && (
+          <Typography variant="body2" color={result.ok ? 'success.main' : 'error.main'} mt={1.5}>
+            {result.ok ? '✔' : '✖'} {result.text}
+          </Typography>
+        )}
+      </Paper>
+    </Box>
+  );
+}
+
 function Diagnostics() {
   const [services, setServices] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
@@ -619,6 +667,7 @@ function App() {
               Settings
             </Typography>
             <Settings />
+            <CleanDatabase />
             <Diagnostics />
           </Box>
         )}

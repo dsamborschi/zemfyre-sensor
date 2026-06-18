@@ -10,6 +10,8 @@ const docker = new Docker({ socketPath: "/var/run/docker.sock" });
 
 const grafanaUrl = process.env.GRAFANA_URL || "http://grafana:3000";
 const apiToken = process.env.GRAFANA_API_TOKEN;
+const influxUrl = process.env.INFLUXDB_URL || "http://influx:8086";
+const influxToken = process.env.INFLUXDB_TOKEN;
 
 app.use(cors());
 app.use(express.json()); // Needed for POST/PUT bodies
@@ -303,6 +305,35 @@ app.post("/notify", (req, res) => {
     res.json({ message: "Critical notification sent", title, body: message });
   });
 });
+app.post("/influxdb/delete-all", async (req, res) => {
+  if (!influxToken) {
+    return res.status(500).json({ error: "INFLUXDB_TOKEN not configured" });
+  }
+  try {
+    const r = await fetch(
+      `${influxUrl}/api/v2/delete?org=Zemfyre&bucket=ZUS80LP`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Token ${influxToken}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          start: "1970-01-01T00:00:00Z",
+          stop:  "2099-12-31T00:00:00Z",
+        }),
+      }
+    );
+    if (!r.ok) {
+      const text = await r.text();
+      return res.status(r.status).json({ error: text });
+    }
+    res.json({ ok: true, message: "All data deleted from ZUS80LP bucket" });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get("/diagnostics", async (req, res) => {
   const services = [
     { name: "MQTT",     container: "mosquitto", url: null },
