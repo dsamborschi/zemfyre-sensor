@@ -2,6 +2,7 @@ nodered/data/node-modules/*
 nodered/data/lib/*
 nodered/data/.npm
 influx/data/
+influx/config/
 portainer/
 .env
 .env.local

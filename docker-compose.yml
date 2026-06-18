@@ -39,7 +39,6 @@ services:
             - "${INFLUXDB_PORT_EXT:-58086}:8086"
         volumes:
             - influx_data:/var/lib/influxdb2
-            - ./influx/config:/etc/influxdb2
         networks:
            - zemfyre-net
 
