@@ -336,20 +336,23 @@ app.post("/influxdb/delete-all", async (req, res) => {
 
 app.get("/diagnostics", async (req, res) => {
   const services = [
-    { name: "MQTT",     container: "mosquitto", url: null },
-    { name: "InfluxDB", container: "influxdb",  url: "http://influx:8086/health" },
-    { name: "Node-RED", container: "nodered",   url: "http://nodered:1880/" },
-    { name: "Grafana",  container: "grafana",   url: "http://grafana:3000/api/health" },
+    { name: "MQTT",     service: "mosquitto", container: "mosquitto", url: null },
+    { name: "InfluxDB", service: "influx",    container: "influxdb",  url: "http://influx:8086/health" },
+    { name: "Node-RED", service: "nodered",   container: "nodered",   url: "http://nodered:1880/" },
+    { name: "Grafana",  service: "grafana",   container: "grafana",   url: "http://grafana:3000/api/health" },
   ];
 
   const containers = await docker.listContainers({ all: true }).catch(() => []);
-  const containerMap = {};
+  const byName = {};
+  const byService = {};
   containers.forEach(c => {
-    c.Names.forEach(n => { containerMap[n.replace(/^\//, "")] = c; });
+    c.Names.forEach(n => { byName[n.replace(/^\//, "")] = c; });
+    const svcLabel = c.Labels && c.Labels["com.docker.compose.service"];
+    if (svcLabel) byService[svcLabel] = c;
   });
 
   const results = await Promise.all(services.map(async svc => {
-    const c = containerMap[svc.container];
+    const c = byName[svc.container] || byService[svc.service];
     const containerState = c ? c.State : "missing";
 
     let httpStatus = null;

@@ -64,41 +64,38 @@ function Settings() {
   const skewAbs = skewMs !== null ? Math.abs(skewMs) : null;
   const inSync = skewAbs !== null && skewAbs < 2000;
 
+  const row = (label, value, valueColor) => (
+    <Box display="flex" justifyContent="space-between" alignItems="center" py={1}
+      sx={{ borderBottom: '1px solid', borderColor: 'divider' }}>
+      <Typography variant="body2" color="text.secondary">{label}</Typography>
+      <Typography variant="body2" fontWeight={500} color={valueColor || 'text.primary'}>{value}</Typography>
+    </Box>
+  );
+
   return (
-    <Box width="100%" textAlign="left" mt={2}>
-      <Typography variant="h5" gutterBottom>System Time</Typography>
-      <Paper sx={{ p: 3, maxWidth: 480 }}>
-        <Box display="flex" flexDirection="column" gap={1.5}>
-          <Box display="flex" justifyContent="space-between">
-            <Typography variant="body2" color="text.secondary">Pi</Typography>
-            <Typography variant="body2">{piTime ? piTime.toLocaleString() : '—'}</Typography>
-          </Box>
-          <Box display="flex" justifyContent="space-between">
-            <Typography variant="body2" color="text.secondary">Browser</Typography>
-            <Typography variant="body2">{browserNow.toLocaleString()}</Typography>
-          </Box>
-          <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="body2" color="text.secondary">Delta</Typography>
-            <Typography variant="body2" color={inSync ? 'success.main' : skewAbs > 30000 ? 'error.main' : 'warning.main'}>
-              {skewMs === null ? '—' : inSync ? '✔ In sync' : `${(skewMs / 1000).toFixed(1)}s`}
+    <Box width="100%" textAlign="left" mt={2} maxWidth={520}>
+      <Typography variant="subtitle1" fontWeight={600} gutterBottom sx={{ letterSpacing: 0.5, textTransform: 'uppercase', fontSize: 11, color: 'text.secondary' }}>
+        System Time
+      </Typography>
+      <Paper variant="outlined" sx={{ p: 0, overflow: 'hidden' }}>
+        <Box px={2.5} pt={0.5}>
+          {row('Pi', piTime ? piTime.toLocaleString() : '—')}
+          {row('Browser', browserNow.toLocaleString())}
+          {row('Delta',
+            skewMs === null ? '—' : inSync ? 'In sync' : `${(skewMs / 1000).toFixed(1)}s off`,
+            inSync ? 'success.main' : skewAbs > 30000 ? 'error.main' : 'warning.main'
+          )}
+        </Box>
+        <Box px={2.5} py={1.5} display="flex" alignItems="center" gap={2} bgcolor="action.hover">
+          <Button variant="contained" size="small" onClick={() => doSync(false)} disabled={syncing}
+            startIcon={syncing ? <CircularProgress size={13} /> : null}>
+            {syncing ? 'Syncing…' : 'Sync Now'}
+          </Button>
+          {syncMsg && (
+            <Typography variant="body2" color={syncMsg.ok ? 'success.main' : 'error.main'}>
+              {syncMsg.ok ? '✔' : '✖'} {syncMsg.text}
             </Typography>
-          </Box>
-          <Box mt={1} display="flex" alignItems="center" gap={2}>
-            <Button
-              variant="contained"
-              size="small"
-              onClick={() => doSync(false)}
-              disabled={syncing}
-              startIcon={syncing ? <CircularProgress size={14} /> : null}
-            >
-              {syncing ? 'Syncing…' : 'Sync Now'}
-            </Button>
-            {syncMsg && (
-              <Typography variant="body2" color={syncMsg.ok ? 'success.main' : 'error.main'}>
-                {syncMsg.ok ? '✔' : '✖'} {syncMsg.text}
-              </Typography>
-            )}
-          </Box>
+          )}
         </Box>
       </Paper>
     </Box>
@@ -123,24 +120,26 @@ function CleanDatabase() {
   };
 
   return (
-    <Box width="100%" textAlign="left" mt={3}>
-      <Typography variant="h5" gutterBottom>Database</Typography>
-      <Paper sx={{ p: 3, maxWidth: 480 }}>
+    <Box width="100%" textAlign="left" mt={3} maxWidth={520}>
+      <Typography variant="subtitle1" fontWeight={600} gutterBottom sx={{ letterSpacing: 0.5, textTransform: 'uppercase', fontSize: 11, color: 'text.secondary' }}>
+        Database
+      </Typography>
+      <Paper variant="outlined" sx={{ p: 2.5 }}>
         <Typography variant="body2" color="text.secondary" mb={2}>
-          Permanently deletes all measurements from the ZUS80LP bucket.
+          Permanently delete all measurements from the <strong>ZUS80LP</strong> bucket. This cannot be undone.
         </Typography>
         {!confirm ? (
           <Button variant="outlined" color="error" size="small" onClick={() => { setConfirm(true); setResult(null); }}>
             Clean Database
           </Button>
         ) : (
-          <Box display="flex" alignItems="center" gap={2}>
-            <Typography variant="body2" color="error.main">Are you sure? This cannot be undone.</Typography>
+          <Box display="flex" alignItems="center" gap={1.5} flexWrap="wrap">
+            <Typography variant="body2" color="error.main" fontWeight={500}>Delete all data?</Typography>
             <Button variant="contained" color="error" size="small" onClick={handleDelete} disabled={busy}
-              startIcon={busy ? <CircularProgress size={14} /> : null}>
+              startIcon={busy ? <CircularProgress size={13} /> : null}>
               {busy ? 'Deleting…' : 'Yes, delete all'}
             </Button>
-            <Button variant="text" size="small" onClick={() => setConfirm(false)} disabled={busy}>Cancel</Button>
+            <Button variant="outlined" size="small" onClick={() => setConfirm(false)} disabled={busy}>Cancel</Button>
           </Box>
         )}
         {result && (
@@ -156,43 +155,52 @@ function CleanDatabase() {
 function Diagnostics() {
   const [services, setServices] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
+  const [lastUpdated, setLastUpdated] = React.useState(null);
 
-  const fetchDiagnostics = () => {
+  const fetchDiagnostics2 = () => {
     fetch(`${API_BASE_URL}/diagnostics`)
       .then(res => res.json())
-      .then(data => { setServices(data); setLoading(false); })
+      .then(data => { setServices(data); setLoading(false); setLastUpdated(new Date()); })
       .catch(() => setLoading(false));
   };
 
   React.useEffect(() => {
-    fetchDiagnostics();
-    const t = setInterval(fetchDiagnostics, 10000);
+    fetchDiagnostics2();
+    const t = setInterval(fetchDiagnostics2, 10000);
     return () => clearInterval(t);
   }, []);
 
   return (
-    <Box width="100%" textAlign="left" mt={3}>
-      <Typography variant="h5" gutterBottom>Diagnostics</Typography>
-      <Paper sx={{ p: 2, maxWidth: 480 }}>
+    <Box width="100%" textAlign="left" mt={3} maxWidth={520}>
+      <Box display="flex" justifyContent="space-between" alignItems="baseline" mb={0.5}>
+        <Typography variant="subtitle1" fontWeight={600} sx={{ letterSpacing: 0.5, textTransform: 'uppercase', fontSize: 11, color: 'text.secondary' }}>
+          Diagnostics
+        </Typography>
+        {lastUpdated && (
+          <Typography variant="caption" color="text.disabled">
+            Updated {lastUpdated.toLocaleTimeString()}
+          </Typography>
+        )}
+      </Box>
+      <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
         {loading ? (
-          <CircularProgress size={20} />
+          <Box p={2.5}><CircularProgress size={20} /></Box>
         ) : (
-          <Box display="flex" flexDirection="column" gap={1}>
-            {services.map(svc => (
-              <Box key={svc.name} display="flex" justifyContent="space-between" alignItems="center">
-                <Typography variant="body2" color="text.secondary" sx={{ width: 90 }}>{svc.name}</Typography>
-                <Typography variant="body2" color={svc.ok ? 'success.main' : 'error.main'} sx={{ width: 16 }}>
-                  {svc.ok ? '●' : '●'}
-                </Typography>
-                <Typography variant="body2" color={svc.ok ? 'success.main' : 'error.main'} sx={{ width: 70 }}>
+          services.map((svc, i) => (
+            <Box key={svc.name} display="flex" alignItems="center" gap={2} px={2.5} py={1.25}
+              sx={{ borderBottom: i < services.length - 1 ? '1px solid' : 'none', borderColor: 'divider' }}>
+              <Typography variant="body2" fontWeight={500} sx={{ width: 80 }}>{svc.name}</Typography>
+              <Box display="flex" alignItems="center" gap={0.75} sx={{ width: 90 }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: svc.ok ? 'success.main' : 'error.main', flexShrink: 0 }} />
+                <Typography variant="body2" fontWeight={500} color={svc.ok ? 'success.main' : 'error.main'}>
                   {svc.ok ? 'Online' : 'Offline'}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ flex: 1, textAlign: 'right' }}>
-                  {svc.detail}
-                </Typography>
               </Box>
-            ))}
-          </Box>
+              <Typography variant="caption" color="text.secondary" sx={{ flex: 1 }}>
+                {svc.detail}
+              </Typography>
+            </Box>
+          ))
         )}
       </Paper>
     </Box>
