@@ -337,27 +337,21 @@ app.post("/influxdb/delete-all", async (req, res) => {
   const bucketName = "ZUS80LP";
 
   try {
-    // Resolve org ID
-    const orgRes = await fetch(`${influxUrl}/api/v2/orgs?org=${org}`, { headers });
-    const orgData = await orgRes.json();
-    const orgId = orgData.orgs?.[0]?.id;
-    if (!orgId) return res.status(500).json({ error: "Org not found" });
-
-    // Resolve bucket
-    const bucketRes = await fetch(`${influxUrl}/api/v2/buckets?name=${bucketName}&orgID=${orgId}`, { headers });
+    // Resolve bucket ID by name + org name
+    const bucketRes = await fetch(`${influxUrl}/api/v2/buckets?name=${bucketName}&org=${org}`, { headers });
     const bucketData = await bucketRes.json();
     const bucket = bucketData.buckets?.[0];
-    if (!bucket) return res.status(500).json({ error: "Bucket not found" });
+    if (!bucket) return res.status(500).json({ error: `Bucket ${bucketName} not found` });
 
     // Drop the bucket (guaranteed clean wipe — no tombstone lag)
     const dropRes = await fetch(`${influxUrl}/api/v2/buckets/${bucket.id}`, { method: "DELETE", headers });
     if (!dropRes.ok) return res.status(dropRes.status).json({ error: await dropRes.text() });
 
-    // Recreate with same retention rules
+    // Recreate with same org and retention rules
     const createRes = await fetch(`${influxUrl}/api/v2/buckets`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ name: bucketName, orgID: orgId, retentionRules: bucket.retentionRules || [] }),
+      body: JSON.stringify({ name: bucketName, orgID: bucket.orgID, retentionRules: bucket.retentionRules || [] }),
     });
     if (!createRes.ok) return res.status(createRes.status).json({ error: await createRes.text() });
 
