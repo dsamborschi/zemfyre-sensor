@@ -393,8 +393,7 @@ app.get("/diagnostics", async (req, res) => {
     }
 
     const ok = containerState === "running" && (svc.url === null || httpStatus === 200);
-    if (detail === "pass" || detail === "ok") detail = "healthy";
-    if (detail === "running" && svc.url !== null) detail = "healthy";
+    if (ok) detail = "healthy";
     return { name: svc.name, ok, state: containerState, detail };
   }));
 

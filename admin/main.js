@@ -187,7 +187,7 @@ function Diagnostics() {
           <Box p={2.5}><CircularProgress size={20} /></Box>
         ) : (
           services.map((svc, i) => (
-            <Box key={svc.name} display="flex" alignItems="center" px={2.5} py={1.25}
+            <Box key={svc.name} display="flex" alignItems="center" gap={2} px={2.5} py={1.25}
               sx={{ borderBottom: i < services.length - 1 ? '1px solid' : 'none', borderColor: 'divider' }}>
               <Typography variant="body2" color="text.primary" sx={{ width: 100, flexShrink: 0 }}>{svc.name}</Typography>
               <Box display="flex" alignItems="center" gap={1} sx={{ width: 110, flexShrink: 0 }}>
