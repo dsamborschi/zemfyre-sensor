@@ -191,7 +191,7 @@ function Diagnostics() {
               sx={{ borderBottom: i < services.length - 1 ? '1px solid' : 'none', borderColor: 'divider' }}>
               <Typography variant="body2" fontWeight={500} sx={{ width: 80 }}>{svc.name}</Typography>
               <Box display="flex" alignItems="center" gap={0.75} sx={{ width: 90 }}>
-                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: svc.ok ? 'success.main' : 'error.main', flexShrink: 0 }} />
+                <Typography variant="body2">{svc.ok ? '🟢' : '🔴'}</Typography>
                 <Typography variant="body2" fontWeight={500} color={svc.ok ? 'success.main' : 'error.main'}>
                   {svc.ok ? 'Online' : 'Offline'}
                 </Typography>
