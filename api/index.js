@@ -305,6 +305,30 @@ app.post("/notify", (req, res) => {
     res.json({ message: "Critical notification sent", title, body: message });
   });
 });
+app.post("/influxdb/delete-device", async (req, res) => {
+  const { device } = req.body;
+  if (!device) return res.status(400).json({ error: "device is required" });
+  if (!influxToken) return res.status(500).json({ error: "INFLUXDB_TOKEN not configured" });
+  try {
+    const r = await fetch(
+      `${influxUrl}/api/v2/delete?org=Zemfyre&bucket=ZUS80LP`,
+      {
+        method: "POST",
+        headers: { Authorization: `Token ${influxToken}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          start: "1970-01-01T00:00:00Z",
+          stop:  "2099-12-31T00:00:00Z",
+          predicate: `device="${device}"`,
+        }),
+      }
+    );
+    if (!r.ok) return res.status(r.status).json({ error: await r.text() });
+    res.json({ ok: true, message: `Deleted all data for device: ${device}` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/influxdb/delete-all", async (req, res) => {
   if (!influxToken) {
     return res.status(500).json({ error: "INFLUXDB_TOKEN not configured" });
