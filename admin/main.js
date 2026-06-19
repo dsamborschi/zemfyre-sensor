@@ -505,7 +505,6 @@ function HomeSlides() {
 
 function App() {
   const [view, setView] = React.useState("dashboard");
-  const [kioskMode, setKioskMode] = React.useState(true);
 
   // Sync Pi system clock to browser time on load
   React.useEffect(() => {
@@ -546,14 +545,13 @@ function App() {
   // Compute Grafana iframe URL (use dynamic hostname like API_BASE_URL)
   const grafanaBaseURL = `${window.location.protocol}//${window.location.hostname}:53000`;
   const grafanaURL = selectedDashboard
-    ? `${grafanaBaseURL}/d/${selectedDashboard.uid || selectedDashboard.id}/${selectedDashboard.slug || selectedDashboard.uri.replace('db/', '')}?orgId=1&refresh=auto&from=now-5m&to=now&kiosk`
-    : `${grafanaBaseURL}/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now&kiosk`;
+    ? `${grafanaBaseURL}/d/${selectedDashboard.uid || selectedDashboard.id}/${selectedDashboard.slug || selectedDashboard.uri.replace('db/', '')}?orgId=1&refresh=auto&from=now-5m&to=now`
+    : `${grafanaBaseURL}/d/deqcaxn5g7vnkd/zus80lp-compact?orgId=1&refresh=auto&from=now-5m&to=now`;
   const noderedURL = `${window.location.protocol}//${window.location.hostname}:51880`;
 
   return (
     <Box display="flex" flexDirection="column" height="100vh">
-      {!kioskMode && (
-        <AppBar position="static" style={{ backgroundColor: "#0A2239" }}>
+      <AppBar position="static" style={{ backgroundColor: "#0A2239" }}>
           <Toolbar>
             <Box sx={{ flexGrow: 1 }}>
               <img
@@ -621,45 +619,15 @@ function App() {
             >
               Settings
             </Button>
-            <Button color="inherit" onClick={() => setKioskMode(true)} style={{ minWidth: 40, padding: 0 }}>
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <rect x="3" y="5" width="18" height="14" rx="2" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="2"/>
-                <rect x="7" y="9" width="10" height="6" rx="1" fill="currentColor"/>
-                <rect x="10" y="17" width="4" height="2" rx="1" fill="currentColor"/>
-              </svg>
-            </Button>
           </Toolbar>
         </AppBar>
-      )}
 
       <Box flexGrow={1} overflow="hidden" sx={{ background: '#fff' }}>
         {view === "home" && (
-          <>
-            {kioskMode && (
-              <Button
-                variant="contained"
-                size="small"
-                style={{
-                  position: "absolute",
-                  top: 10,
-                  right: 10,
-                  zIndex: 10,
-                  minWidth: 36,
-                  padding: 4
-                }}
-                onClick={() => setKioskMode(false)}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="3" y="5" width="14" height="10" rx="2" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M7 13L13 7M13 13L7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </Button>
-            )}
-            <HomeSlides />
-          </>
+          <HomeSlides />
         )}
 
-        {view === "settings" && !kioskMode && (
+        {view === "settings" && (
           <Box
             height="100%"
             display="flex"
@@ -680,7 +648,7 @@ function App() {
           </Box>
         )}
 
-        {view === "mqtt" && !kioskMode && (
+        {view === "mqtt" && (
           <Box
             height="100%"
             display="flex"
@@ -695,26 +663,6 @@ function App() {
 
         {view === "dashboard" && (
           <Box height="100%" position="relative">
-            {kioskMode && (
-              <Button
-                variant="contained"
-                size="small"
-                style={{
-                  position: "absolute",
-                  top: 10,
-                  right: 10,
-                  zIndex: 10,
-                  minWidth: 36,
-                  padding: 4
-                }}
-                onClick={() => setKioskMode(false)}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="3" y="5" width="14" height="10" rx="2" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M7 13L13 7M13 13L7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </Button>
-            )}
             <iframe
               src={grafanaURL}
               title="Grafana Dashboard"
@@ -728,26 +676,6 @@ function App() {
 
          {view === "nodered" && (
           <Box height="100%" position="relative">
-            {kioskMode && (
-              <Button
-                variant="contained"
-                size="small"
-                style={{
-                  position: "absolute",
-                  top: 10,
-                  right: 10,
-                  zIndex: 10,
-                  minWidth: 36,
-                  padding: 4
-                }}
-                onClick={() => setKioskMode(false)}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <rect x="3" y="5" width="14" height="10" rx="2" fill="currentColor" fillOpacity="0.15" stroke="currentColor" strokeWidth="1.5"/>
-                  <path d="M7 13L13 7M13 13L7 7" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
-                </svg>
-              </Button>
-            )}
             <iframe
               src={noderedURL}
               title="Node-Red"
