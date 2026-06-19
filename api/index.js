@@ -330,28 +330,37 @@ app.post("/influxdb/delete-device", async (req, res) => {
 });
 
 app.post("/influxdb/delete-all", async (req, res) => {
-  if (!influxToken) {
-    return res.status(500).json({ error: "INFLUXDB_TOKEN not configured" });
-  }
+  if (!influxToken) return res.status(500).json({ error: "INFLUXDB_TOKEN not configured" });
+
+  const headers = { Authorization: `Token ${influxToken}`, "Content-Type": "application/json" };
+  const org = "Zemfyre";
+  const bucketName = "ZUS80LP";
+
   try {
-    const r = await fetch(
-      `${influxUrl}/api/v2/delete?org=Zemfyre&bucket=ZUS80LP`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Token ${influxToken}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          start: "1970-01-01T00:00:00Z",
-          stop:  "2099-12-31T00:00:00Z",
-        }),
-      }
-    );
-    if (!r.ok) {
-      const text = await r.text();
-      return res.status(r.status).json({ error: text });
-    }
+    // Resolve org ID
+    const orgRes = await fetch(`${influxUrl}/api/v2/orgs?org=${org}`, { headers });
+    const orgData = await orgRes.json();
+    const orgId = orgData.orgs?.[0]?.id;
+    if (!orgId) return res.status(500).json({ error: "Org not found" });
+
+    // Resolve bucket
+    const bucketRes = await fetch(`${influxUrl}/api/v2/buckets?name=${bucketName}&orgID=${orgId}`, { headers });
+    const bucketData = await bucketRes.json();
+    const bucket = bucketData.buckets?.[0];
+    if (!bucket) return res.status(500).json({ error: "Bucket not found" });
+
+    // Drop the bucket (guaranteed clean wipe — no tombstone lag)
+    const dropRes = await fetch(`${influxUrl}/api/v2/buckets/${bucket.id}`, { method: "DELETE", headers });
+    if (!dropRes.ok) return res.status(dropRes.status).json({ error: await dropRes.text() });
+
+    // Recreate with same retention rules
+    const createRes = await fetch(`${influxUrl}/api/v2/buckets`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name: bucketName, orgID: orgId, retentionRules: bucket.retentionRules || [] }),
+    });
+    if (!createRes.ok) return res.status(createRes.status).json({ error: await createRes.text() });
+
     res.json({ ok: true, message: "All data deleted from ZUS80LP bucket" });
   } catch (err) {
     res.status(500).json({ error: err.message });
