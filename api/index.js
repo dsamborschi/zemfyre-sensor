@@ -337,23 +337,28 @@ app.post("/influxdb/delete-all", async (req, res) => {
   const bucketName = "ZUS80LP";
 
   try {
-    // Resolve bucket ID by name + org name
-    const bucketRes = await fetch(`${influxUrl}/api/v2/buckets?name=${bucketName}&org=${org}`, { headers });
-    const bucketData = await bucketRes.json();
-    const bucket = bucketData.buckets?.[0];
-    if (!bucket) return res.status(500).json({ error: `Bucket ${bucketName} not found` });
-
-    // Drop the bucket (guaranteed clean wipe — no tombstone lag)
-    const dropRes = await fetch(`${influxUrl}/api/v2/buckets/${bucket.id}`, { method: "DELETE", headers });
-    if (!dropRes.ok) return res.status(dropRes.status).json({ error: await dropRes.text() });
-
-    // Recreate with same org and retention rules
-    const createRes = await fetch(`${influxUrl}/api/v2/buckets`, {
+    const r = await fetch(`${influxUrl}/api/v2/delete?org=${org}&bucket=${bucketName}`, {
       method: "POST",
       headers,
-      body: JSON.stringify({ name: bucketName, orgID: bucket.orgID, retentionRules: bucket.retentionRules || [] }),
+      body: JSON.stringify({ start: "1970-01-01T00:00:00Z", stop: "2099-12-31T00:00:00Z" }),
     });
-    if (!createRes.ok) return res.status(createRes.status).json({ error: await createRes.text() });
+    if (!r.ok) return res.status(r.status).json({ error: await r.text() });
+
+    // Verify deletion by counting remaining rows
+    const verifyRes = await fetch(`${influxUrl}/api/v2/query?org=${org}`, {
+      method: "POST",
+      headers: { ...headers, Accept: "application/csv" },
+      body: JSON.stringify({
+        query: `from(bucket:"${bucketName}") |> range(start:-100y) |> count() |> sum()`,
+        type: "flux",
+      }),
+    });
+    const csv = await verifyRes.text();
+    const remaining = parseInt(csv.split("\n").filter(l => l && !l.startsWith("#") && !l.startsWith(",result")).map(l => l.split(",").pop()).find(v => v && !isNaN(v)) || "0");
+
+    if (remaining > 0) {
+      return res.status(500).json({ error: `Delete API reported success but ${remaining} rows remain. Token may lack delete permissions.` });
+    }
 
     res.json({ ok: true, message: "All data deleted from ZUS80LP bucket" });
   } catch (err) {
