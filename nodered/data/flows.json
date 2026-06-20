@@ -4927,10 +4927,7 @@
         "y": 300,
         "wires": [
             [
-                "b9b6b02852e2214b",
-                "0d5a3cb8f9a23e93",
-                "abeadeafe5c0e2cb",
-                "dcb6529059f43129"
+                "zemfyre_combined_fn"
             ]
         ]
     },
@@ -4953,46 +4950,6 @@
         "wires": []
     },
     {
-        "id": "b9b6b02852e2214b",
-        "type": "function",
-        "z": "887b6fb15f0f5070",
-        "name": "calculate IAQ",
-        "func": "// Retrieve values from incoming message\nlet { temp, humidity, gas } = msg.payload.device.metrics;\nlet deviceName = msg.payload.device.name;\n\n// Context storage for gas reference\nlet gas_reference = context.get(\"gas_reference\") || 2500;\nlet getgasreference_count = context.get(\"getgasreference_count\") || 0;\n\n// Function to calculate humidity score\nfunction getHumidityScore(humidity) {\n    const humWeighting = 0.25;\n    const humReference = 40;\n\n    if (humidity >= 38 && humidity <= 42) {\n        return humWeighting * 100;\n    } else if (humidity < 38) {\n        return (humWeighting / humReference) * humidity * 100;\n    } else {\n        return ((-humWeighting / (100 - humReference)) * humidity) + 0.416666 * 100;\n    }\n}\n\n// Function to calculate gas score\nfunction getGasScore(gasResistance, gasReference) {\n    const gasWeighting = 0.75;\n    const gasLowerLimit = 10000;\n    const gasUpperLimit = 300000;\n\n    let gasScore = (gasWeighting / (gasUpperLimit - gasLowerLimit)) * gasResistance -\n        (gasLowerLimit * (gasWeighting / (gasUpperLimit - gasLowerLimit))) * 100;\n    return Math.max(0, Math.min(75, gasScore));\n}\n\n// Function to calculate IAQ\nfunction calculateIAQ(air_quality_score) {\n    let IAQScore = (100 - air_quality_score) * 5;\n    let IAQText = \"Good\";\n\n    if (IAQScore >= 301) IAQText = \"Hazardous\";\n    else if (IAQScore >= 201) IAQText = \"Very Unhealthy\";\n    else if (IAQScore >= 176) IAQText = \"Unhealthy\";\n    else if (IAQScore >= 151) IAQText = \"Unhealthy for Sensitive Groups\";\n    else if (IAQScore >= 51) IAQText = \"Moderate\";\n\n    return { IAQText, IAQScore };\n}\n\n// Compute humidity and gas scores\nlet humidity_score = getHumidityScore(humidity);\nlet gas_score = getGasScore(gas, gas_reference);\n\n// Combine results for final IAQ index (0-100% where 100% is good)\nlet air_quality_score = humidity_score + gas_score;\n\n// Update gas reference every 5 readings\nif ((getgasreference_count++ % 5) === 0) {\n    let readings = 10;\n    let totalGas = 0;\n\n    for (let i = 0; i < readings; i++) {\n        totalGas += gas; // Simulating multiple readings\n    }\n\n    gas_reference = totalGas / readings;\n}\n\n// Compute IAQ using the same logic as Arduino\nlet IAQResult = calculateIAQ(air_quality_score);\n\n// Store updated values in context\ncontext.set(\"gas_reference\", gas_reference);\ncontext.set(\"getgasreference_count\", getgasreference_count);\n\n// Output final result\nmsg.payload.iaq = {\n    humidity_score: humidity_score.toFixed(2),\n    gas_score: gas_score.toFixed(2),\n    air_quality_score: air_quality_score.toFixed(2),\n    IAQScore: IAQResult.IAQScore\n};\n\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 570,
-        "y": 300,
-        "wires": [
-            [
-                "54f8b4737634c106"
-            ]
-        ]
-    },
-    {
-        "id": "0d5a3cb8f9a23e93",
-        "type": "function",
-        "z": "887b6fb15f0f5070",
-        "name": "calculate XYZ metrics",
-        "func": "var range = 2; // in g\nvar seismic_alert = 0;\n\n// Convert raw values from the sensor (X, Y, Z) to acceleration in g\nvar X_raw = msg.payload.device.metrics.X;\nvar Y_raw = msg.payload.device.metrics.Y;\nvar Z_raw = msg.payload.device.metrics.Z;\n\n\n// Scaling factor to convert from raw sensor data to g\nvar scalingFactor = range / 1024; // 1024 for 10-bit resolution, adjust if needed\n\n// Convert raw readings to g values\nvar X = X_raw * scalingFactor;\nvar Y = Y_raw * scalingFactor;\nvar Z = Z_raw * scalingFactor;\n\n// Calculate magnitude (total acceleration in g)\nvar magnitude = (Math.sqrt(Math.pow(X, 2) + Math.pow(Y, 2) + Math.pow(Z, 2)));\n// Calculate tilt (in radians) from the vertical Z axis\nvar tilt = Math.acos(Z / magnitude);  // Angle relative to gravity (z-axis)\n\nif (magnitude > 3) {\n    // whoa - maybe an earthquake\n    seismic_alert = 1\n}\n\n// Convert tilt to degrees\nvar tiltDegrees = tilt * (180 / Math.PI); // Convert to degrees\n\n// Ensure tilt is in the range 0 to 90 degrees (since we are measuring tilt from vertical)\nif (tiltDegrees > 90) {\n    tiltDegrees = 180 - tiltDegrees;\n}\n\n// Calculate pitch and roll angles\nvar pitch = Math.atan2(Y, Math.sqrt(Math.pow(X, 2) + Math.pow(Z, 2))) * (180 / Math.PI);\nvar roll = Math.atan2(X, Math.sqrt(Math.pow(Y, 2) + Math.pow(Z, 2))) * (180 / Math.PI);\n\n// Output the calculated values\nmsg.payload.xyz = {\n    magnitude: magnitude,\n    tilt: tiltDegrees,\n    pitch: pitch,\n    roll: roll,\n    alert: seismic_alert\n};\n\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 600,
-        "y": 160,
-        "wires": [
-            [
-                "54f8b4737634c106"
-            ]
-        ]
-    },
-    {
         "id": "dcb6529059f43129",
         "type": "debug",
         "z": "887b6fb15f0f5070",
@@ -5010,71 +4967,21 @@
         "wires": []
     },
     {
-        "id": "e9d2511af1a4fd57",
+        "id": "zemfyre_combined_fn",
         "type": "function",
         "z": "887b6fb15f0f5070",
-        "name": "combine",
-        "func": "let deviceName = msg.payload.metrics.device;\nlet metrics = msg.payload.metrics;\nlet iaq= msg.payload.iaq;\nlet xyz = msg.payload.xyz;\nlet fftData = msg.payload.fft_data;\n\nfunction roundToFour(num) {\n    return parseFloat(num.toFixed(4));\n}\n\nfunction roundToTwo(num) {\n    return parseFloat(num.toFixed(2));\n}\n\nfunction round(num) {\n    return parseFloat(num.toFixed(2));\n}\n\n// Construct InfluxDB JSON format\nmsg.payload = [\n    {\n        temperature: metrics.temperature,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light,\n        humidity_score: parseFloat(iaq.humidity_score),\n        gas_score: parseFloat(iaq.gas_score),\n        air_quality_score: parseFloat(iaq.air_quality_score),\n        IAQScore: metrics.IAQScore_original,\n        magnitude: xyz.magnitude,\n        tilt: Math.round(xyz.tilt),\n        pitch: Math.round(xyz.pitch),\n        roll: Math.round(xyz.roll)\n    },\n    {\n        device: metrics.device\n     \n    }\n];\nreturn msg;",
+        "name": "process + write",
+        "func": "\n// Validate\nlet payload = msg.payload;\nif (!payload.device || !payload.device.metrics) {\n    node.warn('Invalid payload: ' + JSON.stringify(payload));\n    return null;\n}\n\nlet deviceName = payload.device.name;\nlet m = payload.device.metrics;\n\n// --- IAQ ---\nlet humidity = m.humidity || 0;\nlet gas = m.gas || 0;\nlet gas_reference = context.get('gas_reference') || 2500;\nlet gas_count = context.get('gas_count') || 0;\n\nfunction humScore(h) {\n    const w = 0.25, ref = 40;\n    if (h >= 38 && h <= 42) return w * 100;\n    if (h < 38) return (w / ref) * h * 100;\n    return ((-w / (100 - ref)) * h) + 0.416666 * 100;\n}\nfunction gasScore(g, gref) {\n    const w = 0.75, lo = 10000, hi = 300000;\n    return Math.max(0, Math.min(75, (w / (hi - lo)) * g - (lo * (w / (hi - lo))) * 100));\n}\n\nlet hs = humScore(humidity);\nlet gs = gasScore(gas, gas_reference);\nlet aqs = hs + gs;\nlet IAQScore = (100 - aqs) * 5;\n\nif (gas_count++ % 5 === 0) gas_reference = gas;\ncontext.set('gas_reference', gas_reference);\ncontext.set('gas_count', gas_count);\n\n// --- XYZ ---\nlet sf = 2 / 1024;\nlet X = (m.X || 0) * sf, Y = (m.Y || 0) * sf, Z = (m.Z || 0) * sf;\nlet mag = Math.sqrt(X*X + Y*Y + Z*Z) || 0.0001;\nlet tilt = Math.acos(Math.min(1, Math.abs(Z / mag))) * 180 / Math.PI;\nif (tilt > 90) tilt = 180 - tilt;\nlet pitch = Math.atan2(Y, Math.sqrt(X*X + Z*Z)) * 180 / Math.PI;\nlet roll  = Math.atan2(X, Math.sqrt(Y*Y + Z*Z)) * 180 / Math.PI;\n\n// --- Build InfluxDB payload ---\nmsg.payload = [\n    {\n        temperature:       m.temp,\n        pressure:          m.pressure,\n        humidity:          m.humidity,\n        gas:               m.gas,\n        proximity:         m.proximity,\n        X: m.X, Y: m.Y, Z: m.Z,\n        ambient_light:     m.ambient_light,\n        humidity_score:    parseFloat(hs.toFixed(2)),\n        gas_score:         parseFloat(gs.toFixed(2)),\n        air_quality_score: parseFloat(aqs.toFixed(2)),\n        IAQScore:          m.AQI,\n        magnitude:         parseFloat(mag.toFixed(4)),\n        tilt:              Math.round(tilt),\n        pitch:             Math.round(pitch),\n        roll:              Math.round(roll)\n    },\n    { device: deviceName }\n];\nreturn msg;\n",
         "outputs": 1,
-        "timeout": 0,
         "noerr": 0,
         "initialize": "",
         "finalize": "",
         "libs": [],
-        "x": 920,
+        "x": 600,
         "y": 300,
         "wires": [
             [
                 "2c26485ee2352420"
-            ]
-        ]
-    },
-    {
-        "id": "abeadeafe5c0e2cb",
-        "type": "function",
-        "z": "887b6fb15f0f5070",
-        "name": "calculate other",
-        "func": "\n// Extract the sensor data\nlet payload = msg.payload;\n\n\n// Check if the expected format exists\nif (!payload.device || !payload.device.metrics) {\n    node.error(\"Invalid data format\", msg);\n    return null;\n}\n\n// Extract details\nlet deviceName = payload.device.name;\nlet macAddress = payload.device.mac;\nlet metrics = payload.device.metrics;\n\n\n// Construct InfluxDB JSON format\nmsg.payload.metrics = \n    {\n        device: deviceName,\n        temperature: metrics.temp,\n        pressure: metrics.pressure,\n        humidity: metrics.humidity,\n        gas: metrics.gas,\n        proximity: metrics.proximity,\n        X: metrics.X,\n        Y: metrics.Y,\n        Z: metrics.Z,\n        ambient_light: metrics.ambient_light,\n        IAQScore_original: metrics.AQI,\n    };\n\nreturn msg;\n",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 580,
-        "y": 460,
-        "wires": [
-            [
-                "54f8b4737634c106"
-            ]
-        ]
-    },
-    {
-        "id": "54f8b4737634c106",
-        "type": "join",
-        "z": "887b6fb15f0f5070",
-        "name": "join all",
-        "mode": "custom",
-        "build": "merged",
-        "property": "payload",
-        "propertyType": "msg",
-        "key": "topic",
-        "joiner": "\\n",
-        "joinerType": "str",
-        "useparts": false,
-        "accumulate": false,
-        "timeout": "",
-        "count": "3",
-        "reduceRight": false,
-        "reduceExp": "",
-        "reduceInit": "",
-        "reduceInitType": "",
-        "reduceFixup": "",
-        "x": 760,
-        "y": 300,
-        "wires": [
-            [
-                "e9d2511af1a4fd57"
             ]
         ]
     }
