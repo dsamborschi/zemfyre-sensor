@@ -471,16 +471,14 @@
         "hostname": "influx",
         "port": "8086",
         "protocol": "http",
-        "database": "ZUS80LP",
-        "name": "InfluxDB",
-        "usetls": false,
+        "database": "iot",
+        "name": "iot",
+        "usetls": true,
         "tls": "",
         "influxdbVersion": "2.0",
         "url": "http://influx:8086",
         "timeout": "10",
-        "rejectUnauthorized": false,
-        "token": "$(INFLUXDB_TOKEN)",
-        "org": "Zemfyre"
+        "rejectUnauthorized": false
     },
     {
         "id": "ca4f07abb4d962ad",
@@ -1505,7 +1503,7 @@
         "usetls": false,
         "tls": "",
         "influxdbVersion": "2.0",
-        "url": "http://influxdb:8086",
+        "url": "http://influx:8086",
         "timeout": 10,
         "rejectUnauthorized": true
     },
@@ -4884,8 +4882,7 @@
         "y": 80,
         "wires": [
             [
-                "c3b68be215c18f46",
-                "dcb6529059f43129"
+                "c3b68be215c18f46"
             ]
         ]
     },
@@ -4903,7 +4900,7 @@
         "randomFirst": "1",
         "randomLast": "5",
         "randomUnits": "seconds",
-        "drop": false,
+        "drop": true,
         "allowrate": false,
         "outputs": 1,
         "x": 190,
@@ -4932,7 +4929,8 @@
             [
                 "b9b6b02852e2214b",
                 "0d5a3cb8f9a23e93",
-                "abeadeafe5c0e2cb"
+                "abeadeafe5c0e2cb",
+                "dcb6529059f43129"
             ]
         ]
     },
@@ -4940,7 +4938,7 @@
         "id": "2c26485ee2352420",
         "type": "influxdb out",
         "z": "887b6fb15f0f5070",
-        "influxdb": "975d9d8aa43fde77",
+        "influxdb": "06ec447a89dfd1d3",
         "name": "Send to InfluxDB",
         "measurement": "metrics",
         "precision": "",
@@ -5066,7 +5064,7 @@
         "useparts": false,
         "accumulate": false,
         "timeout": "",
-        "count": "4",
+        "count": "3",
         "reduceRight": false,
         "reduceExp": "",
         "reduceInit": "",
