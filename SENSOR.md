@@ -101,7 +101,7 @@ eth -ifconfig          # Display current network bindings
 **Set Network Parameters:**
 ```bash
 # Configure device IP address
-eth -ifconfig ip 192.168.2.40
+eth -ifconfig ip 192.168.2.50
 
 # Configure gateway
 eth -ifconfig gw 192.168.2.1
@@ -136,7 +136,7 @@ eth -mqtt              # Display current MQTT broker binding
 **Set MQTT Broker Parameters:**
 ```bash
 # Configure broker IP address
-eth -mqtt ip 192.168.2.30
+eth -mqtt IP 192.168.2.30
 
 # Configure broker port
 eth -mqtt port 1883

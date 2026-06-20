@@ -145,6 +145,11 @@ Perfect for single Raspberry Pi setups:
 # SSH into your Raspberry Pi
 ssh pi@<raspberry-pi-ip>
 
+# if pi system is in the past ( if pi was off for a long time then we are not able to run any updates, we need to sync the time first )
+
+sudo ntpdate -u pool.ntp.org 
+
+
 # Download and run installer
 curl -fsSL https://raw.githubusercontent.com/dsamborschi/zemfyre-sensor/master/bin/install.sh | bash
 ```

@@ -1,7 +1,7 @@
 {
     "node-red": {
         "name": "node-red",
-        "version": "4.1.6",
+        "version": "4.1.10",
         "local": false,
         "user": false,
         "nodes": {
@@ -1156,7 +1156,7 @@
     },
     "node-red-contrib-opcua": {
         "name": "node-red-contrib-opcua",
-        "version": "0.2.348",
+        "version": "0.2.351",
         "local": true,
         "user": true,
         "nodes": {
@@ -1546,7 +1546,7 @@
     },
     "node-red-node-data-generator": {
         "name": "node-red-node-data-generator",
-        "version": "1.0.2",
+        "version": "1.0.3",
         "local": true,
         "user": true,
         "nodes": {

@@ -1,0 +1,25 @@
+{
+    "configurations": [
+        {
+            "name": "ARM Cortex-M4 (LPC54606)",
+            "compilerPath": "C:/Program Files (x86)/Arm GNU Toolchain arm-none-eabi/12.2 mpacbti-rel1/bin/arm-none-eabi-gcc.exe",
+            "compilerArgs": [
+                "-mcpu=cortex-m4",
+                "-mthumb",
+                "-mfloat-abi=soft"
+            ],
+            "intelliSenseMode": "gcc-arm",
+            "includePath": [
+                "${workspaceFolder}/LPC54606_Sensor/rebuild/include",
+                "${workspaceFolder}/LPC54606_Sensor/rebuild/src"
+            ],
+            "defines": [
+                "SENSOR_HAL_REAL",
+                "BOARD_HAL_NXP_FSL"
+            ],
+            "cStandard": "c11",
+            "cppStandard": "c++17"
+        }
+    ],
+    "version": 4
+}
