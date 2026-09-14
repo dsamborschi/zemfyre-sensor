@@ -1,6 +1,6 @@
-# Zemfyre BME688 Sensor Setup Guide
+# Zemfyre Sensor Setup Guide
 
-> **Complete setup and configuration guide for the Zemfyre BME688 environmental sensor with SPE connectivity**
+> **Complete setup and configuration guide for the Zemfyre environmental sensor with SPE connectivity**
 
 This comprehensive guide covers everything from initial hardware connection to full sensor configuration and operation.
 
@@ -21,7 +21,7 @@ This comprehensive guide covers everything from initial hardware connection to f
 ## 🔌 Hardware Setup
 
 ### Prerequisites
-- Zemfyre BME688 sensor with SPE connectivity
+- Zemfyre sensor with SPE connectivity
 - Raspberry Pi 3+ or compatible device
 - Ethernet cable (Cat5e or better)
 - Power supply for sensor

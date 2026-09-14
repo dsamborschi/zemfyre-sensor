@@ -1,0 +1,82 @@
+name: Deploy Backend to Azure
+
+on:
+  push:
+    branches:
+      - master
+    paths:
+      - 'azure/**'
+  # Also run after images are rebuilt, so a flow/dashboard change reaches Azure
+  workflow_run:
+    workflows:
+      - 'Build and Push Nodered Image'
+      - 'Build and Push Grafana Image'
+    types:
+      - completed
+    branches:
+      - master
+  workflow_dispatch: {}
+
+jobs:
+  deploy:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    name: Deploy Container Apps
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Ensure resource group exists
+        run: |
+          az group create \
+            --name "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --location "${{ vars.AZURE_LOCATION || 'eastus' }}"
+
+      - name: Deploy shared infrastructure
+        run: |
+          az deployment group create \
+            --name zemfyre-infra \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --template-file azure/infra.bicep \
+            --parameters location="${{ vars.AZURE_LOCATION || 'eastus' }}"
+
+      - name: Get infra outputs
+        id: infra
+        run: |
+          ENV_ID=$(az deployment group show \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name zemfyre-infra \
+            --query "properties.outputs.environmentId.value" -o tsv)
+          echo "environment_id=$ENV_ID" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy container apps
+        run: |
+          az deployment group create \
+            --name zemfyre-apps \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --template-file azure/apps.bicep \
+            --parameters \
+              location="${{ vars.AZURE_LOCATION || 'eastus' }}" \
+              environmentId="${{ steps.infra.outputs.environment_id }}" \
+              revisionSuffix="gh${{ github.run_number }}" \
+              influxUsername="${{ vars.INFLUXDB_USERNAME || 'admin' }}" \
+              influxPassword="${{ secrets.INFLUXDB_PASSWORD }}" \
+              influxToken="${{ secrets.INFLUXDB_TOKEN }}" \
+              grafanaUsername="${{ vars.GRAFANA_USERNAME || 'admin' }}" \
+              grafanaPassword="${{ secrets.GRAFANA_PASSWORD }}"
+
+      - name: Print environment public IP and app URLs
+        run: |
+          az containerapp env show \
+            --name zemfyre-env \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --query "{staticIp:properties.staticIp}" -o table
+          az deployment group show \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name zemfyre-apps \
+            --query "properties.outputs" -o table
