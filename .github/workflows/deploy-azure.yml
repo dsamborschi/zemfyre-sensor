@@ -20,7 +20,7 @@ on:
 jobs:
   deploy:
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
-    name: Deploy Container Apps
+    name: Deploy to Azure
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout repository
@@ -52,9 +52,19 @@ jobs:
             --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
             --name zemfyre-infra \
             --query "properties.outputs.environmentId.value" -o tsv)
+          ENV_DOMAIN=$(az deployment group show \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name zemfyre-infra \
+            --query "properties.outputs.environmentDefaultDomain.value" -o tsv)
+          STORAGE_ACCOUNT=$(az deployment group show \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name zemfyre-infra \
+            --query "properties.outputs.storageAccountName.value" -o tsv)
           echo "environment_id=$ENV_ID" >> "$GITHUB_OUTPUT"
+          echo "environment_domain=$ENV_DOMAIN" >> "$GITHUB_OUTPUT"
+          echo "storage_account=$STORAGE_ACCOUNT" >> "$GITHUB_OUTPUT"
 
-      - name: Deploy container apps
+      - name: Deploy influx, node-red, grafana (Container Apps)
         run: |
           az deployment group create \
             --name zemfyre-apps \
@@ -63,6 +73,7 @@ jobs:
             --parameters \
               location="${{ vars.AZURE_LOCATION || 'eastus' }}" \
               environmentId="${{ steps.infra.outputs.environment_id }}" \
+              environmentDefaultDomain="${{ steps.infra.outputs.environment_domain }}" \
               revisionSuffix="gh${{ github.run_number }}" \
               influxUsername="${{ vars.INFLUXDB_USERNAME || 'admin' }}" \
               influxPassword="${{ secrets.INFLUXDB_PASSWORD }}" \
@@ -70,12 +81,24 @@ jobs:
               grafanaUsername="${{ vars.GRAFANA_USERNAME || 'admin' }}" \
               grafanaPassword="${{ secrets.GRAFANA_PASSWORD }}"
 
-      - name: Print environment public IP and app URLs
+      - name: Deploy mosquitto (Container Instance)
         run: |
-          az containerapp env show \
-            --name zemfyre-env \
+          az deployment group create \
+            --name zemfyre-mosquitto \
             --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
-            --query "{staticIp:properties.staticIp}" -o table
+            --template-file azure/mosquitto.bicep \
+            --parameters \
+              location="${{ vars.AZURE_LOCATION || 'eastus' }}" \
+              storageAccountName="${{ steps.infra.outputs.storage_account }}"
+
+      - name: Print endpoints
+        run: |
+          echo "--- mosquitto (Container Instance) ---"
+          az deployment group show \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name zemfyre-mosquitto \
+            --query "properties.outputs" -o table
+          echo "--- influx / node-red / grafana (Container Apps) ---"
           az deployment group show \
             --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
             --name zemfyre-apps \

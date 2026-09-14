@@ -13,3 +13,4 @@ ansible/.env.pi
 
 # Hardware/firmware development directory
 LPC54606_Sensor/
+azure/.secrets/

@@ -62,6 +62,7 @@ services:
             - GF_HTTP_ALLOW_ORIGIN=*
             - GF_DASHBOARDS_MIN_REFRESH_INTERVAL=1s
             - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
+            - INFLUXDB_URL=http://influx:8086
         ports:
             - "${GRAFANA_PORT_EXT:-53000}:3000"
         volumes:

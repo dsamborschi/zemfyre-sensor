@@ -144,5 +144,6 @@ resource envStorageNodeRed 'Microsoft.App/managedEnvironments/storages@2024-03-0
 
 output environmentId string = containerAppsEnv.id
 output environmentName string = containerAppsEnv.name
+output environmentDefaultDomain string = containerAppsEnv.properties.defaultDomain
 output storageAccountName string = storage.name
 output environmentStaticIp string = containerAppsEnv.properties.staticIp

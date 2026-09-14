@@ -5,7 +5,7 @@ datasources:
     type: influxdb
     uid: ddwqd51wttou8f
     access: proxy
-    url: http://influx:8086
+    url: $INFLUXDB_URL
     isDefault: true
     editable: true
     jsonData:
