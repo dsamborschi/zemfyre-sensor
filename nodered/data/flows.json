@@ -4928,6 +4928,30 @@
         "y": 80,
         "wires": [
             [
+                "zemfyre_rate_limit"
+            ]
+        ]
+    },
+    {
+        "id": "zemfyre_rate_limit",
+        "type": "delay",
+        "z": "887b6fb15f0f5070",
+        "name": "limit to 1 msg/s",
+        "pauseType": "rate",
+        "timeout": "5",
+        "timeoutUnits": "seconds",
+        "rate": "1",
+        "nbRateUnits": "1",
+        "rateUnits": "second",
+        "randomFirst": "1",
+        "randomLast": "5",
+        "randomUnits": "seconds",
+        "drop": true,
+        "outputs": 1,
+        "x": 400,
+        "y": 80,
+        "wires": [
+            [
                 "zemfyre_combined_fn"
             ]
         ]
