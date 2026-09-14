@@ -49,6 +49,20 @@ param grafanaAnonymousEnabled string = 'false'
 @description('Org role granted to anonymous Grafana users when enabled')
 param grafanaAnonymousOrgRole string = 'Viewer'
 
+@description('Custom domain for grafana (empty string to skip). Must already have a managed certificate issued — see azure/README.md for the one-time DNS + hostname bind steps; this only re-declares the existing binding so redeploys don\'t drop it')
+param grafanaCustomDomain string = ''
+
+@description('Resource ID of the existing managed certificate for grafanaCustomDomain (required if grafanaCustomDomain is set)')
+param grafanaCustomDomainCertificateId string = ''
+
+var grafanaCustomDomains = empty(grafanaCustomDomain) ? [] : [
+  {
+    name: grafanaCustomDomain
+    certificateId: grafanaCustomDomainCertificateId
+    bindingType: 'SniEnabled'
+  }
+]
+
 // ---------------------------------------------------------------------------
 // influxdb — time-series database (internal only, always on)
 // ---------------------------------------------------------------------------
@@ -172,6 +186,7 @@ resource grafana 'Microsoft.App/containerApps@2024-03-01' = {
         external: true
         transport: 'http'
         targetPort: 3000
+        customDomains: grafanaCustomDomains
       }
       secrets: [
         { name: 'grafana-password', value: grafanaPassword }
