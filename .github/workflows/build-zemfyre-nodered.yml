@@ -1,17 +1,19 @@
 name: Build and Push Nodered Image
 
-on: 
+on:
   push:
     branches:
       - master
     paths:
-      - 'nodered/**' 
+      - 'nodered/**'
+  workflow_dispatch: {}
 
 jobs:
   buildx:
     name: Build & Push Nodered Image
     runs-on: ubuntu-24.04
     strategy:
+      fail-fast: false
       matrix:
         include:
           - board: pi3
