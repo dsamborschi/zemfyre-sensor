@@ -210,6 +210,7 @@ resource grafana 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'GF_AUTH_ANONYMOUS_ORG_ROLE', value: grafanaAnonymousOrgRole }
             { name: 'GF_AUTH_DISABLE_LOGIN_FORM', value: 'false' }
             { name: 'GF_HTTP_ALLOW_ORIGIN', value: '*' }
+            { name: 'GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH', value: '/etc/grafana/dashboards/ZUS80LP_compact.json' }
             { name: 'GF_DASHBOARDS_MIN_REFRESH_INTERVAL', value: '1s' }
             { name: 'INFLUXDB_TOKEN', secretRef: 'influx-token' }
             // Container Apps' "internal" ingress still terminates TLS and
