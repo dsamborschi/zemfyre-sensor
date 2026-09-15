@@ -5040,6 +5040,54 @@
         "wires": []
     },
     {
+        "id": "zemfyre_jitter_status_http_in",
+        "type": "http in",
+        "z": "887b6fb15f0f5070",
+        "name": "Get demo jitter status",
+        "url": "/jitter/status",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 190,
+        "y": 620,
+        "wires": [
+            [
+                "zemfyre_jitter_status_fn"
+            ]
+        ]
+    },
+    {
+        "id": "zemfyre_jitter_status_fn",
+        "type": "function",
+        "z": "887b6fb15f0f5070",
+        "name": "build status",
+        "func": "msg.payload = { enabled: flow.get('jitterEnabled') === true };\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 620,
+        "wires": [
+            [
+                "zemfyre_jitter_status_http_out"
+            ]
+        ]
+    },
+    {
+        "id": "zemfyre_jitter_status_http_out",
+        "type": "http response",
+        "z": "887b6fb15f0f5070",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 660,
+        "y": 620,
+        "wires": []
+    },
+    {
         "id": "zemfyre_combined_fn",
         "type": "function",
         "z": "887b6fb15f0f5070",

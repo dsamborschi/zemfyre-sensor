@@ -62,6 +62,7 @@ services:
             - GF_HTTP_ALLOW_ORIGIN=*
             - GF_DASHBOARDS_MIN_REFRESH_INTERVAL=1s
             - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/ZUS80LP_compact.json
+            - GF_PANELS_DISABLE_SANITIZE_HTML=true
             - INFLUXDB_TOKEN=${INFLUXDB_TOKEN}
             - INFLUXDB_URL=http://influx:8086
         ports:

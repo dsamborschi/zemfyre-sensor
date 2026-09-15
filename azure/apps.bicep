@@ -212,6 +212,12 @@ resource grafana 'Microsoft.App/containerApps@2024-03-01' = {
             { name: 'GF_HTTP_ALLOW_ORIGIN', value: '*' }
             { name: 'GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH', value: '/etc/grafana/dashboards/ZUS80LP_compact.json' }
             { name: 'GF_DASHBOARDS_MIN_REFRESH_INTERVAL', value: '1s' }
+            // Required for the "Demo Mode" panel's buttons to run inline JS
+            // (fetch the toggle endpoint, update button styling in place).
+            // Instance-wide: any Text panel's content can run JS in a
+            // viewer's browser — acceptable here since only the admin can
+            // edit panels, but worth knowing before adding more dashboards.
+            { name: 'GF_PANELS_DISABLE_SANITIZE_HTML', value: 'true' }
             { name: 'INFLUXDB_TOKEN', secretRef: 'influx-token' }
             // Container Apps' "internal" ingress still terminates TLS and
             // proxies through the platform's HTTPS endpoint — it does not

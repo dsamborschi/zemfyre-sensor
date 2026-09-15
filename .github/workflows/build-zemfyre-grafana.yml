@@ -16,10 +16,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - board: pi4-64
-            platform: linux/arm64/v8
-          - board: pi5
-            platform: linux/arm64/v8
+          # ARM builds (pi4-64, pi5) temporarily disabled to speed up CI —
+          # uncomment to re-enable:
+          # - board: pi4-64
+          #   platform: linux/arm64/v8
+          # - board: pi5
+          #   platform: linux/arm64/v8
           - board: x86
             platform: linux/amd64
     steps:
