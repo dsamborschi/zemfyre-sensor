@@ -29,7 +29,7 @@
       "id": 26,
       "options": {
         "mode": "html",
-        "content": "<div style=\"text-align:center;padding:8px\"><a href=\"https://zemfyre-nodered.icyground-f6809eed.canadacentral.azurecontainerapps.io/jitter/on\" target=\"_blank\" style=\"margin-right:20px;padding:6px 16px;background:#2e7d32;color:white;border-radius:4px;text-decoration:none\">Enable Demo Jitter</a><a href=\"https://zemfyre-nodered.icyground-f6809eed.canadacentral.azurecontainerapps.io/jitter/off\" target=\"_blank\" style=\"padding:6px 16px;background:#616161;color:white;border-radius:4px;text-decoration:none\">Disable Demo Jitter</a></div>"
+        "content": "<div style=\"text-align:center;padding:8px\"><a href=\"https://zemfyre-nodered.icyground-f6809eed.canadacentral.azurecontainerapps.io/jitter/on\" target=\"_blank\" style=\"margin-right:20px;padding:6px 16px;background:#2e7d32;color:white;border-radius:4px;text-decoration:none\">Enable Demo Mode</a><a href=\"https://zemfyre-nodered.icyground-f6809eed.canadacentral.azurecontainerapps.io/jitter/off\" target=\"_blank\" style=\"padding:6px 16px;background:#616161;color:white;border-radius:4px;text-decoration:none\">Disable Demo Mode</a></div>"
       },
       "pluginVersion": "11.2.0"
     },
