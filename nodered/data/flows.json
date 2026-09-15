@@ -4992,54 +4992,6 @@
         "wires": []
     },
     {
-        "id": "zemfyre_jitter_http_in",
-        "type": "http in",
-        "z": "887b6fb15f0f5070",
-        "name": "Toggle demo jitter",
-        "url": "/jitter/:state",
-        "method": "get",
-        "upload": false,
-        "swaggerDoc": "",
-        "x": 180,
-        "y": 560,
-        "wires": [
-            [
-                "zemfyre_jitter_set_fn"
-            ]
-        ]
-    },
-    {
-        "id": "zemfyre_jitter_set_fn",
-        "type": "function",
-        "z": "887b6fb15f0f5070",
-        "name": "set jitter flag",
-        "func": "const on = msg.req.params.state === 'on';\nflow.set('jitterEnabled', on);\nmsg.headers = { 'content-type': 'text/html' };\nmsg.payload = `<html><body style=\"font-family:sans-serif;text-align:center;padding-top:40px\"><h2>Demo jitter is now <b>${on ? 'ON' : 'OFF'}</b></h2><p>You can close this tab.</p></body></html>`;\nreturn msg;",
-        "outputs": 1,
-        "timeout": 0,
-        "noerr": 0,
-        "initialize": "",
-        "finalize": "",
-        "libs": [],
-        "x": 420,
-        "y": 560,
-        "wires": [
-            [
-                "zemfyre_jitter_http_out"
-            ]
-        ]
-    },
-    {
-        "id": "zemfyre_jitter_http_out",
-        "type": "http response",
-        "z": "887b6fb15f0f5070",
-        "name": "",
-        "statusCode": "",
-        "headers": {},
-        "x": 640,
-        "y": 560,
-        "wires": []
-    },
-    {
         "id": "zemfyre_jitter_status_http_in",
         "type": "http in",
         "z": "887b6fb15f0f5070",
@@ -5085,6 +5037,54 @@
         "headers": {},
         "x": 660,
         "y": 620,
+        "wires": []
+    },
+    {
+        "id": "zemfyre_jitter_http_in",
+        "type": "http in",
+        "z": "887b6fb15f0f5070",
+        "name": "Toggle demo jitter",
+        "url": "/jitter/:state",
+        "method": "get",
+        "upload": false,
+        "swaggerDoc": "",
+        "x": 180,
+        "y": 560,
+        "wires": [
+            [
+                "zemfyre_jitter_set_fn"
+            ]
+        ]
+    },
+    {
+        "id": "zemfyre_jitter_set_fn",
+        "type": "function",
+        "z": "887b6fb15f0f5070",
+        "name": "set jitter flag",
+        "func": "const on = msg.req.params.state === 'on';\nflow.set('jitterEnabled', on);\nmsg.headers = { 'content-type': 'text/html' };\nmsg.payload = `<html><body style=\"font-family:sans-serif;text-align:center;padding-top:40px\"><h2>Demo jitter is now <b>${on ? 'ON' : 'OFF'}</b></h2><p>You can close this tab.</p></body></html>`;\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 420,
+        "y": 560,
+        "wires": [
+            [
+                "zemfyre_jitter_http_out"
+            ]
+        ]
+    },
+    {
+        "id": "zemfyre_jitter_http_out",
+        "type": "http response",
+        "z": "887b6fb15f0f5070",
+        "name": "",
+        "statusCode": "",
+        "headers": {},
+        "x": 640,
+        "y": 560,
         "wires": []
     },
     {
