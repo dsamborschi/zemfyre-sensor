@@ -43,6 +43,9 @@ param grafanaUsername string = 'admin'
 @secure()
 param grafanaPassword string
 
+@description('FQDN of the mosquitto ACI broker — deterministic from the resource group, so node-red can connect without knowing the dynamic IP')
+param mosquittoFqdn string = '${namePrefix}-mqtt-${uniqueString(resourceGroup().id)}.${location}.azurecontainer.io'
+
 @description('Enable anonymous (public, read-only) access to Grafana dashboards')
 param grafanaAnonymousEnabled string = 'false'
 
@@ -148,6 +151,7 @@ resource nodered 'Microsoft.App/containerApps@2024-03-01' = {
           }
           env: [
             { name: 'INFLUXDB_TOKEN', secretRef: 'influx-token' }
+            { name: 'MQTT_BROKER_HOST', value: mosquittoFqdn }
           ]
           // No persistent volume: /data (flows, settings, and the 554
           // npm packages the Dockerfile installs at build time) comes

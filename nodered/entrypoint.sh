@@ -1,7 +1,7 @@
 #!/bin/sh
-# Inject INFLUXDB_TOKEN from env into flows_cred.json so the InfluxDB
-# config nodes always use the token provided by the Azure deployment,
-# not whatever was baked into the image at build time.
+# Inject runtime secrets/config from env vars into Node-RED's flow files
+# so Azure Container Apps secrets are the single source of truth.
+
 if [ -n "$INFLUXDB_TOKEN" ] && [ -f /data/flows_cred.json ]; then
     node -e "
         const fs = require('fs');
@@ -13,8 +13,25 @@ if [ -n "$INFLUXDB_TOKEN" ] && [ -f /data/flows_cred.json ]; then
             }
         }
         fs.writeFileSync('/data/flows_cred.json', JSON.stringify(creds, null, 4));
-        console.log('Injected INFLUXDB_TOKEN into flows_cred.json for ' +
-            Object.keys(creds).length + ' node(s)');
+        console.log('Injected INFLUXDB_TOKEN into flows_cred.json');
     "
 fi
+
+if [ -n "$MQTT_BROKER_HOST" ] && [ -f /data/flows.json ]; then
+    node -e "
+        const fs = require('fs');
+        const flows = JSON.parse(fs.readFileSync('/data/flows.json', 'utf8'));
+        const host = process.env.MQTT_BROKER_HOST;
+        let count = 0;
+        for (const node of flows) {
+            if (node.type === 'mqtt-broker' && node.name === 'Zemfyre Azure') {
+                node.broker = host;
+                count++;
+            }
+        }
+        fs.writeFileSync('/data/flows.json', JSON.stringify(flows, null, 4));
+        if (count) console.log('Injected MQTT_BROKER_HOST (' + host + ') into ' + count + ' broker node(s)');
+    "
+fi
+
 exec npm start --cache /data/.npm -- --userDir /data
