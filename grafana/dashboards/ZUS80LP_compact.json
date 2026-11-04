@@ -1030,7 +1030,7 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "dark-orange",
                 "value": null
               },
               {
@@ -1092,7 +1092,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "fixedColor": "red",
+            "fixedColor": "dark-orange",
             "mode": "fixed"
           },
           "custom": {
