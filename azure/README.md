@@ -99,6 +99,12 @@ az ad app federated-credential create --id "$APP_OBJECT_ID" --parameters '{
 }'
 ```
 
+If you create the credential in the Azure portal, it may generate a subject
+containing organization and repository IDs. That subject will not match the
+claim emitted by this workflow. Use **Edit (optional)** for the Subject
+identifier and set it to exactly
+`repo:dsamborschi/zemfyre-sensor:ref:refs/heads/master`.
+
 ### 2. Set GitHub repository secrets and variables
 
 **Secrets** (Settings → Secrets and variables → Actions → Secrets):
