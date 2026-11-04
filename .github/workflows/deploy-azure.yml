@@ -69,6 +69,17 @@ jobs:
           echo "environment_domain=$ENV_DOMAIN" >> "$GITHUB_OUTPUT"
           echo "storage_account=$STORAGE_ACCOUNT" >> "$GITHUB_OUTPUT"
 
+      - name: Look up Grafana managed certificate
+        id: grafana_cert
+        if: vars.GRAFANA_CUSTOM_DOMAIN != ''
+        run: |
+          ENV_NAME=$(echo "${{ steps.infra.outputs.environment_id }}" | sed 's|.*/||')
+          CERT_ID=$(az containerapp env certificate list \
+            --resource-group "${{ secrets.AZURE_RESOURCE_GROUP }}" \
+            --name "$ENV_NAME" \
+            --query "[?properties.subjectName=='${{ vars.GRAFANA_CUSTOM_DOMAIN }}'] | [0].id" -o tsv 2>/dev/null || true)
+          echo "cert_id=${CERT_ID}" >> "$GITHUB_OUTPUT"
+
       - name: Deploy influx, node-red, grafana (Container Apps)
         run: |
           az deployment group create \
@@ -85,8 +96,8 @@ jobs:
               influxToken="${{ secrets.INFLUXDB_TOKEN }}" \
               grafanaUsername="${{ vars.GRAFANA_USERNAME || 'admin' }}" \
               grafanaPassword="${{ secrets.GRAFANA_PASSWORD }}" \
-              grafanaCustomDomain="" \
-              grafanaCustomDomainCertificateId=""
+              grafanaCustomDomain="${{ vars.GRAFANA_CUSTOM_DOMAIN || '' }}" \
+              grafanaCustomDomainCertificateId="${{ steps.grafana_cert.outputs.cert_id || '' }}"
 
       - name: Deploy mosquitto (Container Instance)
         run: |
