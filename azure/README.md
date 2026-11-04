@@ -66,25 +66,37 @@ anything beyond a prototype.
 
 ## One-time setup
 
-### 1. Create a service principal for GitHub Actions
+### 1. Configure GitHub Actions OIDC authentication
+
+The Azure deploy workflow uses GitHub's OIDC federation, so it does not depend
+on a client secret that can expire. Create (or reuse) an application/service
+principal with the `Contributor` role on the target resource group. For a new
+identity:
 
 ```bash
-az ad sp create-for-rbac \
-  --name "zemfyre-github-deploy" \
+APP_ID=$(az ad app create --display-name "zemfyre-github-deploy" --query appId -o tsv)
+az ad sp create --id "$APP_ID"
+SUBSCRIPTION_ID="..."
+RESOURCE_GROUP="zemfyre"
+az role assignment create \
+  --assignee "$APP_ID" \
   --role Contributor \
-  --scopes /subscriptions/<subscription-id>/resourceGroups/<resource-group> \
-  --sdk-auth
+  --scope "/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RESOURCE_GROUP"
+APP_OBJECT_ID=$(az ad app show --id "$APP_ID" --query id -o tsv)
 ```
 
-Save the JSON output as the GitHub secret `AZURE_CREDENTIALS`. The identity
-also needs a role assignment on the target resource group if it doesn't
-already have one:
+For an existing service principal, use its application/client ID as `APP_ID`
+and look up its application object ID with the final `az ad app show` command.
+Add a federated credential to the application, using its object ID:
 
 ```bash
-az role assignment create \
-  --assignee <principal-id> \
-  --role Contributor \
-  --scope /subscriptions/<subscription-id>/resourceGroups/<resource-group>
+az ad app federated-credential create --id "$APP_OBJECT_ID" --parameters '{
+  "name": "github-zemfyre-master",
+  "issuer": "https://token.actions.githubusercontent.com",
+  "subject": "repo:dsamborschi/zemfyre-sensor:ref:refs/heads/master",
+  "description": "GitHub Actions Azure deployment from master",
+  "audiences": ["api://AzureADTokenExchange"]
+}'
 ```
 
 ### 2. Set GitHub repository secrets and variables
@@ -93,19 +105,24 @@ az role assignment create \
 
 | Name | Value |
 |---|---|
-| `AZURE_CREDENTIALS` | JSON from step 1 |
 | `AZURE_RESOURCE_GROUP` | e.g. `zemfyre` |
 | `INFLUXDB_PASSWORD` | InfluxDB admin password |
 | `INFLUXDB_TOKEN` | InfluxDB admin API token (shared with node-red + grafana) |
 | `GRAFANA_PASSWORD` | Grafana admin password |
 
-**Variables** (same page, "Variables" tab — optional, have defaults):
+**Variables** (same page, "Variables" tab):
 
-| Name | Default |
+| Name | Value |
 |---|---|
+| `AZURE_CLIENT_ID` | Application/client ID from step 1 |
+| `AZURE_TENANT_ID` | Azure tenant ID |
+| `AZURE_SUBSCRIPTION_ID` | Azure subscription ID |
 | `AZURE_LOCATION` | `eastus` |
 | `INFLUXDB_USERNAME` | `admin` |
 | `GRAFANA_USERNAME` | `admin` |
+
+`AZURE_CREDENTIALS` remains in use by the other Azure workflows; this deploy
+workflow no longer needs it.
 
 Locally, the equivalent values live in `azure/.secrets/cloud.env`
 (gitignored — never commit this file).
