@@ -1092,7 +1092,7 @@
       "fieldConfig": {
         "defaults": {
           "color": {
-            "fixedColor": "semi-dark-green",
+            "fixedColor": "red",
             "mode": "fixed"
           },
           "custom": {
