@@ -85,8 +85,8 @@ jobs:
               influxToken="${{ secrets.INFLUXDB_TOKEN }}" \
               grafanaUsername="${{ vars.GRAFANA_USERNAME || 'admin' }}" \
               grafanaPassword="${{ secrets.GRAFANA_PASSWORD }}" \
-              grafanaCustomDomain="${{ vars.GRAFANA_CUSTOM_DOMAIN }}" \
-              grafanaCustomDomainCertificateId="${{ vars.GRAFANA_CUSTOM_DOMAIN_CERT_ID }}"
+              grafanaCustomDomain="" \
+              grafanaCustomDomainCertificateId=""
 
       - name: Deploy mosquitto (Container Instance)
         run: |
