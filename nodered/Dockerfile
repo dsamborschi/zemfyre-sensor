@@ -12,6 +12,11 @@ COPY data/settings.js /data/settings.js
 COPY data/flows.json /data/flows.json
 COPY data/flows_cred.json /data/flows_cred.json
 
+# Startup script: injects INFLUXDB_TOKEN env var into flows_cred.json
+# so the Azure secret is the single source of truth for the token.
+COPY entrypoint.sh /data/entrypoint.sh
+RUN chmod +x /data/entrypoint.sh
+
 # Now overwrite the fixed node-red-contrib-machine-learning-v2 module1
 COPY data/custom/node-red-contrib-machine-learning-v2 /data/node_modules/node-red-contrib-machine-learning-v2
 
@@ -26,5 +31,4 @@ RUN npm ci || npm install
 
 WORKDIR /usr/src/node-red
 
-
-
+ENTRYPOINT ["/data/entrypoint.sh"]
