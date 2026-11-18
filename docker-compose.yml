@@ -53,7 +53,6 @@ services:
             - influx
         container_name: grafana
         restart: always
-        user: "grafana"
         environment:
             - GF_SECURITY_ADMIN_USER=${GRAFANA_USERNAME}
             - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD}
